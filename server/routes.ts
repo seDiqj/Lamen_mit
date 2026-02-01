@@ -341,6 +341,17 @@ export async function registerRoutes(
     }
   });
 
+  // Funding source stats with loan count and total amounts
+  app.get("/api/funding-sources/stats", isAuthenticated, async (req, res) => {
+    try {
+      const stats = await storage.getFundingSourceStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching funding source stats:", error);
+      res.status(500).json({ message: "Failed to fetch funding source stats" });
+    }
+  });
+
   // ===== CUSTOMERS =====
   app.get("/api/customers", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
     try {

@@ -31,13 +31,17 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
+  Wallet,
 } from "lucide-react";
+import type { FundingSource } from "@shared/schema";
 import type { Loan } from "@shared/schema";
 
 type LoanWithDetails = Loan & {
   customerName?: string;
   branchName?: string;
   officerName?: string;
+  principleAmount?: string | null;
+  fundingSourceId?: string | null;
 };
 
 function getStatusBadge(status: string) {
@@ -79,6 +83,10 @@ export default function LoansPage() {
 
   const { data: roleData } = useQuery<{ role: string }>({
     queryKey: ["/api/user/role"],
+  });
+
+  const { data: fundingStats } = useQuery<{ id: string; name: string; loanCount: number; totalAmount: string }[]>({
+    queryKey: ["/api/funding-sources/stats"],
   });
 
   const formatCurrency = (amount: string | number | null) => {
@@ -124,6 +132,38 @@ export default function LoansPage() {
           </Button>
         )}
       </div>
+
+      {/* Funding Sources Card */}
+      {fundingStats && fundingStats.length > 0 && (
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          {fundingStats.map((source) => (
+            <Card key={source.id} className="border-0 shadow-lg overflow-hidden" data-testid={`card-funding-source-${source.id}`}>
+              <div className="h-1 bg-gradient-to-r from-amber-500 to-yellow-500" />
+              <CardContent className="p-4">
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-amber-500 to-yellow-600 flex items-center justify-center shadow-lg">
+                    <Wallet className="h-6 w-6 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-muted-foreground">Funding Source</p>
+                    <h3 className="text-lg font-bold">{source.name}</h3>
+                  </div>
+                </div>
+                <div className="mt-4 grid grid-cols-2 gap-4">
+                  <div className="text-center p-3 rounded-lg bg-muted/50">
+                    <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{source.loanCount}</p>
+                    <p className="text-xs text-muted-foreground">No. of Loans</p>
+                  </div>
+                  <div className="text-center p-3 rounded-lg bg-muted/50">
+                    <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(source.totalAmount)}</p>
+                    <p className="text-xs text-muted-foreground">Total Amount</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       <Card className="border-0 shadow-lg overflow-hidden">
         <div className="h-1 bg-gradient-to-r from-blue-500 to-cyan-500" />
@@ -206,7 +246,7 @@ export default function LoansPage() {
                       </TableCell>
                       <TableCell>{loan.productName || "-"}</TableCell>
                       <TableCell className="text-right font-semibold text-emerald-600 dark:text-emerald-400">
-                        {formatCurrency(loan.requestAmount)}
+                        {formatCurrency(loan.principleAmount || loan.requestAmount)}
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className="bg-muted/50">

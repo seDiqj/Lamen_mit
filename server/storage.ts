@@ -66,6 +66,7 @@ export interface IStorage {
   getFundingSource(id: string): Promise<FundingSource | undefined>;
   createFundingSource(data: InsertFundingSource): Promise<FundingSource>;
   updateFundingSource(id: string, data: Partial<InsertFundingSource>): Promise<FundingSource>;
+  getFundingSourceStats(): Promise<{ id: string; name: string; loanCount: number; totalAmount: string }[]>;
   
   // Customers
   getCustomers(search?: string, page?: number, limit?: number): Promise<{ customers: Customer[]; total: number }>;
@@ -245,6 +246,20 @@ export class DatabaseStorage implements IStorage {
     return source;
   }
 
+  async getFundingSourceStats(): Promise<{ id: string; name: string; loanCount: number; totalAmount: string }[]> {
+    const results = await db
+      .select({
+        id: fundingSources.id,
+        name: fundingSources.name,
+        loanCount: sql<number>`COUNT(${loans.id})::int`,
+        totalAmount: sql<string>`COALESCE(SUM(${loans.principleAmount}), 0)::text`,
+      })
+      .from(fundingSources)
+      .leftJoin(loans, eq(loans.fundingSourceId, fundingSources.id))
+      .groupBy(fundingSources.id, fundingSources.name);
+    return results;
+  }
+
   // Customers
   async getCustomers(search?: string, page = 1, limit = 10): Promise<{ customers: Customer[]; total: number }> {
     const offset = (page - 1) * limit;
@@ -301,9 +316,11 @@ export class DatabaseStorage implements IStorage {
         productCode: loans.productCode,
         requestDate: loans.requestDate,
         requestAmount: loans.requestAmount,
+        principleAmount: loans.principleAmount,
         financingDurationMonths: loans.financingDurationMonths,
         status: loans.status,
         createdAt: loans.createdAt,
+        fundingSourceId: loans.fundingSourceId,
         customerName: sql<string>`CONCAT(${customers.firstName}, ' ', ${customers.lastName})`,
         branchName: branches.name,
       })
