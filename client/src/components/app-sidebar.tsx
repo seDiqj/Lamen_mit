@@ -1,5 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import { usePagePermissions } from "@/hooks/use-page-permissions";
 import { useQuery } from "@tanstack/react-query";
 import {
   Sidebar,
@@ -61,16 +62,44 @@ type MenuGroup = {
   defaultOpen?: boolean;
 };
 
+const PAGE_URL_TO_NAME: Record<string, string> = {
+  "/": "dashboard",
+  "/customers": "customers",
+  "/loans": "loans",
+  "/reports": "reports",
+  "/par-report": "par-report",
+  "/activity": "activity-logs",
+  "/settings": "settings",
+  "/payments": "payments",
+  "/approvals": "approvals",
+  "/disbursements": "disbursements",
+  "/branches": "branches",
+  "/officers": "officers",
+  "/users": "users",
+  "/page-permissions": "page-permissions",
+  "/funding-sources": "funding-sources",
+};
+
 export function AppSidebar() {
   const { user, logout } = useAuth();
   const [location] = useLocation();
   const [openGroups, setOpenGroups] = useState<string[]>(["Dashboard", "Loan Operations", "Management"]);
+  const { hasAccess, isAdminOrManager } = usePagePermissions();
 
   const { data: roleData } = useQuery<UserRoleData>({
     queryKey: ["/api/user/role"],
   });
 
   const role = roleData?.role || "user";
+
+  const filterMenuItems = (items: MenuItem[]): MenuItem[] => {
+    if (isAdminOrManager) return items;
+    return items.filter(item => {
+      const pageName = PAGE_URL_TO_NAME[item.url];
+      if (!pageName) return true;
+      return hasAccess(pageName);
+    });
+  };
 
   const toggleGroup = (label: string) => {
     setOpenGroups(prev => 
@@ -209,7 +238,7 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent className="px-2 py-3">
-        {menuGroups.map((group) => (
+        {menuGroups.filter(group => filterMenuItems(group.items).length > 0).map((group) => (
           <Collapsible
             key={group.label}
             open={openGroups.includes(group.label)}
@@ -231,7 +260,7 @@ export function AppSidebar() {
               <CollapsibleContent>
                 <SidebarGroupContent className="pl-4 pt-1">
                   <SidebarMenu>
-                    {group.items.map((item) => (
+                    {filterMenuItems(group.items).map((item) => (
                       <SidebarMenuItem key={item.title}>
                         <SidebarMenuButton 
                           asChild 
