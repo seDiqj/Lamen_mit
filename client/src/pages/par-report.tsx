@@ -1,8 +1,17 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle, TrendingDown, Building2, Users, Package } from "lucide-react";
+import { AlertTriangle, TrendingDown, Building2, Users, Package, X } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 type ParCategory = {
   id: number;
@@ -29,7 +38,19 @@ type ParAnalysisData = {
   };
 };
 
+type DialogType = "category" | "branch" | "officer" | "product" | null;
+
 export default function ParReportPage() {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogType, setDialogType] = useState<DialogType>(null);
+  const [selectedItem, setSelectedItem] = useState<any>(null);
+
+  const handleRowClick = (type: DialogType, item: any) => {
+    setDialogType(type);
+    setSelectedItem(item);
+    setDialogOpen(true);
+  };
+
   const { data: parData, isLoading: parLoading } = useQuery<ParAnalysisData>({
     queryKey: ["/api/reports/par-analysis"],
     queryFn: async () => {
@@ -181,7 +202,12 @@ export default function ParReportPage() {
                 </thead>
                 <tbody>
                   {(parData?.categories || []).map((cat, index) => (
-                    <tr key={cat.id || index} className="border-b hover:bg-muted/50">
+                    <tr 
+                      key={cat.id || index} 
+                      className="border-b hover:bg-muted/50 cursor-pointer transition-colors"
+                      onClick={() => handleRowClick("category", cat)}
+                      data-testid={`row-par-category-${cat.id || index}`}
+                    >
                       <td className="p-3 font-medium">{cat.category}</td>
                       <td className="p-3 text-right text-muted-foreground">
                         {cat.startDay === 0 && cat.endDay === 0 ? '0' : `${cat.startDay}-${cat.endDay > 10000 ? '∞' : cat.endDay}`}
@@ -242,7 +268,12 @@ export default function ParReportPage() {
                 </thead>
                 <tbody>
                   {(parByBranch || []).map((item, index) => (
-                    <tr key={index} className="border-b hover:bg-muted/50">
+                    <tr 
+                      key={index} 
+                      className="border-b hover:bg-muted/50 cursor-pointer transition-colors"
+                      onClick={() => handleRowClick("branch", item)}
+                      data-testid={`row-par-branch-${index}`}
+                    >
                       <td className="p-3 font-medium">{item.branch}</td>
                       <td className="p-3 text-right">{item.loanCount}</td>
                       <td className="p-3 text-right">{formatCurrency(item.totalAmount)}</td>
@@ -290,7 +321,12 @@ export default function ParReportPage() {
                 </thead>
                 <tbody>
                   {(parByOfficer || []).map((item, index) => (
-                    <tr key={index} className="border-b hover:bg-muted/50">
+                    <tr 
+                      key={index} 
+                      className="border-b hover:bg-muted/50 cursor-pointer transition-colors"
+                      onClick={() => handleRowClick("officer", item)}
+                      data-testid={`row-par-officer-${index}`}
+                    >
                       <td className="p-3 font-medium">{item.officer}</td>
                       <td className="p-3 text-muted-foreground">{item.branch}</td>
                       <td className="p-3 text-right">{item.loanCount}</td>
@@ -338,7 +374,12 @@ export default function ParReportPage() {
                 </thead>
                 <tbody>
                   {(parByProduct || []).map((item, index) => (
-                    <tr key={index} className="border-b hover:bg-muted/50">
+                    <tr 
+                      key={index} 
+                      className="border-b hover:bg-muted/50 cursor-pointer transition-colors"
+                      onClick={() => handleRowClick("product", item)}
+                      data-testid={`row-par-product-${index}`}
+                    >
                       <td className="p-3 font-medium">{item.product}</td>
                       <td className="p-3 text-right">{item.loanCount}</td>
                       <td className="p-3 text-right">{formatCurrency(item.totalAmount)}</td>
@@ -413,6 +454,142 @@ export default function ParReportPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Detail Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {dialogType === "category" && (
+                <>
+                  <AlertTriangle className="h-5 w-5 text-red-500" />
+                  PAR Category Details: {selectedItem?.category}
+                </>
+              )}
+              {dialogType === "branch" && (
+                <>
+                  <Building2 className="h-5 w-5 text-blue-500" />
+                  Branch Details: {selectedItem?.branch}
+                </>
+              )}
+              {dialogType === "officer" && (
+                <>
+                  <Users className="h-5 w-5 text-green-500" />
+                  Officer Details: {selectedItem?.officer}
+                </>
+              )}
+              {dialogType === "product" && (
+                <>
+                  <Package className="h-5 w-5 text-purple-500" />
+                  Product Details: {selectedItem?.product}
+                </>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              {dialogType === "category" && "Detailed breakdown of loans in this risk category"}
+              {dialogType === "branch" && "Portfolio at Risk analysis for this branch"}
+              {dialogType === "officer" && "Portfolio at Risk analysis for this finance officer"}
+              {dialogType === "product" && "Portfolio at Risk analysis for this loan product"}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedItem && (
+            <div className="space-y-4">
+              {dialogType === "category" && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">Category</p>
+                    <p className="font-medium">{selectedItem.category}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">Days Range</p>
+                    <p className="font-medium">
+                      {selectedItem.startDay === 0 && selectedItem.endDay === 0 
+                        ? 'Current (0 days)' 
+                        : `${selectedItem.startDay} - ${selectedItem.endDay > 10000 ? '∞' : selectedItem.endDay} days`}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">Provision Rate</p>
+                    <p className="font-medium">{selectedItem.provisionPercent}%</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">Number of Loans</p>
+                    <p className="font-medium">{selectedItem.loanCount}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">Total Loan Amount</p>
+                    <p className="font-medium">{formatCurrency(selectedItem.totalAmount)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">Outstanding Amount</p>
+                    <p className="font-medium">{formatCurrency(selectedItem.outstandingAmount)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">Required Provision</p>
+                    <p className="font-medium text-red-600">{formatCurrency(selectedItem.provisionAmount)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">% of Portfolio</p>
+                    <Badge variant="outline">{selectedItem.amountPercentage}%</Badge>
+                  </div>
+                </div>
+              )}
+
+              {(dialogType === "branch" || dialogType === "officer" || dialogType === "product") && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">
+                      {dialogType === "branch" && "Branch Name"}
+                      {dialogType === "officer" && "Officer Name"}
+                      {dialogType === "product" && "Product Name"}
+                    </p>
+                    <p className="font-medium">
+                      {dialogType === "branch" && selectedItem.branch}
+                      {dialogType === "officer" && selectedItem.officer}
+                      {dialogType === "product" && selectedItem.product}
+                    </p>
+                  </div>
+                  {dialogType === "officer" && (
+                    <div className="space-y-1">
+                      <p className="text-sm text-muted-foreground">Branch</p>
+                      <p className="font-medium">{selectedItem.branch}</p>
+                    </div>
+                  )}
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">Number of Loans</p>
+                    <p className="font-medium">{selectedItem.loanCount}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">Total Portfolio</p>
+                    <p className="font-medium">{formatCurrency(selectedItem.totalAmount)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">Outstanding Amount</p>
+                    <p className="font-medium">{formatCurrency(selectedItem.outstandingAmount)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">PAR Amount</p>
+                    <p className="font-medium text-orange-600">{formatCurrency(selectedItem.parAmount)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">PAR Ratio</p>
+                    <Badge variant={parseFloat(selectedItem.parRatio) > 5 ? "destructive" : "outline"}>
+                      {selectedItem.parRatio}%
+                    </Badge>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end pt-4">
+                <Button variant="outline" onClick={() => setDialogOpen(false)} data-testid="button-close-dialog">
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
