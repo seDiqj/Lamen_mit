@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { NewCustomerDialog } from "@/components/new-customer-dialog";
 import { Button } from "@/components/ui/button";
