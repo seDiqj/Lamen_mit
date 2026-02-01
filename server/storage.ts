@@ -90,6 +90,9 @@ export interface IStorage {
   
   // Admin Users
   getUsers(search?: string): Promise<any[]>;
+  getUserWithRole(id: string): Promise<any | undefined>;
+  updateUser(id: string, data: Partial<UpsertUser>): Promise<User>;
+  deleteUser(id: string): Promise<void>;
   updateUserRole(userId: string, role: string): Promise<void>;
   
   // Seed
@@ -607,6 +610,7 @@ export class DatabaseStorage implements IStorage {
     const results = await db
       .select({
         id: users.id,
+        username: users.username,
         email: users.email,
         firstName: users.firstName,
         lastName: users.lastName,
@@ -619,6 +623,7 @@ export class DatabaseStorage implements IStorage {
       .where(
         search
           ? or(
+              like(users.username, `%${search}%`),
               like(users.email, `%${search}%`),
               like(users.firstName, `%${search}%`),
               like(users.lastName, `%${search}%`)
@@ -627,6 +632,38 @@ export class DatabaseStorage implements IStorage {
       );
 
     return results;
+  }
+
+  async getUserWithRole(id: string): Promise<any | undefined> {
+    const [result] = await db
+      .select({
+        id: users.id,
+        username: users.username,
+        email: users.email,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        profileImageUrl: users.profileImageUrl,
+        createdAt: users.createdAt,
+        role: userRoles.role,
+      })
+      .from(users)
+      .leftJoin(userRoles, eq(users.id, userRoles.userId))
+      .where(eq(users.id, id));
+    return result;
+  }
+
+  async updateUser(id: string, data: Partial<UpsertUser>): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set(data)
+      .where(eq(users.id, id))
+      .returning();
+    return user;
+  }
+
+  async deleteUser(id: string): Promise<void> {
+    await db.delete(userRoles).where(eq(userRoles.userId, id));
+    await db.delete(users).where(eq(users.id, id));
   }
 
   async updateUserRole(userId: string, role: string): Promise<void> {

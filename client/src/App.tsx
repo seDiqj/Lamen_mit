@@ -10,9 +10,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { useAuth } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
 
-import LandingPage from "@/pages/landing";
 import LoginPage from "@/pages/login";
-import RegisterPage from "@/pages/register";
 import Dashboard from "@/pages/dashboard";
 import LoansPage from "@/pages/loans";
 import CustomersPage from "@/pages/customers";
@@ -24,6 +22,7 @@ import BranchesPage from "@/pages/branches";
 import OfficersPage from "@/pages/officers";
 import ActivityPage from "@/pages/activity";
 import SettingsPage from "@/pages/settings";
+import UsersPage from "@/pages/users";
 import NotFound from "@/pages/not-found";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
@@ -71,8 +70,7 @@ function AppRoutes() {
     return (
       <Switch>
         <Route path="/login" component={LoginPage} />
-        <Route path="/register" component={RegisterPage} />
-        <Route component={LandingPage} />
+        <Route component={LoginPage} />
       </Switch>
     );
   }
@@ -89,6 +87,7 @@ function AppRoutes() {
         <Route path="/reports" component={ReportsPage} />
         <Route path="/branches" component={BranchesPage} />
         <Route path="/officers" component={OfficersPage} />
+        <Route path="/users" component={UsersPage} />
         <Route path="/activity" component={ActivityPage} />
         <Route path="/settings" component={SettingsPage} />
         <Route component={NotFound} />

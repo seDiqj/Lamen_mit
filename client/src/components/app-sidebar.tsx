@@ -28,6 +28,7 @@ import {
   ClipboardList,
   Activity,
   PiggyBank,
+  Shield,
 } from "lucide-react";
 
 type UserRoleData = {
@@ -69,6 +70,7 @@ export function AppSidebar() {
     { title: "Payments", url: "/payments", icon: CreditCard },
     { title: "Branches", url: "/branches", icon: Building2 },
     { title: "Officers", url: "/officers", icon: UserCheck },
+    { title: "Users", url: "/users", icon: Shield },
     { title: "Reports", url: "/reports", icon: BarChart3 },
     { title: "Activity Log", url: "/activity", icon: Activity },
     { title: "Settings", url: "/settings", icon: Settings },

@@ -79,9 +79,15 @@ export async function registerRoutes(
     }
   });
 
-  // Register endpoint
+  // Register endpoint - Only allows first user registration for initial admin setup
   app.post("/api/auth/register", async (req, res) => {
     try {
+      // Check if any users exist - if so, block public registration
+      const userCount = await storage.countUsers();
+      if (userCount > 0) {
+        return res.status(403).json({ message: "Registration is disabled. Please contact an administrator." });
+      }
+
       const { username, password, firstName, lastName, email } = req.body;
       
       if (!username || !password || !firstName || !lastName) {
@@ -101,7 +107,7 @@ export async function registerRoutes(
       // Hash password
       const hashedPassword = await bcrypt.hash(password, 10);
 
-      // Create user
+      // Create first user as admin
       const user = await storage.createUser({
         username,
         password: hashedPassword,
@@ -110,14 +116,7 @@ export async function registerRoutes(
         email: email || null,
       });
 
-      // First user gets admin role, subsequent users get "user" role
-      const userCount = await storage.countUsers();
-      if (userCount === 1) {
-        // This is the first user - grant admin
-        await storage.setUserRole({ userId: user.id, role: "admin" });
-      } else {
-        await storage.setUserRole({ userId: user.id, role: "user" });
-      }
+      await storage.setUserRole({ userId: user.id, role: "admin" });
 
       req.session.userId = user.id;
 
@@ -131,6 +130,17 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Registration error:", error);
       res.status(500).json({ message: "Registration failed" });
+    }
+  });
+
+  // Check if setup is needed (no users exist)
+  app.get("/api/auth/setup-needed", async (req, res) => {
+    try {
+      const userCount = await storage.countUsers();
+      res.json({ setupNeeded: userCount === 0 });
+    } catch (error) {
+      console.error("Setup check error:", error);
+      res.status(500).json({ message: "Failed to check setup status" });
     }
   });
 
@@ -597,6 +607,136 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error updating user role:", error);
       res.status(500).json({ message: "Failed to update user role" });
+    }
+  });
+
+  // Get single user
+  app.get("/api/admin/users/:id", isAuthenticated, requireRole("admin"), async (req, res) => {
+    try {
+      const user = await storage.getUserWithRole(req.params.id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // Create user (admin only)
+  app.post("/api/admin/users", isAuthenticated, requireRole("admin"), async (req: any, res) => {
+    try {
+      const { username, password, firstName, lastName, email, role } = req.body;
+      
+      if (!username || !password || !firstName || !lastName) {
+        return res.status(400).json({ message: "All required fields must be provided" });
+      }
+
+      if (password.length < 6) {
+        return res.status(400).json({ message: "Password must be at least 6 characters" });
+      }
+
+      const existingUser = await storage.getUserByUsername(username);
+      if (existingUser) {
+        return res.status(400).json({ message: "Username already exists" });
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const user = await storage.createUser({
+        username,
+        password: hashedPassword,
+        firstName,
+        lastName,
+        email: email || null,
+      });
+
+      await storage.setUserRole({ userId: user.id, role: role || "user" });
+      await logActivity(req, "create_user", "user", user.id, `Created user: ${username}`);
+
+      res.status(201).json({
+        id: user.id,
+        username: user.username,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        role: role || "user",
+      });
+    } catch (error) {
+      console.error("Error creating user:", error);
+      res.status(500).json({ message: "Failed to create user" });
+    }
+  });
+
+  // Update user (admin only)
+  app.patch("/api/admin/users/:id", isAuthenticated, requireRole("admin"), async (req: any, res) => {
+    try {
+      const { username, password, firstName, lastName, email, role } = req.body;
+      const userId = req.params.id;
+
+      const existingUser = await storage.getUserById(userId);
+      if (!existingUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      if (username && username !== existingUser.username) {
+        const usernameExists = await storage.getUserByUsername(username);
+        if (usernameExists) {
+          return res.status(400).json({ message: "Username already exists" });
+        }
+      }
+
+      const updateData: any = {};
+      if (username) updateData.username = username;
+      if (firstName) updateData.firstName = firstName;
+      if (lastName) updateData.lastName = lastName;
+      if (email !== undefined) updateData.email = email || null;
+      if (password) {
+        if (password.length < 6) {
+          return res.status(400).json({ message: "Password must be at least 6 characters" });
+        }
+        updateData.password = await bcrypt.hash(password, 10);
+      }
+
+      if (Object.keys(updateData).length > 0) {
+        await storage.updateUser(userId, updateData);
+      }
+
+      if (role) {
+        await storage.updateUserRole(userId, role);
+      }
+
+      await logActivity(req, "update_user", "user", userId, `Updated user: ${username || existingUser.username}`);
+
+      const updatedUser = await storage.getUserWithRole(userId);
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error updating user:", error);
+      res.status(500).json({ message: "Failed to update user" });
+    }
+  });
+
+  // Delete user (admin only)
+  app.delete("/api/admin/users/:id", isAuthenticated, requireRole("admin"), async (req: any, res) => {
+    try {
+      const userId = req.params.id;
+      
+      if (userId === req.session.userId) {
+        return res.status(400).json({ message: "Cannot delete your own account" });
+      }
+
+      const user = await storage.getUserById(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      await storage.deleteUser(userId);
+      await logActivity(req, "delete_user", "user", userId, `Deleted user: ${user.username}`);
+
+      res.json({ message: "User deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      res.status(500).json({ message: "Failed to delete user" });
     }
   });
 
