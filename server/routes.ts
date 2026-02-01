@@ -17,6 +17,9 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  // Trust proxy for production (Replit uses reverse proxy)
+  app.set("trust proxy", 1);
+  
   // Setup session
   const PgSession = connectPgSimple(session);
   app.use(
@@ -29,10 +32,12 @@ export async function registerRoutes(
       secret: process.env.SESSION_SECRET!,
       resave: false,
       saveUninitialized: false,
+      proxy: true,
       cookie: {
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       },
     })
   );
