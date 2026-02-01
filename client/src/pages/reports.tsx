@@ -48,6 +48,14 @@ const CHART_COLORS = [
   "hsl(var(--chart-5))",
 ];
 
+const PIE_CHART_COLORS = [
+  "#F59E0B", // amber/orange for Main Branch
+  "#10B981", // green for South Branch
+  "#FBBF24", // yellow for West Branch
+  "#14B8A6", // teal for East Branch
+  "#6366F1", // indigo for others
+];
+
 type ReportData = {
   portfolioSummary: {
     totalDisbursed: number;
@@ -127,18 +135,18 @@ export default function ReportsPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card className="border-l-4 border-l-green-500">
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                <DollarSign className="h-6 w-6 text-primary" />
+              <div className="h-12 w-12 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                <DollarSign className="h-6 w-6 text-green-600 dark:text-green-400" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Disbursed</p>
                 {isLoading ? (
                   <Skeleton className="h-8 w-24" />
                 ) : (
-                  <p className="text-2xl font-bold">
+                  <p className="text-2xl font-bold" data-testid="text-total-disbursed">
                     {formatCurrency(data?.portfolioSummary?.totalDisbursed || 0)}
                   </p>
                 )}
@@ -146,18 +154,18 @@ export default function ReportsPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-l-4 border-l-green-500">
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-xl bg-accent flex items-center justify-center">
-                <TrendingUp className="h-6 w-6 text-accent-foreground" />
+              <div className="h-12 w-12 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                <TrendingUp className="h-6 w-6 text-green-600 dark:text-green-400" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Outstanding</p>
                 {isLoading ? (
                   <Skeleton className="h-8 w-24" />
                 ) : (
-                  <p className="text-2xl font-bold">
+                  <p className="text-2xl font-bold" data-testid="text-outstanding">
                     {formatCurrency(data?.portfolioSummary?.totalOutstanding || 0)}
                   </p>
                 )}
@@ -165,10 +173,10 @@ export default function ReportsPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-l-4 border-l-green-500">
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-xl bg-green-500/10 flex items-center justify-center">
+              <div className="h-12 w-12 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
                 <BarChart3 className="h-6 w-6 text-green-600 dark:text-green-400" />
               </div>
               <div>
@@ -176,7 +184,7 @@ export default function ReportsPage() {
                 {isLoading ? (
                   <Skeleton className="h-8 w-24" />
                 ) : (
-                  <p className="text-2xl font-bold">
+                  <p className="text-2xl font-bold" data-testid="text-collected">
                     {formatCurrency(data?.portfolioSummary?.totalCollected || 0)}
                   </p>
                 )}
@@ -184,18 +192,18 @@ export default function ReportsPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-l-4 border-l-green-500">
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                <Users className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              <div className="h-12 w-12 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                <Users className="h-6 w-6 text-green-600 dark:text-green-400" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Avg. Loan Size</p>
                 {isLoading ? (
                   <Skeleton className="h-8 w-24" />
                 ) : (
-                  <p className="text-2xl font-bold">
+                  <p className="text-2xl font-bold" data-testid="text-avg-loan-size">
                     {formatCurrency(data?.portfolioSummary?.averageLoanSize || 0)}
                   </p>
                 )}
@@ -299,7 +307,7 @@ export default function ReportsPage() {
                           borderRadius: "8px",
                         }}
                       />
-                      <Bar dataKey="amount" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                      <Bar dataKey="amount" fill="#22C55E" radius={[0, 4, 4, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 )}
@@ -328,7 +336,7 @@ export default function ReportsPage() {
                         label={({ branch, percentage }) => `${branch}: ${percentage?.toFixed(0)}%`}
                       >
                         {(data?.loansByBranch || []).map((_, index) => (
-                          <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                          <Cell key={`cell-${index}`} fill={PIE_CHART_COLORS[index % PIE_CHART_COLORS.length]} />
                         ))}
                       </Pie>
                       <Tooltip 
