@@ -18,6 +18,7 @@ import PaymentsPage from "@/pages/payments";
 import ApprovalsPage from "@/pages/approvals";
 import DisbursementsPage from "@/pages/disbursements";
 import ReportsPage from "@/pages/reports";
+import ParReportPage from "@/pages/par-report";
 import BranchesPage from "@/pages/branches";
 import OfficersPage from "@/pages/officers";
 import ActivityPage from "@/pages/activity";
@@ -94,6 +95,7 @@ function AppRoutes() {
         <Route path="/approvals" component={ApprovalsPage} />
         <Route path="/disbursements" component={DisbursementsPage} />
         <Route path="/reports" component={ReportsPage} />
+        <Route path="/par-report" component={ParReportPage} />
         <Route path="/branches" component={BranchesPage} />
         <Route path="/officers" component={OfficersPage} />
         <Route path="/funding-sources" component={FundingSourcesPage} />

@@ -32,6 +32,7 @@ import {
   Shield,
   ChevronDown,
   Wallet,
+  AlertTriangle,
 } from "lucide-react";
 import lamenLogo from "@assets/LamenLogo_1769936371528.jpeg";
 import {
@@ -162,6 +163,7 @@ export function AppSidebar() {
       icon: BarChart3,
       items: [
         { title: "Analytics", url: "/reports", icon: BarChart3, iconColor: "text-amber-500" },
+        { title: "PAR Report", url: "/par-report", icon: AlertTriangle, iconColor: "text-red-500" },
         { title: "Activity Log", url: "/activity", icon: Activity, iconColor: "text-lime-500" },
       ],
     },
