@@ -181,7 +181,7 @@ async function importExcel() {
       });
     }
     
-    const applicationId = parseString(getVal('ApplicationID'));
+    const applicationId = parseString(getVal('NewApplicationID'));
     const productName = parseString(getVal('Products'));
     const productCode = parseString(getVal('ProductCode'));
     const financingPurpose = parseString(getVal('FinancingPurpose'));
