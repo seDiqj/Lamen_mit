@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, decimal, date, timestamp, boolean, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, decimal, date, timestamp, boolean, pgEnum, serial } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -210,6 +210,15 @@ export const installments = pgTable("installments", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// PAR Categories
+export const parCategories = pgTable("par_categories", {
+  id: serial("id").primaryKey(),
+  startDay: integer("start_day").notNull(),
+  endDay: integer("end_day").notNull(),
+  category: varchar("category", { length: 50 }).notNull(),
+  provisionPercent: decimal("provision_percent", { precision: 5, scale: 2 }).notNull(),
+});
+
 // Activity Logs
 export const activityLogs = pgTable("activity_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -237,6 +246,7 @@ export const insertLoanApprovalSchema = createInsertSchema(loanApprovals).omit({
 export const insertDisbursementSchema = createInsertSchema(disbursements).omit({ id: true, createdAt: true });
 export const insertInstallmentSchema = createInsertSchema(installments).omit({ id: true, createdAt: true });
 export const insertActivityLogSchema = createInsertSchema(activityLogs).omit({ id: true, createdAt: true });
+export const insertParCategorySchema = createInsertSchema(parCategories).omit({ id: true });
 
 // Types
 export type InsertUserRole = z.infer<typeof insertUserRoleSchema>;
@@ -267,3 +277,5 @@ export type InsertInstallment = z.infer<typeof insertInstallmentSchema>;
 export type Installment = typeof installments.$inferSelect;
 export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
 export type ActivityLog = typeof activityLogs.$inferSelect;
+export type InsertParCategory = z.infer<typeof insertParCategorySchema>;
+export type ParCategory = typeof parCategories.$inferSelect;

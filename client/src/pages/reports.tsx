@@ -67,6 +67,31 @@ type ReportData = {
   parAnalysis: { category: string; amount: number; percentage: number }[];
 };
 
+type ParCategory = {
+  id: number;
+  category: string;
+  startDay: number;
+  endDay: number;
+  provisionPercent: number;
+  loanCount: number;
+  totalAmount: number;
+  outstandingAmount: number;
+  provisionAmount: number;
+  loanPercentage: string;
+  amountPercentage: string;
+};
+
+type ParAnalysisData = {
+  categories: ParCategory[];
+  summary: {
+    totalLoans: number;
+    totalPortfolio: number;
+    totalOutstanding: number;
+    totalProvision: number;
+    parRatio: string;
+  };
+};
+
 export default function ReportsPage() {
   const [period, setPeriod] = useState("6months");
   const [activeTab, setActiveTab] = useState("overview");
@@ -78,6 +103,15 @@ export default function ReportsPage() {
       params.set("period", period);
       const res = await fetch(`/api/reports?${params.toString()}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch reports");
+      return res.json();
+    },
+  });
+
+  const { data: parData, isLoading: parLoading } = useQuery<ParAnalysisData>({
+    queryKey: ["/api/reports/par-analysis"],
+    queryFn: async () => {
+      const res = await fetch("/api/reports/par-analysis", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch PAR analysis");
       return res.json();
     },
   });
@@ -390,60 +424,129 @@ export default function ReportsPage() {
         </TabsContent>
 
         <TabsContent value="par" className="space-y-6 mt-6">
+          {/* PAR Summary Cards */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-sm text-muted-foreground">Total Loans</p>
+                {parLoading ? (
+                  <Skeleton className="h-8 w-24" />
+                ) : (
+                  <p className="text-2xl font-bold">{parData?.summary?.totalLoans || 0}</p>
+                )}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-sm text-muted-foreground">Total Portfolio</p>
+                {parLoading ? (
+                  <Skeleton className="h-8 w-24" />
+                ) : (
+                  <p className="text-2xl font-bold">{formatCurrency(parData?.summary?.totalPortfolio || 0)}</p>
+                )}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-sm text-muted-foreground">Total Provision</p>
+                {parLoading ? (
+                  <Skeleton className="h-8 w-24" />
+                ) : (
+                  <p className="text-2xl font-bold text-red-600">{formatCurrency(parData?.summary?.totalProvision || 0)}</p>
+                )}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-sm text-muted-foreground">PAR Ratio</p>
+                {parLoading ? (
+                  <Skeleton className="h-8 w-24" />
+                ) : (
+                  <p className="text-2xl font-bold">{parData?.summary?.parRatio || 0}%</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
           <Card>
             <CardHeader>
               <CardTitle>Portfolio at Risk (PAR) Analysis</CardTitle>
-              <CardDescription>Breakdown of outstanding loans by days overdue</CardDescription>
+              <CardDescription>Breakdown of loans by late days category with provision requirements</CardDescription>
             </CardHeader>
             <CardContent>
-              {isLoading ? (
-                <Skeleton className="h-[300px] w-full" />
+              {parLoading ? (
+                <Skeleton className="h-[400px] w-full" />
               ) : (
                 <div className="space-y-6">
+                  {/* Chart */}
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart
-                      data={data?.parAnalysis || []}
+                      data={parData?.categories || []}
                       margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis dataKey="category" className="text-xs" />
-                      <YAxis className="text-xs" tickFormatter={(v) => `$${v / 1000}k`} />
+                      <YAxis className="text-xs" tickFormatter={(v) => formatCurrency(v)} />
                       <Tooltip 
-                        formatter={(value: number) => [formatCurrency(value), "Amount"]}
+                        formatter={(value: number, name: string) => [formatCurrency(value), name === "outstandingAmount" ? "Outstanding" : name === "provisionAmount" ? "Provision" : "Amount"]}
                         contentStyle={{ 
                           backgroundColor: "hsl(var(--card))",
                           border: "1px solid hsl(var(--border))",
                           borderRadius: "8px",
                         }}
                       />
-                      <Bar dataKey="amount" radius={[4, 4, 0, 0]}>
-                        {(data?.parAnalysis || []).map((entry, index) => (
-                          <Cell 
-                            key={`cell-${index}`} 
-                            fill={
-                              entry.category === "Current" 
-                                ? "hsl(var(--chart-1))" 
-                                : entry.category === "1-30 days"
-                                  ? "hsl(var(--chart-2))"
-                                  : entry.category === "31-60 days"
-                                    ? "hsl(var(--chart-4))"
-                                    : "hsl(0 84% 42%)"
-                            } 
-                          />
-                        ))}
-                      </Bar>
+                      <Legend />
+                      <Bar dataKey="outstandingAmount" name="Outstanding Amount" radius={[4, 4, 0, 0]} fill="hsl(var(--chart-1))" />
+                      <Bar dataKey="provisionAmount" name="Provision Amount" radius={[4, 4, 0, 0]} fill="hsl(0 84% 60%)" />
                     </BarChart>
                   </ResponsiveContainer>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    {(data?.parAnalysis || []).map((item, index) => (
-                      <div key={index} className="p-4 rounded-lg bg-muted/50 text-center">
-                        <p className="text-sm text-muted-foreground">{item.category}</p>
-                        <p className="text-lg font-bold">{formatCurrency(item.amount)}</p>
-                        <Badge variant="outline" className="mt-1">
-                          {item.percentage?.toFixed(1)}%
-                        </Badge>
-                      </div>
-                    ))}
+
+                  {/* PAR Categories Table */}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm" data-testid="table-par-analysis">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left p-3 font-semibold">Category</th>
+                          <th className="text-right p-3 font-semibold">Days Range</th>
+                          <th className="text-right p-3 font-semibold">Provision %</th>
+                          <th className="text-right p-3 font-semibold">Loans</th>
+                          <th className="text-right p-3 font-semibold">Loan Amount</th>
+                          <th className="text-right p-3 font-semibold">Outstanding</th>
+                          <th className="text-right p-3 font-semibold">Provision</th>
+                          <th className="text-right p-3 font-semibold">% of Portfolio</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(parData?.categories || []).map((cat, index) => (
+                          <tr key={cat.id || index} className="border-b hover:bg-muted/50">
+                            <td className="p-3 font-medium">{cat.category}</td>
+                            <td className="p-3 text-right text-muted-foreground">
+                              {cat.startDay === 0 && cat.endDay === 0 ? '0' : `${cat.startDay}-${cat.endDay > 10000 ? '∞' : cat.endDay}`}
+                            </td>
+                            <td className="p-3 text-right">{cat.provisionPercent}%</td>
+                            <td className="p-3 text-right">{cat.loanCount}</td>
+                            <td className="p-3 text-right">{formatCurrency(cat.totalAmount)}</td>
+                            <td className="p-3 text-right">{formatCurrency(cat.outstandingAmount)}</td>
+                            <td className="p-3 text-right text-red-600 font-medium">{formatCurrency(cat.provisionAmount)}</td>
+                            <td className="p-3 text-right">
+                              <Badge variant="outline">{cat.amountPercentage}%</Badge>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr className="bg-muted/50 font-semibold">
+                          <td className="p-3">Total</td>
+                          <td className="p-3"></td>
+                          <td className="p-3"></td>
+                          <td className="p-3 text-right">{parData?.summary?.totalLoans || 0}</td>
+                          <td className="p-3 text-right">{formatCurrency(parData?.summary?.totalPortfolio || 0)}</td>
+                          <td className="p-3 text-right">{formatCurrency(parData?.summary?.totalOutstanding || 0)}</td>
+                          <td className="p-3 text-right text-red-600">{formatCurrency(parData?.summary?.totalProvision || 0)}</td>
+                          <td className="p-3 text-right">100%</td>
+                        </tr>
+                      </tfoot>
+                    </table>
                   </div>
                 </div>
               )}

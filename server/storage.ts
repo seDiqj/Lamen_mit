@@ -16,6 +16,7 @@ import {
   disbursements,
   installments,
   activityLogs,
+  parCategories,
   type User,
   type UpsertUser,
   type InsertUserRole,
@@ -97,6 +98,7 @@ export interface IStorage {
   
   // Reports
   getReportData(period: string): Promise<any>;
+  getParAnalysis(): Promise<any>;
   
   // Admin Users
   getUsers(search?: string): Promise<any[]>;
@@ -657,6 +659,116 @@ export class DatabaseStorage implements IStorage {
         { category: "31-60 days", amount: 40000, percentage: 4.5 },
         { category: "60+ days", amount: 20000, percentage: 2.2 },
       ],
+    };
+  }
+
+  async getParAnalysis(): Promise<any> {
+    // Get PAR categories
+    const categories = await db.select().from(parCategories).orderBy(parCategories.startDay);
+    
+    // Get loan late days summary (sum of late days per loan from installments)
+    const loanLateDays = await db.execute(sql`
+      SELECT 
+        l.id as loan_id,
+        l.application_id,
+        COALESCE(l.principle_amount, l.request_amount) as loan_amount,
+        l.outstanding_portfolio,
+        c.first_name || ' ' || COALESCE(c.last_name, '') as customer_name,
+        COALESCE(SUM(CASE WHEN i.late_days > 0 THEN i.late_days ELSE 0 END), 0) as total_late_days
+      FROM loans l
+      LEFT JOIN customers c ON l.customer_id = c.id
+      LEFT JOIN installments i ON l.id = i.loan_id
+      GROUP BY l.id, l.application_id, l.principle_amount, l.request_amount, l.outstanding_portfolio, c.first_name, c.last_name
+    `);
+    
+    // Initialize category results
+    const parResults = categories.map(cat => ({
+      id: cat.id,
+      category: cat.category,
+      startDay: cat.startDay,
+      endDay: cat.endDay,
+      provisionPercent: parseFloat(cat.provisionPercent || '0'),
+      loanCount: 0,
+      totalAmount: 0,
+      outstandingAmount: 0,
+      provisionAmount: 0,
+      loans: [] as any[]
+    }));
+    
+    // Add "Current" category for loans with 0 late days
+    const currentCategory = {
+      id: 0,
+      category: 'Current (0 days)',
+      startDay: 0,
+      endDay: 0,
+      provisionPercent: 0,
+      loanCount: 0,
+      totalAmount: 0,
+      outstandingAmount: 0,
+      provisionAmount: 0,
+      loans: [] as any[]
+    };
+    
+    // Categorize loans
+    for (const loan of loanLateDays.rows as any[]) {
+      const lateDays = parseInt(loan.total_late_days) || 0;
+      const loanAmount = parseFloat(loan.loan_amount) || 0;
+      const outstanding = parseFloat(loan.outstanding_portfolio) || 0;
+      
+      if (lateDays === 0) {
+        currentCategory.loanCount++;
+        currentCategory.totalAmount += loanAmount;
+        currentCategory.outstandingAmount += outstanding;
+        currentCategory.loans.push({
+          loanId: loan.application_id,
+          customerName: loan.customer_name,
+          loanAmount,
+          outstanding,
+          lateDays
+        });
+      } else {
+        for (const cat of parResults) {
+          if (lateDays >= cat.startDay && lateDays <= cat.endDay) {
+            cat.loanCount++;
+            cat.totalAmount += loanAmount;
+            cat.outstandingAmount += outstanding;
+            cat.provisionAmount += outstanding * (cat.provisionPercent / 100);
+            cat.loans.push({
+              loanId: loan.application_id,
+              customerName: loan.customer_name,
+              loanAmount,
+              outstanding,
+              lateDays
+            });
+            break;
+          }
+        }
+      }
+    }
+    
+    // Calculate totals
+    const allCategories = [currentCategory, ...parResults];
+    const totalLoans = allCategories.reduce((sum, c) => sum + c.loanCount, 0);
+    const totalPortfolio = allCategories.reduce((sum, c) => sum + c.totalAmount, 0);
+    const totalOutstanding = allCategories.reduce((sum, c) => sum + c.outstandingAmount, 0);
+    const totalProvision = allCategories.reduce((sum, c) => sum + c.provisionAmount, 0);
+    
+    // Add percentages
+    const categoriesWithPercentage = allCategories.map(cat => ({
+      ...cat,
+      loanPercentage: totalLoans > 0 ? ((cat.loanCount / totalLoans) * 100).toFixed(2) : '0',
+      amountPercentage: totalPortfolio > 0 ? ((cat.totalAmount / totalPortfolio) * 100).toFixed(2) : '0',
+    }));
+    
+    return {
+      categories: categoriesWithPercentage,
+      summary: {
+        totalLoans,
+        totalPortfolio,
+        totalOutstanding,
+        totalProvision,
+        parRatio: totalOutstanding > 0 ? (((totalOutstanding - currentCategory.outstandingAmount) / totalOutstanding) * 100).toFixed(2) : '0'
+      }
     };
   }
 

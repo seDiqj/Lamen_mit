@@ -631,6 +631,17 @@ export async function registerRoutes(
     }
   });
 
+  // ===== PAR ANALYSIS =====
+  app.get("/api/reports/par-analysis", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
+    try {
+      const data = await storage.getParAnalysis();
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching PAR analysis:", error);
+      res.status(500).json({ message: "Failed to fetch PAR analysis" });
+    }
+  });
+
   // ===== ADMIN USERS =====
   app.get("/api/admin/users", isAuthenticated, requireRole("admin"), async (req, res) => {
     try {
