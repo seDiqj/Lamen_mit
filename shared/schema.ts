@@ -110,6 +110,7 @@ export const loans = pgTable("loans", {
   financingPurpose: text("financing_purpose"),
   financingCycle: integer("financing_cycle"),
   sourceOfFund: varchar("source_of_fund", { length: 255 }),
+  fundingSourceId: varchar("funding_source_id").references(() => fundingSources.id),
   previousFinancing: decimal("previous_financing", { precision: 15, scale: 2 }),
   previousInstitution: varchar("previous_institution", { length: 255 }),
   requestDate: date("request_date"),
