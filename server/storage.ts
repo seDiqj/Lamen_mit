@@ -103,6 +103,10 @@ export interface IStorage {
   getParByOfficer(): Promise<any>;
   getParByProduct(): Promise<any>;
   getAgingReport(): Promise<any>;
+  getLoansByParCategory(categoryId: number): Promise<any[]>;
+  getLoansByBranch(branchName: string): Promise<any[]>;
+  getLoansByOfficer(officerName: string): Promise<any[]>;
+  getLoansByProduct(productName: string): Promise<any[]>;
   
   // Admin Users
   getUsers(search?: string): Promise<any[]>;
@@ -896,6 +900,160 @@ export class DatabaseStorage implements IStorage {
     }));
     
     return agingData;
+  }
+
+  async getLoansByParCategory(categoryId: number): Promise<any[]> {
+    // First get the PAR category to know the days range
+    const categoryResult = await db.execute(sql`
+      SELECT start_day, end_day FROM par_categories WHERE id = ${categoryId}
+    `);
+    
+    if (!categoryResult.rows || categoryResult.rows.length === 0) {
+      return [];
+    }
+    
+    const category = categoryResult.rows[0] as any;
+    const startDay = category.start_day;
+    const endDay = category.end_day;
+    
+    const result = await db.execute(sql`
+      SELECT 
+        l.id,
+        l.application_id,
+        c.first_name || ' ' || COALESCE(c.last_name, '') as customer_name,
+        b.name as branch_name,
+        fo.name as officer_name,
+        l.product_name,
+        COALESCE(l.principle_amount, l.request_amount) as loan_amount,
+        l.outstanding_portfolio,
+        COALESCE(SUM(i.late_days), 0) as total_late_days
+      FROM loans l
+      LEFT JOIN customers c ON l.customer_id = c.id
+      LEFT JOIN branches b ON l.branch_id = b.id
+      LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
+      LEFT JOIN installments i ON l.id = i.loan_id
+      WHERE l.outstanding_portfolio > 0
+      GROUP BY l.id, l.application_id, c.first_name, c.last_name, b.name, fo.name, l.product_name, l.principle_amount, l.request_amount, l.outstanding_portfolio
+      HAVING COALESCE(SUM(i.late_days), 0) >= ${startDay} AND COALESCE(SUM(i.late_days), 0) <= ${endDay}
+      ORDER BY total_late_days DESC
+    `);
+    
+    return (result.rows as any[]).map(row => ({
+      id: row.id,
+      applicationId: row.application_id,
+      customerName: row.customer_name?.trim() || 'Unknown',
+      branch: row.branch_name || 'N/A',
+      officer: row.officer_name || 'N/A',
+      product: row.product_name || 'N/A',
+      loanAmount: parseFloat(row.loan_amount) || 0,
+      outstanding: parseFloat(row.outstanding_portfolio) || 0,
+      lateDays: parseInt(row.total_late_days) || 0
+    }));
+  }
+
+  async getLoansByBranch(branchName: string): Promise<any[]> {
+    const result = await db.execute(sql`
+      SELECT 
+        l.id,
+        l.application_id,
+        c.first_name || ' ' || COALESCE(c.last_name, '') as customer_name,
+        b.name as branch_name,
+        fo.name as officer_name,
+        l.product_name,
+        COALESCE(l.principle_amount, l.request_amount) as loan_amount,
+        l.outstanding_portfolio,
+        COALESCE(SUM(i.late_days), 0) as total_late_days
+      FROM loans l
+      LEFT JOIN customers c ON l.customer_id = c.id
+      LEFT JOIN branches b ON l.branch_id = b.id
+      LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
+      LEFT JOIN installments i ON l.id = i.loan_id
+      WHERE l.outstanding_portfolio > 0 AND b.name = ${branchName}
+      GROUP BY l.id, l.application_id, c.first_name, c.last_name, b.name, fo.name, l.product_name, l.principle_amount, l.request_amount, l.outstanding_portfolio
+      ORDER BY l.outstanding_portfolio DESC
+    `);
+    
+    return (result.rows as any[]).map(row => ({
+      id: row.id,
+      applicationId: row.application_id,
+      customerName: row.customer_name?.trim() || 'Unknown',
+      branch: row.branch_name || 'N/A',
+      officer: row.officer_name || 'N/A',
+      product: row.product_name || 'N/A',
+      loanAmount: parseFloat(row.loan_amount) || 0,
+      outstanding: parseFloat(row.outstanding_portfolio) || 0,
+      lateDays: parseInt(row.total_late_days) || 0
+    }));
+  }
+
+  async getLoansByOfficer(officerName: string): Promise<any[]> {
+    const result = await db.execute(sql`
+      SELECT 
+        l.id,
+        l.application_id,
+        c.first_name || ' ' || COALESCE(c.last_name, '') as customer_name,
+        b.name as branch_name,
+        fo.name as officer_name,
+        l.product_name,
+        COALESCE(l.principle_amount, l.request_amount) as loan_amount,
+        l.outstanding_portfolio,
+        COALESCE(SUM(i.late_days), 0) as total_late_days
+      FROM loans l
+      LEFT JOIN customers c ON l.customer_id = c.id
+      LEFT JOIN branches b ON l.branch_id = b.id
+      LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
+      LEFT JOIN installments i ON l.id = i.loan_id
+      WHERE l.outstanding_portfolio > 0 AND fo.name = ${officerName}
+      GROUP BY l.id, l.application_id, c.first_name, c.last_name, b.name, fo.name, l.product_name, l.principle_amount, l.request_amount, l.outstanding_portfolio
+      ORDER BY l.outstanding_portfolio DESC
+    `);
+    
+    return (result.rows as any[]).map(row => ({
+      id: row.id,
+      applicationId: row.application_id,
+      customerName: row.customer_name?.trim() || 'Unknown',
+      branch: row.branch_name || 'N/A',
+      officer: row.officer_name || 'N/A',
+      product: row.product_name || 'N/A',
+      loanAmount: parseFloat(row.loan_amount) || 0,
+      outstanding: parseFloat(row.outstanding_portfolio) || 0,
+      lateDays: parseInt(row.total_late_days) || 0
+    }));
+  }
+
+  async getLoansByProduct(productName: string): Promise<any[]> {
+    const result = await db.execute(sql`
+      SELECT 
+        l.id,
+        l.application_id,
+        c.first_name || ' ' || COALESCE(c.last_name, '') as customer_name,
+        b.name as branch_name,
+        fo.name as officer_name,
+        l.product_name,
+        COALESCE(l.principle_amount, l.request_amount) as loan_amount,
+        l.outstanding_portfolio,
+        COALESCE(SUM(i.late_days), 0) as total_late_days
+      FROM loans l
+      LEFT JOIN customers c ON l.customer_id = c.id
+      LEFT JOIN branches b ON l.branch_id = b.id
+      LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
+      LEFT JOIN installments i ON l.id = i.loan_id
+      WHERE l.outstanding_portfolio > 0 AND l.product_name = ${productName}
+      GROUP BY l.id, l.application_id, c.first_name, c.last_name, b.name, fo.name, l.product_name, l.principle_amount, l.request_amount, l.outstanding_portfolio
+      ORDER BY l.outstanding_portfolio DESC
+    `);
+    
+    return (result.rows as any[]).map(row => ({
+      id: row.id,
+      applicationId: row.application_id,
+      customerName: row.customer_name?.trim() || 'Unknown',
+      branch: row.branch_name || 'N/A',
+      officer: row.officer_name || 'N/A',
+      product: row.product_name || 'N/A',
+      loanAmount: parseFloat(row.loan_amount) || 0,
+      outstanding: parseFloat(row.outstanding_portfolio) || 0,
+      lateDays: parseInt(row.total_late_days) || 0
+    }));
   }
 
   // Admin Users

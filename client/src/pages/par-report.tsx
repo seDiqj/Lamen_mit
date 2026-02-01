@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle, TrendingDown, Building2, Users, Package, X } from "lucide-react";
+import { AlertTriangle, TrendingDown, Building2, Users, Package, FileText, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -12,6 +12,19 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
+type LoanDetail = {
+  id: number;
+  applicationId: string;
+  customerName: string;
+  branch: string;
+  officer: string;
+  product: string;
+  loanAmount: number;
+  outstanding: number;
+  lateDays: number;
+};
 
 type ParCategory = {
   id: number;
@@ -44,12 +57,53 @@ export default function ParReportPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogType, setDialogType] = useState<DialogType>(null);
   const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [loans, setLoans] = useState<LoanDetail[]>([]);
+  const [loansLoading, setLoansLoading] = useState(false);
 
   const handleRowClick = (type: DialogType, item: any) => {
     setDialogType(type);
     setSelectedItem(item);
     setDialogOpen(true);
   };
+
+  // Fetch loans when dialog opens
+  useEffect(() => {
+    const fetchLoans = async () => {
+      if (!dialogOpen || !selectedItem || !dialogType) {
+        setLoans([]);
+        return;
+      }
+
+      setLoansLoading(true);
+      try {
+        let url = "";
+        if (dialogType === "category") {
+          url = `/api/reports/par-loans/category/${selectedItem.id}`;
+        } else if (dialogType === "branch") {
+          url = `/api/reports/par-loans/branch/${encodeURIComponent(selectedItem.branch)}`;
+        } else if (dialogType === "officer") {
+          url = `/api/reports/par-loans/officer/${encodeURIComponent(selectedItem.officer)}`;
+        } else if (dialogType === "product") {
+          url = `/api/reports/par-loans/product/${encodeURIComponent(selectedItem.product)}`;
+        }
+
+        if (url) {
+          const res = await fetch(url, { credentials: "include" });
+          if (res.ok) {
+            const data = await res.json();
+            setLoans(data);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching loans:", error);
+        setLoans([]);
+      } finally {
+        setLoansLoading(false);
+      }
+    };
+
+    fetchLoans();
+  }, [dialogOpen, selectedItem, dialogType]);
 
   const { data: parData, isLoading: parLoading } = useQuery<ParAnalysisData>({
     queryKey: ["/api/reports/par-analysis"],
@@ -457,7 +511,7 @@ export default function ParReportPage() {
 
       {/* Detail Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {dialogType === "category" && (
@@ -580,6 +634,58 @@ export default function ParReportPage() {
                   </div>
                 </div>
               )}
+
+              {/* Loans List Section */}
+              <div className="mt-6 border-t pt-4">
+                <h4 className="font-semibold flex items-center gap-2 mb-3">
+                  <FileText className="h-4 w-4" />
+                  Loans in this {dialogType === "category" ? "Category" : dialogType === "branch" ? "Branch" : dialogType === "officer" ? "Officer's Portfolio" : "Product"} ({loans.length})
+                </h4>
+                
+                {loansLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    <span className="ml-2 text-muted-foreground">Loading loans...</span>
+                  </div>
+                ) : loans.length === 0 ? (
+                  <div className="text-center py-6 text-muted-foreground">
+                    No loans found in this category
+                  </div>
+                ) : (
+                  <ScrollArea className="h-[250px]">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm" data-testid="table-dialog-loans">
+                        <thead>
+                          <tr className="border-b bg-muted/50">
+                            <th className="text-left p-2 font-semibold">Loan ID</th>
+                            <th className="text-left p-2 font-semibold">Customer</th>
+                            <th className="text-left p-2 font-semibold">Branch</th>
+                            <th className="text-right p-2 font-semibold">Loan Amount</th>
+                            <th className="text-right p-2 font-semibold">Outstanding</th>
+                            <th className="text-right p-2 font-semibold">Late Days</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {loans.map((loan, index) => (
+                            <tr key={loan.id || index} className="border-b hover:bg-muted/30" data-testid={`row-loan-${loan.id}`}>
+                              <td className="p-2 font-medium">{loan.applicationId}</td>
+                              <td className="p-2">{loan.customerName}</td>
+                              <td className="p-2 text-muted-foreground">{loan.branch}</td>
+                              <td className="p-2 text-right">{formatCurrency(loan.loanAmount)}</td>
+                              <td className="p-2 text-right">{formatCurrency(loan.outstanding)}</td>
+                              <td className="p-2 text-right">
+                                <Badge variant={loan.lateDays > 30 ? "destructive" : loan.lateDays > 0 ? "secondary" : "outline"}>
+                                  {loan.lateDays}
+                                </Badge>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </ScrollArea>
+                )}
+              </div>
 
               <div className="flex justify-end pt-4">
                 <Button variant="outline" onClick={() => setDialogOpen(false)} data-testid="button-close-dialog">

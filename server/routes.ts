@@ -682,6 +682,51 @@ export async function registerRoutes(
     }
   });
 
+  // PAR Loans Detail Endpoints
+  app.get("/api/reports/par-loans/category/:categoryId", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
+    try {
+      const categoryId = parseInt(req.params.categoryId);
+      const loans = await storage.getLoansByParCategory(categoryId);
+      res.json(loans);
+    } catch (error) {
+      console.error("Error fetching PAR loans by category:", error);
+      res.status(500).json({ message: "Failed to fetch PAR loans by category" });
+    }
+  });
+
+  app.get("/api/reports/par-loans/branch/:branchName", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
+    try {
+      const branchName = decodeURIComponent(req.params.branchName);
+      const loans = await storage.getLoansByBranch(branchName);
+      res.json(loans);
+    } catch (error) {
+      console.error("Error fetching PAR loans by branch:", error);
+      res.status(500).json({ message: "Failed to fetch PAR loans by branch" });
+    }
+  });
+
+  app.get("/api/reports/par-loans/officer/:officerName", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
+    try {
+      const officerName = decodeURIComponent(req.params.officerName);
+      const loans = await storage.getLoansByOfficer(officerName);
+      res.json(loans);
+    } catch (error) {
+      console.error("Error fetching PAR loans by officer:", error);
+      res.status(500).json({ message: "Failed to fetch PAR loans by officer" });
+    }
+  });
+
+  app.get("/api/reports/par-loans/product/:productName", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
+    try {
+      const productName = decodeURIComponent(req.params.productName);
+      const loans = await storage.getLoansByProduct(productName);
+      res.json(loans);
+    } catch (error) {
+      console.error("Error fetching PAR loans by product:", error);
+      res.status(500).json({ message: "Failed to fetch PAR loans by product" });
+    }
+  });
+
   // ===== ADMIN USERS =====
   app.get("/api/admin/users", isAuthenticated, requireRole("admin"), async (req, res) => {
     try {
