@@ -99,6 +99,10 @@ export interface IStorage {
   // Reports
   getReportData(period: string): Promise<any>;
   getParAnalysis(): Promise<any>;
+  getParByBranch(): Promise<any>;
+  getParByOfficer(): Promise<any>;
+  getParByProduct(): Promise<any>;
+  getAgingReport(): Promise<any>;
   
   // Admin Users
   getUsers(search?: string): Promise<any[]>;
@@ -770,6 +774,128 @@ export class DatabaseStorage implements IStorage {
         parRatio: totalOutstanding > 0 ? (((totalOutstanding - currentCategory.outstandingAmount) / totalOutstanding) * 100).toFixed(2) : '0'
       }
     };
+  }
+
+  async getParByBranch(): Promise<any> {
+    const result = await db.execute(sql`
+      SELECT 
+        b.name as branch_name,
+        COUNT(DISTINCT l.id) as loan_count,
+        COALESCE(SUM(COALESCE(l.principle_amount, l.request_amount)), 0) as total_amount,
+        COALESCE(SUM(l.outstanding_portfolio), 0) as outstanding_amount,
+        COALESCE(SUM(CASE WHEN i.late_days > 0 THEN l.outstanding_portfolio ELSE 0 END), 0) as par_amount
+      FROM loans l
+      LEFT JOIN branches b ON l.branch_id = b.id
+      LEFT JOIN installments i ON l.id = i.loan_id
+      GROUP BY b.id, b.name
+      ORDER BY outstanding_amount DESC
+    `);
+    
+    const branchData = (result.rows as any[]).map(row => ({
+      branch: row.branch_name || 'Unassigned',
+      loanCount: parseInt(row.loan_count) || 0,
+      totalAmount: parseFloat(row.total_amount) || 0,
+      outstandingAmount: parseFloat(row.outstanding_amount) || 0,
+      parAmount: parseFloat(row.par_amount) || 0,
+      parRatio: row.outstanding_amount > 0 ? ((row.par_amount / row.outstanding_amount) * 100).toFixed(2) : '0'
+    }));
+    
+    return branchData;
+  }
+
+  async getParByOfficer(): Promise<any> {
+    const result = await db.execute(sql`
+      SELECT 
+        fo.name as officer_name,
+        b.name as branch_name,
+        COUNT(DISTINCT l.id) as loan_count,
+        COALESCE(SUM(COALESCE(l.principle_amount, l.request_amount)), 0) as total_amount,
+        COALESCE(SUM(l.outstanding_portfolio), 0) as outstanding_amount,
+        COALESCE(SUM(CASE WHEN i.late_days > 0 THEN l.outstanding_portfolio ELSE 0 END), 0) as par_amount
+      FROM loans l
+      LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
+      LEFT JOIN branches b ON l.branch_id = b.id
+      LEFT JOIN installments i ON l.id = i.loan_id
+      GROUP BY fo.id, fo.name, b.name
+      ORDER BY outstanding_amount DESC
+    `);
+    
+    const officerData = (result.rows as any[]).map(row => ({
+      officer: row.officer_name || 'Unassigned',
+      branch: row.branch_name || 'N/A',
+      loanCount: parseInt(row.loan_count) || 0,
+      totalAmount: parseFloat(row.total_amount) || 0,
+      outstandingAmount: parseFloat(row.outstanding_amount) || 0,
+      parAmount: parseFloat(row.par_amount) || 0,
+      parRatio: row.outstanding_amount > 0 ? ((row.par_amount / row.outstanding_amount) * 100).toFixed(2) : '0'
+    }));
+    
+    return officerData;
+  }
+
+  async getParByProduct(): Promise<any> {
+    const result = await db.execute(sql`
+      SELECT 
+        l.product_name,
+        COUNT(DISTINCT l.id) as loan_count,
+        COALESCE(SUM(COALESCE(l.principle_amount, l.request_amount)), 0) as total_amount,
+        COALESCE(SUM(l.outstanding_portfolio), 0) as outstanding_amount,
+        COALESCE(SUM(CASE WHEN i.late_days > 0 THEN l.outstanding_portfolio ELSE 0 END), 0) as par_amount
+      FROM loans l
+      LEFT JOIN installments i ON l.id = i.loan_id
+      GROUP BY l.product_name
+      ORDER BY outstanding_amount DESC
+    `);
+    
+    const productData = (result.rows as any[]).map(row => ({
+      product: row.product_name || 'Unknown',
+      loanCount: parseInt(row.loan_count) || 0,
+      totalAmount: parseFloat(row.total_amount) || 0,
+      outstandingAmount: parseFloat(row.outstanding_amount) || 0,
+      parAmount: parseFloat(row.par_amount) || 0,
+      parRatio: row.outstanding_amount > 0 ? ((row.par_amount / row.outstanding_amount) * 100).toFixed(2) : '0'
+    }));
+    
+    return productData;
+  }
+
+  async getAgingReport(): Promise<any> {
+    const result = await db.execute(sql`
+      SELECT 
+        l.application_id,
+        c.first_name || ' ' || COALESCE(c.last_name, '') as customer_name,
+        b.name as branch_name,
+        fo.name as officer_name,
+        l.product_name,
+        COALESCE(l.principle_amount, l.request_amount) as loan_amount,
+        l.outstanding_portfolio,
+        COALESCE(SUM(i.late_days), 0) as total_late_days,
+        MAX(i.due_date) as last_due_date
+      FROM loans l
+      LEFT JOIN customers c ON l.customer_id = c.id
+      LEFT JOIN branches b ON l.branch_id = b.id
+      LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
+      LEFT JOIN installments i ON l.id = i.loan_id
+      WHERE l.outstanding_portfolio > 0
+      GROUP BY l.id, l.application_id, c.first_name, c.last_name, b.name, fo.name, l.product_name, l.principle_amount, l.request_amount, l.outstanding_portfolio
+      HAVING COALESCE(SUM(i.late_days), 0) > 0
+      ORDER BY total_late_days DESC
+      LIMIT 100
+    `);
+    
+    const agingData = (result.rows as any[]).map(row => ({
+      loanId: row.application_id,
+      customerName: row.customer_name?.trim() || 'Unknown',
+      branch: row.branch_name || 'N/A',
+      officer: row.officer_name || 'N/A',
+      product: row.product_name || 'N/A',
+      loanAmount: parseFloat(row.loan_amount) || 0,
+      outstanding: parseFloat(row.outstanding_portfolio) || 0,
+      totalLateDays: parseInt(row.total_late_days) || 0,
+      lastDueDate: row.last_due_date
+    }));
+    
+    return agingData;
   }
 
   // Admin Users

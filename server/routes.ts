@@ -642,6 +642,46 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/reports/par-by-branch", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
+    try {
+      const data = await storage.getParByBranch();
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching PAR by branch:", error);
+      res.status(500).json({ message: "Failed to fetch PAR by branch" });
+    }
+  });
+
+  app.get("/api/reports/par-by-officer", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
+    try {
+      const data = await storage.getParByOfficer();
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching PAR by officer:", error);
+      res.status(500).json({ message: "Failed to fetch PAR by officer" });
+    }
+  });
+
+  app.get("/api/reports/par-by-product", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
+    try {
+      const data = await storage.getParByProduct();
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching PAR by product:", error);
+      res.status(500).json({ message: "Failed to fetch PAR by product" });
+    }
+  });
+
+  app.get("/api/reports/aging", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
+    try {
+      const data = await storage.getAgingReport();
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching aging report:", error);
+      res.status(500).json({ message: "Failed to fetch aging report" });
+    }
+  });
+
   // ===== ADMIN USERS =====
   app.get("/api/admin/users", isAuthenticated, requireRole("admin"), async (req, res) => {
     try {
