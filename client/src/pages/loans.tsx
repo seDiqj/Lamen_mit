@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { NewLoanDialog } from "@/components/new-loan-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -58,6 +59,7 @@ function getStatusBadge(status: string) {
 
 export default function LoansPage() {
   const [search, setSearch] = useState("");
+  const [newLoanDialogOpen, setNewLoanDialogOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [page, setPage] = useState(1);
   const limit = 10;
@@ -124,13 +126,12 @@ export default function LoansPage() {
           </div>
         </div>
         {(roleData?.role === "manager" || roleData?.role === "admin") && (
-          <Button asChild data-testid="button-add-loan">
-            <Link href="/loans/new">
-              <Plus className="mr-2 h-4 w-4" />
-              New Loan
-            </Link>
+          <Button onClick={() => setNewLoanDialogOpen(true)} data-testid="button-add-loan">
+            <Plus className="mr-2 h-4 w-4" />
+            New Loan
           </Button>
         )}
+        <NewLoanDialog open={newLoanDialogOpen} onOpenChange={setNewLoanDialogOpen} />
       </div>
 
       {/* Funding Sources Card */}

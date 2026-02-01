@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "wouter";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { NewCustomerDialog } from "@/components/new-customer-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +36,7 @@ type CustomerWithLoans = Customer & {
 export default function CustomersPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [newCustomerDialogOpen, setNewCustomerDialogOpen] = useState(false);
   const limit = 10;
 
   const { data, isLoading } = useQuery<{
@@ -82,13 +83,12 @@ export default function CustomersPage() {
           </div>
         </div>
         {(roleData?.role === "manager" || roleData?.role === "admin") && (
-          <Button asChild data-testid="button-add-customer">
-            <Link href="/customers/new">
-              <Plus className="mr-2 h-4 w-4" />
-              Add Customer
-            </Link>
+          <Button onClick={() => setNewCustomerDialogOpen(true)} data-testid="button-add-customer">
+            <Plus className="mr-2 h-4 w-4" />
+            Add Customer
           </Button>
         )}
+        <NewCustomerDialog open={newCustomerDialogOpen} onOpenChange={setNewCustomerDialogOpen} />
       </div>
 
       <Card className="border-0 shadow-lg overflow-hidden">
