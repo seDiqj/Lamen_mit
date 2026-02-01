@@ -49,6 +49,7 @@ type MenuItem = {
   url: string;
   icon: React.ElementType;
   badge?: string;
+  iconColor?: string;
 };
 
 type MenuGroup = {
@@ -83,15 +84,15 @@ export function AppSidebar() {
       icon: LayoutDashboard,
       defaultOpen: true,
       items: [
-        { title: "Overview", url: "/", icon: LayoutDashboard },
+        { title: "Overview", url: "/", icon: LayoutDashboard, iconColor: "text-blue-500" },
       ],
     },
     {
       label: "My Account",
       icon: FileText,
       items: [
-        { title: "My Loans", url: "/loans", icon: FileText },
-        { title: "Payments", url: "/payments", icon: CreditCard },
+        { title: "My Loans", url: "/loans", icon: FileText, iconColor: "text-emerald-500" },
+        { title: "Payments", url: "/payments", icon: CreditCard, iconColor: "text-violet-500" },
       ],
     },
   ];
@@ -102,25 +103,25 @@ export function AppSidebar() {
       icon: LayoutDashboard,
       defaultOpen: true,
       items: [
-        { title: "Overview", url: "/", icon: LayoutDashboard },
+        { title: "Overview", url: "/", icon: LayoutDashboard, iconColor: "text-blue-500" },
       ],
     },
     {
       label: "Loan Operations",
       icon: FileText,
       items: [
-        { title: "All Loans", url: "/loans", icon: FileText },
-        { title: "Customers", url: "/customers", icon: Users },
-        { title: "Approvals", url: "/approvals", icon: ClipboardList, badge: "3" },
-        { title: "Disbursements", url: "/disbursements", icon: PiggyBank },
-        { title: "Payments", url: "/payments", icon: CreditCard },
+        { title: "All Loans", url: "/loans", icon: FileText, iconColor: "text-emerald-500" },
+        { title: "Customers", url: "/customers", icon: Users, iconColor: "text-violet-500" },
+        { title: "Approvals", url: "/approvals", icon: ClipboardList, iconColor: "text-orange-500", badge: "3" },
+        { title: "Disbursements", url: "/disbursements", icon: PiggyBank, iconColor: "text-pink-500" },
+        { title: "Payments", url: "/payments", icon: CreditCard, iconColor: "text-cyan-500" },
       ],
     },
     {
       label: "Reports",
       icon: BarChart3,
       items: [
-        { title: "Analytics", url: "/reports", icon: BarChart3 },
+        { title: "Analytics", url: "/reports", icon: BarChart3, iconColor: "text-amber-500" },
       ],
     },
   ];
@@ -131,42 +132,42 @@ export function AppSidebar() {
       icon: LayoutDashboard,
       defaultOpen: true,
       items: [
-        { title: "Overview", url: "/", icon: LayoutDashboard },
+        { title: "Overview", url: "/", icon: LayoutDashboard, iconColor: "text-blue-500" },
       ],
     },
     {
       label: "Loan Operations",
       icon: FileText,
       items: [
-        { title: "All Loans", url: "/loans", icon: FileText },
-        { title: "Customers", url: "/customers", icon: Users },
-        { title: "Approvals", url: "/approvals", icon: ClipboardList },
-        { title: "Disbursements", url: "/disbursements", icon: PiggyBank },
-        { title: "Payments", url: "/payments", icon: CreditCard },
+        { title: "All Loans", url: "/loans", icon: FileText, iconColor: "text-emerald-500" },
+        { title: "Customers", url: "/customers", icon: Users, iconColor: "text-violet-500" },
+        { title: "Approvals", url: "/approvals", icon: ClipboardList, iconColor: "text-orange-500" },
+        { title: "Disbursements", url: "/disbursements", icon: PiggyBank, iconColor: "text-pink-500" },
+        { title: "Payments", url: "/payments", icon: CreditCard, iconColor: "text-cyan-500" },
       ],
     },
     {
       label: "Management",
       icon: Building2,
       items: [
-        { title: "Branches", url: "/branches", icon: Building2 },
-        { title: "Officers", url: "/officers", icon: UserCheck },
-        { title: "Users", url: "/users", icon: Shield },
+        { title: "Branches", url: "/branches", icon: Building2, iconColor: "text-teal-500" },
+        { title: "Officers", url: "/officers", icon: UserCheck, iconColor: "text-indigo-500" },
+        { title: "Users", url: "/users", icon: Shield, iconColor: "text-red-500" },
       ],
     },
     {
       label: "Reports & Logs",
       icon: BarChart3,
       items: [
-        { title: "Analytics", url: "/reports", icon: BarChart3 },
-        { title: "Activity Log", url: "/activity", icon: Activity },
+        { title: "Analytics", url: "/reports", icon: BarChart3, iconColor: "text-amber-500" },
+        { title: "Activity Log", url: "/activity", icon: Activity, iconColor: "text-lime-500" },
       ],
     },
     {
       label: "Settings",
       icon: Settings,
       items: [
-        { title: "System Settings", url: "/settings", icon: Settings },
+        { title: "System Settings", url: "/settings", icon: Settings, iconColor: "text-slate-400" },
       ],
     },
   ];
@@ -234,7 +235,7 @@ export function AppSidebar() {
                           data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
                         >
                           <Link href={item.url}>
-                            <item.icon className={`h-4 w-4 ${isActiveRoute(item.url) ? 'text-amber-400' : ''}`} />
+                            <item.icon className={`h-4 w-4 ${item.iconColor || 'text-muted-foreground'}`} />
                             <span>{item.title}</span>
                             {item.badge && (
                               <Badge className="ml-auto h-5 min-w-5 px-1.5 bg-amber-500 text-amber-950 text-xs font-semibold">
