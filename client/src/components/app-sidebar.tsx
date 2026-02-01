@@ -31,6 +31,7 @@ import {
   PiggyBank,
   Shield,
   ChevronDown,
+  Wallet,
 } from "lucide-react";
 import lamenLogo from "@assets/LamenLogo_1769936371528.jpeg";
 import {
@@ -141,7 +142,7 @@ export function AppSidebar() {
       items: [
         { title: "Branches", url: "/branches", icon: Building2, iconColor: "text-teal-500" },
         { title: "Officers", url: "/officers", icon: UserCheck, iconColor: "text-indigo-500" },
-        { title: "Funding Sources", url: "/funding-sources", icon: PiggyBank, iconColor: "text-amber-500" },
+        { title: "Funding Sources", url: "/funding-sources", icon: Wallet, iconColor: "text-amber-500" },
         { title: "Users", url: "/users", icon: Shield, iconColor: "text-red-500" },
       ],
     },
