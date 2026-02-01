@@ -247,7 +247,7 @@ export default function ReportsPage() {
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                     <XAxis dataKey="month" className="text-xs" />
-                    <YAxis className="text-xs" tickFormatter={(v) => `$${v / 1000}k`} />
+                    <YAxis className="text-xs" tickFormatter={(v) => `${(v / 1000).toFixed(0)}k AFN`} />
                     <Tooltip 
                       formatter={(value: number) => [formatCurrency(value), ""]}
                       contentStyle={{ 
