@@ -33,17 +33,28 @@ export function usePagePermissions() {
 
   const permissions = myPermissions?.permissions || {};
 
+  const DEFAULT_PAGES = ["dashboard", "loans", "payments"];
+
   const hasAccess = (pageName: string): boolean => {
     if (role === "admin" || role === "manager") {
       return true;
     }
+    if (isLoading) {
+      return DEFAULT_PAGES.includes(pageName);
+    }
+    if (Object.keys(permissions).length === 0) {
+      return DEFAULT_PAGES.includes(pageName);
+    }
     return permissions[pageName] === true;
   };
+
+  const isReady = !isLoading && Object.keys(permissions).length > 0;
 
   return {
     permissions,
     hasAccess,
     isLoading,
+    isReady,
     isAdminOrManager: role === "admin" || role === "manager",
   };
 }
