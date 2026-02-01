@@ -136,6 +136,15 @@ export function AppSidebar() {
       ],
     },
     {
+      label: "Management",
+      icon: Building2,
+      items: [
+        { title: "Branches", url: "/branches", icon: Building2, iconColor: "text-teal-500" },
+        { title: "Officers", url: "/officers", icon: UserCheck, iconColor: "text-indigo-500" },
+        { title: "Users", url: "/users", icon: Shield, iconColor: "text-red-500" },
+      ],
+    },
+    {
       label: "Loan Operations",
       icon: FileText,
       items: [
@@ -144,15 +153,6 @@ export function AppSidebar() {
         { title: "Approvals", url: "/approvals", icon: ClipboardList, iconColor: "text-orange-500" },
         { title: "Disbursements", url: "/disbursements", icon: PiggyBank, iconColor: "text-pink-500" },
         { title: "Payments", url: "/payments", icon: CreditCard, iconColor: "text-cyan-500" },
-      ],
-    },
-    {
-      label: "Management",
-      icon: Building2,
-      items: [
-        { title: "Branches", url: "/branches", icon: Building2, iconColor: "text-teal-500" },
-        { title: "Officers", url: "/officers", icon: UserCheck, iconColor: "text-indigo-500" },
-        { title: "Users", url: "/users", icon: Shield, iconColor: "text-red-500" },
       ],
     },
     {
