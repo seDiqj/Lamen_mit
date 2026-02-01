@@ -45,8 +45,7 @@ type DashboardStats = {
   outstandingBalance: number;
   overdueLoans: number;
   loansByStatus: { status: string; count: number }[];
-  monthlyDisbursements: { month: string; amount: number }[];
-  monthlyCollections: { month: string; amount: number }[];
+  monthlyTrends: { month: string; disbursed: number; collected: number }[];
   recentLoans: {
     id: string;
     applicationId: string;
@@ -391,14 +390,14 @@ export default function Dashboard() {
             ) : (
               <ResponsiveContainer width="100%" height={250}>
                 <LineChart
-                  data={stats?.monthlyCollections || []}
+                  data={stats?.monthlyTrends || []}
                   margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted/30" />
                   <XAxis dataKey="month" className="text-xs" />
-                  <YAxis className="text-xs" tickFormatter={(v) => `${v / 1000}k`} />
+                  <YAxis className="text-xs" tickFormatter={(v) => `${v / 1000000}M`} />
                   <Tooltip 
-                    formatter={(value: number) => [formatCurrency(value), "Amount"]}
+                    formatter={(value: number, name: string) => [formatCurrency(value), name]}
                     contentStyle={{ 
                       backgroundColor: "hsl(var(--card))",
                       border: "1px solid hsl(var(--border))",
@@ -409,7 +408,15 @@ export default function Dashboard() {
                   <Legend />
                   <Line 
                     type="monotone" 
-                    dataKey="amount" 
+                    dataKey="disbursed" 
+                    stroke="hsl(var(--chart-2))" 
+                    strokeWidth={3}
+                    dot={{ fill: "hsl(var(--chart-2))", strokeWidth: 2, r: 5 }}
+                    name="Disbursements"
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="collected" 
                     stroke="hsl(var(--chart-1))" 
                     strokeWidth={3}
                     dot={{ fill: "hsl(var(--chart-1))", strokeWidth: 2, r: 5 }}

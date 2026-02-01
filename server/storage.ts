@@ -583,27 +583,24 @@ export class DatabaseStorage implements IStorage {
       .from(loans)
       .groupBy(loans.status);
 
-    // Get real monthly data from database
+    // Get real monthly data from database based on disbursement date
     const monthlyData = await db
       .select({
-        month: sql<string>`TO_CHAR(${loans.requestDate}, 'Mon')`,
-        monthNum: sql<string>`TO_CHAR(${loans.requestDate}, 'MM')`,
+        month: sql<string>`TO_CHAR(${disbursements.disbursementDate}, 'Mon')`,
+        monthNum: sql<string>`TO_CHAR(${disbursements.disbursementDate}, 'MM')`,
         disbursed: sql<number>`COALESCE(SUM(${loans.principleAmount}::numeric), 0)`,
         collected: sql<number>`COALESCE(SUM(${loans.totalCollection}::numeric), 0)`,
       })
-      .from(loans)
-      .where(sql`${loans.requestDate} IS NOT NULL`)
-      .groupBy(sql`TO_CHAR(${loans.requestDate}, 'Mon'), TO_CHAR(${loans.requestDate}, 'MM')`)
-      .orderBy(sql`TO_CHAR(${loans.requestDate}, 'MM')`);
+      .from(disbursements)
+      .leftJoin(loans, eq(disbursements.loanId, loans.id))
+      .where(sql`${disbursements.disbursementDate} IS NOT NULL`)
+      .groupBy(sql`TO_CHAR(${disbursements.disbursementDate}, 'Mon'), TO_CHAR(${disbursements.disbursementDate}, 'MM')`)
+      .orderBy(sql`TO_CHAR(${disbursements.disbursementDate}, 'MM')`);
 
-    const monthlyDisbursements = monthlyData.map(m => ({
+    const monthlyTrends = monthlyData.map(m => ({
       month: m.month,
-      amount: Number(m.disbursed),
-    }));
-    
-    const monthlyCollections = monthlyData.map(m => ({
-      month: m.month,
-      amount: Number(m.collected),
+      disbursed: Number(m.disbursed),
+      collected: Number(m.collected),
     }));
 
     return {
@@ -616,8 +613,7 @@ export class DatabaseStorage implements IStorage {
       outstandingBalance: Number(amounts.outstandingPortfolio),
       overdueLoans: 0,
       loansByStatus: loansByStatus.map(s => ({ status: s.status || "pending", count: Number(s.count) })),
-      monthlyDisbursements,
-      monthlyCollections,
+      monthlyTrends,
       recentLoans,
     };
   }
