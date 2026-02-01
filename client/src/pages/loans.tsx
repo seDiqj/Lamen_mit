@@ -85,7 +85,7 @@ export default function LoansPage() {
     queryKey: ["/api/user/role"],
   });
 
-  const { data: fundingStats } = useQuery<{ id: string; name: string; loanCount: number; totalAmount: string }[]>({
+  const { data: fundingStats, isLoading: fundingStatsLoading } = useQuery<{ id: string; name: string; loanCount: number; totalAmount: string }[]>({
     queryKey: ["/api/funding-sources/stats"],
   });
 
@@ -134,7 +134,26 @@ export default function LoansPage() {
       </div>
 
       {/* Funding Sources Card */}
-      {fundingStats && fundingStats.length > 0 && (
+      {fundingStatsLoading ? (
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          <Card className="border-0 shadow-lg overflow-hidden">
+            <div className="h-1 bg-gradient-to-r from-amber-500 to-yellow-500" />
+            <CardContent className="p-4">
+              <div className="flex items-center gap-4">
+                <Skeleton className="h-12 w-12 rounded-xl" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-5 w-32" />
+                </div>
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-4">
+                <Skeleton className="h-16 rounded-lg" />
+                <Skeleton className="h-16 rounded-lg" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ) : fundingStats && fundingStats.length > 0 ? (
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {fundingStats.map((source) => (
             <Card key={source.id} className="border-0 shadow-lg overflow-hidden" data-testid={`card-funding-source-${source.id}`}>
@@ -163,7 +182,7 @@ export default function LoansPage() {
             </Card>
           ))}
         </div>
-      )}
+      ) : null}
 
       <Card className="border-0 shadow-lg overflow-hidden">
         <div className="h-1 bg-gradient-to-r from-blue-500 to-cyan-500" />

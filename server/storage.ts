@@ -252,7 +252,7 @@ export class DatabaseStorage implements IStorage {
         id: fundingSources.id,
         name: fundingSources.name,
         loanCount: sql<number>`COUNT(${loans.id})::int`,
-        totalAmount: sql<string>`COALESCE(SUM(${loans.principleAmount}), 0)::text`,
+        totalAmount: sql<string>`COALESCE(SUM(COALESCE(${loans.principleAmount}, ${loans.requestAmount})), 0)::text`,
       })
       .from(fundingSources)
       .leftJoin(loans, eq(loans.fundingSourceId, fundingSources.id))
