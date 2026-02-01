@@ -555,17 +555,11 @@ export class DatabaseStorage implements IStorage {
     
     const [amounts] = await db
       .select({
-        totalDisbursed: sql<number>`COALESCE(SUM(CASE WHEN ${loans.status} IN ('active', 'completed') THEN ${loans.principleAmount}::numeric ELSE 0 END), 0)`,
-        totalReceivable: sql<number>`COALESCE(SUM(${loans.totalReceivable}::numeric), 0)`,
+        totalDisbursed: sql<number>`COALESCE(SUM(${loans.principleAmount}::numeric), 0)`,
+        totalCollection: sql<number>`COALESCE(SUM(${loans.totalCollection}::numeric), 0)`,
+        outstandingPortfolio: sql<number>`COALESCE(SUM(${loans.outstandingPortfolio}::numeric), 0)`,
       })
       .from(loans);
-
-    const [collectedAmount] = await db
-      .select({
-        total: sql<number>`COALESCE(SUM(${installments.totalAmount}::numeric), 0)`,
-      })
-      .from(installments)
-      .where(eq(installments.isPaid, true));
 
     const recentLoans = await db
       .select({
@@ -607,8 +601,8 @@ export class DatabaseStorage implements IStorage {
       pendingLoans: Number(loanCounts.pending),
       totalCustomers: Number(customerCount.count),
       totalDisbursed: Number(amounts.totalDisbursed),
-      totalCollected: Number(collectedAmount.total),
-      outstandingBalance: Number(amounts.totalReceivable) - Number(collectedAmount.total),
+      totalCollected: Number(amounts.totalCollection),
+      outstandingBalance: Number(amounts.outstandingPortfolio),
       overdueLoans: 0,
       loansByStatus: loansByStatus.map(s => ({ status: s.status || "pending", count: Number(s.count) })),
       monthlyDisbursements,
