@@ -307,6 +307,40 @@ export async function registerRoutes(
     }
   });
 
+  // ===== FUNDING SOURCES =====
+  app.get("/api/funding-sources", isAuthenticated, async (req, res) => {
+    try {
+      const search = req.query.search as string | undefined;
+      const fundingSources = await storage.getFundingSources(search);
+      res.json(fundingSources);
+    } catch (error) {
+      console.error("Error fetching funding sources:", error);
+      res.status(500).json({ message: "Failed to fetch funding sources" });
+    }
+  });
+
+  app.post("/api/funding-sources", isAuthenticated, requireRole("admin"), async (req: any, res) => {
+    try {
+      const fundingSource = await storage.createFundingSource(req.body);
+      await logActivity(req, "create_funding_source", "funding_source", fundingSource.id, `Created funding source: ${fundingSource.name}`);
+      res.status(201).json(fundingSource);
+    } catch (error) {
+      console.error("Error creating funding source:", error);
+      res.status(500).json({ message: "Failed to create funding source" });
+    }
+  });
+
+  app.patch("/api/funding-sources/:id", isAuthenticated, requireRole("admin"), async (req: any, res) => {
+    try {
+      const fundingSource = await storage.updateFundingSource(req.params.id, req.body);
+      await logActivity(req, "update_funding_source", "funding_source", fundingSource.id, `Updated funding source: ${fundingSource.name}`);
+      res.json(fundingSource);
+    } catch (error) {
+      console.error("Error updating funding source:", error);
+      res.status(500).json({ message: "Failed to update funding source" });
+    }
+  });
+
   // ===== CUSTOMERS =====
   app.get("/api/customers", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
     try {

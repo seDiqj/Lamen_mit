@@ -39,6 +39,16 @@ export const financeOfficers = pgTable("finance_officers", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Funding Sources
+export const fundingSources = pgTable("funding_sources", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(),
+  code: varchar("code", { length: 50 }),
+  description: text("description"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Customers
 export const customers = pgTable("customers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -213,6 +223,7 @@ export const activityLogs = pgTable("activity_logs", {
 export const insertUserRoleSchema = createInsertSchema(userRoles).omit({ id: true, createdAt: true });
 export const insertBranchSchema = createInsertSchema(branches).omit({ id: true, createdAt: true });
 export const insertFinanceOfficerSchema = createInsertSchema(financeOfficers).omit({ id: true, createdAt: true });
+export const insertFundingSourceSchema = createInsertSchema(fundingSources).omit({ id: true, createdAt: true });
 export const insertCustomerSchema = createInsertSchema(customers).omit({ id: true, createdAt: true });
 export const insertCustomerBusinessSchema = createInsertSchema(customerBusinesses).omit({ id: true, createdAt: true });
 export const insertBusinessLicenseSchema = createInsertSchema(businessLicenses).omit({ id: true, createdAt: true });
@@ -231,6 +242,8 @@ export type InsertBranch = z.infer<typeof insertBranchSchema>;
 export type Branch = typeof branches.$inferSelect;
 export type InsertFinanceOfficer = z.infer<typeof insertFinanceOfficerSchema>;
 export type FinanceOfficer = typeof financeOfficers.$inferSelect;
+export type InsertFundingSource = z.infer<typeof insertFundingSourceSchema>;
+export type FundingSource = typeof fundingSources.$inferSelect;
 export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
 export type Customer = typeof customers.$inferSelect;
 export type InsertCustomerBusiness = z.infer<typeof insertCustomerBusinessSchema>;

@@ -5,6 +5,7 @@ import {
   userRoles,
   branches,
   financeOfficers,
+  fundingSources,
   customers,
   customerBusinesses,
   businessLicenses,
@@ -23,6 +24,8 @@ import {
   type Branch,
   type InsertFinanceOfficer,
   type FinanceOfficer,
+  type InsertFundingSource,
+  type FundingSource,
   type InsertCustomer,
   type Customer,
   type InsertLoan,
@@ -57,6 +60,12 @@ export interface IStorage {
   getOfficer(id: string): Promise<FinanceOfficer | undefined>;
   createOfficer(data: InsertFinanceOfficer): Promise<FinanceOfficer>;
   updateOfficer(id: string, data: Partial<InsertFinanceOfficer>): Promise<FinanceOfficer>;
+  
+  // Funding Sources
+  getFundingSources(search?: string): Promise<FundingSource[]>;
+  getFundingSource(id: string): Promise<FundingSource | undefined>;
+  createFundingSource(data: InsertFundingSource): Promise<FundingSource>;
+  updateFundingSource(id: string, data: Partial<InsertFundingSource>): Promise<FundingSource>;
   
   // Customers
   getCustomers(search?: string, page?: number, limit?: number): Promise<{ customers: Customer[]; total: number }>;
@@ -206,6 +215,34 @@ export class DatabaseStorage implements IStorage {
   async updateOfficer(id: string, data: Partial<InsertFinanceOfficer>): Promise<FinanceOfficer> {
     const [officer] = await db.update(financeOfficers).set(data).where(eq(financeOfficers.id, id)).returning();
     return officer;
+  }
+
+  // Funding Sources
+  async getFundingSources(search?: string): Promise<FundingSource[]> {
+    if (search) {
+      return db.select().from(fundingSources).where(
+        or(
+          like(fundingSources.name, `%${search}%`),
+          like(fundingSources.code, `%${search}%`)
+        )
+      );
+    }
+    return db.select().from(fundingSources);
+  }
+
+  async getFundingSource(id: string): Promise<FundingSource | undefined> {
+    const [source] = await db.select().from(fundingSources).where(eq(fundingSources.id, id));
+    return source;
+  }
+
+  async createFundingSource(data: InsertFundingSource): Promise<FundingSource> {
+    const [source] = await db.insert(fundingSources).values(data).returning();
+    return source;
+  }
+
+  async updateFundingSource(id: string, data: Partial<InsertFundingSource>): Promise<FundingSource> {
+    const [source] = await db.update(fundingSources).set(data).where(eq(fundingSources.id, id)).returning();
+    return source;
   }
 
   // Customers
