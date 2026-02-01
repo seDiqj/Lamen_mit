@@ -565,7 +565,7 @@ export class DatabaseStorage implements IStorage {
       .select({
         id: loans.id,
         applicationId: loans.applicationId,
-        amount: loans.requestAmount,
+        amount: sql<string>`COALESCE(${loans.principleAmount}, ${loans.requestAmount})`,
         status: loans.status,
         date: loans.requestDate,
         customerName: sql<string>`CONCAT(${customers.firstName}, ' ', ${customers.lastName})`,
