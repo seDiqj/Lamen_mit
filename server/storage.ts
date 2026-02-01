@@ -583,16 +583,27 @@ export class DatabaseStorage implements IStorage {
       .from(loans)
       .groupBy(loans.status);
 
-    // Generate mock monthly data for charts
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
-    const monthlyDisbursements = months.map((month, i) => ({
-      month,
-      amount: Math.floor(Math.random() * 50000) + 30000,
+    // Get real monthly data from database
+    const monthlyData = await db
+      .select({
+        month: sql<string>`TO_CHAR(${loans.requestDate}, 'Mon')`,
+        monthNum: sql<string>`TO_CHAR(${loans.requestDate}, 'MM')`,
+        disbursed: sql<number>`COALESCE(SUM(${loans.principleAmount}::numeric), 0)`,
+        collected: sql<number>`COALESCE(SUM(${loans.totalCollection}::numeric), 0)`,
+      })
+      .from(loans)
+      .where(sql`${loans.requestDate} IS NOT NULL`)
+      .groupBy(sql`TO_CHAR(${loans.requestDate}, 'Mon'), TO_CHAR(${loans.requestDate}, 'MM')`)
+      .orderBy(sql`TO_CHAR(${loans.requestDate}, 'MM')`);
+
+    const monthlyDisbursements = monthlyData.map(m => ({
+      month: m.month,
+      amount: Number(m.disbursed),
     }));
     
-    const monthlyCollections = months.map((month, i) => ({
-      month,
-      amount: Math.floor(Math.random() * 40000) + 25000,
+    const monthlyCollections = monthlyData.map(m => ({
+      month: m.month,
+      amount: Number(m.collected),
     }));
 
     return {
