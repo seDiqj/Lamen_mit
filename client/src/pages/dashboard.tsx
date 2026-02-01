@@ -299,14 +299,14 @@ export default function Dashboard() {
             ) : (
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart
-                  data={stats?.monthlyDisbursements || []}
+                  data={stats?.monthlyTrends || []}
                   margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted/30" />
                   <XAxis dataKey="month" className="text-xs" />
-                  <YAxis className="text-xs" tickFormatter={(v) => `${v / 1000}k`} />
+                  <YAxis className="text-xs" tickFormatter={(v) => `${v / 1000000}M`} />
                   <Tooltip 
-                    formatter={(value: number) => [formatCurrency(value), "Amount"]}
+                    formatter={(value: number) => [formatCurrency(value), "Disbursed"]}
                     contentStyle={{ 
                       backgroundColor: "hsl(var(--card))",
                       border: "1px solid hsl(var(--border))",
@@ -314,7 +314,7 @@ export default function Dashboard() {
                       boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
                     }}
                   />
-                  <Bar dataKey="amount" fill="url(#barGradient)" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="disbursed" fill="url(#barGradient)" radius={[6, 6, 0, 0]} />
                   <defs>
                     <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="hsl(var(--chart-1))" />
