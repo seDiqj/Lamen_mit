@@ -11,6 +11,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import LandingPage from "@/pages/landing";
+import LoginPage from "@/pages/login";
+import RegisterPage from "@/pages/register";
 import Dashboard from "@/pages/dashboard";
 import LoansPage from "@/pages/loans";
 import CustomersPage from "@/pages/customers";
@@ -66,7 +68,13 @@ function AppRoutes() {
   }
 
   if (!user) {
-    return <LandingPage />;
+    return (
+      <Switch>
+        <Route path="/login" component={LoginPage} />
+        <Route path="/register" component={RegisterPage} />
+        <Route component={LandingPage} />
+      </Switch>
+    );
   }
 
   return (

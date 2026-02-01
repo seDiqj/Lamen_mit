@@ -32,7 +32,7 @@ export default function LandingPage() {
                 asChild
                 data-testid="button-login"
               >
-                <a href="/api/login">
+                <a href="/login">
                   Sign In
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </a>
@@ -72,7 +72,7 @@ export default function LandingPage() {
                     className="text-base"
                     data-testid="button-get-started"
                   >
-                    <a href="/api/login">
+                    <a href="/login">
                       Get Started
                       <ArrowRight className="ml-2 h-5 w-5" />
                     </a>

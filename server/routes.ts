@@ -1,20 +1,172 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { z } from "zod";
+import bcrypt from "bcrypt";
+import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
+import { pool } from "./db";
+
+declare module "express-session" {
+  interface SessionData {
+    userId?: string;
+  }
+}
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // Setup authentication
-  await setupAuth(app);
-  registerAuthRoutes(app);
+  // Setup session
+  const PgSession = connectPgSimple(session);
+  app.use(
+    session({
+      store: new PgSession({
+        pool,
+        tableName: "sessions",
+        createTableIfMissing: true,
+      }),
+      secret: process.env.SESSION_SECRET!,
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+      },
+    })
+  );
+
+  // Auth middleware
+  const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
+    if (req.session.userId) {
+      return next();
+    }
+    return res.status(401).json({ message: "Unauthorized" });
+  };
+
+  // Login endpoint
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      
+      if (!username || !password) {
+        return res.status(400).json({ message: "Username and password are required" });
+      }
+
+      const user = await storage.getUserByUsername(username);
+      if (!user) {
+        return res.status(401).json({ message: "Invalid username or password" });
+      }
+
+      const validPassword = await bcrypt.compare(password, user.password);
+      if (!validPassword) {
+        return res.status(401).json({ message: "Invalid username or password" });
+      }
+
+      req.session.userId = user.id;
+      
+      res.json({
+        id: user.id,
+        username: user.username,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+      });
+    } catch (error) {
+      console.error("Login error:", error);
+      res.status(500).json({ message: "Login failed" });
+    }
+  });
+
+  // Register endpoint
+  app.post("/api/auth/register", async (req, res) => {
+    try {
+      const { username, password, firstName, lastName, email } = req.body;
+      
+      if (!username || !password || !firstName || !lastName) {
+        return res.status(400).json({ message: "All required fields must be provided" });
+      }
+
+      if (password.length < 6) {
+        return res.status(400).json({ message: "Password must be at least 6 characters" });
+      }
+
+      // Check if username already exists
+      const existingUser = await storage.getUserByUsername(username);
+      if (existingUser) {
+        return res.status(400).json({ message: "Username already exists" });
+      }
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Create user
+      const user = await storage.createUser({
+        username,
+        password: hashedPassword,
+        firstName,
+        lastName,
+        email: email || null,
+      });
+
+      // First user gets admin role, subsequent users get "user" role
+      const userCount = await storage.countUsers();
+      if (userCount === 1) {
+        // This is the first user - grant admin
+        await storage.setUserRole({ userId: user.id, role: "admin" });
+      } else {
+        await storage.setUserRole({ userId: user.id, role: "user" });
+      }
+
+      req.session.userId = user.id;
+
+      res.status(201).json({
+        id: user.id,
+        username: user.username,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+      });
+    } catch (error) {
+      console.error("Registration error:", error);
+      res.status(500).json({ message: "Registration failed" });
+    }
+  });
+
+  // Get current user
+  app.get("/api/auth/user", async (req, res) => {
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const user = await storage.getUserById(req.session.userId);
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
+
+    res.json({
+      id: user.id,
+      username: user.username,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+    });
+  });
+
+  // Logout endpoint
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ message: "Logout failed" });
+      }
+      res.json({ message: "Logged out successfully" });
+    });
+  });
 
   // Helper to log activity
-  const logActivity = async (req: any, action: string, entityType?: string, entityId?: string, details?: string) => {
-    const userId = req.user?.claims?.sub;
+  const logActivity = async (req: Request, action: string, entityType?: string, entityId?: string, details?: string) => {
+    const userId = req.session.userId;
     if (userId) {
       await storage.createActivityLog({
         userId,
@@ -22,7 +174,7 @@ export async function registerRoutes(
         entityType,
         entityId,
         details,
-        ipAddress: req.ip || req.connection?.remoteAddress,
+        ipAddress: req.ip || req.socket?.remoteAddress,
       });
     }
   };
@@ -35,8 +187,8 @@ export async function registerRoutes(
 
   // Middleware for role check
   const requireRole = (...roles: string[]) => {
-    return async (req: any, res: any, next: any) => {
-      const userId = req.user?.claims?.sub;
+    return async (req: Request, res: Response, next: NextFunction) => {
+      const userId = req.session.userId;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -48,9 +200,9 @@ export async function registerRoutes(
   };
 
   // Get user role
-  app.get("/api/user/role", isAuthenticated, async (req: any, res) => {
+  app.get("/api/user/role", isAuthenticated, async (req: Request, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.session.userId!;
       const userRole = await storage.getUserRole(userId);
       
       // If no role exists, create default "user" role

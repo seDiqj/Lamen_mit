@@ -15,6 +15,8 @@ import {
   disbursements,
   installments,
   activityLogs,
+  type User,
+  type UpsertUser,
   type InsertUserRole,
   type UserRole,
   type InsertBranch,
@@ -34,6 +36,12 @@ import {
 } from "@shared/schema";
 
 export interface IStorage {
+  // Users
+  getUserById(id: string): Promise<User | undefined>;
+  getUserByUsername(username: string): Promise<User | undefined>;
+  createUser(data: UpsertUser): Promise<User>;
+  countUsers(): Promise<number>;
+  
   // User Roles
   getUserRole(userId: string): Promise<UserRole | undefined>;
   setUserRole(data: InsertUserRole): Promise<UserRole>;
@@ -89,6 +97,27 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  // Users
+  async getUserById(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
+  }
+
+  async createUser(data: UpsertUser): Promise<User> {
+    const [user] = await db.insert(users).values(data).returning();
+    return user;
+  }
+
+  async countUsers(): Promise<number> {
+    const [result] = await db.select({ count: count() }).from(users);
+    return Number(result.count);
+  }
+
   // User Roles
   async getUserRole(userId: string): Promise<UserRole | undefined> {
     const [role] = await db.select().from(userRoles).where(eq(userRoles.userId, userId));
