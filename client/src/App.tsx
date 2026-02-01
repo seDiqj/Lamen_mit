@@ -25,6 +25,7 @@ import ActivityPage from "@/pages/activity";
 import SettingsPage from "@/pages/settings";
 import UsersPage from "@/pages/users";
 import FundingSourcesPage from "@/pages/funding-sources";
+import PagePermissionsPage from "@/pages/page-permissions";
 import NotFound from "@/pages/not-found";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
@@ -100,6 +101,7 @@ function AppRoutes() {
         <Route path="/officers" component={OfficersPage} />
         <Route path="/funding-sources" component={FundingSourcesPage} />
         <Route path="/users" component={UsersPage} />
+        <Route path="/page-permissions" component={PagePermissionsPage} />
         <Route path="/activity" component={ActivityPage} />
         <Route path="/settings" component={SettingsPage} />
         <Route component={NotFound} />

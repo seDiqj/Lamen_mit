@@ -881,6 +881,84 @@ export async function registerRoutes(
     }
   });
 
+  // ===== PAGE PERMISSIONS =====
+  app.get("/api/admin/pages", isAuthenticated, requireRole("admin"), async (req, res) => {
+    try {
+      const pages = storage.getAllPages();
+      res.json(pages);
+    } catch (error) {
+      console.error("Error fetching pages:", error);
+      res.status(500).json({ message: "Failed to fetch pages" });
+    }
+  });
+
+  app.get("/api/admin/users-permissions", isAuthenticated, requireRole("admin"), async (req, res) => {
+    try {
+      const users = await storage.getUsersWithPermissions();
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users with permissions:", error);
+      res.status(500).json({ message: "Failed to fetch users with permissions" });
+    }
+  });
+
+  app.get("/api/permissions/:userId", isAuthenticated, async (req, res) => {
+    try {
+      const permissions = await storage.getPagePermissions(req.params.userId);
+      res.json(permissions);
+    } catch (error) {
+      console.error("Error fetching permissions:", error);
+      res.status(500).json({ message: "Failed to fetch permissions" });
+    }
+  });
+
+  app.post("/api/admin/permissions", isAuthenticated, requireRole("admin"), async (req: any, res) => {
+    try {
+      const { userId, pageName, canAccess } = req.body;
+      
+      if (!userId || !pageName || canAccess === undefined) {
+        return res.status(400).json({ message: "userId, pageName, and canAccess are required" });
+      }
+
+      await storage.setPagePermission(userId, pageName, canAccess, req.session.userId);
+      await logActivity(req, "update_permission", "permission", userId, `Updated permission for page ${pageName}: ${canAccess ? 'granted' : 'revoked'}`);
+      
+      res.json({ message: "Permission updated successfully" });
+    } catch (error) {
+      console.error("Error updating permission:", error);
+      res.status(500).json({ message: "Failed to update permission" });
+    }
+  });
+
+  // Get current user's permissions
+  app.get("/api/my-permissions", isAuthenticated, async (req: any, res) => {
+    try {
+      const permissions = await storage.getPagePermissions(req.session.userId);
+      const userRole = await storage.getUserRole(req.session.userId);
+      
+      // Admins and managers have all permissions by default
+      if (userRole === "admin" || userRole === "manager") {
+        const allPages = storage.getAllPages();
+        const fullAccess = allPages.reduce((acc, page) => {
+          acc[page] = true;
+          return acc;
+        }, {} as Record<string, boolean>);
+        return res.json({ role: userRole, permissions: fullAccess });
+      }
+      
+      // Regular users need explicit permissions
+      const permissionMap: Record<string, boolean> = {};
+      permissions.forEach(p => {
+        permissionMap[p.pageName] = p.canAccess;
+      });
+      
+      res.json({ role: userRole, permissions: permissionMap });
+    } catch (error) {
+      console.error("Error fetching my permissions:", error);
+      res.status(500).json({ message: "Failed to fetch permissions" });
+    }
+  });
+
   // Seed data on startup
   try {
     await storage.seedData();

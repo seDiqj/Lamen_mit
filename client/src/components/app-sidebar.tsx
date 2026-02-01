@@ -145,6 +145,7 @@ export function AppSidebar() {
         { title: "Officers", url: "/officers", icon: UserCheck, iconColor: "text-indigo-500" },
         { title: "Funding Sources", url: "/funding-sources", icon: Wallet, iconColor: "text-amber-500" },
         { title: "Users", url: "/users", icon: Shield, iconColor: "text-red-500" },
+        { title: "Page Permissions", url: "/page-permissions", icon: Shield, iconColor: "text-purple-500" },
       ],
     },
     {

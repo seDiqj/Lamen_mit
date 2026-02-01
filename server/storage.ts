@@ -17,6 +17,7 @@ import {
   installments,
   activityLogs,
   parCategories,
+  pagePermissions,
   type User,
   type UpsertUser,
   type InsertUserRole,
@@ -114,6 +115,12 @@ export interface IStorage {
   updateUser(id: string, data: Partial<UpsertUser>): Promise<User>;
   deleteUser(id: string): Promise<void>;
   updateUserRole(userId: string, role: string): Promise<void>;
+  
+  // Page Permissions
+  getPagePermissions(userId: string): Promise<any[]>;
+  setPagePermission(userId: string, pageName: string, canAccess: boolean, grantedBy: string): Promise<void>;
+  getUsersWithPermissions(): Promise<any[]>;
+  getAllPages(): string[];
   
   // Seed
   seedData(): Promise<void>;
@@ -1180,6 +1187,75 @@ export class DatabaseStorage implements IStorage {
         target: userRoles.userId,
         set: { role: role as any },
       });
+  }
+
+  // Page Permissions
+  async getPagePermissions(userId: string): Promise<any[]> {
+    return await db.select().from(pagePermissions).where(eq(pagePermissions.userId, userId));
+  }
+
+  async setPagePermission(userId: string, pageName: string, canAccess: boolean, grantedBy: string): Promise<void> {
+    // Check if permission exists
+    const existing = await db.select().from(pagePermissions)
+      .where(and(
+        eq(pagePermissions.userId, userId),
+        eq(pagePermissions.pageName, pageName)
+      ));
+
+    if (existing.length > 0) {
+      await db.update(pagePermissions)
+        .set({ canAccess, grantedBy, grantedAt: new Date() })
+        .where(and(
+          eq(pagePermissions.userId, userId),
+          eq(pagePermissions.pageName, pageName)
+        ));
+    } else {
+      await db.insert(pagePermissions).values({
+        userId,
+        pageName,
+        canAccess,
+        grantedBy,
+      });
+    }
+  }
+
+  async getUsersWithPermissions(): Promise<any[]> {
+    const allUsers = await db
+      .select({
+        id: users.id,
+        username: users.username,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        role: userRoles.role,
+      })
+      .from(users)
+      .leftJoin(userRoles, eq(users.id, userRoles.userId));
+
+    const permissions = await db.select().from(pagePermissions);
+
+    return allUsers.map(user => {
+      const userPermissions = permissions.filter(p => p.userId === user.id);
+      const permissionMap: Record<string, boolean> = {};
+      userPermissions.forEach(p => {
+        permissionMap[p.pageName] = p.canAccess;
+      });
+      return {
+        ...user,
+        permissions: permissionMap,
+      };
+    });
+  }
+
+  getAllPages(): string[] {
+    return [
+      "dashboard",
+      "customers",
+      "loans",
+      "reports",
+      "par-report",
+      "activity-logs",
+      "settings",
+    ];
   }
 
   // Seed Data

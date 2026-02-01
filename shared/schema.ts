@@ -279,3 +279,17 @@ export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
 export type ActivityLog = typeof activityLogs.$inferSelect;
 export type InsertParCategory = z.infer<typeof insertParCategorySchema>;
 export type ParCategory = typeof parCategories.$inferSelect;
+
+// Page Permissions - controls which pages users can access
+export const pagePermissions = pgTable("page_permissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  pageName: varchar("page_name", { length: 100 }).notNull(),
+  canAccess: boolean("can_access").notNull().default(true),
+  grantedBy: varchar("granted_by"),
+  grantedAt: timestamp("granted_at").defaultNow(),
+});
+
+export const insertPagePermissionSchema = createInsertSchema(pagePermissions).omit({ id: true, grantedAt: true });
+export type InsertPagePermission = z.infer<typeof insertPagePermissionSchema>;
+export type PagePermission = typeof pagePermissions.$inferSelect;
