@@ -930,6 +930,24 @@ export async function registerRoutes(
     }
   });
 
+  // Get a specific user's permissions (admin only)
+  app.get("/api/admin/user-permissions/:userId", isAuthenticated, requireRole("admin"), async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const permissions = await storage.getPagePermissions(userId);
+      
+      const permissionMap: Record<string, boolean> = {};
+      permissions.forEach(p => {
+        permissionMap[p.pageName] = p.canAccess;
+      });
+      
+      res.json({ permissions: permissionMap });
+    } catch (error) {
+      console.error("Error fetching user permissions:", error);
+      res.status(500).json({ message: "Failed to fetch user permissions" });
+    }
+  });
+
   // Get current user's permissions
   app.get("/api/my-permissions", isAuthenticated, async (req: any, res) => {
     try {

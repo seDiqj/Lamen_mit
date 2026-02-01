@@ -42,8 +42,39 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Search, Plus, Pencil, Trash2, Users, Shield, UserCheck, Crown } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Search, Plus, Pencil, Trash2, Users, Shield, UserCheck, Crown, Lock, Unlock, LayoutDashboard, FileText, BarChart3, AlertTriangle, Activity, Settings, CreditCard, ClipboardList, PiggyBank } from "lucide-react";
 import { format } from "date-fns";
+
+interface UserPermissions {
+  [pageName: string]: boolean;
+}
+
+const PAGE_ICONS: Record<string, any> = {
+  dashboard: LayoutDashboard,
+  customers: Users,
+  loans: FileText,
+  reports: BarChart3,
+  "par-report": AlertTriangle,
+  "activity-logs": Activity,
+  settings: Settings,
+  payments: CreditCard,
+  approvals: ClipboardList,
+  disbursements: PiggyBank,
+};
+
+const PAGE_LABELS: Record<string, string> = {
+  dashboard: "Dashboard",
+  customers: "Customers",
+  loans: "Loans",
+  reports: "Reports",
+  "par-report": "PAR Report",
+  "activity-logs": "Activity Logs",
+  settings: "Settings",
+  payments: "Payments",
+  approvals: "Approvals",
+  disbursements: "Disbursements",
+};
 
 interface User {
   id: string;
@@ -70,6 +101,8 @@ export default function UsersPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editUser, setEditUser] = useState<User | null>(null);
   const [deleteUser, setDeleteUser] = useState<User | null>(null);
+  const [permissionsUser, setPermissionsUser] = useState<User | null>(null);
+  const [userPermissions, setUserPermissions] = useState<UserPermissions>({});
   const [formData, setFormData] = useState<UserFormData>({
     username: "",
     password: "",
@@ -136,6 +169,49 @@ export default function UsersPage() {
       toast({ title: "Failed to delete user", description: error.message, variant: "destructive" });
     },
   });
+
+  const { data: allPages = [] } = useQuery<string[]>({
+    queryKey: ["/api/admin/pages"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/pages", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const updatePermissionMutation = useMutation({
+    mutationFn: async ({ userId, pageName, canAccess }: { userId: string; pageName: string; canAccess: boolean }) => {
+      const res = await apiRequest("POST", "/api/admin/permissions", { userId, pageName, canAccess });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Permission updated" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to update permission", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const openPermissionsDialog = async (user: User) => {
+    setPermissionsUser(user);
+    try {
+      const res = await fetch(`/api/admin/user-permissions/${user.id}`, { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        setUserPermissions(data.permissions || {});
+      } else {
+        setUserPermissions({});
+      }
+    } catch {
+      setUserPermissions({});
+    }
+  };
+
+  const handlePermissionChange = (pageName: string, canAccess: boolean) => {
+    if (!permissionsUser) return;
+    setUserPermissions(prev => ({ ...prev, [pageName]: canAccess }));
+    updatePermissionMutation.mutate({ userId: permissionsUser.id, pageName, canAccess });
+  };
 
   const resetForm = () => {
     setFormData({
@@ -416,6 +492,17 @@ export default function UsersPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
+                          {(user.role === "user" || !user.role) && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openPermissionsDialog(user)}
+                              data-testid={`button-permissions-${user.id}`}
+                              title="Manage Page Access"
+                            >
+                              <Shield className="h-4 w-4 text-purple-500" />
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="icon"
@@ -574,6 +661,70 @@ export default function UsersPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Page Permissions Dialog */}
+      <Dialog open={!!permissionsUser} onOpenChange={(open) => { if (!open) setPermissionsUser(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center">
+                <Shield className="h-4 w-4 text-white" />
+              </div>
+              Page Access for {permissionsUser?.firstName} {permissionsUser?.lastName}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground mb-4">
+              Toggle which pages this user can access. Changes are saved automatically.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              {allPages.map((pageName) => {
+                const IconComponent = PAGE_ICONS[pageName] || FileText;
+                const hasAccess = userPermissions[pageName] === true;
+                
+                return (
+                  <div
+                    key={pageName}
+                    className={`p-3 rounded-lg border transition-colors ${
+                      hasAccess 
+                        ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800" 
+                        : "bg-muted/30 border-muted"
+                    }`}
+                    data-testid={`permission-toggle-${pageName}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <IconComponent className={`h-4 w-4 ${hasAccess ? "text-green-600" : "text-muted-foreground"}`} />
+                        <span className="text-sm font-medium">
+                          {PAGE_LABELS[pageName] || pageName}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {hasAccess ? (
+                          <Unlock className="h-3.5 w-3.5 text-green-600" />
+                        ) : (
+                          <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+                        )}
+                        <Switch
+                          checked={hasAccess}
+                          onCheckedChange={(checked) => handlePermissionChange(pageName, checked)}
+                          disabled={updatePermissionMutation.isPending}
+                          data-testid={`switch-${pageName}`}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPermissionsUser(null)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
