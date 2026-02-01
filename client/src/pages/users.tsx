@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Dialog,
   DialogContent,
@@ -41,7 +42,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Search, Plus, Pencil, Trash2, Users, Shield, UserCheck } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, Users, Shield, UserCheck, Crown } from "lucide-react";
 import { format } from "date-fns";
 
 interface User {
@@ -178,34 +179,55 @@ export default function UsersPage() {
     }
   };
 
-  const getRoleBadgeVariant = (role: string | null) => {
+  const getRoleBadgeStyle = (role: string | null) => {
     switch (role) {
       case "admin":
-        return "default";
+        return "bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-700 dark:text-amber-400 border-amber-500/30";
       case "manager":
-        return "secondary";
+        return "bg-gradient-to-r from-blue-500/20 to-cyan-500/20 text-blue-700 dark:text-blue-400 border-blue-500/30";
       default:
-        return "outline";
+        return "bg-gradient-to-r from-slate-500/20 to-gray-500/20 text-slate-700 dark:text-slate-400 border-slate-500/30";
     }
   };
 
   const getRoleIcon = (role: string | null) => {
     switch (role) {
       case "admin":
-        return <Shield className="h-3 w-3 mr-1" />;
+        return <Crown className="h-3.5 w-3.5 mr-1" />;
       case "manager":
-        return <UserCheck className="h-3 w-3 mr-1" />;
+        return <UserCheck className="h-3.5 w-3.5 mr-1" />;
       default:
-        return <Users className="h-3 w-3 mr-1" />;
+        return <Users className="h-3.5 w-3.5 mr-1" />;
     }
+  };
+
+  const getAvatarGradient = (role: string | null) => {
+    switch (role) {
+      case "admin":
+        return "from-amber-500 to-orange-600";
+      case "manager":
+        return "from-blue-500 to-cyan-600";
+      default:
+        return "from-slate-500 to-gray-600";
+    }
+  };
+
+  const getInitials = (firstName: string, lastName: string) => {
+    return `${firstName?.[0] || ""}${lastName?.[0] || ""}`.toUpperCase();
   };
 
   return (
     <div className="space-y-6">
+      {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold" data-testid="text-page-title">User Management</h1>
-          <p className="text-muted-foreground">Manage system users and their access roles</p>
+        <div className="flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg">
+            <Shield className="h-6 w-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold" data-testid="text-page-title">User Management</h1>
+            <p className="text-muted-foreground">Manage system users and their access roles</p>
+          </div>
         </div>
         <Dialog open={isCreateOpen} onOpenChange={(open) => { setIsCreateOpen(open); if (!open) resetForm(); }}>
           <DialogTrigger asChild>
@@ -214,9 +236,14 @@ export default function UsersPage() {
               Add User
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Create New User</DialogTitle>
+              <DialogTitle className="flex items-center gap-2 text-lg">
+                <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+                  <Plus className="h-4 w-4 text-white" />
+                </div>
+                Create New User
+              </DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -280,13 +307,28 @@ export default function UsersPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="user">User</SelectItem>
-                    <SelectItem value="manager">Manager</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="user">
+                      <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4 text-slate-500" />
+                        User
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="manager">
+                      <div className="flex items-center gap-2">
+                        <UserCheck className="h-4 w-4 text-blue-500" />
+                        Manager
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="admin">
+                      <div className="flex items-center gap-2">
+                        <Crown className="h-4 w-4 text-amber-500" />
+                        Admin
+                      </div>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <DialogFooter>
+              <DialogFooter className="pt-4">
                 <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
                   Cancel
                 </Button>
@@ -299,12 +341,16 @@ export default function UsersPage() {
         </Dialog>
       </div>
 
-      <Card>
-        <CardHeader>
+      <Card className="border-0 shadow-lg overflow-hidden">
+        <div className="h-1 bg-gradient-to-r from-amber-500 to-orange-500" />
+        <CardHeader className="bg-gradient-to-r from-amber-500/5 to-orange-500/5">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
+              <Users className="h-5 w-5 text-amber-600 dark:text-amber-400" />
               All Users
+              <Badge variant="outline" className="ml-2 bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30">
+                {users.length}
+              </Badge>
             </CardTitle>
             <div className="relative w-full sm:w-72">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -312,56 +358,64 @@ export default function UsersPage() {
                 placeholder="Search users..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
+                className="pl-9 bg-background"
                 data-testid="input-search"
               />
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           {isLoading ? (
-            <div className="space-y-3">
+            <div className="p-6 space-y-3">
               {[...Array(5)].map((_, i) => (
                 <Skeleton key={i} className="h-16 w-full" />
               ))}
             </div>
           ) : users.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No users found</p>
+            <div className="text-center py-16">
+              <Users className="h-16 w-16 mx-auto mb-4 text-muted-foreground/30" />
+              <p className="text-muted-foreground text-lg">No users found</p>
+              <p className="text-sm text-muted-foreground/70 mt-1">Create your first user to get started</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Username</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                  <TableRow className="bg-muted/30 hover:bg-muted/30">
+                    <TableHead className="font-semibold">User</TableHead>
+                    <TableHead className="font-semibold">Username</TableHead>
+                    <TableHead className="font-semibold">Email</TableHead>
+                    <TableHead className="font-semibold">Role</TableHead>
+                    <TableHead className="font-semibold">Created</TableHead>
+                    <TableHead className="text-right font-semibold">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {users.map((user) => (
-                    <TableRow key={user.id} data-testid={`row-user-${user.id}`}>
-                      <TableCell className="font-medium">
-                        {user.firstName} {user.lastName}
-                      </TableCell>
-                      <TableCell>{user.username}</TableCell>
-                      <TableCell>{user.email || "-"}</TableCell>
+                    <TableRow key={user.id} className="hover:bg-muted/30" data-testid={`row-user-${user.id}`}>
                       <TableCell>
-                        <Badge variant={getRoleBadgeVariant(user.role)} className="flex items-center w-fit">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-10 w-10 ring-2 ring-offset-2 ring-offset-background ring-amber-500/20">
+                            <AvatarFallback className={`bg-gradient-to-br ${getAvatarGradient(user.role)} text-white font-semibold`}>
+                              {getInitials(user.firstName, user.lastName)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="font-medium">{user.firstName} {user.lastName}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-mono text-primary font-medium">{user.username}</TableCell>
+                      <TableCell className="text-muted-foreground">{user.email || "-"}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={`flex items-center w-fit ${getRoleBadgeStyle(user.role)}`}>
                           {getRoleIcon(user.role)}
                           {user.role || "user"}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-muted-foreground">
                         {user.createdAt ? format(new Date(user.createdAt), "MMM dd, yyyy") : "-"}
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-1">
                           <Button
                             variant="ghost"
                             size="icon"
@@ -391,9 +445,14 @@ export default function UsersPage() {
 
       {/* Edit User Dialog */}
       <Dialog open={!!editUser} onOpenChange={(open) => { if (!open) { setEditUser(null); resetForm(); } }}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Edit User</DialogTitle>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center">
+                <Pencil className="h-4 w-4 text-white" />
+              </div>
+              Edit User
+            </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -456,13 +515,28 @@ export default function UsersPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="user">User</SelectItem>
-                  <SelectItem value="manager">Manager</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="user">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-slate-500" />
+                      User
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="manager">
+                    <div className="flex items-center gap-2">
+                      <UserCheck className="h-4 w-4 text-blue-500" />
+                      Manager
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="admin">
+                    <div className="flex items-center gap-2">
+                      <Crown className="h-4 w-4 text-amber-500" />
+                      Admin
+                    </div>
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <DialogFooter>
+            <DialogFooter className="pt-4">
               <Button type="button" variant="outline" onClick={() => setEditUser(null)}>
                 Cancel
               </Button>
@@ -478,19 +552,24 @@ export default function UsersPage() {
       <AlertDialog open={!!deleteUser} onOpenChange={(open) => { if (!open) setDeleteUser(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete User</AlertDialogTitle>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-lg bg-red-500/10 flex items-center justify-center">
+                <Trash2 className="h-4 w-4 text-red-600" />
+              </div>
+              Delete User
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete {deleteUser?.firstName} {deleteUser?.lastName}? This action cannot be undone.
+              Are you sure you want to delete <span className="font-semibold">{deleteUser?.firstName} {deleteUser?.lastName}</span>? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleteUser && deleteMutation.mutate(deleteUser.id)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-red-600 hover:bg-red-700"
               data-testid="button-confirm-delete"
             >
-              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+              {deleteMutation.isPending ? "Deleting..." : "Delete User"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

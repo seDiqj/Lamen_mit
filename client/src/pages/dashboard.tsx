@@ -15,6 +15,8 @@ import {
   Clock,
   ArrowUpRight,
   PiggyBank,
+  Wallet,
+  CalendarDays,
 } from "lucide-react";
 import { Link } from "wouter";
 import {
@@ -63,6 +65,17 @@ const CHART_COLORS = [
   "hsl(var(--chart-5))",
 ];
 
+type StatCardProps = {
+  title: string;
+  value: string;
+  change?: string;
+  changeType?: "positive" | "negative";
+  icon: React.ElementType;
+  loading?: boolean;
+  gradient: string;
+  iconBg: string;
+};
+
 function StatCard({
   title,
   value,
@@ -70,24 +83,19 @@ function StatCard({
   changeType,
   icon: Icon,
   loading,
-}: {
-  title: string;
-  value: string;
-  change?: string;
-  changeType?: "positive" | "negative";
-  icon: React.ElementType;
-  loading?: boolean;
-}) {
+  gradient,
+  iconBg,
+}: StatCardProps) {
   if (loading) {
     return (
-      <Card>
+      <Card className="overflow-hidden">
         <CardContent className="p-6">
           <div className="flex items-center justify-between gap-4">
             <div className="space-y-2">
               <Skeleton className="h-4 w-24" />
               <Skeleton className="h-8 w-32" />
             </div>
-            <Skeleton className="h-12 w-12 rounded-xl" />
+            <Skeleton className="h-14 w-14 rounded-xl" />
           </div>
         </CardContent>
       </Card>
@@ -95,15 +103,16 @@ function StatCard({
   }
 
   return (
-    <Card>
-      <CardContent className="p-6">
+    <Card className="overflow-hidden border-0 shadow-lg">
+      <div className={`h-1 ${gradient}`} />
+      <CardContent className="p-5">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-sm text-muted-foreground">{title}</p>
+            <p className="text-sm text-muted-foreground font-medium">{title}</p>
             <p className="text-2xl font-bold mt-1">{value}</p>
             {change && (
-              <div className={`flex items-center gap-1 mt-1 text-sm ${
-                changeType === "positive" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+              <div className={`flex items-center gap-1 mt-2 text-xs font-medium ${
+                changeType === "positive" ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"
               }`}>
                 {changeType === "positive" ? (
                   <TrendingUp className="h-3 w-3" />
@@ -114,8 +123,8 @@ function StatCard({
               </div>
             )}
           </div>
-          <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Icon className="h-6 w-6 text-primary" />
+          <div className={`h-14 w-14 rounded-xl ${iconBg} flex items-center justify-center shadow-lg`}>
+            <Icon className="h-7 w-7 text-white" />
           </div>
         </div>
       </CardContent>
@@ -128,13 +137,13 @@ function getStatusColor(status: string) {
     case "active":
     case "approved":
     case "completed":
-      return "bg-green-500/10 text-green-700 dark:text-green-400";
+      return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30";
     case "pending":
-      return "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400";
+      return "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30";
     case "disbursed":
-      return "bg-blue-500/10 text-blue-700 dark:text-blue-400";
+      return "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30";
     case "defaulted":
-      return "bg-red-500/10 text-red-700 dark:text-red-400";
+      return "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30";
     default:
       return "bg-muted text-muted-foreground";
   }
@@ -159,33 +168,50 @@ export default function Dashboard() {
     }).format(amount);
   };
 
+  const today = new Date().toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "2-digit",
+    year: "numeric"
+  });
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="space-y-6 p-1">
+      {/* Header */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold" data-testid="text-dashboard-title">
-            Welcome back, {user?.firstName || "User"}
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 dark:from-amber-400 dark:to-yellow-500 bg-clip-text text-transparent" data-testid="text-dashboard-title">
+            Financial Overview
           </h1>
-          <p className="text-muted-foreground">
-            Here's what's happening with your loans today.
+          <p className="text-muted-foreground mt-1">
+            Daily Cash Position Summary
           </p>
         </div>
-        {(roleData?.role === "manager" || roleData?.role === "admin") && (
-          <Button asChild data-testid="button-new-loan">
-            <Link href="/loans/new">
-              <FileText className="mr-2 h-4 w-4" />
-              New Loan
-            </Link>
-          </Button>
-        )}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-card border">
+            <CalendarDays className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium">{today}</span>
+          </div>
+          {(roleData?.role === "manager" || roleData?.role === "admin") && (
+            <Button asChild data-testid="button-new-loan">
+              <Link href="/loans/new">
+                <FileText className="mr-2 h-4 w-4" />
+                New Loan
+              </Link>
+            </Button>
+          )}
+        </div>
       </div>
 
+      {/* Top Stats Row */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Total Loans"
           value={stats?.totalLoans?.toString() || "0"}
           icon={FileText}
           loading={isLoading}
+          gradient="bg-gradient-to-r from-blue-500 to-cyan-500"
+          iconBg="bg-gradient-to-br from-blue-500 to-cyan-600"
         />
         <StatCard
           title="Active Loans"
@@ -194,41 +220,54 @@ export default function Dashboard() {
           changeType="positive"
           icon={CheckCircle2}
           loading={isLoading}
+          gradient="bg-gradient-to-r from-emerald-500 to-green-500"
+          iconBg="bg-gradient-to-br from-emerald-500 to-green-600"
         />
         <StatCard
           title="Total Customers"
           value={stats?.totalCustomers?.toString() || "0"}
           icon={Users}
           loading={isLoading}
+          gradient="bg-gradient-to-r from-violet-500 to-purple-500"
+          iconBg="bg-gradient-to-br from-violet-500 to-purple-600"
         />
         <StatCard
           title="Pending Approval"
           value={stats?.pendingLoans?.toString() || "0"}
           icon={Clock}
           loading={isLoading}
+          gradient="bg-gradient-to-r from-amber-500 to-orange-500"
+          iconBg="bg-gradient-to-br from-amber-500 to-orange-600"
         />
       </div>
 
+      {/* Financial Stats Row */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Total Disbursed"
           value={formatCurrency(stats?.totalDisbursed || 0)}
           icon={PiggyBank}
           loading={isLoading}
+          gradient="bg-gradient-to-r from-teal-500 to-emerald-500"
+          iconBg="bg-gradient-to-br from-teal-500 to-emerald-600"
         />
         <StatCard
           title="Total Collected"
           value={formatCurrency(stats?.totalCollected || 0)}
           change="+8.2% this month"
           changeType="positive"
-          icon={DollarSign}
+          icon={Wallet}
           loading={isLoading}
+          gradient="bg-gradient-to-r from-green-500 to-lime-500"
+          iconBg="bg-gradient-to-br from-green-500 to-lime-600"
         />
         <StatCard
           title="Outstanding Balance"
           value={formatCurrency(stats?.outstandingBalance || 0)}
           icon={TrendingUp}
           loading={isLoading}
+          gradient="bg-gradient-to-r from-indigo-500 to-blue-500"
+          iconBg="bg-gradient-to-br from-indigo-500 to-blue-600"
         />
         <StatCard
           title="Overdue Loans"
@@ -237,14 +276,23 @@ export default function Dashboard() {
           changeType="positive"
           icon={AlertCircle}
           loading={isLoading}
+          gradient="bg-gradient-to-r from-rose-500 to-red-500"
+          iconBg="bg-gradient-to-br from-rose-500 to-red-600"
         />
       </div>
 
+      {/* Charts Row */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-4">
-            <CardTitle>Monthly Overview</CardTitle>
-            <Badge variant="outline">Last 6 months</Badge>
+        <Card className="border-0 shadow-lg overflow-hidden">
+          <div className="h-1 bg-gradient-to-r from-emerald-500 to-teal-500" />
+          <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
+            <div>
+              <CardTitle className="text-lg font-semibold">Monthly Overview</CardTitle>
+              <p className="text-sm text-muted-foreground">Disbursement trends</p>
+            </div>
+            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30">
+              Last 6 months
+            </Badge>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -255,27 +303,38 @@ export default function Dashboard() {
                   data={stats?.monthlyDisbursements || []}
                   margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted/30" />
                   <XAxis dataKey="month" className="text-xs" />
-                  <YAxis className="text-xs" tickFormatter={(v) => `$${v / 1000}k`} />
+                  <YAxis className="text-xs" tickFormatter={(v) => `${v / 1000}k`} />
                   <Tooltip 
                     formatter={(value: number) => [formatCurrency(value), "Amount"]}
                     contentStyle={{ 
                       backgroundColor: "hsl(var(--card))",
                       border: "1px solid hsl(var(--border))",
-                      borderRadius: "8px",
+                      borderRadius: "12px",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
                     }}
                   />
-                  <Bar dataKey="amount" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="amount" fill="url(#barGradient)" radius={[6, 6, 0, 0]} />
+                  <defs>
+                    <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(var(--chart-1))" />
+                      <stop offset="100%" stopColor="hsl(142 76% 28%)" />
+                    </linearGradient>
+                  </defs>
                 </BarChart>
               </ResponsiveContainer>
             )}
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-4">
-            <CardTitle>Loan Status Distribution</CardTitle>
+        <Card className="border-0 shadow-lg overflow-hidden">
+          <div className="h-1 bg-gradient-to-r from-amber-500 to-yellow-500" />
+          <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
+            <div>
+              <CardTitle className="text-lg font-semibold">Loan Status Distribution</CardTitle>
+              <p className="text-sm text-muted-foreground">By current status</p>
+            </div>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -287,9 +346,9 @@ export default function Dashboard() {
                     data={stats?.loansByStatus || []}
                     cx="50%"
                     cy="50%"
-                    innerRadius={60}
-                    outerRadius={100}
-                    paddingAngle={2}
+                    innerRadius={70}
+                    outerRadius={110}
+                    paddingAngle={3}
                     dataKey="count"
                     nameKey="status"
                     label={({ status, count }) => `${status}: ${count}`}
@@ -302,7 +361,8 @@ export default function Dashboard() {
                     contentStyle={{ 
                       backgroundColor: "hsl(var(--card))",
                       border: "1px solid hsl(var(--border))",
-                      borderRadius: "8px",
+                      borderRadius: "12px",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
                     }}
                   />
                 </PieChart>
@@ -312,11 +372,18 @@ export default function Dashboard() {
         </Card>
       </div>
 
+      {/* Bottom Row */}
       <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between gap-4">
-            <CardTitle>Collections Trend</CardTitle>
-            <Badge variant="outline">vs Disbursements</Badge>
+        <Card className="lg:col-span-2 border-0 shadow-lg overflow-hidden">
+          <div className="h-1 bg-gradient-to-r from-violet-500 to-purple-500" />
+          <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
+            <div>
+              <CardTitle className="text-lg font-semibold">Collections Trend</CardTitle>
+              <p className="text-sm text-muted-foreground">Monthly collection performance</p>
+            </div>
+            <Badge variant="outline" className="bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/30">
+              vs Disbursements
+            </Badge>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -327,15 +394,16 @@ export default function Dashboard() {
                   data={stats?.monthlyCollections || []}
                   margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted/30" />
                   <XAxis dataKey="month" className="text-xs" />
-                  <YAxis className="text-xs" tickFormatter={(v) => `$${v / 1000}k`} />
+                  <YAxis className="text-xs" tickFormatter={(v) => `${v / 1000}k`} />
                   <Tooltip 
                     formatter={(value: number) => [formatCurrency(value), "Amount"]}
                     contentStyle={{ 
                       backgroundColor: "hsl(var(--card))",
                       border: "1px solid hsl(var(--border))",
-                      borderRadius: "8px",
+                      borderRadius: "12px",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
                     }}
                   />
                   <Legend />
@@ -343,8 +411,8 @@ export default function Dashboard() {
                     type="monotone" 
                     dataKey="amount" 
                     stroke="hsl(var(--chart-1))" 
-                    strokeWidth={2}
-                    dot={{ fill: "hsl(var(--chart-1))" }}
+                    strokeWidth={3}
+                    dot={{ fill: "hsl(var(--chart-1))", strokeWidth: 2, r: 5 }}
                     name="Collections"
                   />
                 </LineChart>
@@ -353,10 +421,14 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-4">
-            <CardTitle>Recent Loans</CardTitle>
-            <Button variant="ghost" size="sm" asChild>
+        <Card className="border-0 shadow-lg overflow-hidden">
+          <div className="h-1 bg-gradient-to-r from-cyan-500 to-blue-500" />
+          <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
+            <div>
+              <CardTitle className="text-lg font-semibold">Recent Loans</CardTitle>
+              <p className="text-sm text-muted-foreground">Latest applications</p>
+            </div>
+            <Button variant="ghost" size="sm" asChild className="text-primary hover:text-primary">
               <Link href="/loans">
                 View all
                 <ArrowUpRight className="ml-1 h-3 w-3" />
@@ -368,7 +440,7 @@ export default function Dashboard() {
               <div className="space-y-4">
                 {[1, 2, 3, 4].map((i) => (
                   <div key={i} className="flex items-center gap-3">
-                    <Skeleton className="h-10 w-10 rounded-full" />
+                    <Skeleton className="h-11 w-11 rounded-full" />
                     <div className="flex-1 space-y-1">
                       <Skeleton className="h-4 w-24" />
                       <Skeleton className="h-3 w-16" />
@@ -378,10 +450,10 @@ export default function Dashboard() {
                 ))}
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {(stats?.recentLoans || []).slice(0, 5).map((loan) => (
-                  <div key={loan.id} className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium text-primary">
+                  <div key={loan.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
+                    <div className="h-11 w-11 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-sm font-semibold text-white shadow-md">
                       {loan.customerName?.substring(0, 2).toUpperCase() || "??"}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -389,17 +461,18 @@ export default function Dashboard() {
                       <p className="text-xs text-muted-foreground">{loan.applicationId}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-medium">{formatCurrency(loan.amount)}</p>
-                      <Badge className={`text-xs ${getStatusColor(loan.status)}`}>
+                      <p className="text-sm font-semibold">{formatCurrency(loan.amount)}</p>
+                      <Badge variant="outline" className={`text-xs ${getStatusColor(loan.status)}`}>
                         {loan.status}
                       </Badge>
                     </div>
                   </div>
                 ))}
                 {(!stats?.recentLoans || stats.recentLoans.length === 0) && (
-                  <p className="text-sm text-muted-foreground text-center py-8">
-                    No recent loans
-                  </p>
+                  <div className="text-center py-8">
+                    <FileText className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
+                    <p className="text-sm text-muted-foreground">No recent loans</p>
+                  </div>
                 )}
               </div>
             )}

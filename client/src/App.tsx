@@ -27,17 +27,25 @@ import NotFound from "@/pages/not-found";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const style = {
-    "--sidebar-width": "16rem",
+    "--sidebar-width": "17rem",
     "--sidebar-width-icon": "3rem",
   } as React.CSSProperties;
 
   return (
     <SidebarProvider style={style}>
-      <div className="flex h-screen w-full">
+      <div className="flex h-screen w-full bg-gradient-to-br from-background via-background to-muted/30">
         <AppSidebar />
         <SidebarInset className="flex flex-col flex-1 overflow-hidden">
-          <header className="flex items-center justify-between gap-4 p-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-            <SidebarTrigger data-testid="button-sidebar-toggle" />
+          <header className="flex items-center justify-between gap-4 px-4 py-3 border-b bg-card/80 backdrop-blur-sm shadow-sm">
+            <div className="flex items-center gap-3">
+              <SidebarTrigger data-testid="button-sidebar-toggle" />
+              <div className="hidden sm:block">
+                <div className="h-6 w-px bg-border" />
+              </div>
+              <span className="hidden sm:inline-flex text-sm font-medium text-muted-foreground">
+                Loan Management System
+              </span>
+            </div>
             <ThemeToggle />
           </header>
           <main className="flex-1 overflow-auto p-6">

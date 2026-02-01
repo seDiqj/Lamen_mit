@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   LayoutDashboard,
   Users,
@@ -29,15 +30,38 @@ import {
   Activity,
   PiggyBank,
   Shield,
+  ChevronDown,
 } from "lucide-react";
+import lamenLogo from "@assets/LamenLogo_1769936371528.jpeg";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { useState } from "react";
 
 type UserRoleData = {
   role: "user" | "manager" | "admin";
 };
 
+type MenuItem = {
+  title: string;
+  url: string;
+  icon: React.ElementType;
+  badge?: string;
+};
+
+type MenuGroup = {
+  label: string;
+  icon: React.ElementType;
+  items: MenuItem[];
+  defaultOpen?: boolean;
+};
+
 export function AppSidebar() {
   const { user, logout } = useAuth();
   const [location] = useLocation();
+  const [openGroups, setOpenGroups] = useState<string[]>(["Dashboard", "Loan Operations", "Management"]);
 
   const { data: roleData } = useQuery<UserRoleData>({
     queryKey: ["/api/user/role"],
@@ -45,101 +69,207 @@ export function AppSidebar() {
 
   const role = roleData?.role || "user";
 
-  const userMenuItems = [
-    { title: "Dashboard", url: "/", icon: LayoutDashboard },
-    { title: "My Loans", url: "/loans", icon: FileText },
-    { title: "Payments", url: "/payments", icon: CreditCard },
+  const toggleGroup = (label: string) => {
+    setOpenGroups(prev => 
+      prev.includes(label) 
+        ? prev.filter(g => g !== label)
+        : [...prev, label]
+    );
+  };
+
+  const userMenuGroups: MenuGroup[] = [
+    {
+      label: "Dashboard",
+      icon: LayoutDashboard,
+      defaultOpen: true,
+      items: [
+        { title: "Overview", url: "/", icon: LayoutDashboard },
+      ],
+    },
+    {
+      label: "My Account",
+      icon: FileText,
+      items: [
+        { title: "My Loans", url: "/loans", icon: FileText },
+        { title: "Payments", url: "/payments", icon: CreditCard },
+      ],
+    },
   ];
 
-  const managerMenuItems = [
-    { title: "Dashboard", url: "/", icon: LayoutDashboard },
-    { title: "Loans", url: "/loans", icon: FileText },
-    { title: "Customers", url: "/customers", icon: Users },
-    { title: "Approvals", url: "/approvals", icon: ClipboardList },
-    { title: "Disbursements", url: "/disbursements", icon: PiggyBank },
-    { title: "Payments", url: "/payments", icon: CreditCard },
-    { title: "Reports", url: "/reports", icon: BarChart3 },
+  const managerMenuGroups: MenuGroup[] = [
+    {
+      label: "Dashboard",
+      icon: LayoutDashboard,
+      defaultOpen: true,
+      items: [
+        { title: "Overview", url: "/", icon: LayoutDashboard },
+      ],
+    },
+    {
+      label: "Loan Operations",
+      icon: FileText,
+      items: [
+        { title: "All Loans", url: "/loans", icon: FileText },
+        { title: "Customers", url: "/customers", icon: Users },
+        { title: "Approvals", url: "/approvals", icon: ClipboardList, badge: "3" },
+        { title: "Disbursements", url: "/disbursements", icon: PiggyBank },
+        { title: "Payments", url: "/payments", icon: CreditCard },
+      ],
+    },
+    {
+      label: "Reports",
+      icon: BarChart3,
+      items: [
+        { title: "Analytics", url: "/reports", icon: BarChart3 },
+      ],
+    },
   ];
 
-  const adminMenuItems = [
-    { title: "Dashboard", url: "/", icon: LayoutDashboard },
-    { title: "Loans", url: "/loans", icon: FileText },
-    { title: "Customers", url: "/customers", icon: Users },
-    { title: "Approvals", url: "/approvals", icon: ClipboardList },
-    { title: "Disbursements", url: "/disbursements", icon: PiggyBank },
-    { title: "Payments", url: "/payments", icon: CreditCard },
-    { title: "Branches", url: "/branches", icon: Building2 },
-    { title: "Officers", url: "/officers", icon: UserCheck },
-    { title: "Users", url: "/users", icon: Shield },
-    { title: "Reports", url: "/reports", icon: BarChart3 },
-    { title: "Activity Log", url: "/activity", icon: Activity },
-    { title: "Settings", url: "/settings", icon: Settings },
+  const adminMenuGroups: MenuGroup[] = [
+    {
+      label: "Dashboard",
+      icon: LayoutDashboard,
+      defaultOpen: true,
+      items: [
+        { title: "Overview", url: "/", icon: LayoutDashboard },
+      ],
+    },
+    {
+      label: "Loan Operations",
+      icon: FileText,
+      items: [
+        { title: "All Loans", url: "/loans", icon: FileText },
+        { title: "Customers", url: "/customers", icon: Users },
+        { title: "Approvals", url: "/approvals", icon: ClipboardList },
+        { title: "Disbursements", url: "/disbursements", icon: PiggyBank },
+        { title: "Payments", url: "/payments", icon: CreditCard },
+      ],
+    },
+    {
+      label: "Management",
+      icon: Building2,
+      items: [
+        { title: "Branches", url: "/branches", icon: Building2 },
+        { title: "Officers", url: "/officers", icon: UserCheck },
+        { title: "Users", url: "/users", icon: Shield },
+      ],
+    },
+    {
+      label: "Reports & Logs",
+      icon: BarChart3,
+      items: [
+        { title: "Analytics", url: "/reports", icon: BarChart3 },
+        { title: "Activity Log", url: "/activity", icon: Activity },
+      ],
+    },
+    {
+      label: "Settings",
+      icon: Settings,
+      items: [
+        { title: "System Settings", url: "/settings", icon: Settings },
+      ],
+    },
   ];
 
-  const menuItems = role === "admin" ? adminMenuItems : role === "manager" ? managerMenuItems : userMenuItems;
+  const menuGroups = role === "admin" ? adminMenuGroups : role === "manager" ? managerMenuGroups : userMenuGroups;
 
   const initials = user?.firstName && user?.lastName 
     ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
     : user?.email?.[0]?.toUpperCase() || "U";
 
+  const isActiveRoute = (url: string) => {
+    if (url === "/") return location === "/";
+    return location.startsWith(url);
+  };
+
   return (
-    <Sidebar className="border-r">
-      <SidebarHeader className="p-4">
+    <Sidebar className="border-r border-sidebar-border">
+      <SidebarHeader className="p-4 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
-          <img 
-            src="/logo.jpeg" 
-            alt="Lamen Microfinance" 
-            className="h-10 w-auto"
-            data-testid="img-sidebar-logo"
-          />
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-amber-400 to-yellow-500 rounded-full blur-sm opacity-60" />
+            <img 
+              src={lamenLogo}
+              alt="Lamen Microfinance" 
+              className="h-11 w-11 rounded-full object-cover relative z-10 border-2 border-amber-400/50"
+              data-testid="img-sidebar-logo"
+            />
+          </div>
           <div className="flex flex-col">
-            <span className="font-semibold text-sm">Lamen</span>
-            <span className="text-xs text-muted-foreground">Microfinance</span>
+            <span className="font-bold text-base bg-gradient-to-r from-amber-300 to-yellow-400 bg-clip-text text-transparent">Lamen</span>
+            <span className="text-xs text-sidebar-foreground/70">Microfinance Institution</span>
           </div>
         </div>
       </SidebarHeader>
 
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>
-            {role === "admin" ? "Administration" : role === "manager" ? "Management" : "Menu"}
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
-                    asChild 
-                    isActive={location === item.url}
-                    data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
-                  >
-                    <Link href={item.url}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+      <SidebarContent className="px-2 py-3">
+        {menuGroups.map((group) => (
+          <Collapsible
+            key={group.label}
+            open={openGroups.includes(group.label)}
+            onOpenChange={() => toggleGroup(group.label)}
+            className="mb-1"
+          >
+            <SidebarGroup className="p-0">
+              <CollapsibleTrigger className="w-full" data-testid={`nav-group-${group.label.toLowerCase().replace(/\s+/g, '-')}`}>
+                <div className="flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium text-sidebar-foreground/80 hover-elevate transition-colors">
+                  <div className="flex items-center gap-2">
+                    <div className="h-6 w-6 rounded-md bg-gradient-to-br from-amber-500/20 to-yellow-600/20 flex items-center justify-center">
+                      <group.icon className="h-3.5 w-3.5 text-amber-400" />
+                    </div>
+                    <span>{group.label}</span>
+                  </div>
+                  <ChevronDown className={`h-4 w-4 text-sidebar-foreground/50 transition-transform ${openGroups.includes(group.label) ? 'rotate-180' : ''}`} />
+                </div>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <SidebarGroupContent className="pl-4 pt-1">
+                  <SidebarMenu>
+                    {group.items.map((item) => (
+                      <SidebarMenuItem key={item.title}>
+                        <SidebarMenuButton 
+                          asChild 
+                          isActive={isActiveRoute(item.url)}
+                          className={`relative ${isActiveRoute(item.url) ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''}`}
+                          data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
+                        >
+                          <Link href={item.url}>
+                            <item.icon className={`h-4 w-4 ${isActiveRoute(item.url) ? 'text-amber-400' : ''}`} />
+                            <span>{item.title}</span>
+                            {item.badge && (
+                              <Badge className="ml-auto h-5 min-w-5 px-1.5 bg-amber-500 text-amber-950 text-xs font-semibold">
+                                {item.badge}
+                              </Badge>
+                            )}
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </CollapsibleContent>
+            </SidebarGroup>
+          </Collapsible>
+        ))}
       </SidebarContent>
 
-      <SidebarFooter className="p-4">
-        <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-          <Avatar className="h-9 w-9">
+      <SidebarFooter className="p-3 border-t border-sidebar-border">
+        <div className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-sidebar-accent to-sidebar-accent/50">
+          <Avatar className="h-10 w-10 ring-2 ring-amber-500/30">
             <AvatarImage src={user?.profileImageUrl || undefined} alt={user?.firstName || "User"} />
-            <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+            <AvatarFallback className="bg-gradient-to-br from-amber-500 to-yellow-600 text-amber-950 font-semibold">
               {initials}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium truncate">
+            <div className="text-sm font-medium truncate text-sidebar-foreground">
               {user?.firstName && user?.lastName 
                 ? `${user.firstName} ${user.lastName}` 
                 : user?.email || "User"}
             </div>
-            <div className="text-xs text-muted-foreground capitalize">{role}</div>
+            <Badge className="mt-0.5 h-5 px-2 text-xs bg-amber-500/20 text-amber-300 border-amber-500/30">
+              {role.charAt(0).toUpperCase() + role.slice(1)}
+            </Badge>
           </div>
           <Button 
             variant="ghost" 

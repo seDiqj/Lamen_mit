@@ -24,6 +24,7 @@ import {
   Phone,
   ChevronLeft,
   ChevronRight,
+  Users,
 } from "lucide-react";
 import type { Customer } from "@shared/schema";
 
@@ -67,12 +68,18 @@ export default function CustomersPage() {
 
   return (
     <div className="space-y-6">
+      {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold" data-testid="text-customers-title">Customers</h1>
-          <p className="text-muted-foreground">
-            Manage customer profiles and information
-          </p>
+        <div className="flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg">
+            <Users className="h-6 w-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold" data-testid="text-customers-title">Customers</h1>
+            <p className="text-muted-foreground">
+              Manage customer profiles and information
+            </p>
+          </div>
         </div>
         {(roleData?.role === "manager" || roleData?.role === "admin") && (
           <Button asChild data-testid="button-add-customer">
@@ -84,14 +91,15 @@ export default function CustomersPage() {
         )}
       </div>
 
-      <Card>
-        <CardHeader>
+      <Card className="border-0 shadow-lg overflow-hidden">
+        <div className="h-1 bg-gradient-to-r from-violet-500 to-purple-500" />
+        <CardHeader className="bg-gradient-to-r from-violet-500/5 to-purple-500/5">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search by name, phone, ID..."
-                className="pl-10"
+                className="pl-10 bg-background"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 data-testid="input-search-customers"
@@ -103,18 +111,18 @@ export default function CustomersPage() {
             </Button>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Customer No.</TableHead>
-                  <TableHead>National ID</TableHead>
-                  <TableHead>Phone</TableHead>
-                  <TableHead>District</TableHead>
-                  <TableHead>Active Loans</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                <TableRow className="bg-muted/30 hover:bg-muted/30">
+                  <TableHead className="font-semibold">Customer</TableHead>
+                  <TableHead className="font-semibold">Customer No.</TableHead>
+                  <TableHead className="font-semibold">National ID</TableHead>
+                  <TableHead className="font-semibold">Phone</TableHead>
+                  <TableHead className="font-semibold">District</TableHead>
+                  <TableHead className="font-semibold">Active Loans</TableHead>
+                  <TableHead className="text-right font-semibold">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -130,11 +138,11 @@ export default function CustomersPage() {
                   ))
                 ) : data?.customers && data.customers.length > 0 ? (
                   data.customers.map((customer) => (
-                    <TableRow key={customer.id} data-testid={`row-customer-${customer.id}`}>
+                    <TableRow key={customer.id} className="hover:bg-muted/30" data-testid={`row-customer-${customer.id}`}>
                       <TableCell>
                         <div className="flex items-center gap-3">
-                          <Avatar className="h-9 w-9">
-                            <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                          <Avatar className="h-10 w-10 ring-2 ring-violet-500/20">
+                            <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-white text-sm font-semibold">
                               {getInitials(customer.firstName, customer.lastName)}
                             </AvatarFallback>
                           </Avatar>
@@ -150,33 +158,35 @@ export default function CustomersPage() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="font-mono text-sm">
+                      <TableCell className="font-mono text-sm text-primary font-medium">
                         {customer.customerNo || "-"}
                       </TableCell>
                       <TableCell>{customer.nationalId || "-"}</TableCell>
                       <TableCell>
                         {customer.phoneNumber && (
-                          <div className="flex items-center gap-1 text-sm">
-                            <Phone className="h-3 w-3" />
+                          <div className="flex items-center gap-1.5 text-sm">
+                            <div className="h-5 w-5 rounded bg-emerald-500/10 flex items-center justify-center">
+                              <Phone className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                            </div>
                             {customer.phoneNumber}
                           </div>
                         )}
                       </TableCell>
                       <TableCell>{customer.district || "-"}</TableCell>
                       <TableCell>
-                        <Badge variant="outline">
+                        <Badge variant="outline" className={`${customer.activeLoans ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30' : 'bg-muted text-muted-foreground'}`}>
                           {customer.activeLoans || 0} active
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <Button variant="ghost" size="icon" asChild>
+                          <Button variant="ghost" size="icon" asChild data-testid={`button-view-customer-${customer.id}`}>
                             <Link href={`/customers/${customer.id}`}>
                               <Eye className="h-4 w-4" />
                             </Link>
                           </Button>
                           {(roleData?.role === "manager" || roleData?.role === "admin") && (
-                            <Button variant="ghost" size="icon" asChild>
+                            <Button variant="ghost" size="icon" asChild data-testid={`button-edit-customer-${customer.id}`}>
                               <Link href={`/customers/${customer.id}/edit`}>
                                 <Edit className="h-4 w-4" />
                               </Link>
@@ -188,8 +198,9 @@ export default function CustomersPage() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      No customers found
+                    <TableCell colSpan={7} className="text-center py-12">
+                      <Users className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
+                      <p className="text-muted-foreground">No customers found</p>
                     </TableCell>
                   </TableRow>
                 )}
@@ -198,7 +209,7 @@ export default function CustomersPage() {
           </div>
 
           {data && data.totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4">
+            <div className="flex items-center justify-between p-4 border-t">
               <p className="text-sm text-muted-foreground">
                 Showing {((page - 1) * limit) + 1} to {Math.min(page * limit, data.total)} of {data.total} customers
               </p>
@@ -211,7 +222,7 @@ export default function CustomersPage() {
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <span className="text-sm">
+                <span className="text-sm px-2 py-1 rounded bg-muted">
                   Page {page} of {data.totalPages}
                 </span>
                 <Button
