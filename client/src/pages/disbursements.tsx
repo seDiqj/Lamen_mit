@@ -84,11 +84,11 @@ export default function DisbursementsPage() {
   });
 
   const formatCurrency = (amount: string | number | null) => {
-    if (!amount) return "$0";
+    if (!amount) return "AFN 0";
     const num = typeof amount === "string" ? parseFloat(amount) : amount;
     return new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency: "USD",
+      currency: "AFN",
       minimumFractionDigits: 0,
     }).format(num);
   };

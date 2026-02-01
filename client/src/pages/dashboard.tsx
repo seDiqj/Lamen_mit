@@ -153,7 +153,7 @@ export default function Dashboard() {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency: "USD",
+      currency: "AFN",
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount);

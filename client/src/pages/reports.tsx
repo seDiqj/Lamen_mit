@@ -85,7 +85,7 @@ export default function ReportsPage() {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency: "USD",
+      currency: "AFN",
       minimumFractionDigits: 0,
     }).format(amount);
   };
