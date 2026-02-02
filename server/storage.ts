@@ -774,7 +774,7 @@ export class DatabaseStorage implements IStorage {
     
     const [amounts] = await db
       .select({
-        totalDisbursed: sql<number>`COALESCE(SUM(${loans.principleAmount}::numeric), 0)`,
+        totalDisbursed: sql<number>`COALESCE(SUM(CASE WHEN ${loans.status} IN ('disbursed', 'active', 'completed') THEN ${loans.principleAmount}::numeric ELSE 0 END), 0)`,
         totalCollection: sql<number>`COALESCE(SUM(${loans.totalCollection}::numeric), 0)`,
         outstandingPortfolio: sql<number>`COALESCE(SUM(${loans.outstandingPortfolio}::numeric), 0)`,
       })
@@ -798,7 +798,10 @@ export class DatabaseStorage implements IStorage {
       .select({
         status: loans.status,
         count: count(),
-        requestedAmount: sql<number>`COALESCE(SUM(${loans.requestAmount}::numeric), 0)`,
+        requestedAmount: sql<number>`COALESCE(SUM(CASE 
+          WHEN ${loans.status} IN ('disbursed', 'active', 'completed') THEN ${loans.principleAmount}::numeric 
+          ELSE ${loans.requestAmount}::numeric 
+        END), 0)`,
       })
       .from(loans)
       .groupBy(loans.status);
