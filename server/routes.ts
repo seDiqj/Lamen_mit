@@ -926,6 +926,158 @@ export async function registerRoutes(
     }
   });
 
+  // ===== FAD REVIEW =====
+  app.post("/api/fad-reviews", isAuthenticated, requireRole("fad", "manager", "admin"), async (req: any, res) => {
+    try {
+      const { loanId, status, comments, dataQualityScore } = req.body;
+      
+      const loan = await storage.getLoan(loanId);
+      if (!loan) {
+        return res.status(404).json({ message: "Loan not found" });
+      }
+
+      // Create FAD review record
+      const review = await storage.createFadReview({
+        loanId,
+        reviewedById: req.session.userId,
+        reviewerName: req.user?.claims?.given_name || "FAD Reviewer",
+        status,
+        comments,
+        dataQualityScore: dataQualityScore || 0,
+        reviewedAt: new Date().toISOString(),
+      });
+
+      // Update loan status based on review outcome
+      if (status === "approved") {
+        await storage.updateLoan(loanId, { status: "committee_review" });
+        await logActivity(req, "fad_approve", "loan", loanId, `FAD approved - forwarded to committee review`);
+      } else {
+        await storage.updateLoan(loanId, { status: "rejected" });
+        await logActivity(req, "fad_reject", "loan", loanId, `FAD rejected - ${comments}`);
+      }
+
+      res.json(review);
+    } catch (error) {
+      console.error("Error creating FAD review:", error);
+      res.status(500).json({ message: "Failed to submit FAD review" });
+    }
+  });
+
+  app.get("/api/fad-reviews/:loanId", isAuthenticated, async (req, res) => {
+    try {
+      const review = await storage.getFadReviewByLoanId(req.params.loanId);
+      res.json(review);
+    } catch (error) {
+      console.error("Error fetching FAD review:", error);
+      res.status(500).json({ message: "Failed to fetch FAD review" });
+    }
+  });
+
+  // ===== COMMITTEE VOTING =====
+  app.get("/api/committee/pending-loans", isAuthenticated, requireRole("cfo", "coo", "ceo", "sharia", "manager", "admin"), async (req: any, res) => {
+    try {
+      // Get loans in committee_review status (passed FAD, awaiting committee)
+      const loans = await storage.getLoansWithDetails({ status: "committee_review" });
+      
+      // For each loan, get FAD review and committee votes
+      const loansWithApprovalInfo = await Promise.all(
+        loans.map(async (loan: any) => {
+          const fadReview = await storage.getFadReviewByLoanId(loan.id);
+          const votes = await storage.getCommitteeVotesByLoanId(loan.id);
+          const userRole = await storage.getUserRole(req.session.userId);
+          const userVote = votes.find((v: any) => v.voterId === req.session.userId);
+          
+          return {
+            loan,
+            fadReview,
+            votes,
+            userVote,
+          };
+        })
+      );
+
+      res.json(loansWithApprovalInfo);
+    } catch (error) {
+      console.error("Error fetching committee pending loans:", error);
+      res.status(500).json({ message: "Failed to fetch pending loans" });
+    }
+  });
+
+  app.post("/api/committee/vote", isAuthenticated, requireRole("cfo", "coo", "ceo", "sharia", "manager", "admin"), async (req: any, res) => {
+    try {
+      const { loanId, vote, comments } = req.body;
+      
+      const loan = await storage.getLoan(loanId);
+      if (!loan) {
+        return res.status(404).json({ message: "Loan not found" });
+      }
+
+      // Get user's role
+      const userRole = await storage.getUserRole(req.session.userId);
+      if (!userRole) {
+        return res.status(403).json({ message: "User role not found" });
+      }
+
+      // Check if user already voted
+      const existingVote = await storage.getCommitteeVoteByLoanAndVoter(loanId, req.session.userId);
+      if (existingVote && existingVote.vote !== "pending") {
+        return res.status(400).json({ message: "You have already voted on this loan" });
+      }
+
+      // Create or update vote (upsert)
+      let voteRecord;
+      if (existingVote) {
+        voteRecord = await storage.updateCommitteeVote(existingVote.id, {
+          vote,
+          comments,
+          votedAt: new Date().toISOString(),
+        });
+      } else {
+        voteRecord = await storage.createCommitteeVote({
+          loanId,
+          voterId: req.session.userId,
+          voterName: req.user?.claims?.given_name || "Committee Member",
+          voterRole: userRole.role,
+          vote,
+          comments,
+          votedAt: new Date().toISOString(),
+        });
+      }
+
+      await logActivity(req, "committee_vote", "loan", loanId, `Committee vote: ${vote} by ${userRole.role}`);
+
+      // Check if we have enough votes to finalize
+      const allVotes = await storage.getCommitteeVotesByLoanId(loanId);
+      const approvedVotes = allVotes.filter((v: any) => v.vote === "approved").length;
+      const rejectedVotes = allVotes.filter((v: any) => v.vote === "rejected").length;
+      const REQUIRED_APPROVALS = 3;
+      const COMMITTEE_SIZE = 4;
+
+      if (approvedVotes >= REQUIRED_APPROVALS) {
+        await storage.updateLoan(loanId, { status: "approved" });
+        await logActivity(req, "committee_approve", "loan", loanId, `Committee approved with ${approvedVotes} votes`);
+      } else if (rejectedVotes > (COMMITTEE_SIZE - REQUIRED_APPROVALS)) {
+        await storage.updateLoan(loanId, { status: "rejected" });
+        await logActivity(req, "committee_reject", "loan", loanId, `Committee rejected with ${rejectedVotes} votes`);
+      }
+
+      res.json(voteRecord);
+    } catch (error) {
+      console.error("Error submitting committee vote:", error);
+      res.status(500).json({ message: "Failed to submit vote" });
+    }
+  });
+
+  app.get("/api/committee/votes/:loanId", isAuthenticated, async (req, res) => {
+    try {
+      const votes = await storage.getCommitteeVotesByLoanId(req.params.loanId);
+      res.json(votes);
+    } catch (error) {
+      console.error("Error fetching committee votes:", error);
+      res.status(500).json({ message: "Failed to fetch votes" });
+    }
+  });
+
   // ===== INSTALLMENTS =====
   app.get("/api/installments", isAuthenticated, async (req, res) => {
     try {

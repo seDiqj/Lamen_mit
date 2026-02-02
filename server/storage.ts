@@ -13,6 +13,8 @@ import {
   collaterals,
   guarantors,
   loanApprovals,
+  fadReviews,
+  committeeVotes,
   disbursements,
   installments,
   activityLogs,
@@ -46,6 +48,10 @@ import {
   type ActivityLog,
   type InsertLoanApproval,
   type InsertDisbursement,
+  type InsertFadReview,
+  type FadReview,
+  type InsertCommitteeVote,
+  type CommitteeVote,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -86,6 +92,7 @@ export interface IStorage {
   
   // Loans
   getLoans(filters: { search?: string; status?: string; page?: number; limit?: number }): Promise<{ loans: any[]; total: number }>;
+  getLoansWithDetails(filters: { status?: string }): Promise<any[]>;
   getLoan(id: string): Promise<Loan | undefined>;
   getPendingLoans(search?: string): Promise<any[]>;
   getApprovedLoans(search?: string): Promise<any[]>;
@@ -93,6 +100,16 @@ export interface IStorage {
   updateLoan(id: string, data: Partial<InsertLoan>): Promise<Loan>;
   approveLoan(loanId: string, approvalData: InsertLoanApproval): Promise<void>;
   disburseLoan(loanId: string, disbursementData: InsertDisbursement): Promise<void>;
+  
+  // FAD Reviews
+  createFadReview(data: InsertFadReview): Promise<FadReview>;
+  getFadReviewByLoanId(loanId: string): Promise<FadReview | undefined>;
+  
+  // Committee Votes
+  createCommitteeVote(data: InsertCommitteeVote): Promise<CommitteeVote>;
+  updateCommitteeVote(id: string, data: Partial<InsertCommitteeVote>): Promise<CommitteeVote>;
+  getCommitteeVotesByLoanId(loanId: string): Promise<CommitteeVote[]>;
+  getCommitteeVoteByLoanAndVoter(loanId: string, voterId: string): Promise<CommitteeVote | undefined>;
   
   // Installments
   getInstallments(filters: { search?: string; page?: number; limit?: number }): Promise<{ installments: any[]; total: number }>;
@@ -575,6 +592,79 @@ export class DatabaseStorage implements IStorage {
         }
       }
     });
+  }
+
+  // FAD Reviews
+  async createFadReview(data: InsertFadReview): Promise<FadReview> {
+    const [review] = await db.insert(fadReviews).values(data).returning();
+    return review;
+  }
+
+  async getFadReviewByLoanId(loanId: string): Promise<FadReview | undefined> {
+    const [review] = await db.select().from(fadReviews).where(eq(fadReviews.loanId, loanId)).orderBy(desc(fadReviews.createdAt));
+    return review;
+  }
+
+  // Committee Votes
+  async createCommitteeVote(data: InsertCommitteeVote): Promise<CommitteeVote> {
+    const [vote] = await db.insert(committeeVotes).values(data).returning();
+    return vote;
+  }
+
+  async updateCommitteeVote(id: string, data: Partial<InsertCommitteeVote>): Promise<CommitteeVote> {
+    const [vote] = await db.update(committeeVotes).set(data).where(eq(committeeVotes.id, id)).returning();
+    return vote;
+  }
+
+  async getCommitteeVotesByLoanId(loanId: string): Promise<CommitteeVote[]> {
+    return db.select().from(committeeVotes).where(eq(committeeVotes.loanId, loanId));
+  }
+
+  async getCommitteeVoteByLoanAndVoter(loanId: string, voterId: string): Promise<CommitteeVote | undefined> {
+    const [vote] = await db.select().from(committeeVotes).where(
+      and(eq(committeeVotes.loanId, loanId), eq(committeeVotes.voterId, voterId))
+    );
+    return vote;
+  }
+
+  // Get loans with details for committee review
+  async getLoansWithDetails(filters: { status?: string }): Promise<any[]> {
+    const { status } = filters;
+    const query = db
+      .select({
+        id: loans.id,
+        applicationId: loans.applicationId,
+        status: loans.status,
+        requestedAmount: loans.requestAmount,
+        financingDurationMonths: loans.financingDurationMonths,
+        applicationDate: loans.requestDate,
+        purpose: loans.financingPurpose,
+        customer: {
+          id: customers.id,
+          firstName: customers.firstName,
+          lastName: customers.lastName,
+          customerNo: customers.customerNo,
+        },
+        branch: {
+          id: branches.id,
+          name: branches.name,
+          code: branches.code,
+        },
+        financeOfficer: {
+          id: financeOfficers.id,
+          name: financeOfficers.name,
+        },
+      })
+      .from(loans)
+      .leftJoin(customers, eq(loans.customerId, customers.id))
+      .leftJoin(branches, eq(loans.branchId, branches.id))
+      .leftJoin(financeOfficers, eq(loans.financeOfficerId, financeOfficers.id))
+      .orderBy(desc(loans.createdAt));
+    
+    if (status) {
+      return query.where(eq(loans.status, status as any));
+    }
+    return query;
   }
 
   // Installments

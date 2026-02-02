@@ -35,6 +35,8 @@ import {
   ChevronDown,
   Wallet,
   AlertTriangle,
+  FileSearch,
+  Vote,
 } from "lucide-react";
 import lamenLogo from "@assets/LamenLogo_1769936371528.jpeg";
 import {
@@ -45,7 +47,7 @@ import {
 import { useState } from "react";
 
 type UserRoleData = {
-  role: "user" | "manager" | "admin";
+  role: "user" | "fad" | "cfo" | "coo" | "ceo" | "sharia" | "manager" | "admin";
 };
 
 type MenuItem = {
@@ -79,6 +81,8 @@ const PAGE_URL_TO_NAME: Record<string, string> = {
   "/users": "users",
   "/page-permissions": "page-permissions",
   "/funding-sources": "funding-sources",
+  "/fad-review": "fad-review",
+  "/committee-voting": "committee-voting",
 };
 
 export function AppSidebar() {
@@ -185,6 +189,8 @@ export function AppSidebar() {
         { title: "New Application", url: "/loan-application", icon: FilePlus, iconColor: "text-green-600" },
         { title: "All Loans", url: "/loans", icon: FileText, iconColor: "text-emerald-500" },
         { title: "Customers", url: "/customers", icon: Users, iconColor: "text-violet-500" },
+        { title: "FAD Review", url: "/fad-review", icon: FileSearch, iconColor: "text-blue-500" },
+        { title: "Committee Voting", url: "/committee-voting", icon: Vote, iconColor: "text-purple-500" },
         { title: "Approvals", url: "/approvals", icon: ClipboardList, iconColor: "text-orange-500" },
         { title: "Disbursements", url: "/disbursements", icon: PiggyBank, iconColor: "text-pink-500" },
         { title: "Payments", url: "/payments", icon: CreditCard, iconColor: "text-cyan-500" },

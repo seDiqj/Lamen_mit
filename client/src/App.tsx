@@ -28,6 +28,8 @@ import FundingSourcesPage from "@/pages/funding-sources";
 import PagePermissionsPage from "@/pages/page-permissions";
 import LoanApplicationPage from "@/pages/loan-application";
 import LoanDetailsPage from "@/pages/loan-details";
+import FadReviewPage from "@/pages/fad-review";
+import CommitteeVotingPage from "@/pages/committee-voting";
 import NotFound from "@/pages/not-found";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
@@ -98,6 +100,8 @@ function AppRoutes() {
         <Route path="/customers" component={CustomersPage} />
         <Route path="/payments" component={PaymentsPage} />
         <Route path="/approvals" component={ApprovalsPage} />
+        <Route path="/fad-review" component={FadReviewPage} />
+        <Route path="/committee-voting" component={CommitteeVotingPage} />
         <Route path="/disbursements" component={DisbursementsPage} />
         <Route path="/reports" component={ReportsPage} />
         <Route path="/par-report" component={ParReportPage} />
