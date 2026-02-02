@@ -48,13 +48,29 @@ type LoanWithDetails = Loan & {
 function getStatusBadge(status: string) {
   const styles: Record<string, string> = {
     pending: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30",
+    committee_review: "bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/30",
     approved: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30",
+    rejected: "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30",
     disbursed: "bg-violet-500/15 text-violet-700 dark:text-violet-400 border-violet-500/30",
     active: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30",
     completed: "bg-teal-500/15 text-teal-700 dark:text-teal-400 border-teal-500/30",
-    defaulted: "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30",
+    defaulted: "bg-orange-500/15 text-orange-700 dark:text-orange-400 border-orange-500/30",
   };
   return styles[status] || "bg-muted text-muted-foreground";
+}
+
+function getStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    pending: "Pending FAD Review",
+    committee_review: "Committee Review",
+    approved: "Approved",
+    rejected: "Rejected",
+    disbursed: "Disbursed",
+    active: "Active",
+    completed: "Completed",
+    defaulted: "Defaulted",
+  };
+  return labels[status] || status;
 }
 
 export default function LoansPage() {
@@ -207,8 +223,10 @@ export default function LoansPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="pending">Pending FAD Review</SelectItem>
+                  <SelectItem value="committee_review">Committee Review</SelectItem>
                   <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
                   <SelectItem value="disbursed">Disbursed</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="completed">Completed</SelectItem>
@@ -276,7 +294,7 @@ export default function LoansPage() {
                       <TableCell className="text-muted-foreground">{formatDate(loan.requestDate)}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className={getStatusBadge(loan.status || "pending")}>
-                          {loan.status || "pending"}
+                          {getStatusLabel(loan.status || "pending")}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">

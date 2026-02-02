@@ -338,3 +338,20 @@ export const pagePermissions = pgTable("page_permissions", {
 export const insertPagePermissionSchema = createInsertSchema(pagePermissions).omit({ id: true, grantedAt: true });
 export type InsertPagePermission = z.infer<typeof insertPagePermissionSchema>;
 export type PagePermission = typeof pagePermissions.$inferSelect;
+
+// Notifications - alerts for users about loan status changes
+export const notifications = pgTable("notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(), // The user who should receive the notification
+  title: varchar("title", { length: 255 }).notNull(),
+  message: text("message").notNull(),
+  type: varchar("type", { length: 50 }).notNull(), // loan_approved, loan_rejected, fad_review, committee_vote
+  relatedEntityType: varchar("related_entity_type", { length: 50 }), // loan, customer, etc.
+  relatedEntityId: varchar("related_entity_id"),
+  isRead: boolean("is_read").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertNotificationSchema = createInsertSchema(notifications).omit({ id: true, createdAt: true });
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type Notification = typeof notifications.$inferSelect;
