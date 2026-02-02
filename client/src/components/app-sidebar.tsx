@@ -42,6 +42,7 @@ import {
   FileSpreadsheet,
   Scale,
   TrendingUp,
+  Layers,
 } from "lucide-react";
 import lamenLogo from "@assets/LamenLogo_1769936371528.jpeg";
 import {
@@ -88,6 +89,7 @@ const PAGE_URL_TO_NAME: Record<string, string> = {
   "/users": "users",
   "/page-permissions": "page-permissions",
   "/funding-sources": "funding-sources",
+  "/lookup": "lookup",
   "/fad-review": "fad-review",
   "/committee-voting": "committee-voting",
   "/chart-of-accounts": "chart-of-accounts",
@@ -230,6 +232,7 @@ export function AppSidebar() {
         { title: "Branches", url: "/branches", icon: Building2, iconColor: "text-teal-500" },
         { title: "Officers", url: "/officers", icon: UserCheck, iconColor: "text-indigo-500" },
         { title: "Funding Sources", url: "/funding-sources", icon: Wallet, iconColor: "text-amber-500" },
+        { title: "Lookup", url: "/lookup", icon: Layers, iconColor: "text-emerald-500" },
         { title: "Users", url: "/users", icon: Shield, iconColor: "text-red-500" },
       ],
     },
