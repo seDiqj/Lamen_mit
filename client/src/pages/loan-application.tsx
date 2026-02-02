@@ -355,28 +355,28 @@ export default function LoanApplicationPage() {
                   )} />
                   <FormField control={form.control} name="directMaleDependent" render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-xs">Direct Male Dep.</FormLabel>
+                      <FormLabel className="text-xs">Direct Male Employee</FormLabel>
                       <FormControl><Input type="number" placeholder="0" className="h-9" {...field} data-testid="input-direct-male-dep" /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="directFemaleDependent" render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-xs">Direct Female Dep.</FormLabel>
+                      <FormLabel className="text-xs">Direct Female Employee</FormLabel>
                       <FormControl><Input type="number" placeholder="0" className="h-9" {...field} data-testid="input-direct-female-dep" /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="indirectMaleDependent" render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-xs">Indirect Male Dep.</FormLabel>
+                      <FormLabel className="text-xs">Indirect Male Employee</FormLabel>
                       <FormControl><Input type="number" placeholder="0" className="h-9" {...field} data-testid="input-indirect-male-dep" /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="indirectFemaleDependent" render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-xs">Indirect Female Dep.</FormLabel>
+                      <FormLabel className="text-xs">Indirect Female Employee</FormLabel>
                       <FormControl><Input type="number" placeholder="0" className="h-9" {...field} data-testid="input-indirect-female-dep" /></FormControl>
                       <FormMessage />
                     </FormItem>
