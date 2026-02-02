@@ -489,6 +489,167 @@ export async function registerRoutes(
     }
   });
 
+  // Unified Loan Application endpoint - creates customer, loan, business, collateral, guarantors in one transaction
+  app.post("/api/loan-applications", isAuthenticated, async (req: any, res) => {
+    try {
+      const data = req.body;
+      
+      // Create or find customer
+      let customerId: string;
+      if (data.customerNo) {
+        const existingCustomer = await storage.getCustomerByNo(data.customerNo);
+        if (existingCustomer) {
+          customerId = existingCustomer.id;
+        } else {
+          const customer = await storage.createCustomer({
+            customerNo: data.customerNo,
+            firstName: data.firstName,
+            lastName: data.lastName,
+            fatherName: data.fatherName,
+            gender: data.gender,
+            nationalId: data.nationalId,
+            dateOfBirth: data.dateOfBirth,
+            placeOfBirth: data.placeOfBirth,
+            age: data.age,
+            homeAddress: data.homeAddress,
+            district: data.district,
+            phoneNumber: data.phoneNumber,
+            secondPhoneNumber: data.secondPhoneNumber,
+            numberOfDependents: data.numberOfDependents,
+          });
+          customerId = customer.id;
+        }
+      } else {
+        const customer = await storage.createCustomer({
+          firstName: data.firstName,
+          lastName: data.lastName,
+          fatherName: data.fatherName,
+          gender: data.gender,
+          nationalId: data.nationalId,
+          dateOfBirth: data.dateOfBirth,
+          placeOfBirth: data.placeOfBirth,
+          age: data.age,
+          homeAddress: data.homeAddress,
+          district: data.district,
+          phoneNumber: data.phoneNumber,
+          secondPhoneNumber: data.secondPhoneNumber,
+          numberOfDependents: data.numberOfDependents,
+        });
+        customerId = customer.id;
+      }
+
+      // Create customer business if provided
+      let customerBusinessId: string | undefined;
+      if (data.businessName) {
+        const business = await storage.createCustomerBusiness({
+          customerId,
+          businessName: data.businessName,
+          province: data.businessProvince,
+          district: data.businessDistrict,
+          village: data.businessVillage,
+          detailedAddress: data.businessDetailedAddress,
+          yearsOfExperience: data.businessYearsOfExperience,
+          sector: data.sector,
+          businessType: data.businessDescription,
+        });
+        customerBusinessId = business.id;
+
+        // Create business license if provided
+        if (data.licenseNumber || data.licenseType) {
+          await storage.createBusinessLicense({
+            customerBusinessId,
+            licenseType: data.licenseType,
+            president: data.licensePresident,
+            licenseNumber: data.licenseNumber,
+            registerDate: data.licenseRegisterDate,
+            expiryDate: data.licenseExpiryDate,
+          });
+        }
+      }
+
+      // Generate application ID
+      const applicationId = `${Date.now()}`;
+
+      // Create loan
+      const loan = await storage.createLoan({
+        applicationId,
+        customerId,
+        branchId: data.branchId,
+        financeOfficerId: data.financeOfficerId,
+        productName: data.productName,
+        productCode: data.productCode,
+        sector: data.sector,
+        businessDescription: data.businessDescription,
+        financingPurpose: data.financingPurpose,
+        sourceOfFund: data.sourceOfFund,
+        fundingSourceId: data.fundingSourceId,
+        requestDate: data.requestDate,
+        requestAmount: data.requestAmount?.toString(),
+        financingDurationMonths: data.financingDurationMonths,
+        gracePeriod: data.gracePeriod,
+        numberOfInstallments: data.numberOfInstallments,
+        principleAmount: data.principleAmount?.toString(),
+        marginRate: data.marginRate?.toString(),
+        status: "pending",
+      });
+
+      // Create collateral if provided
+      if (data.collateralType || data.collateralOwnerName) {
+        await storage.createCollateral({
+          loanId: loan.id,
+          ownerName: data.collateralOwnerName,
+          ownerNationalId: data.collateralOwnerNid,
+          collateralType: data.collateralType,
+          province: data.collateralProvince,
+          address: data.collateralAddress,
+          purchasedPrice: data.collateralPurchasedPrice?.toString(),
+          marketPrice: data.collateralMarketPrice?.toString(),
+        });
+      }
+
+      // Create financial guarantor if provided
+      if (data.financialGuarantorFullName) {
+        await storage.createGuarantor({
+          loanId: loan.id,
+          guarantorType: "financial",
+          fullName: data.financialGuarantorFullName,
+          fatherName: data.financialGuarantorFatherName,
+          nationalId: data.financialGuarantorNid,
+          phoneNumber: data.financialGuarantorPhone,
+          homeAddress: data.financialGuarantorHomeAddress,
+          district: data.financialGuarantorDistrict,
+          business: data.financialGuarantorBusiness,
+          businessAddress: data.financialGuarantorBusinessAddress,
+          relationshipWithCustomer: data.financialGuarantorRelationship,
+          yearsOfExperience: data.financialGuarantorYearsOfExperience,
+          inventory: data.financialGuarantorInventory?.toString(),
+          monthlyIncome: data.financialGuarantorMonthlyIncome?.toString(),
+        });
+      }
+
+      // Create family guarantor if provided
+      if (data.familyGuarantorFullName) {
+        await storage.createGuarantor({
+          loanId: loan.id,
+          guarantorType: "family",
+          fullName: data.familyGuarantorFullName,
+          fatherName: data.familyGuarantorFatherName,
+          nationalId: data.familyGuarantorNid,
+          phoneNumber: data.familyGuarantorPhone,
+          homeAddress: data.familyGuarantorHomeAddress,
+          district: data.familyGuarantorDistrict,
+          relationshipWithCustomer: data.familyGuarantorRelationship,
+        });
+      }
+
+      await logActivity(req, "create_loan_application", "loan", loan.id, `Created loan application: ${loan.applicationId} for customer: ${data.firstName}`);
+      res.status(201).json({ loanId: loan.id, applicationId: loan.applicationId, customerId });
+    } catch (error) {
+      console.error("Error creating loan application:", error);
+      res.status(500).json({ message: "Failed to create loan application" });
+    }
+  });
+
   app.patch("/api/loans/:id", isAuthenticated, requireRole("manager", "admin"), async (req: any, res) => {
     try {
       const loan = await storage.updateLoan(req.params.id, req.body);

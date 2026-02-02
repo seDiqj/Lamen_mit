@@ -30,6 +30,14 @@ import {
   type FundingSource,
   type InsertCustomer,
   type Customer,
+  type InsertCustomerBusiness,
+  type CustomerBusiness,
+  type InsertBusinessLicense,
+  type BusinessLicense,
+  type InsertCollateral,
+  type Collateral,
+  type InsertGuarantor,
+  type Guarantor,
   type InsertLoan,
   type Loan,
   type InsertInstallment,
@@ -317,6 +325,57 @@ export class DatabaseStorage implements IStorage {
   async updateCustomer(id: string, data: Partial<InsertCustomer>): Promise<Customer> {
     const [customer] = await db.update(customers).set(data).where(eq(customers.id, id)).returning();
     return customer;
+  }
+
+  async getCustomerByNo(customerNo: string): Promise<Customer | undefined> {
+    const [customer] = await db.select().from(customers).where(eq(customers.customerNo, customerNo));
+    return customer;
+  }
+
+  // Customer Businesses
+  async createCustomerBusiness(data: InsertCustomerBusiness): Promise<CustomerBusiness> {
+    const [business] = await db.insert(customerBusinesses).values(data).returning();
+    return business;
+  }
+
+  async getCustomerBusinesses(customerId: string): Promise<CustomerBusiness[]> {
+    return db.select().from(customerBusinesses).where(eq(customerBusinesses.customerId, customerId));
+  }
+
+  // Business Licenses
+  async createBusinessLicense(data: InsertBusinessLicense): Promise<BusinessLicense> {
+    const [license] = await db.insert(businessLicenses).values(data).returning();
+    return license;
+  }
+
+  async getBusinessLicenses(customerBusinessId: string): Promise<BusinessLicense[]> {
+    return db.select().from(businessLicenses).where(eq(businessLicenses.customerBusinessId, customerBusinessId));
+  }
+
+  // Collaterals
+  async createCollateral(data: InsertCollateral): Promise<Collateral> {
+    const [collateral] = await db.insert(collaterals).values(data).returning();
+    return collateral;
+  }
+
+  async getCollaterals(loanId: string): Promise<Collateral[]> {
+    return db.select().from(collaterals).where(eq(collaterals.loanId, loanId));
+  }
+
+  // Guarantors
+  async createGuarantor(data: InsertGuarantor): Promise<Guarantor> {
+    const [guarantor] = await db.insert(guarantors).values(data).returning();
+    return guarantor;
+  }
+
+  async getGuarantors(loanId: string): Promise<Guarantor[]> {
+    return db.select().from(guarantors).where(eq(guarantors.loanId, loanId));
+  }
+
+  async getGuarantorsByType(loanId: string, type: "financial" | "family"): Promise<Guarantor[]> {
+    return db.select().from(guarantors).where(
+      and(eq(guarantors.loanId, loanId), eq(guarantors.guarantorType, type))
+    );
   }
 
   // Loans

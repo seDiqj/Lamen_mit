@@ -107,6 +107,8 @@ export const loans = pgTable("loans", {
   financeOfficerId: varchar("finance_officer_id").references(() => financeOfficers.id),
   productName: varchar("product_name", { length: 255 }),
   productCode: varchar("product_code", { length: 50 }),
+  sector: varchar("sector", { length: 255 }),
+  businessDescription: text("business_description"),
   financingPurpose: text("financing_purpose"),
   financingCycle: integer("financing_cycle"),
   sourceOfFund: varchar("source_of_fund", { length: 255 }),
@@ -148,10 +150,14 @@ export const collaterals = pgTable("collaterals", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// Guarantors
+// Guarantors (financial and family)
+export const guarantorTypeEnum = pgEnum("guarantor_type", ["financial", "family"]);
+
 export const guarantors = pgTable("guarantors", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   loanId: varchar("loan_id").references(() => loans.id),
+  guarantorType: guarantorTypeEnum("guarantor_type").default("financial"),
+  fullName: varchar("full_name", { length: 255 }),
   firstName: varchar("first_name", { length: 255 }),
   lastName: varchar("last_name", { length: 255 }),
   fatherName: varchar("father_name", { length: 255 }),
@@ -164,6 +170,8 @@ export const guarantors = pgTable("guarantors", {
   businessDistrict: varchar("business_district", { length: 255 }),
   relationshipWithCustomer: varchar("relationship_with_customer", { length: 255 }),
   yearsOfExperience: integer("years_of_experience"),
+  inventory: decimal("inventory", { precision: 15, scale: 2 }),
+  monthlyIncome: decimal("monthly_income", { precision: 15, scale: 2 }),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

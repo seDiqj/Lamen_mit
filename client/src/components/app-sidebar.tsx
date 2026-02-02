@@ -21,6 +21,7 @@ import {
   LayoutDashboard,
   Users,
   FileText,
+  FilePlus,
   CreditCard,
   BarChart3,
   Settings,
@@ -141,6 +142,7 @@ export function AppSidebar() {
       label: "Loan Operations",
       icon: FileText,
       items: [
+        { title: "New Application", url: "/loan-application", icon: FilePlus, iconColor: "text-green-600" },
         { title: "All Loans", url: "/loans", icon: FileText, iconColor: "text-emerald-500" },
         { title: "Customers", url: "/customers", icon: Users, iconColor: "text-violet-500" },
         { title: "Approvals", url: "/approvals", icon: ClipboardList, iconColor: "text-orange-500", badge: "3" },
@@ -180,6 +182,7 @@ export function AppSidebar() {
       label: "Loan Operations",
       icon: FileText,
       items: [
+        { title: "New Application", url: "/loan-application", icon: FilePlus, iconColor: "text-green-600" },
         { title: "All Loans", url: "/loans", icon: FileText, iconColor: "text-emerald-500" },
         { title: "Customers", url: "/customers", icon: Users, iconColor: "text-violet-500" },
         { title: "Approvals", url: "/approvals", icon: ClipboardList, iconColor: "text-orange-500" },

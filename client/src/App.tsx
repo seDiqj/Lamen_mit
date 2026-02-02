@@ -26,6 +26,7 @@ import SettingsPage from "@/pages/settings";
 import UsersPage from "@/pages/users";
 import FundingSourcesPage from "@/pages/funding-sources";
 import PagePermissionsPage from "@/pages/page-permissions";
+import LoanApplicationPage from "@/pages/loan-application";
 import NotFound from "@/pages/not-found";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
@@ -91,6 +92,7 @@ function AppRoutes() {
       <Switch>
         <Route path="/" component={Dashboard} />
         <Route path="/loans" component={LoansPage} />
+        <Route path="/loan-application" component={LoanApplicationPage} />
         <Route path="/customers" component={CustomersPage} />
         <Route path="/payments" component={PaymentsPage} />
         <Route path="/approvals" component={ApprovalsPage} />
