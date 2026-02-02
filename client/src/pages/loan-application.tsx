@@ -77,6 +77,7 @@ const loanApplicationSchema = z.object({
   financialGuarantorFatherName: z.string().optional(),
   financialGuarantorNid: z.string().optional(),
   financialGuarantorNidExpiry: z.string().optional(),
+  financialGuarantorDateOfBirth: z.string().optional(),
   financialGuarantorPhone: z.string().optional(),
   financialGuarantorHomeAddress: z.string().optional(),
   financialGuarantorDistrict: z.string().optional(),
@@ -86,10 +87,25 @@ const loanApplicationSchema = z.object({
   financialGuarantorYearsOfExperience: z.coerce.number().optional(),
   financialGuarantorInventory: z.coerce.number().optional(),
   financialGuarantorMonthlyIncome: z.coerce.number().optional(),
+  financialGuarantor2FullName: z.string().optional(),
+  financialGuarantor2FatherName: z.string().optional(),
+  financialGuarantor2Nid: z.string().optional(),
+  financialGuarantor2NidExpiry: z.string().optional(),
+  financialGuarantor2DateOfBirth: z.string().optional(),
+  financialGuarantor2Phone: z.string().optional(),
+  financialGuarantor2HomeAddress: z.string().optional(),
+  financialGuarantor2District: z.string().optional(),
+  financialGuarantor2Business: z.string().optional(),
+  financialGuarantor2BusinessAddress: z.string().optional(),
+  financialGuarantor2Relationship: z.string().optional(),
+  financialGuarantor2YearsOfExperience: z.coerce.number().optional(),
+  financialGuarantor2Inventory: z.coerce.number().optional(),
+  financialGuarantor2MonthlyIncome: z.coerce.number().optional(),
   familyGuarantorFullName: z.string().optional(),
   familyGuarantorFatherName: z.string().optional(),
   familyGuarantorNid: z.string().optional(),
   familyGuarantorNidExpiry: z.string().optional(),
+  familyGuarantorDateOfBirth: z.string().optional(),
   familyGuarantorPhone: z.string().optional(),
   familyGuarantorHomeAddress: z.string().optional(),
   familyGuarantorDistrict: z.string().optional(),
@@ -1083,6 +1099,35 @@ export default function LoanApplicationPage() {
                         <FormMessage />
                       </FormItem>
                     )} />
+                    <FormField control={form.control} name="financialGuarantorDateOfBirth" render={({ field }) => {
+                      const calculateAge = (dob: string) => {
+                        if (!dob) return null;
+                        const birthDate = new Date(dob);
+                        const today = new Date();
+                        let age = today.getFullYear() - birthDate.getFullYear();
+                        const monthDiff = today.getMonth() - birthDate.getMonth();
+                        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                          age--;
+                        }
+                        return age;
+                      };
+                      const age = calculateAge(field.value || "");
+                      const isInvalidAge = age !== null && (age < 18 || age > 65);
+                      return (
+                        <FormItem>
+                          <FormLabel className="text-xs">Date of Birth</FormLabel>
+                          <div className="flex gap-2 items-center">
+                            <FormControl><Input type="date" className="h-9 flex-1" {...field} data-testid="input-fin-guarantor-dob" /></FormControl>
+                            {age !== null && age >= 0 && (
+                              <div className={`h-9 px-3 flex items-center rounded-md text-sm font-medium whitespace-nowrap ${isInvalidAge ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'}`} data-testid="text-fin-guarantor-age">
+                                Age: {age} {isInvalidAge && '(18-65 required)'}
+                              </div>
+                            )}
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }} />
                     <FormField control={form.control} name="financialGuarantorPhone" render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-xs">Phone</FormLabel>
@@ -1149,6 +1194,133 @@ export default function LoanApplicationPage() {
                   </div>
                 </div>
                 <div className="border-t pt-3">
+                  <h3 className="text-xs font-semibold text-teal-600 mb-2 flex items-center gap-1">
+                    <Users className="h-3 w-3" /> Financial Guarantor 2
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                    <FormField control={form.control} name="financialGuarantor2FullName" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Full Name</FormLabel>
+                        <FormControl><Input placeholder="Full name" className="h-9" {...field} data-testid="input-fin-guarantor2-name" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="financialGuarantor2FatherName" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Father's Name</FormLabel>
+                        <FormControl><Input placeholder="Father's name" className="h-9" {...field} data-testid="input-fin-guarantor2-father" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="financialGuarantor2Nid" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">NID</FormLabel>
+                        <FormControl><Input placeholder="National ID" className="h-9" {...field} data-testid="input-fin-guarantor2-nid" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="financialGuarantor2NidExpiry" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">NID Expiry Date</FormLabel>
+                        <FormControl><Input type="date" className="h-9" {...field} data-testid="input-fin-guarantor2-nid-expiry" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="financialGuarantor2DateOfBirth" render={({ field }) => {
+                      const calculateAge = (dob: string) => {
+                        if (!dob) return null;
+                        const birthDate = new Date(dob);
+                        const today = new Date();
+                        let age = today.getFullYear() - birthDate.getFullYear();
+                        const monthDiff = today.getMonth() - birthDate.getMonth();
+                        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                          age--;
+                        }
+                        return age;
+                      };
+                      const age = calculateAge(field.value || "");
+                      const isInvalidAge = age !== null && (age < 18 || age > 65);
+                      return (
+                        <FormItem>
+                          <FormLabel className="text-xs">Date of Birth</FormLabel>
+                          <div className="flex gap-2 items-center">
+                            <FormControl><Input type="date" className="h-9 flex-1" {...field} data-testid="input-fin-guarantor2-dob" /></FormControl>
+                            {age !== null && age >= 0 && (
+                              <div className={`h-9 px-3 flex items-center rounded-md text-sm font-medium whitespace-nowrap ${isInvalidAge ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'}`} data-testid="text-fin-guarantor2-age">
+                                Age: {age} {isInvalidAge && '(18-65 required)'}
+                              </div>
+                            )}
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }} />
+                    <FormField control={form.control} name="financialGuarantor2Phone" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Phone</FormLabel>
+                        <FormControl><Input placeholder="Phone number" className="h-9" {...field} data-testid="input-fin-guarantor2-phone" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="financialGuarantor2HomeAddress" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Home Address</FormLabel>
+                        <FormControl><Input placeholder="Home address" className="h-9" {...field} data-testid="input-fin-guarantor2-address" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="financialGuarantor2District" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">District</FormLabel>
+                        <FormControl><Input placeholder="District" className="h-9" {...field} data-testid="input-fin-guarantor2-district" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="financialGuarantor2Business" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Business</FormLabel>
+                        <FormControl><Input placeholder="Business type" className="h-9" {...field} data-testid="input-fin-guarantor2-business" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="financialGuarantor2BusinessAddress" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Business Address</FormLabel>
+                        <FormControl><Input placeholder="Business address" className="h-9" {...field} data-testid="input-fin-guarantor2-biz-address" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="financialGuarantor2Relationship" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Relationship</FormLabel>
+                        <FormControl><Input placeholder="Relationship" className="h-9" {...field} data-testid="input-fin-guarantor2-relation" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="financialGuarantor2YearsOfExperience" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Years of Experience</FormLabel>
+                        <FormControl><Input type="number" placeholder="0" className="h-9" {...field} data-testid="input-fin-guarantor2-exp" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="financialGuarantor2Inventory" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Inventory (AFN)</FormLabel>
+                        <FormControl><Input type="number" placeholder="0" className="h-9" {...field} data-testid="input-fin-guarantor2-inventory" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="financialGuarantor2MonthlyIncome" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Monthly Income (AFN)</FormLabel>
+                        <FormControl><Input type="number" placeholder="0" className="h-9" {...field} data-testid="input-fin-guarantor2-income" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  </div>
+                </div>
+                <div className="border-t pt-3">
                   <h3 className="text-xs font-semibold text-cyan-600 mb-2 flex items-center gap-1">
                     <Users className="h-3 w-3" /> Family Guarantor
                   </h3>
@@ -1181,6 +1353,35 @@ export default function LoanApplicationPage() {
                         <FormMessage />
                       </FormItem>
                     )} />
+                    <FormField control={form.control} name="familyGuarantorDateOfBirth" render={({ field }) => {
+                      const calculateAge = (dob: string) => {
+                        if (!dob) return null;
+                        const birthDate = new Date(dob);
+                        const today = new Date();
+                        let age = today.getFullYear() - birthDate.getFullYear();
+                        const monthDiff = today.getMonth() - birthDate.getMonth();
+                        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                          age--;
+                        }
+                        return age;
+                      };
+                      const age = calculateAge(field.value || "");
+                      const isInvalidAge = age !== null && (age < 18 || age > 65);
+                      return (
+                        <FormItem>
+                          <FormLabel className="text-xs">Date of Birth</FormLabel>
+                          <div className="flex gap-2 items-center">
+                            <FormControl><Input type="date" className="h-9 flex-1" {...field} data-testid="input-fam-guarantor-dob" /></FormControl>
+                            {age !== null && age >= 0 && (
+                              <div className={`h-9 px-3 flex items-center rounded-md text-sm font-medium whitespace-nowrap ${isInvalidAge ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'}`} data-testid="text-fam-guarantor-age">
+                                Age: {age} {isInvalidAge && '(18-65 required)'}
+                              </div>
+                            )}
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }} />
                     <FormField control={form.control} name="familyGuarantorPhone" render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-xs">Phone</FormLabel>
