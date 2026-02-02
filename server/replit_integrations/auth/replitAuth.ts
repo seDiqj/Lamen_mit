@@ -137,15 +137,34 @@ export async function setupAuth(app: Express) {
   // POST handler for AJAX logout
   app.post("/api/logout", async (req, res) => {
     const sessionId = req.sessionID;
+    const userId = (req.session as any)?.userId;
     
-    // Use passport logout first
+    // Delete ALL sessions for this user from database first
+    try {
+      const { db } = await import("../db");
+      const { sql } = await import("drizzle-orm");
+      
+      // Delete current session by ID
+      if (sessionId) {
+        await db.execute(sql`DELETE FROM sessions WHERE sid = ${sessionId}`);
+      }
+      
+      // Also delete any sessions containing this userId
+      if (userId) {
+        await db.execute(sql`DELETE FROM sessions WHERE sess::text LIKE ${'%"userId":"' + userId + '"%'}`);
+      }
+    } catch (e) {
+      console.error("Failed to delete session from DB:", e);
+    }
+    
+    // Use passport logout
     req.logout((err) => {
       if (err) {
         console.error("Passport logout error:", err);
       }
     });
     
-    // Destroy session with callback
+    // Destroy session
     if (req.session) {
       req.session.destroy((err) => {
         if (err) {
@@ -154,20 +173,11 @@ export async function setupAuth(app: Express) {
       });
     }
     
-    // Clear all session-related cookies
+    // Clear all session-related cookies with various options
     res.clearCookie("connect.sid");
     res.clearCookie("connect.sid", { path: "/" });
-    
-    // Also try to delete from database directly using raw query
-    try {
-      const { db } = await import("../db");
-      const { sql } = await import("drizzle-orm");
-      if (sessionId) {
-        await db.execute(sql`DELETE FROM sessions WHERE sid = ${sessionId}`);
-      }
-    } catch (e) {
-      console.error("Failed to delete session from DB:", e);
-    }
+    res.clearCookie("connect.sid", { path: "/", httpOnly: true });
+    res.clearCookie("connect.sid", { path: "/", httpOnly: true, secure: true });
     
     res.json({ success: true });
   });

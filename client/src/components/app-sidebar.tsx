@@ -321,11 +321,15 @@ export function AppSidebar() {
             size="icon"
             onClick={async () => {
               try {
-                await fetch("/api/logout", { method: "POST" });
+                await fetch("/api/logout", { 
+                  method: "POST",
+                  credentials: "include"
+                });
               } catch (e) {
                 // Ignore errors
               }
-              window.location.href = "/";
+              // Force a hard reload to clear all cached state
+              window.location.replace("/");
             }}
             data-testid="button-logout"
           >
