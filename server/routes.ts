@@ -1308,13 +1308,13 @@ export async function registerRoutes(
         status,
         comments,
         dataQualityScore: dataQualityScore || 0,
-        reviewedAt: new Date().toISOString(),
+        reviewedAt: new Date(),
       });
 
       // Update loan status based on review outcome
       if (status === "approved") {
-        await storage.updateLoan(loanId, { status: "committee_review" });
-        await logActivity(req, "fad_approve", "loan", loanId, `FAD approved - forwarded to committee review`);
+        await storage.updateLoan(loanId, { status: "risk_compliance_review" });
+        await logActivity(req, "fad_approve", "loan", loanId, `FAD approved - forwarded to Risk Compliance review`);
       } else {
         await storage.updateLoan(loanId, { status: "rejected" });
         await logActivity(req, "fad_reject", "loan", loanId, `FAD rejected - ${comments}`);
@@ -1337,16 +1337,78 @@ export async function registerRoutes(
     }
   });
 
+  // ===== RISK COMPLIANCE REVIEW =====
+  app.get("/api/risk-compliance/pending-loans", isAuthenticated, requireRole("risk_compliance", "manager", "admin"), async (req: any, res) => {
+    try {
+      const loans = await storage.getLoansWithDetails({ status: "risk_compliance_review" });
+      const loansWithInfo = await Promise.all(
+        loans.map(async (loan: any) => {
+          const fadReview = await storage.getFadReviewByLoanId(loan.id);
+          return { loan, fadReview };
+        })
+      );
+      res.json(loansWithInfo);
+    } catch (error) {
+      console.error("Error fetching Risk Compliance pending loans:", error);
+      res.status(500).json({ message: "Failed to fetch pending loans" });
+    }
+  });
+
+  app.post("/api/risk-compliance-reviews", isAuthenticated, requireRole("risk_compliance", "manager", "admin"), async (req: any, res) => {
+    try {
+      const { loanId, status, comments, riskScore } = req.body;
+      
+      const loan = await storage.getLoan(loanId);
+      if (!loan) {
+        return res.status(404).json({ message: "Loan not found" });
+      }
+
+      const review = await storage.createRiskComplianceReview({
+        loanId,
+        reviewedById: req.session.userId,
+        reviewerName: req.user?.claims?.given_name || "Risk Compliance Reviewer",
+        status,
+        comments,
+        riskScore: riskScore || 0,
+        reviewedAt: new Date(),
+      });
+
+      if (status === "approved") {
+        await storage.updateLoan(loanId, { status: "committee_review" });
+        await logActivity(req, "risk_compliance_approve", "loan", loanId, `Risk Compliance approved - forwarded to Committee review`);
+      } else {
+        await storage.updateLoan(loanId, { status: "rejected" });
+        await logActivity(req, "risk_compliance_reject", "loan", loanId, `Risk Compliance rejected - ${comments}`);
+      }
+
+      res.json(review);
+    } catch (error) {
+      console.error("Error creating Risk Compliance review:", error);
+      res.status(500).json({ message: "Failed to submit Risk Compliance review" });
+    }
+  });
+
+  app.get("/api/risk-compliance-reviews/:loanId", isAuthenticated, async (req, res) => {
+    try {
+      const review = await storage.getRiskComplianceReviewByLoanId(req.params.loanId);
+      res.json(review);
+    } catch (error) {
+      console.error("Error fetching Risk Compliance review:", error);
+      res.status(500).json({ message: "Failed to fetch Risk Compliance review" });
+    }
+  });
+
   // ===== COMMITTEE VOTING =====
   app.get("/api/committee/pending-loans", isAuthenticated, requireRole("cfo", "coo", "ceo", "sharia", "manager", "admin"), async (req: any, res) => {
     try {
       // Get loans in committee_review status (passed FAD, awaiting committee)
       const loans = await storage.getLoansWithDetails({ status: "committee_review" });
       
-      // For each loan, get FAD review and committee votes
+      // For each loan, get FAD review, Risk Compliance review and committee votes
       const loansWithApprovalInfo = await Promise.all(
         loans.map(async (loan: any) => {
           const fadReview = await storage.getFadReviewByLoanId(loan.id);
+          const riskComplianceReview = await storage.getRiskComplianceReviewByLoanId(loan.id);
           const votes = await storage.getCommitteeVotesByLoanId(loan.id);
           const userRole = await storage.getUserRole(req.session.userId);
           const userVote = votes.find((v: any) => v.voterId === req.session.userId);
@@ -1354,6 +1416,7 @@ export async function registerRoutes(
           return {
             loan,
             fadReview,
+            riskComplianceReview,
             votes,
             userVote,
           };

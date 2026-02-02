@@ -264,6 +264,19 @@ export const fadReviews = pgTable("fad_reviews", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Risk Compliance Reviews - After FAD approval, before Committee
+export const riskComplianceReviews = pgTable("risk_compliance_reviews", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  loanId: varchar("loan_id").references(() => loans.id),
+  reviewedById: varchar("reviewed_by_id"),
+  reviewerName: varchar("reviewer_name", { length: 255 }),
+  status: varchar("status", { length: 50 }).default("pending"), // pending, approved, rejected
+  comments: text("comments"),
+  riskScore: integer("risk_score"), // Optional 1-100 score
+  reviewedAt: timestamp("reviewed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Committee Votes - Individual votes from committee members
 export const committeeVotes = pgTable("committee_votes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -343,6 +356,7 @@ export const insertCollateralSchema = createInsertSchema(collaterals).omit({ id:
 export const insertGuarantorSchema = createInsertSchema(guarantors).omit({ id: true, createdAt: true });
 export const insertLoanApprovalSchema = createInsertSchema(loanApprovals).omit({ id: true, createdAt: true });
 export const insertFadReviewSchema = createInsertSchema(fadReviews).omit({ id: true, createdAt: true });
+export const insertRiskComplianceReviewSchema = createInsertSchema(riskComplianceReviews).omit({ id: true, createdAt: true });
 export const insertCommitteeVoteSchema = createInsertSchema(committeeVotes).omit({ id: true, createdAt: true });
 export const insertDisbursementSchema = createInsertSchema(disbursements).omit({ id: true, createdAt: true });
 export const insertInstallmentSchema = createInsertSchema(installments).omit({ id: true, createdAt: true });
@@ -384,6 +398,8 @@ export type InsertLoanApproval = z.infer<typeof insertLoanApprovalSchema>;
 export type LoanApproval = typeof loanApprovals.$inferSelect;
 export type InsertFadReview = z.infer<typeof insertFadReviewSchema>;
 export type FadReview = typeof fadReviews.$inferSelect;
+export type InsertRiskComplianceReview = z.infer<typeof insertRiskComplianceReviewSchema>;
+export type RiskComplianceReview = typeof riskComplianceReviews.$inferSelect;
 export type InsertCommitteeVote = z.infer<typeof insertCommitteeVoteSchema>;
 export type CommitteeVote = typeof committeeVotes.$inferSelect;
 export type InsertDisbursement = z.infer<typeof insertDisbursementSchema>;

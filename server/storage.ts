@@ -19,6 +19,7 @@ import {
   guarantors,
   loanApprovals,
   fadReviews,
+  riskComplianceReviews,
   committeeVotes,
   disbursements,
   installments,
@@ -80,6 +81,8 @@ import {
   type InsertDisbursement,
   type InsertFadReview,
   type FadReview,
+  type InsertRiskComplianceReview,
+  type RiskComplianceReview,
   type InsertCommitteeVote,
   type CommitteeVote,
 } from "@shared/schema";
@@ -173,6 +176,10 @@ export interface IStorage {
   // FAD Reviews
   createFadReview(data: InsertFadReview): Promise<FadReview>;
   getFadReviewByLoanId(loanId: string): Promise<FadReview | undefined>;
+  
+  // Risk Compliance Reviews
+  createRiskComplianceReview(data: InsertRiskComplianceReview): Promise<RiskComplianceReview>;
+  getRiskComplianceReviewByLoanId(loanId: string): Promise<RiskComplianceReview | undefined>;
   
   // Committee Votes
   createCommitteeVote(data: InsertCommitteeVote): Promise<CommitteeVote>;
@@ -928,6 +935,17 @@ export class DatabaseStorage implements IStorage {
 
   async getFadReviewByLoanId(loanId: string): Promise<FadReview | undefined> {
     const [review] = await db.select().from(fadReviews).where(eq(fadReviews.loanId, loanId)).orderBy(desc(fadReviews.createdAt));
+    return review;
+  }
+
+  // Risk Compliance Reviews
+  async createRiskComplianceReview(data: InsertRiskComplianceReview): Promise<RiskComplianceReview> {
+    const [review] = await db.insert(riskComplianceReviews).values(data).returning();
+    return review;
+  }
+
+  async getRiskComplianceReviewByLoanId(loanId: string): Promise<RiskComplianceReview | undefined> {
+    const [review] = await db.select().from(riskComplianceReviews).where(eq(riskComplianceReviews.loanId, loanId)).orderBy(desc(riskComplianceReviews.createdAt));
     return review;
   }
 

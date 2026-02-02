@@ -29,6 +29,7 @@ import PagePermissionsPage from "@/pages/page-permissions";
 import LoanApplicationPage from "@/pages/loan-application";
 import LoanDetailsPage from "@/pages/loan-details";
 import FadReviewPage from "@/pages/fad-review";
+import RiskCompliancePage from "@/pages/risk-compliance";
 import CommitteeVotingPage from "@/pages/committee-voting";
 import ChartOfAccountsPage from "@/pages/chart-of-accounts";
 import JournalEntriesPage from "@/pages/journal-entries";
@@ -108,6 +109,7 @@ function AppRoutes() {
         <Route path="/payments" component={PaymentsPage} />
         <Route path="/approvals" component={ApprovalsPage} />
         <Route path="/fad-review" component={FadReviewPage} />
+        <Route path="/risk-compliance" component={RiskCompliancePage} />
         <Route path="/committee-voting" component={CommitteeVotingPage} />
         <Route path="/disbursements" component={DisbursementsPage} />
         <Route path="/reports" component={ReportsPage} />

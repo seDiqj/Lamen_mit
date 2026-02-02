@@ -868,11 +868,11 @@ export default function FadReviewPage() {
                       onClick={() => handleSubmitReview("approved")}
                       disabled={submitReviewMutation.isPending}
                       className="min-w-40 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600"
-                      data-testid="button-pass-committee"
+                      data-testid="button-pass-risk-compliance"
                     >
                       {submitReviewMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                       <CheckCircle className="h-4 w-4 mr-2" />
-                      Pass to Committee
+                      Pass to Risk Compliance
                     </Button>
                   </div>
                 </CardContent>
