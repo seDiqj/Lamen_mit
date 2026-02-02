@@ -45,8 +45,9 @@ import {
   ArrowLeft,
   MapPin,
   Map,
+  FileCheck,
 } from "lucide-react";
-import type { Sector, Business, Province, District } from "@shared/schema";
+import type { Sector, Business, Province, District, LicenseType } from "@shared/schema";
 
 type BusinessWithSector = Business & { sectorName?: string };
 type DistrictWithProvince = District & { provinceName?: string };
@@ -71,12 +72,17 @@ const districtFormSchema = z.object({
   name: z.string().min(1, "District name is required"),
 });
 
+const licenseTypeFormSchema = z.object({
+  name: z.string().min(1, "License type name is required"),
+});
+
 type SectorFormData = z.infer<typeof sectorFormSchema>;
 type BusinessFormData = z.infer<typeof businessFormSchema>;
 type ProvinceFormData = z.infer<typeof provinceFormSchema>;
 type DistrictFormData = z.infer<typeof districtFormSchema>;
+type LicenseTypeFormData = z.infer<typeof licenseTypeFormSchema>;
 
-type MenuItemType = "sector" | "province";
+type MenuItemType = "sector" | "province" | "licenseType";
 
 export default function LookupPage() {
   const [selectedMenuItem, setSelectedMenuItem] = useState<MenuItemType>("sector");
@@ -95,9 +101,13 @@ export default function LookupPage() {
   const [showDistrictDialog, setShowDistrictDialog] = useState(false);
   const [viewingProvinceDistricts, setViewingProvinceDistricts] = useState<Province | null>(null);
   
+  // License Types state
+  const [selectedLicenseType, setSelectedLicenseType] = useState<LicenseType | null>(null);
+  const [showLicenseTypeDialog, setShowLicenseTypeDialog] = useState(false);
+  
   // Shared state
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [deleteType, setDeleteType] = useState<"sector" | "business" | "province" | "district">("sector");
+  const [deleteType, setDeleteType] = useState<"sector" | "business" | "province" | "district" | "licenseType">("sector");
   const [deleteId, setDeleteId] = useState<string | number>("");
   const [isEditMode, setIsEditMode] = useState(false);
 
@@ -122,6 +132,11 @@ export default function LookupPage() {
 
   const districtForm = useForm<DistrictFormData>({
     resolver: zodResolver(districtFormSchema),
+    defaultValues: { name: "" },
+  });
+
+  const licenseTypeForm = useForm<LicenseTypeFormData>({
+    resolver: zodResolver(licenseTypeFormSchema),
     defaultValues: { name: "" },
   });
 
@@ -158,6 +173,15 @@ export default function LookupPage() {
     queryFn: async () => {
       const res = await fetch("/api/districts", { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch districts");
+      return res.json();
+    },
+  });
+
+  const { data: licenseTypes, isLoading: loadingLicenseTypes } = useQuery<LicenseType[]>({
+    queryKey: ["/api/license-types"],
+    queryFn: async () => {
+      const res = await fetch("/api/license-types", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch license types");
       return res.json();
     },
   });
@@ -304,6 +328,41 @@ export default function LookupPage() {
     onError: () => toast({ title: "Error", description: "Failed to delete district.", variant: "destructive" }),
   });
 
+  // License Type Mutations
+  const createLicenseTypeMutation = useMutation({
+    mutationFn: async (data: LicenseTypeFormData) => apiRequest("POST", "/api/license-types", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/license-types"] });
+      toast({ title: "License Type Created", description: "The license type has been created successfully." });
+      setShowLicenseTypeDialog(false);
+      licenseTypeForm.reset();
+    },
+    onError: () => toast({ title: "Error", description: "Failed to create license type.", variant: "destructive" }),
+  });
+
+  const updateLicenseTypeMutation = useMutation({
+    mutationFn: async (data: LicenseTypeFormData) => apiRequest("PATCH", `/api/license-types/${selectedLicenseType?.id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/license-types"] });
+      toast({ title: "License Type Updated", description: "The license type has been updated successfully." });
+      setShowLicenseTypeDialog(false);
+      setSelectedLicenseType(null);
+      setIsEditMode(false);
+      licenseTypeForm.reset();
+    },
+    onError: () => toast({ title: "Error", description: "Failed to update license type.", variant: "destructive" }),
+  });
+
+  const deleteLicenseTypeMutation = useMutation({
+    mutationFn: async (id: number) => apiRequest("DELETE", `/api/license-types/${id}`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/license-types"] });
+      toast({ title: "License Type Deleted", description: "The license type has been deleted." });
+      setShowDeleteDialog(false);
+    },
+    onError: () => toast({ title: "Error", description: "Failed to delete license type.", variant: "destructive" }),
+  });
+
   // Handlers
   const handleOpenSectorDialog = (sector?: Sector) => {
     if (sector) {
@@ -357,7 +416,20 @@ export default function LookupPage() {
     setShowDistrictDialog(true);
   };
 
-  const handleDelete = (type: "sector" | "business" | "province" | "district", id: string | number) => {
+  const handleOpenLicenseTypeDialog = (licenseType?: LicenseType) => {
+    if (licenseType) {
+      setSelectedLicenseType(licenseType);
+      setIsEditMode(true);
+      licenseTypeForm.reset({ name: licenseType.name });
+    } else {
+      setSelectedLicenseType(null);
+      setIsEditMode(false);
+      licenseTypeForm.reset({ name: "" });
+    }
+    setShowLicenseTypeDialog(true);
+  };
+
+  const handleDelete = (type: "sector" | "business" | "province" | "district" | "licenseType", id: string | number) => {
     setDeleteType(type);
     setDeleteId(id);
     setShowDeleteDialog(true);
@@ -370,8 +442,10 @@ export default function LookupPage() {
       deleteBusinessMutation.mutate(deleteId as string);
     } else if (deleteType === "province") {
       deleteProvinceMutation.mutate(deleteId as number);
-    } else {
+    } else if (deleteType === "district") {
       deleteDistrictMutation.mutate(deleteId as number);
+    } else if (deleteType === "licenseType") {
+      deleteLicenseTypeMutation.mutate(deleteId as number);
     }
   };
 
@@ -407,12 +481,21 @@ export default function LookupPage() {
     }
   };
 
+  const onLicenseTypeSubmit = (data: LicenseTypeFormData) => {
+    if (isEditMode && selectedLicenseType) {
+      updateLicenseTypeMutation.mutate(data);
+    } else {
+      createLicenseTypeMutation.mutate(data);
+    }
+  };
+
   const getBusinessesForSector = (sectorId: string) => businesses?.filter((b) => b.sectorId === sectorId) || [];
   const getDistrictsForProvince = (provinceId: number) => districts?.filter((d) => d.provinceId === provinceId) || [];
 
   const menuItems = [
     { id: "sector" as MenuItemType, label: "Sector", icon: Layers, color: "text-emerald-600" },
     { id: "province" as MenuItemType, label: "Province", icon: MapPin, color: "text-blue-600" },
+    { id: "licenseType" as MenuItemType, label: "Type of License", icon: FileCheck, color: "text-orange-600" },
   ];
 
   return (
@@ -727,6 +810,67 @@ export default function LookupPage() {
                 </CardContent>
               </>
             )}
+
+            {/* LICENSE TYPES LIST */}
+            {selectedMenuItem === "licenseType" && (
+              <>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <FileCheck className="h-5 w-5 text-orange-600" />
+                      Types of License
+                    </CardTitle>
+                    <Button onClick={() => handleOpenLicenseTypeDialog()} className="bg-orange-600 hover:bg-orange-700" data-testid="button-add-new-license-type">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add New License Type
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="overflow-auto" style={{ maxHeight: "calc(100vh - 240px)" }}>
+                  {loadingLicenseTypes ? (
+                    <div className="space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
+                  ) : licenseTypes && licenseTypes.length > 0 ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs w-20">ID</TableHead>
+                          <TableHead className="text-xs">Type of License</TableHead>
+                          <TableHead className="text-xs text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {licenseTypes.map((licenseType) => (
+                          <TableRow key={licenseType.id}>
+                            <TableCell className="font-medium">{licenseType.id}</TableCell>
+                            <TableCell className="font-medium">
+                              <div className="flex items-center gap-2">
+                                <FileCheck className="h-4 w-4 text-orange-600" />
+                                {licenseType.name}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <Button variant="ghost" size="icon" onClick={() => handleOpenLicenseTypeDialog(licenseType)} data-testid={`button-edit-license-type-${licenseType.id}`}>
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={() => handleDelete("licenseType", licenseType.id)} data-testid={`button-delete-license-type-${licenseType.id}`}>
+                                  <Trash2 className="h-4 w-4 text-red-500" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <FileCheck className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                      <p>No license types found. Click "Add New License Type" to create one.</p>
+                    </div>
+                  )}
+                </CardContent>
+              </>
+            )}
           </Card>
         </div>
       </div>
@@ -869,6 +1013,33 @@ export default function LookupPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Add/Edit License Type Dialog */}
+      <Dialog open={showLicenseTypeDialog} onOpenChange={setShowLicenseTypeDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileCheck className="h-5 w-5 text-orange-600" />
+              {isEditMode ? "Edit License Type" : "Add License Type"}
+            </DialogTitle>
+          </DialogHeader>
+          <Form {...licenseTypeForm}>
+            <form onSubmit={licenseTypeForm.handleSubmit(onLicenseTypeSubmit)} className="space-y-4">
+              <FormField control={licenseTypeForm.control} name="name" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Type of License *</FormLabel>
+                  <FormControl><Input placeholder="e.g., Business License" className="h-9" {...field} data-testid="input-license-type-name" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <Button type="submit" className="w-full bg-orange-600 hover:bg-orange-700" disabled={createLicenseTypeMutation.isPending || updateLicenseTypeMutation.isPending} data-testid="button-submit-license-type">
+                <Plus className="h-4 w-4 mr-2" />
+                {createLicenseTypeMutation.isPending || updateLicenseTypeMutation.isPending ? "Saving..." : isEditMode ? "Update License Type" : "Add License Type"}
+              </Button>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
       {/* Delete Confirmation Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent>
@@ -879,12 +1050,13 @@ export default function LookupPage() {
               {deleteType === "business" && "Are you sure you want to delete this business?"}
               {deleteType === "province" && "Are you sure you want to delete this province? All districts under this province will also be deleted."}
               {deleteType === "district" && "Are you sure you want to delete this district?"}
+              {deleteType === "licenseType" && "Are you sure you want to delete this license type?"}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setShowDeleteDialog(false)} data-testid="button-cancel-delete">Cancel</Button>
-            <Button variant="destructive" onClick={confirmDelete} disabled={deleteSectorMutation.isPending || deleteBusinessMutation.isPending || deleteProvinceMutation.isPending || deleteDistrictMutation.isPending} data-testid="button-confirm-delete">
-              {deleteSectorMutation.isPending || deleteBusinessMutation.isPending || deleteProvinceMutation.isPending || deleteDistrictMutation.isPending ? "Deleting..." : "Delete"}
+            <Button variant="destructive" onClick={confirmDelete} disabled={deleteSectorMutation.isPending || deleteBusinessMutation.isPending || deleteProvinceMutation.isPending || deleteDistrictMutation.isPending || deleteLicenseTypeMutation.isPending} data-testid="button-confirm-delete">
+              {deleteSectorMutation.isPending || deleteBusinessMutation.isPending || deleteProvinceMutation.isPending || deleteDistrictMutation.isPending || deleteLicenseTypeMutation.isPending ? "Deleting..." : "Delete"}
             </Button>
           </DialogFooter>
         </DialogContent>

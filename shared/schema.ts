@@ -87,6 +87,13 @@ export const districts = pgTable("districts", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// License Types
+export const licenseTypes = pgTable("license_types", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Customers
 export const customers = pgTable("customers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -502,3 +509,8 @@ export type InsertJournalEntry = z.infer<typeof insertJournalEntrySchema>;
 export type JournalEntry = typeof journalEntries.$inferSelect;
 export type InsertJournalLine = z.infer<typeof insertJournalLineSchema>;
 export type JournalLine = typeof journalLines.$inferSelect;
+
+// Insert Schema and Types for License Types
+export const insertLicenseTypeSchema = createInsertSchema(licenseTypes).omit({ id: true, createdAt: true });
+export type InsertLicenseType = z.infer<typeof insertLicenseTypeSchema>;
+export type LicenseType = typeof licenseTypes.$inferSelect;

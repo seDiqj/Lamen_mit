@@ -10,6 +10,7 @@ import {
   businesses,
   provinces,
   districts,
+  licenseTypes,
   customers,
   customerBusinesses,
   businessLicenses,
@@ -54,6 +55,8 @@ import {
   type Province,
   type InsertDistrict,
   type District,
+  type InsertLicenseType,
+  type LicenseType,
   type InsertCustomer,
   type Customer,
   customerDocuments,
@@ -140,6 +143,13 @@ export interface IStorage {
   createDistrict(data: InsertDistrict): Promise<District>;
   updateDistrict(id: number, data: Partial<InsertDistrict>): Promise<District>;
   deleteDistrict(id: number): Promise<void>;
+  
+  // License Types
+  getLicenseTypes(search?: string): Promise<LicenseType[]>;
+  getLicenseType(id: number): Promise<LicenseType | undefined>;
+  createLicenseType(data: InsertLicenseType): Promise<LicenseType>;
+  updateLicenseType(id: number, data: Partial<InsertLicenseType>): Promise<LicenseType>;
+  deleteLicenseType(id: number): Promise<void>;
   
   // Customers
   getCustomers(search?: string, page?: number, limit?: number): Promise<{ customers: Customer[]; total: number }>;
@@ -580,6 +590,33 @@ export class DatabaseStorage implements IStorage {
 
   async deleteDistrict(id: number): Promise<void> {
     await db.delete(districts).where(eq(districts.id, id));
+  }
+
+  // License Types
+  async getLicenseTypes(search?: string): Promise<LicenseType[]> {
+    if (search) {
+      return db.select().from(licenseTypes).where(like(licenseTypes.name, `%${search}%`)).orderBy(asc(licenseTypes.id));
+    }
+    return db.select().from(licenseTypes).orderBy(asc(licenseTypes.id));
+  }
+
+  async getLicenseType(id: number): Promise<LicenseType | undefined> {
+    const [licenseType] = await db.select().from(licenseTypes).where(eq(licenseTypes.id, id));
+    return licenseType;
+  }
+
+  async createLicenseType(data: InsertLicenseType): Promise<LicenseType> {
+    const [licenseType] = await db.insert(licenseTypes).values(data).returning();
+    return licenseType;
+  }
+
+  async updateLicenseType(id: number, data: Partial<InsertLicenseType>): Promise<LicenseType> {
+    const [licenseType] = await db.update(licenseTypes).set(data).where(eq(licenseTypes.id, id)).returning();
+    return licenseType;
+  }
+
+  async deleteLicenseType(id: number): Promise<void> {
+    await db.delete(licenseTypes).where(eq(licenseTypes.id, id));
   }
 
   // Customers

@@ -648,6 +648,51 @@ export async function registerRoutes(
     }
   });
 
+  // ===== LICENSE TYPES =====
+  app.get("/api/license-types", isAuthenticated, async (req, res) => {
+    try {
+      const { search } = req.query;
+      const licenseTypes = await storage.getLicenseTypes(search as string | undefined);
+      res.json(licenseTypes);
+    } catch (error) {
+      console.error("Error fetching license types:", error);
+      res.status(500).json({ message: "Failed to fetch license types" });
+    }
+  });
+
+  app.post("/api/license-types", isAuthenticated, requireRole("admin", "manager"), async (req: any, res) => {
+    try {
+      const licenseType = await storage.createLicenseType(req.body);
+      await logActivity(req, "create_license_type", "license_type", licenseType.id.toString(), `Created license type: ${licenseType.name}`);
+      res.status(201).json(licenseType);
+    } catch (error) {
+      console.error("Error creating license type:", error);
+      res.status(500).json({ message: "Failed to create license type" });
+    }
+  });
+
+  app.patch("/api/license-types/:id", isAuthenticated, requireRole("admin", "manager"), async (req: any, res) => {
+    try {
+      const licenseType = await storage.updateLicenseType(parseInt(req.params.id), req.body);
+      await logActivity(req, "update_license_type", "license_type", req.params.id, `Updated license type: ${licenseType.name}`);
+      res.json(licenseType);
+    } catch (error) {
+      console.error("Error updating license type:", error);
+      res.status(500).json({ message: "Failed to update license type" });
+    }
+  });
+
+  app.delete("/api/license-types/:id", isAuthenticated, requireRole("admin", "manager"), async (req: any, res) => {
+    try {
+      await storage.deleteLicenseType(parseInt(req.params.id));
+      await logActivity(req, "delete_license_type", "license_type", req.params.id, `Deleted license type`);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting license type:", error);
+      res.status(500).json({ message: "Failed to delete license type" });
+    }
+  });
+
   // ===== CUSTOMERS =====
   app.get("/api/customers", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
     try {

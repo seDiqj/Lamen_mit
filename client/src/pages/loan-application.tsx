@@ -16,7 +16,7 @@ import {
   ChevronLeft, ChevronRight, Save, ArrowLeft, Loader2, Check,
   Camera, Upload, X, File
 } from "lucide-react";
-import type { Branch, FinanceOfficer, FundingSource, Sector, Business, Province, District } from "@shared/schema";
+import type { Branch, FinanceOfficer, FundingSource, Sector, Business, Province, District, LicenseType } from "@shared/schema";
 import { cn } from "@/lib/utils";
 
 const loanApplicationSchema = z.object({
@@ -141,6 +141,7 @@ export default function LoanApplicationPage() {
   const { data: businesses = [] } = useQuery<Business[]>({ queryKey: ["/api/businesses"] });
   const { data: provinces = [] } = useQuery<Province[]>({ queryKey: ["/api/provinces"] });
   const { data: districts = [] } = useQuery<(District & { provinceName?: string })[]>({ queryKey: ["/api/districts"] });
+  const { data: licenseTypes = [] } = useQuery<LicenseType[]>({ queryKey: ["/api/license-types"] });
 
   const form = useForm<LoanApplicationFormData>({
     resolver: zodResolver(loanApplicationSchema),
@@ -887,7 +888,18 @@ export default function LoanApplicationPage() {
                     <FormField control={form.control} name="licenseType" render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-xs">Type of License</FormLabel>
-                        <FormControl><Input placeholder="License type" className="h-9" {...field} data-testid="input-license-type" /></FormControl>
+                        <Select onValueChange={field.onChange} value={field.value || ""}>
+                          <FormControl>
+                            <SelectTrigger className="h-9" data-testid="select-license-type">
+                              <SelectValue placeholder="Select license type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {licenseTypes.map((lt) => (
+                              <SelectItem key={lt.id} value={lt.name}>{lt.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )} />
