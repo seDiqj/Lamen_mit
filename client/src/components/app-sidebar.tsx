@@ -53,7 +53,7 @@ import {
 import { useState } from "react";
 
 type UserRoleData = {
-  role: "user" | "fad" | "cfo" | "coo" | "ceo" | "sharia" | "manager" | "admin";
+  role: "user" | "fad" | "risk_compliance" | "cfo" | "coo" | "ceo" | "sharia" | "manager" | "admin";
 };
 
 type MenuItem = {
