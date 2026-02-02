@@ -72,6 +72,21 @@ export const businesses = pgTable("businesses", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Provinces
+export const provinces = pgTable("provinces", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Districts (belong to Provinces)
+export const districts = pgTable("districts", {
+  id: serial("id").primaryKey(),
+  provinceId: integer("province_id").references(() => provinces.id).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Customers
 export const customers = pgTable("customers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -299,6 +314,8 @@ export const insertFinanceOfficerSchema = createInsertSchema(financeOfficers).om
 export const insertFundingSourceSchema = createInsertSchema(fundingSources).omit({ id: true, createdAt: true });
 export const insertSectorSchema = createInsertSchema(sectors).omit({ id: true, createdAt: true });
 export const insertBusinessSchema = createInsertSchema(businesses).omit({ id: true, createdAt: true });
+export const insertProvinceSchema = createInsertSchema(provinces).omit({ id: true, createdAt: true });
+export const insertDistrictSchema = createInsertSchema(districts).omit({ id: true, createdAt: true });
 export const insertCustomerSchema = createInsertSchema(customers).omit({ id: true, createdAt: true });
 export const insertCustomerBusinessSchema = createInsertSchema(customerBusinesses).omit({ id: true, createdAt: true });
 export const insertBusinessLicenseSchema = createInsertSchema(businessLicenses).omit({ id: true, createdAt: true });
@@ -326,6 +343,10 @@ export type InsertSector = z.infer<typeof insertSectorSchema>;
 export type Sector = typeof sectors.$inferSelect;
 export type InsertBusiness = z.infer<typeof insertBusinessSchema>;
 export type Business = typeof businesses.$inferSelect;
+export type InsertProvince = z.infer<typeof insertProvinceSchema>;
+export type Province = typeof provinces.$inferSelect;
+export type InsertDistrict = z.infer<typeof insertDistrictSchema>;
+export type District = typeof districts.$inferSelect;
 export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
 export type Customer = typeof customers.$inferSelect;
 export type InsertCustomerBusiness = z.infer<typeof insertCustomerBusinessSchema>;

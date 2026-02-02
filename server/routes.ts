@@ -520,6 +520,97 @@ export async function registerRoutes(
     }
   });
 
+  // ===== PROVINCES =====
+  app.get("/api/provinces", isAuthenticated, async (req, res) => {
+    try {
+      const search = req.query.search as string | undefined;
+      const provincesList = await storage.getProvinces(search);
+      res.json(provincesList);
+    } catch (error) {
+      console.error("Error fetching provinces:", error);
+      res.status(500).json({ message: "Failed to fetch provinces" });
+    }
+  });
+
+  app.post("/api/provinces", isAuthenticated, requireRole("admin", "manager"), async (req: any, res) => {
+    try {
+      const province = await storage.createProvince(req.body);
+      await logActivity(req, "create_province", "province", province.id.toString(), `Created province: ${province.name}`);
+      res.status(201).json(province);
+    } catch (error) {
+      console.error("Error creating province:", error);
+      res.status(500).json({ message: "Failed to create province" });
+    }
+  });
+
+  app.patch("/api/provinces/:id", isAuthenticated, requireRole("admin", "manager"), async (req: any, res) => {
+    try {
+      const province = await storage.updateProvince(parseInt(req.params.id), req.body);
+      await logActivity(req, "update_province", "province", province.id.toString(), `Updated province: ${province.name}`);
+      res.json(province);
+    } catch (error) {
+      console.error("Error updating province:", error);
+      res.status(500).json({ message: "Failed to update province" });
+    }
+  });
+
+  app.delete("/api/provinces/:id", isAuthenticated, requireRole("admin", "manager"), async (req: any, res) => {
+    try {
+      await storage.deleteProvince(parseInt(req.params.id));
+      await logActivity(req, "delete_province", "province", req.params.id, `Deleted province`);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting province:", error);
+      res.status(500).json({ message: "Failed to delete province" });
+    }
+  });
+
+  // ===== DISTRICTS =====
+  app.get("/api/districts", isAuthenticated, async (req, res) => {
+    try {
+      const provinceId = req.query.provinceId ? parseInt(req.query.provinceId as string) : undefined;
+      const search = req.query.search as string | undefined;
+      const districtsList = await storage.getDistricts(provinceId, search);
+      res.json(districtsList);
+    } catch (error) {
+      console.error("Error fetching districts:", error);
+      res.status(500).json({ message: "Failed to fetch districts" });
+    }
+  });
+
+  app.post("/api/districts", isAuthenticated, requireRole("admin", "manager"), async (req: any, res) => {
+    try {
+      const district = await storage.createDistrict(req.body);
+      await logActivity(req, "create_district", "district", district.id.toString(), `Created district: ${district.name}`);
+      res.status(201).json(district);
+    } catch (error) {
+      console.error("Error creating district:", error);
+      res.status(500).json({ message: "Failed to create district" });
+    }
+  });
+
+  app.patch("/api/districts/:id", isAuthenticated, requireRole("admin", "manager"), async (req: any, res) => {
+    try {
+      const district = await storage.updateDistrict(parseInt(req.params.id), req.body);
+      await logActivity(req, "update_district", "district", district.id.toString(), `Updated district: ${district.name}`);
+      res.json(district);
+    } catch (error) {
+      console.error("Error updating district:", error);
+      res.status(500).json({ message: "Failed to update district" });
+    }
+  });
+
+  app.delete("/api/districts/:id", isAuthenticated, requireRole("admin", "manager"), async (req: any, res) => {
+    try {
+      await storage.deleteDistrict(parseInt(req.params.id));
+      await logActivity(req, "delete_district", "district", req.params.id, `Deleted district`);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting district:", error);
+      res.status(500).json({ message: "Failed to delete district" });
+    }
+  });
+
   // ===== CUSTOMERS =====
   app.get("/api/customers", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
     try {

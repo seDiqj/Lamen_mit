@@ -8,6 +8,8 @@ import {
   fundingSources,
   sectors,
   businesses,
+  provinces,
+  districts,
   customers,
   customerBusinesses,
   businessLicenses,
@@ -48,6 +50,10 @@ import {
   type Sector,
   type InsertBusiness,
   type Business,
+  type InsertProvince,
+  type Province,
+  type InsertDistrict,
+  type District,
   type InsertCustomer,
   type Customer,
   type InsertCustomerBusiness,
@@ -117,6 +123,20 @@ export interface IStorage {
   createBusiness(data: InsertBusiness): Promise<Business>;
   updateBusiness(id: string, data: Partial<InsertBusiness>): Promise<Business>;
   deleteBusiness(id: string): Promise<void>;
+  
+  // Provinces
+  getProvinces(search?: string): Promise<Province[]>;
+  getProvince(id: number): Promise<Province | undefined>;
+  createProvince(data: InsertProvince): Promise<Province>;
+  updateProvince(id: number, data: Partial<InsertProvince>): Promise<Province>;
+  deleteProvince(id: number): Promise<void>;
+  
+  // Districts
+  getDistricts(provinceId?: number, search?: string): Promise<(District & { provinceName?: string })[]>;
+  getDistrict(id: number): Promise<District | undefined>;
+  createDistrict(data: InsertDistrict): Promise<District>;
+  updateDistrict(id: number, data: Partial<InsertDistrict>): Promise<District>;
+  deleteDistrict(id: number): Promise<void>;
   
   // Customers
   getCustomers(search?: string, page?: number, limit?: number): Promise<{ customers: Customer[]; total: number }>;
@@ -478,6 +498,83 @@ export class DatabaseStorage implements IStorage {
 
   async deleteBusiness(id: string): Promise<void> {
     await db.delete(businesses).where(eq(businesses.id, id));
+  }
+
+  // Provinces
+  async getProvinces(search?: string): Promise<Province[]> {
+    if (search) {
+      return db.select().from(provinces).where(
+        like(provinces.name, `%${search}%`)
+      );
+    }
+    return db.select().from(provinces).orderBy(asc(provinces.name));
+  }
+
+  async getProvince(id: number): Promise<Province | undefined> {
+    const [province] = await db.select().from(provinces).where(eq(provinces.id, id));
+    return province;
+  }
+
+  async createProvince(data: InsertProvince): Promise<Province> {
+    const [province] = await db.insert(provinces).values(data).returning();
+    return province;
+  }
+
+  async updateProvince(id: number, data: Partial<InsertProvince>): Promise<Province> {
+    const [province] = await db.update(provinces).set(data).where(eq(provinces.id, id)).returning();
+    return province;
+  }
+
+  async deleteProvince(id: number): Promise<void> {
+    await db.delete(districts).where(eq(districts.provinceId, id));
+    await db.delete(provinces).where(eq(provinces.id, id));
+  }
+
+  // Districts
+  async getDistricts(provinceId?: number, search?: string): Promise<(District & { provinceName?: string })[]> {
+    let query = db
+      .select({
+        id: districts.id,
+        provinceId: districts.provinceId,
+        name: districts.name,
+        createdAt: districts.createdAt,
+        provinceName: provinces.name,
+      })
+      .from(districts)
+      .leftJoin(provinces, eq(districts.provinceId, provinces.id));
+
+    const conditions = [];
+    if (provinceId) {
+      conditions.push(eq(districts.provinceId, provinceId));
+    }
+    if (search) {
+      conditions.push(like(districts.name, `%${search}%`));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as typeof query;
+    }
+
+    return query.orderBy(asc(districts.name));
+  }
+
+  async getDistrict(id: number): Promise<District | undefined> {
+    const [district] = await db.select().from(districts).where(eq(districts.id, id));
+    return district;
+  }
+
+  async createDistrict(data: InsertDistrict): Promise<District> {
+    const [district] = await db.insert(districts).values(data).returning();
+    return district;
+  }
+
+  async updateDistrict(id: number, data: Partial<InsertDistrict>): Promise<District> {
+    const [district] = await db.update(districts).set(data).where(eq(districts.id, id)).returning();
+    return district;
+  }
+
+  async deleteDistrict(id: number): Promise<void> {
+    await db.delete(districts).where(eq(districts.id, id));
   }
 
   // Customers
