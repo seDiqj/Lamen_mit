@@ -130,8 +130,24 @@ export async function setupAuth(app: Express) {
     // Use passport logout
     req.logout(() => {});
     
-    // Redirect to landing page - using 302 explicitly
-    res.status(302).setHeader("Location", "/").end();
+    // Redirect to landing page
+    res.redirect("/");
+  });
+
+  // POST handler for AJAX logout
+  app.post("/api/logout", async (req, res) => {
+    // Clear cookies first
+    res.clearCookie("connect.sid");
+    
+    // Destroy session
+    if (req.session) {
+      req.session.destroy(() => {});
+    }
+    
+    // Use passport logout
+    req.logout(() => {});
+    
+    res.json({ success: true });
   });
 }
 

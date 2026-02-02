@@ -316,13 +316,21 @@ export function AppSidebar() {
               {role.charAt(0).toUpperCase() + role.slice(1)}
             </Badge>
           </div>
-          <a 
-            href="/api/logout"
-            className="inline-flex items-center justify-center h-9 w-9 rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={async () => {
+              try {
+                await fetch("/api/logout", { method: "POST" });
+              } catch (e) {
+                // Ignore errors
+              }
+              window.location.href = "/";
+            }}
             data-testid="button-logout"
           >
             <LogOut className="h-4 w-4" />
-          </a>
+          </Button>
         </div>
       </SidebarFooter>
     </Sidebar>
