@@ -244,6 +244,16 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/dashboard/branch-stats", isAuthenticated, async (req, res) => {
+    try {
+      const branchStats = await storage.getBranchStats();
+      res.json(branchStats);
+    } catch (error) {
+      console.error("Error fetching branch stats:", error);
+      res.status(500).json({ message: "Failed to fetch branch stats" });
+    }
+  });
+
   // ===== BRANCHES =====
   app.get("/api/branches", isAuthenticated, async (req, res) => {
     try {

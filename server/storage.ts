@@ -96,6 +96,7 @@ export interface IStorage {
   
   // Dashboard Stats
   getDashboardStats(): Promise<any>;
+  getBranchStats(): Promise<any[]>;
   
   // Reports
   getReportData(period: string): Promise<any>;
@@ -633,6 +634,31 @@ export class DatabaseStorage implements IStorage {
       monthlyTrends,
       recentLoans,
     };
+  }
+
+  async getBranchStats(): Promise<any[]> {
+    const result = await db.execute(sql`
+      SELECT 
+        COALESCE(l.branch, 'Unknown') as branch_name,
+        COUNT(DISTINCT l.id) as loan_count,
+        COUNT(DISTINCT l.customer_id) as customer_count,
+        COALESCE(SUM(COALESCE(l.principle_amount, l.request_amount)::numeric), 0) as total_disbursed,
+        COALESCE(SUM(l.total_collection::numeric), 0) as total_collected,
+        COALESCE(SUM(l.outstanding_portfolio::numeric), 0) as outstanding_balance
+      FROM loans l
+      WHERE l.status IN ('disbursed', 'active', 'completed')
+      GROUP BY l.branch
+      ORDER BY total_disbursed DESC
+    `);
+
+    return (result.rows as any[]).map(row => ({
+      branchName: row.branch_name || 'Unknown',
+      loanCount: parseInt(row.loan_count) || 0,
+      customerCount: parseInt(row.customer_count) || 0,
+      totalDisbursed: parseFloat(row.total_disbursed) || 0,
+      totalCollected: parseFloat(row.total_collected) || 0,
+      outstandingBalance: parseFloat(row.outstanding_balance) || 0,
+    }));
   }
 
   // Reports
