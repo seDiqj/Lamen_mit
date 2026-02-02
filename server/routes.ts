@@ -300,6 +300,18 @@ export async function registerRoutes(
     }
   });
 
+  // Alias for finance-officers (used by loan application forms)
+  app.get("/api/finance-officers", isAuthenticated, async (req, res) => {
+    try {
+      const search = req.query.search as string | undefined;
+      const officers = await storage.getOfficers(search);
+      res.json(officers);
+    } catch (error) {
+      console.error("Error fetching finance officers:", error);
+      res.status(500).json({ message: "Failed to fetch finance officers" });
+    }
+  });
+
   app.post("/api/officers", isAuthenticated, requireRole("admin"), async (req: any, res) => {
     try {
       const officer = await storage.createOfficer(req.body);
