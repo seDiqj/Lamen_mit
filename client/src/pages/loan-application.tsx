@@ -470,16 +470,6 @@ export default function LoanApplicationPage() {
                       <FormMessage />
                     </FormItem>
                   )} />
-                  <FormField control={form.control} name="fundingSourceId" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs">Source of Fund</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value || ""}>
-                        <FormControl><SelectTrigger className="h-9" data-testid="select-funding-source"><SelectValue placeholder="Select source" /></SelectTrigger></FormControl>
-                        <SelectContent>{fundingSources.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
                   <FormField control={form.control} name="requestDate" render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-xs">Request Date</FormLabel>
