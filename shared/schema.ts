@@ -7,9 +7,10 @@ import { z } from "zod";
 export * from "./models/auth";
 
 // Enums
-export const userRoleEnum = pgEnum("user_role", ["user", "manager", "admin"]);
+export const userRoleEnum = pgEnum("user_role", ["user", "fad", "cfo", "coo", "ceo", "sharia", "manager", "admin"]);
 export const genderEnum = pgEnum("gender", ["male", "female", "other"]);
-export const loanStatusEnum = pgEnum("loan_status", ["pending", "approved", "disbursed", "active", "completed", "defaulted"]);
+export const loanStatusEnum = pgEnum("loan_status", ["pending", "data_quality_review", "committee_review", "approved", "rejected", "disbursed", "active", "completed", "defaulted"]);
+export const voteStatusEnum = pgEnum("vote_status", ["pending", "approved", "rejected"]);
 
 // User Roles - extends the auth users with role information
 export const userRoles = pgTable("user_roles", {
@@ -195,6 +196,32 @@ export const loanApprovals = pgTable("loan_approvals", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// FAD (Field Assessment/Data) Reviews - Data Quality Check
+export const fadReviews = pgTable("fad_reviews", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  loanId: varchar("loan_id").references(() => loans.id),
+  reviewedById: varchar("reviewed_by_id"),
+  reviewerName: varchar("reviewer_name", { length: 255 }),
+  status: varchar("status", { length: 50 }).default("pending"), // pending, approved, rejected
+  comments: text("comments"),
+  dataQualityScore: integer("data_quality_score"), // Optional 1-100 score
+  reviewedAt: timestamp("reviewed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Committee Votes - Individual votes from committee members
+export const committeeVotes = pgTable("committee_votes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  loanId: varchar("loan_id").references(() => loans.id),
+  voterId: varchar("voter_id"),
+  voterName: varchar("voter_name", { length: 255 }),
+  voterRole: varchar("voter_role", { length: 50 }), // cfo, coo, ceo, sharia
+  vote: voteStatusEnum("vote").default("pending"), // pending, approved, rejected
+  comments: text("comments"),
+  votedAt: timestamp("voted_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Disbursements
 export const disbursements = pgTable("disbursements", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -255,6 +282,8 @@ export const insertLoanSchema = createInsertSchema(loans).omit({ id: true, creat
 export const insertCollateralSchema = createInsertSchema(collaterals).omit({ id: true, createdAt: true });
 export const insertGuarantorSchema = createInsertSchema(guarantors).omit({ id: true, createdAt: true });
 export const insertLoanApprovalSchema = createInsertSchema(loanApprovals).omit({ id: true, createdAt: true });
+export const insertFadReviewSchema = createInsertSchema(fadReviews).omit({ id: true, createdAt: true });
+export const insertCommitteeVoteSchema = createInsertSchema(committeeVotes).omit({ id: true, createdAt: true });
 export const insertDisbursementSchema = createInsertSchema(disbursements).omit({ id: true, createdAt: true });
 export const insertInstallmentSchema = createInsertSchema(installments).omit({ id: true, createdAt: true });
 export const insertActivityLogSchema = createInsertSchema(activityLogs).omit({ id: true, createdAt: true });
@@ -283,6 +312,10 @@ export type InsertGuarantor = z.infer<typeof insertGuarantorSchema>;
 export type Guarantor = typeof guarantors.$inferSelect;
 export type InsertLoanApproval = z.infer<typeof insertLoanApprovalSchema>;
 export type LoanApproval = typeof loanApprovals.$inferSelect;
+export type InsertFadReview = z.infer<typeof insertFadReviewSchema>;
+export type FadReview = typeof fadReviews.$inferSelect;
+export type InsertCommitteeVote = z.infer<typeof insertCommitteeVoteSchema>;
+export type CommitteeVote = typeof committeeVotes.$inferSelect;
 export type InsertDisbursement = z.infer<typeof insertDisbursementSchema>;
 export type Disbursement = typeof disbursements.$inferSelect;
 export type InsertInstallment = z.infer<typeof insertInstallmentSchema>;
