@@ -47,7 +47,10 @@ import {
   Edit,
   UserCheck,
   Building2,
+  UserX,
+  UserPlus,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import type { FinanceOfficer, Branch } from "@shared/schema";
 
 type OfficerWithBranch = FinanceOfficer & {
@@ -140,6 +143,29 @@ export default function OfficersPage() {
     },
   });
 
+  const toggleStatusMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("PATCH", `/api/officers/${id}/toggle-status`, {});
+    },
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/officers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/finance-officers/active"] });
+      const officer = officers?.find(o => o.id === id);
+      const newStatus = officer?.isActive ? "deactivated" : "activated";
+      toast({
+        title: "Status Changed",
+        description: `Officer has been ${newStatus}.`,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to change officer status.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleOpenDialog = (officer?: OfficerWithBranch) => {
     if (officer) {
       setSelectedOfficer(officer);
@@ -207,6 +233,7 @@ export default function OfficersPage() {
                   <TableHead>Officer</TableHead>
                   <TableHead>Code</TableHead>
                   <TableHead>Branch</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead>Created</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -215,7 +242,7 @@ export default function OfficersPage() {
                 {isLoading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
-                      {Array.from({ length: 5 }).map((_, j) => (
+                      {Array.from({ length: 6 }).map((_, j) => (
                         <TableCell key={j}>
                           <Skeleton className="h-4 w-full" />
                         </TableCell>
@@ -244,6 +271,18 @@ export default function OfficersPage() {
                           </div>
                         )}
                       </TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant="outline" 
+                          className={officer.isActive !== false 
+                            ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30" 
+                            : "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30"
+                          }
+                          data-testid={`badge-status-${officer.id}`}
+                        >
+                          {officer.isActive !== false ? "Active" : "Inactive"}
+                        </Badge>
+                      </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {officer.createdAt 
                           ? (() => {
@@ -255,20 +294,36 @@ export default function OfficersPage() {
                           : "-"}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleOpenDialog(officer)}
-                          data-testid={`button-edit-officer-${officer.id}`}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleOpenDialog(officer)}
+                            data-testid={`button-edit-officer-${officer.id}`}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => toggleStatusMutation.mutate(officer.id)}
+                            disabled={toggleStatusMutation.isPending}
+                            data-testid={`button-toggle-officer-${officer.id}`}
+                            title={officer.isActive !== false ? "Deactivate" : "Activate"}
+                          >
+                            {officer.isActive !== false ? (
+                              <UserX className="h-4 w-4 text-red-500" />
+                            ) : (
+                              <UserPlus className="h-4 w-4 text-emerald-500" />
+                            )}
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-12">
+                    <TableCell colSpan={6} className="text-center py-12">
                       <UserCheck className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
                       <p className="text-muted-foreground">No finance officers found</p>
                     </TableCell>

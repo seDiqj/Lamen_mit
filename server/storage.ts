@@ -88,6 +88,8 @@ export interface IStorage {
   getOfficer(id: string): Promise<FinanceOfficer | undefined>;
   createOfficer(data: InsertFinanceOfficer): Promise<FinanceOfficer>;
   updateOfficer(id: string, data: Partial<InsertFinanceOfficer>): Promise<FinanceOfficer>;
+  getActiveOfficers(): Promise<(FinanceOfficer & { branchName?: string })[]>;
+  toggleOfficerStatus(id: string): Promise<FinanceOfficer>;
   
   // Funding Sources
   getFundingSources(search?: string): Promise<FundingSource[]>;
@@ -268,6 +270,7 @@ export class DatabaseStorage implements IStorage {
         code: financeOfficers.code,
         branchId: financeOfficers.branchId,
         userId: financeOfficers.userId,
+        isActive: financeOfficers.isActive,
         createdAt: financeOfficers.createdAt,
         branchName: branches.name,
       })
@@ -298,6 +301,33 @@ export class DatabaseStorage implements IStorage {
   async updateOfficer(id: string, data: Partial<InsertFinanceOfficer>): Promise<FinanceOfficer> {
     const [officer] = await db.update(financeOfficers).set(data).where(eq(financeOfficers.id, id)).returning();
     return officer;
+  }
+
+  async getActiveOfficers(): Promise<(FinanceOfficer & { branchName?: string })[]> {
+    return db
+      .select({
+        id: financeOfficers.id,
+        name: financeOfficers.name,
+        code: financeOfficers.code,
+        branchId: financeOfficers.branchId,
+        userId: financeOfficers.userId,
+        isActive: financeOfficers.isActive,
+        createdAt: financeOfficers.createdAt,
+        branchName: branches.name,
+      })
+      .from(financeOfficers)
+      .leftJoin(branches, eq(financeOfficers.branchId, branches.id))
+      .where(eq(financeOfficers.isActive, true));
+  }
+
+  async toggleOfficerStatus(id: string): Promise<FinanceOfficer> {
+    const officer = await this.getOfficer(id);
+    if (!officer) throw new Error("Officer not found");
+    const [updated] = await db.update(financeOfficers)
+      .set({ isActive: !officer.isActive })
+      .where(eq(financeOfficers.id, id))
+      .returning();
+    return updated;
   }
 
   // Funding Sources

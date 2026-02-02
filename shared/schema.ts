@@ -37,6 +37,7 @@ export const financeOfficers = pgTable("finance_officers", {
   code: varchar("code", { length: 50 }),
   branchId: varchar("branch_id").references(() => branches.id),
   userId: varchar("user_id"),
+  isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

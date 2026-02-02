@@ -362,6 +362,28 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/officers/:id/toggle-status", isAuthenticated, requireRole("admin"), async (req: any, res) => {
+    try {
+      const officer = await storage.toggleOfficerStatus(req.params.id);
+      const action = officer.isActive ? "activated" : "deactivated";
+      await logActivity(req, "toggle_officer_status", "officer", officer.id, `${action} officer: ${officer.name}`);
+      res.json(officer);
+    } catch (error) {
+      console.error("Error toggling officer status:", error);
+      res.status(500).json({ message: "Failed to toggle officer status" });
+    }
+  });
+
+  app.get("/api/finance-officers/active", isAuthenticated, async (req, res) => {
+    try {
+      const officers = await storage.getActiveOfficers();
+      res.json(officers);
+    } catch (error) {
+      console.error("Error fetching active officers:", error);
+      res.status(500).json({ message: "Failed to fetch active officers" });
+    }
+  });
+
   // ===== FUNDING SOURCES =====
   app.get("/api/funding-sources", isAuthenticated, async (req, res) => {
     try {

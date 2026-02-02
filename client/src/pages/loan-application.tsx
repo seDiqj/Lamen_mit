@@ -115,7 +115,7 @@ export default function LoanApplicationPage() {
   const [currentStep, setCurrentStep] = useState(1);
 
   const { data: branches = [] } = useQuery<Branch[]>({ queryKey: ["/api/branches"] });
-  const { data: financeOfficers = [] } = useQuery<FinanceOfficer[]>({ queryKey: ["/api/finance-officers"] });
+  const { data: financeOfficers = [] } = useQuery<FinanceOfficer[]>({ queryKey: ["/api/finance-officers/active"] });
   const { data: fundingSources = [] } = useQuery<FundingSource[]>({ queryKey: ["/api/funding-sources"] });
 
   const form = useForm<LoanApplicationFormData>({
