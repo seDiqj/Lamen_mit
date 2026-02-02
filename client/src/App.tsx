@@ -15,7 +15,6 @@ import Dashboard from "@/pages/dashboard";
 import LoansPage from "@/pages/loans";
 import CustomersPage from "@/pages/customers";
 import PaymentsPage from "@/pages/payments";
-import ApprovalsPage from "@/pages/approvals";
 import DisbursementsPage from "@/pages/disbursements";
 import ReportsPage from "@/pages/reports";
 import ParReportPage from "@/pages/par-report";
@@ -107,7 +106,6 @@ function AppRoutes() {
         <Route path="/loan-application" component={LoanApplicationPage} />
         <Route path="/customers" component={CustomersPage} />
         <Route path="/payments" component={PaymentsPage} />
-        <Route path="/approvals" component={ApprovalsPage} />
         <Route path="/fad-review" component={FadReviewPage} />
         <Route path="/risk-compliance" component={RiskCompliancePage} />
         <Route path="/committee-voting" component={CommitteeVotingPage} />
