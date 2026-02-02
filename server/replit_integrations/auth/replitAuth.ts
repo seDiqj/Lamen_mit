@@ -157,6 +157,12 @@ export async function setupAuth(app: Express) {
       console.error("Failed to delete session from DB:", e);
     }
     
+    // Clear userId from session
+    if (req.session) {
+      (req.session as any).userId = null;
+      delete (req.session as any).userId;
+    }
+    
     // Use passport logout
     req.logout((err) => {
       if (err) {
@@ -164,7 +170,7 @@ export async function setupAuth(app: Express) {
       }
     });
     
-    // Destroy session
+    // Destroy session - wait for completion
     if (req.session) {
       req.session.destroy((err) => {
         if (err) {
@@ -179,7 +185,7 @@ export async function setupAuth(app: Express) {
     res.clearCookie("connect.sid", { path: "/", httpOnly: true });
     res.clearCookie("connect.sid", { path: "/", httpOnly: true, secure: true });
     
-    res.json({ success: true });
+    res.json({ success: true, loggedOut: true });
   });
 }
 
