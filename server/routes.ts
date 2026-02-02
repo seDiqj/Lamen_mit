@@ -429,6 +429,97 @@ export async function registerRoutes(
     }
   });
 
+  // ===== SECTORS =====
+  app.get("/api/sectors", isAuthenticated, async (req, res) => {
+    try {
+      const search = req.query.search as string | undefined;
+      const sectorsList = await storage.getSectors(search);
+      res.json(sectorsList);
+    } catch (error) {
+      console.error("Error fetching sectors:", error);
+      res.status(500).json({ message: "Failed to fetch sectors" });
+    }
+  });
+
+  app.post("/api/sectors", isAuthenticated, requireRole("admin", "manager"), async (req: any, res) => {
+    try {
+      const sector = await storage.createSector(req.body);
+      await logActivity(req, "create_sector", "sector", sector.id, `Created sector: ${sector.name}`);
+      res.status(201).json(sector);
+    } catch (error) {
+      console.error("Error creating sector:", error);
+      res.status(500).json({ message: "Failed to create sector" });
+    }
+  });
+
+  app.patch("/api/sectors/:id", isAuthenticated, requireRole("admin", "manager"), async (req: any, res) => {
+    try {
+      const sector = await storage.updateSector(req.params.id, req.body);
+      await logActivity(req, "update_sector", "sector", sector.id, `Updated sector: ${sector.name}`);
+      res.json(sector);
+    } catch (error) {
+      console.error("Error updating sector:", error);
+      res.status(500).json({ message: "Failed to update sector" });
+    }
+  });
+
+  app.delete("/api/sectors/:id", isAuthenticated, requireRole("admin", "manager"), async (req: any, res) => {
+    try {
+      await storage.deleteSector(req.params.id);
+      await logActivity(req, "delete_sector", "sector", req.params.id, `Deleted sector`);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting sector:", error);
+      res.status(500).json({ message: "Failed to delete sector" });
+    }
+  });
+
+  // ===== BUSINESSES =====
+  app.get("/api/businesses", isAuthenticated, async (req, res) => {
+    try {
+      const sectorId = req.query.sectorId as string | undefined;
+      const search = req.query.search as string | undefined;
+      const businessesList = await storage.getBusinesses(sectorId, search);
+      res.json(businessesList);
+    } catch (error) {
+      console.error("Error fetching businesses:", error);
+      res.status(500).json({ message: "Failed to fetch businesses" });
+    }
+  });
+
+  app.post("/api/businesses", isAuthenticated, requireRole("admin", "manager"), async (req: any, res) => {
+    try {
+      const business = await storage.createBusiness(req.body);
+      await logActivity(req, "create_business", "business", business.id, `Created business: ${business.name}`);
+      res.status(201).json(business);
+    } catch (error) {
+      console.error("Error creating business:", error);
+      res.status(500).json({ message: "Failed to create business" });
+    }
+  });
+
+  app.patch("/api/businesses/:id", isAuthenticated, requireRole("admin", "manager"), async (req: any, res) => {
+    try {
+      const business = await storage.updateBusiness(req.params.id, req.body);
+      await logActivity(req, "update_business", "business", business.id, `Updated business: ${business.name}`);
+      res.json(business);
+    } catch (error) {
+      console.error("Error updating business:", error);
+      res.status(500).json({ message: "Failed to update business" });
+    }
+  });
+
+  app.delete("/api/businesses/:id", isAuthenticated, requireRole("admin", "manager"), async (req: any, res) => {
+    try {
+      await storage.deleteBusiness(req.params.id);
+      await logActivity(req, "delete_business", "business", req.params.id, `Deleted business`);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting business:", error);
+      res.status(500).json({ message: "Failed to delete business" });
+    }
+  });
+
   // ===== CUSTOMERS =====
   app.get("/api/customers", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
     try {
