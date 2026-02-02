@@ -26,6 +26,7 @@ const loanApplicationSchema = z.object({
   fatherName: z.string().optional(),
   gender: z.string().optional(),
   nationalId: z.string().optional(),
+  nidExpiryDate: z.string().optional(),
   dateOfBirth: z.string().optional(),
   placeOfBirth: z.string().optional(),
   age: z.coerce.number().optional(),
@@ -66,6 +67,7 @@ const loanApplicationSchema = z.object({
   licenseExpiryDate: z.string().optional(),
   collateralOwnerName: z.string().optional(),
   collateralOwnerNid: z.string().optional(),
+  collateralOwnerNidExpiry: z.string().optional(),
   collateralType: z.string().optional(),
   collateralProvince: z.string().optional(),
   collateralAddress: z.string().optional(),
@@ -74,6 +76,7 @@ const loanApplicationSchema = z.object({
   financialGuarantorFullName: z.string().optional(),
   financialGuarantorFatherName: z.string().optional(),
   financialGuarantorNid: z.string().optional(),
+  financialGuarantorNidExpiry: z.string().optional(),
   financialGuarantorPhone: z.string().optional(),
   financialGuarantorHomeAddress: z.string().optional(),
   financialGuarantorDistrict: z.string().optional(),
@@ -86,6 +89,7 @@ const loanApplicationSchema = z.object({
   familyGuarantorFullName: z.string().optional(),
   familyGuarantorFatherName: z.string().optional(),
   familyGuarantorNid: z.string().optional(),
+  familyGuarantorNidExpiry: z.string().optional(),
   familyGuarantorPhone: z.string().optional(),
   familyGuarantorHomeAddress: z.string().optional(),
   familyGuarantorDistrict: z.string().optional(),
@@ -370,6 +374,13 @@ export default function LoanApplicationPage() {
                     <FormItem>
                       <FormLabel className="text-xs">National ID (NID)</FormLabel>
                       <FormControl><Input placeholder="National ID" className="h-9" {...field} data-testid="input-nid" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="nidExpiryDate" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs">NID Expiry Date</FormLabel>
+                      <FormControl><Input type="date" className="h-9" {...field} data-testid="input-nid-expiry" /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
@@ -967,6 +978,13 @@ export default function LoanApplicationPage() {
                       <FormMessage />
                     </FormItem>
                   )} />
+                  <FormField control={form.control} name="collateralOwnerNidExpiry" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs">Owner NID Expiry Date</FormLabel>
+                      <FormControl><Input type="date" className="h-9" {...field} data-testid="input-collateral-nid-expiry" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
                   <FormField control={form.control} name="collateralType" render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-xs">Type</FormLabel>
@@ -1058,6 +1076,13 @@ export default function LoanApplicationPage() {
                         <FormMessage />
                       </FormItem>
                     )} />
+                    <FormField control={form.control} name="financialGuarantorNidExpiry" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">NID Expiry Date</FormLabel>
+                        <FormControl><Input type="date" className="h-9" {...field} data-testid="input-fin-guarantor-nid-expiry" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
                     <FormField control={form.control} name="financialGuarantorPhone" render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-xs">Phone</FormLabel>
@@ -1146,6 +1171,13 @@ export default function LoanApplicationPage() {
                       <FormItem>
                         <FormLabel className="text-xs">NID</FormLabel>
                         <FormControl><Input placeholder="National ID" className="h-9" {...field} data-testid="input-fam-guarantor-nid" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="familyGuarantorNidExpiry" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">NID Expiry Date</FormLabel>
+                        <FormControl><Input type="date" className="h-9" {...field} data-testid="input-fam-guarantor-nid-expiry" /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )} />
