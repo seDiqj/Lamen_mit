@@ -51,6 +51,27 @@ export const fundingSources = pgTable("funding_sources", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Sectors (Loan Types)
+export const sectors = pgTable("sectors", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(),
+  code: varchar("code", { length: 50 }),
+  description: text("description"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Businesses (belong to Sectors)
+export const businesses = pgTable("businesses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sectorId: varchar("sector_id").references(() => sectors.id).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  code: varchar("code", { length: 50 }),
+  description: text("description"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Customers
 export const customers = pgTable("customers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -276,6 +297,8 @@ export const insertUserRoleSchema = createInsertSchema(userRoles).omit({ id: tru
 export const insertBranchSchema = createInsertSchema(branches).omit({ id: true, createdAt: true });
 export const insertFinanceOfficerSchema = createInsertSchema(financeOfficers).omit({ id: true, createdAt: true });
 export const insertFundingSourceSchema = createInsertSchema(fundingSources).omit({ id: true, createdAt: true });
+export const insertSectorSchema = createInsertSchema(sectors).omit({ id: true, createdAt: true });
+export const insertBusinessSchema = createInsertSchema(businesses).omit({ id: true, createdAt: true });
 export const insertCustomerSchema = createInsertSchema(customers).omit({ id: true, createdAt: true });
 export const insertCustomerBusinessSchema = createInsertSchema(customerBusinesses).omit({ id: true, createdAt: true });
 export const insertBusinessLicenseSchema = createInsertSchema(businessLicenses).omit({ id: true, createdAt: true });
@@ -299,6 +322,10 @@ export type InsertFinanceOfficer = z.infer<typeof insertFinanceOfficerSchema>;
 export type FinanceOfficer = typeof financeOfficers.$inferSelect;
 export type InsertFundingSource = z.infer<typeof insertFundingSourceSchema>;
 export type FundingSource = typeof fundingSources.$inferSelect;
+export type InsertSector = z.infer<typeof insertSectorSchema>;
+export type Sector = typeof sectors.$inferSelect;
+export type InsertBusiness = z.infer<typeof insertBusinessSchema>;
+export type Business = typeof businesses.$inferSelect;
 export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
 export type Customer = typeof customers.$inferSelect;
 export type InsertCustomerBusiness = z.infer<typeof insertCustomerBusinessSchema>;
