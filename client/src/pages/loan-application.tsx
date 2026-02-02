@@ -249,8 +249,8 @@ export default function LoanApplicationPage() {
                   )} />
                   <FormField control={form.control} name="firstName" render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-xs">Name *</FormLabel>
-                      <FormControl><Input placeholder="Customer name" className="h-9" {...field} data-testid="input-first-name" /></FormControl>
+                      <FormLabel className="text-xs">Full Name *</FormLabel>
+                      <FormControl><Input placeholder="Customer full name" className="h-9" {...field} data-testid="input-first-name" /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
@@ -283,13 +283,34 @@ export default function LoanApplicationPage() {
                       <FormMessage />
                     </FormItem>
                   )} />
-                  <FormField control={form.control} name="dateOfBirth" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs">Date of Birth</FormLabel>
-                      <FormControl><Input type="date" className="h-9" {...field} data-testid="input-dob" /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
+                  <FormField control={form.control} name="dateOfBirth" render={({ field }) => {
+                    const calculateAge = (dob: string) => {
+                      if (!dob) return null;
+                      const birthDate = new Date(dob);
+                      const today = new Date();
+                      let age = today.getFullYear() - birthDate.getFullYear();
+                      const monthDiff = today.getMonth() - birthDate.getMonth();
+                      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                        age--;
+                      }
+                      return age;
+                    };
+                    const age = calculateAge(field.value || "");
+                    return (
+                      <FormItem>
+                        <FormLabel className="text-xs">Date of Birth</FormLabel>
+                        <div className="flex gap-2 items-center">
+                          <FormControl><Input type="date" className="h-9 flex-1" {...field} data-testid="input-dob" /></FormControl>
+                          {age !== null && age >= 0 && (
+                            <div className="h-9 px-3 flex items-center bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-md text-sm font-medium whitespace-nowrap" data-testid="text-age">
+                              Age: {age}
+                            </div>
+                          )}
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }} />
                   <FormField control={form.control} name="placeOfBirth" render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-xs">Place of Birth</FormLabel>
