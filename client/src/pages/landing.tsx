@@ -186,9 +186,9 @@ export default function LandingPage() {
                   <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
                     <FileText className="h-6 w-6 text-primary" />
                   </div>
-                  <h3 className="text-xl font-semibold mb-2">Loan Management</h3>
+                  <h3 className="text-xl font-semibold mb-2">Financing Management</h3>
                   <p className="text-muted-foreground">
-                    Complete loan lifecycle management from application to closure with automated tracking.
+                    Complete financing lifecycle management from application to closure with automated tracking.
                   </p>
                 </CardContent>
               </Card>

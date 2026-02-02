@@ -371,8 +371,8 @@ export default function Dashboard() {
               <FileText className="h-5 w-5 text-white" />
             </div>
             <div>
-              <CardTitle className="text-lg font-semibold">Loans by Status</CardTitle>
-              <p className="text-sm text-muted-foreground">Click on a status to view loan details</p>
+              <CardTitle className="text-lg font-semibold">Financings by Status</CardTitle>
+              <p className="text-sm text-muted-foreground">Click on a status to view financing details</p>
             </div>
           </div>
           <Badge variant="outline" className="bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/30">
@@ -574,7 +574,7 @@ export default function Dashboard() {
           <div className="h-1 bg-gradient-to-r from-amber-500 to-yellow-500" />
           <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
             <div>
-              <CardTitle className="text-lg font-semibold">Loan Status Distribution</CardTitle>
+              <CardTitle className="text-lg font-semibold">Financing Status Distribution</CardTitle>
               <p className="text-sm text-muted-foreground">By current status</p>
             </div>
           </CardHeader>

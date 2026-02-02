@@ -234,7 +234,7 @@ export default function ParReportPage() {
             <AlertTriangle className="h-5 w-5 text-red-500" />
             PAR Analysis by Category
           </CardTitle>
-          <CardDescription>Loan classification by days past due with provision requirements</CardDescription>
+          <CardDescription>Financing classification by days past due with provision requirements</CardDescription>
         </CardHeader>
         <CardContent>
           {parLoading ? (
@@ -247,7 +247,7 @@ export default function ParReportPage() {
                     <th className="text-left p-3 font-semibold">Category</th>
                     <th className="text-right p-3 font-semibold">Days Range</th>
                     <th className="text-right p-3 font-semibold">Provision %</th>
-                    <th className="text-right p-3 font-semibold">Loans</th>
+                    <th className="text-right p-3 font-semibold">Financings</th>
                     <th className="text-right p-3 font-semibold">Total Amount</th>
                     <th className="text-right p-3 font-semibold">Outstanding</th>
                     <th className="text-right p-3 font-semibold">Provision</th>
@@ -313,7 +313,7 @@ export default function ParReportPage() {
                 <thead>
                   <tr className="border-b bg-muted/50">
                     <th className="text-left p-3 font-semibold">Branch</th>
-                    <th className="text-right p-3 font-semibold">Loans</th>
+                    <th className="text-right p-3 font-semibold">Financings</th>
                     <th className="text-right p-3 font-semibold">Portfolio</th>
                     <th className="text-right p-3 font-semibold">Outstanding</th>
                     <th className="text-right p-3 font-semibold">PAR Amount</th>
@@ -366,7 +366,7 @@ export default function ParReportPage() {
                   <tr className="border-b bg-muted/50">
                     <th className="text-left p-3 font-semibold">Officer</th>
                     <th className="text-left p-3 font-semibold">Branch</th>
-                    <th className="text-right p-3 font-semibold">Loans</th>
+                    <th className="text-right p-3 font-semibold">Financings</th>
                     <th className="text-right p-3 font-semibold">Portfolio</th>
                     <th className="text-right p-3 font-semibold">Outstanding</th>
                     <th className="text-right p-3 font-semibold">PAR Amount</th>
@@ -419,7 +419,7 @@ export default function ParReportPage() {
                 <thead>
                   <tr className="border-b bg-muted/50">
                     <th className="text-left p-3 font-semibold">Product</th>
-                    <th className="text-right p-3 font-semibold">Loans</th>
+                    <th className="text-right p-3 font-semibold">Financings</th>
                     <th className="text-right p-3 font-semibold">Portfolio</th>
                     <th className="text-right p-3 font-semibold">Outstanding</th>
                     <th className="text-right p-3 font-semibold">PAR Amount</th>
@@ -470,12 +470,12 @@ export default function ParReportPage() {
               <table className="w-full text-sm" data-testid="table-aging-report">
                 <thead>
                   <tr className="border-b bg-muted/50">
-                    <th className="text-left p-3 font-semibold">Loan ID</th>
+                    <th className="text-left p-3 font-semibold">Financing ID</th>
                     <th className="text-left p-3 font-semibold">Customer</th>
                     <th className="text-left p-3 font-semibold">Branch</th>
                     <th className="text-left p-3 font-semibold">Officer</th>
                     <th className="text-left p-3 font-semibold">Product</th>
-                    <th className="text-right p-3 font-semibold">Loan Amount</th>
+                    <th className="text-right p-3 font-semibold">Financing Amount</th>
                     <th className="text-right p-3 font-semibold">Outstanding</th>
                     <th className="text-right p-3 font-semibold">Late Days</th>
                   </tr>
@@ -657,10 +657,10 @@ export default function ParReportPage() {
                       <table className="w-full text-sm" data-testid="table-dialog-loans">
                         <thead>
                           <tr className="border-b bg-muted/50">
-                            <th className="text-left p-2 font-semibold">Loan ID</th>
+                            <th className="text-left p-2 font-semibold">Financing ID</th>
                             <th className="text-left p-2 font-semibold">Customer</th>
                             <th className="text-left p-2 font-semibold">Branch</th>
-                            <th className="text-right p-2 font-semibold">Loan Amount</th>
+                            <th className="text-right p-2 font-semibold">Financing Amount</th>
                             <th className="text-right p-2 font-semibold">Outstanding</th>
                             <th className="text-right p-2 font-semibold">Late Days</th>
                           </tr>

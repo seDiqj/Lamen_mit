@@ -68,8 +68,8 @@ export default function DisbursementsPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/loans/approved"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       toast({
-        title: "Loan Disbursed",
-        description: "The loan has been disbursed successfully.",
+        title: "Financing Disbursed",
+        description: "The financing has been disbursed successfully.",
       });
       setShowDisburseDialog(false);
       setSelectedLoan(null);

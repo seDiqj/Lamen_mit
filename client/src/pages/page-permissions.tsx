@@ -32,7 +32,7 @@ const PAGE_ICONS: Record<string, any> = {
 const PAGE_LABELS: Record<string, string> = {
   dashboard: "Dashboard",
   customers: "Customers",
-  loans: "Loans",
+  loans: "Financings",
   reports: "Reports",
   "par-report": "PAR Report",
   "activity-logs": "Activity Logs",

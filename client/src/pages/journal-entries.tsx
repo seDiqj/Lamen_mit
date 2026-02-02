@@ -210,8 +210,8 @@ export default function JournalEntries() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="manual">Manual</SelectItem>
-                      <SelectItem value="loan_disbursement">Loan Disbursement</SelectItem>
-                      <SelectItem value="loan_repayment">Loan Repayment</SelectItem>
+                      <SelectItem value="loan_disbursement">Financing Disbursement</SelectItem>
+                      <SelectItem value="loan_repayment">Financing Repayment</SelectItem>
                       <SelectItem value="expense">Expense</SelectItem>
                       <SelectItem value="income">Income</SelectItem>
                     </SelectContent>

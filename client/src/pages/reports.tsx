@@ -284,7 +284,7 @@ export default function ReportsPage() {
           <div className="grid gap-6 lg:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle>Loans by Product</CardTitle>
+                <CardTitle>Financings by Product</CardTitle>
               </CardHeader>
               <CardContent>
                 {isLoading ? (
@@ -316,7 +316,7 @@ export default function ReportsPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Loans by Branch</CardTitle>
+                <CardTitle>Financings by Branch</CardTitle>
               </CardHeader>
               <CardContent>
                 {isLoading ? (

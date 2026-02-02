@@ -201,7 +201,7 @@ export default function PaymentsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Loan ID</TableHead>
+                  <TableHead>Financing ID</TableHead>
                   <TableHead>Customer</TableHead>
                   <TableHead>Installment #</TableHead>
                   <TableHead>Due Date</TableHead>

@@ -103,7 +103,7 @@ const PAGE_URL_TO_NAME: Record<string, string> = {
 export function AppSidebar() {
   const { user } = useAuth();
   const [location] = useLocation();
-  const [openGroups, setOpenGroups] = useState<string[]>(["Dashboard", "Loan Operations", "Management"]);
+  const [openGroups, setOpenGroups] = useState<string[]>(["Dashboard", "Financing Operations", "Management"]);
   const { hasAccess, isAdminOrManager } = usePagePermissions();
 
   const { data: roleData } = useQuery<UserRoleData>({
@@ -139,11 +139,11 @@ export function AppSidebar() {
       ],
     },
     {
-      label: "Loan Operations",
+      label: "Financing Operations",
       icon: FileText,
       items: [
         { title: "New Application", url: "/loan-application", icon: FilePlus, iconColor: "text-green-600" },
-        { title: "All Loans", url: "/loans", icon: FileText, iconColor: "text-emerald-500" },
+        { title: "All Financings", url: "/loans", icon: FileText, iconColor: "text-emerald-500" },
         { title: "Customers", url: "/customers", icon: Users, iconColor: "text-violet-500" },
         { title: "FAD Review", url: "/fad-review", icon: FileSearch, iconColor: "text-blue-500" },
         { title: "Risk Compliance", url: "/risk-compliance", icon: Shield, iconColor: "text-red-500" },
@@ -184,11 +184,11 @@ export function AppSidebar() {
       ],
     },
     {
-      label: "Loan Operations",
+      label: "Financing Operations",
       icon: FileText,
       items: [
         { title: "New Application", url: "/loan-application", icon: FilePlus, iconColor: "text-green-600" },
-        { title: "All Loans", url: "/loans", icon: FileText, iconColor: "text-emerald-500" },
+        { title: "All Financings", url: "/loans", icon: FileText, iconColor: "text-emerald-500" },
         { title: "Customers", url: "/customers", icon: Users, iconColor: "text-violet-500" },
         { title: "Disbursements", url: "/disbursements", icon: PiggyBank, iconColor: "text-pink-500" },
         { title: "Payments", url: "/payments", icon: CreditCard, iconColor: "text-cyan-500" },
@@ -236,11 +236,11 @@ export function AppSidebar() {
       ],
     },
     {
-      label: "Loan Operations",
+      label: "Financing Operations",
       icon: FileText,
       items: [
         { title: "New Application", url: "/loan-application", icon: FilePlus, iconColor: "text-green-600" },
-        { title: "All Loans", url: "/loans", icon: FileText, iconColor: "text-emerald-500" },
+        { title: "All Financings", url: "/loans", icon: FileText, iconColor: "text-emerald-500" },
         { title: "Customers", url: "/customers", icon: Users, iconColor: "text-violet-500" },
         { title: "FAD Review", url: "/fad-review", icon: FileSearch, iconColor: "text-blue-500" },
         { title: "Risk Compliance", url: "/risk-compliance", icon: Shield, iconColor: "text-red-500" },

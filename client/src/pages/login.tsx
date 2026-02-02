@@ -126,7 +126,7 @@ export default function LoginPage() {
 
   const features = [
     { icon: Users, title: "Customer Management", description: "Track customer information and business details" },
-    { icon: Wallet, title: "Loan Processing", description: "Manage loan applications, approvals, and disbursements" },
+    { icon: Wallet, title: "Financing Processing", description: "Manage financing applications, approvals, and disbursements" },
     { icon: TrendingUp, title: "Payment Tracking", description: "Monitor installments and payment schedules" },
     { icon: FileText, title: "Comprehensive Reports", description: "Generate detailed financial reports" },
     { icon: Shield, title: "Role-Based Access", description: "Secure access control for different user levels" },

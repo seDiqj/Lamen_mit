@@ -156,7 +156,7 @@ type FadReviewFormData = z.infer<typeof fadReviewSchema>;
 
 const steps = [
   { id: 1, title: "Customer", icon: User, color: "from-green-500 to-emerald-500" },
-  { id: 2, title: "Loan Details", icon: FileText, color: "from-yellow-500 to-amber-500" },
+  { id: 2, title: "Financing Details", icon: FileText, color: "from-yellow-500 to-amber-500" },
   { id: 3, title: "Business", icon: Building2, color: "from-blue-500 to-indigo-500" },
   { id: 4, title: "Collateral", icon: Shield, color: "from-orange-500 to-red-500" },
   { id: 5, title: "Guarantors", icon: Users, color: "from-teal-500 to-cyan-500" },
@@ -322,8 +322,8 @@ export default function FadReviewPage() {
       toast({
         title: "Review Submitted",
         description: variables.status === "approved" 
-          ? "Loan application has been forwarded for Risk Compliance review."
-          : "Loan application has been rejected.",
+          ? "Financing application has been forwarded for Risk Compliance review."
+          : "Financing application has been rejected.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/loans"] });
       setSelectedLoanId(null);
@@ -547,7 +547,7 @@ export default function FadReviewPage() {
                     <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-yellow-500 to-amber-600 flex items-center justify-center shadow-lg">
                       <FileText className="h-5 w-5 text-white" />
                     </div>
-                    <CardTitle>Loan Details</CardTitle>
+                    <CardTitle>Financing Details</CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent>

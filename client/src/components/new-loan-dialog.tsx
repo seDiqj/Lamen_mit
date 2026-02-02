@@ -106,8 +106,8 @@ export function NewLoanDialog({ open, onOpenChange }: NewLoanDialogProps) {
       queryClient.invalidateQueries({ queryKey: ["/api/loans"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       toast({
-        title: "Loan Created",
-        description: "The loan application has been created successfully.",
+        title: "Financing Created",
+        description: "The financing application has been created successfully.",
       });
       form.reset();
       onOpenChange(false);

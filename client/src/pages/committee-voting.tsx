@@ -109,7 +109,7 @@ type LoanApprovalInfo = {
 
 const steps = [
   { id: 1, title: "Customer", icon: User, color: "from-violet-500 to-purple-500" },
-  { id: 2, title: "Loan Details", icon: FileText, color: "from-blue-500 to-cyan-500" },
+  { id: 2, title: "Financing Details", icon: FileText, color: "from-blue-500 to-cyan-500" },
   { id: 3, title: "Business", icon: Building2, color: "from-emerald-500 to-green-500" },
   { id: 4, title: "Collateral", icon: Shield, color: "from-amber-500 to-orange-500" },
   { id: 5, title: "Guarantors", icon: Users, color: "from-pink-500 to-rose-500" },

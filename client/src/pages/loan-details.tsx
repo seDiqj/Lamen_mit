@@ -97,7 +97,7 @@ type LoanDetailsFormData = z.infer<typeof loanDetailsSchema>;
 
 const steps = [
   { id: 1, title: "Customer", icon: User, color: "from-green-500 to-emerald-500" },
-  { id: 2, title: "Loan Details", icon: FileText, color: "from-yellow-500 to-amber-500" },
+  { id: 2, title: "Financing Details", icon: FileText, color: "from-yellow-500 to-amber-500" },
   { id: 3, title: "Business", icon: Building2, color: "from-blue-500 to-indigo-500" },
   { id: 4, title: "Collateral", icon: Shield, color: "from-orange-500 to-red-500" },
   { id: 5, title: "Guarantors", icon: Users, color: "from-teal-500 to-cyan-500" },
@@ -221,7 +221,7 @@ export default function LoanDetailsPage() {
       return response.json();
     },
     onSuccess: () => {
-      toast({ title: "Success", description: "Loan application updated successfully" });
+      toast({ title: "Success", description: "Financing application updated successfully" });
       queryClient.invalidateQueries({ queryKey: ["/api/loan-applications", loanId] });
       queryClient.invalidateQueries({ queryKey: ["/api/loans"] });
       setIsEditing(false);
@@ -259,7 +259,7 @@ export default function LoanDetailsPage() {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
-                {loanData?.loan?.applicationId || "Loan Details"}
+                {loanData?.loan?.applicationId || "Financing Details"}
               </h1>
               <Badge variant={loanData?.loan?.status === "disbursed" ? "default" : "secondary"}>
                 {loanData?.loan?.status}
@@ -384,7 +384,7 @@ export default function LoanDetailsPage() {
                   <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-yellow-500 to-amber-600 flex items-center justify-center shadow-lg">
                     <FileText className="h-5 w-5 text-white" />
                   </div>
-                  <CardTitle>Loan Details</CardTitle>
+                  <CardTitle>Financing Details</CardTitle>
                 </div>
               </CardHeader>
               <CardContent>

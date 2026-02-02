@@ -70,8 +70,8 @@ export default function ApprovalsPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/loans/pending"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       toast({
-        title: "Loan Approved",
-        description: "The loan has been approved successfully.",
+        title: "Financing Approved",
+        description: "The financing has been approved successfully.",
       });
       setShowApproveDialog(false);
       setSelectedLoan(null);
@@ -93,8 +93,8 @@ export default function ApprovalsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/loans/pending"] });
       toast({
-        title: "Loan Rejected",
-        description: "The loan application has been rejected.",
+        title: "Financing Rejected",
+        description: "The financing application has been rejected.",
       });
       setShowRejectDialog(false);
       setSelectedLoan(null);
@@ -133,9 +133,9 @@ export default function ApprovalsPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold" data-testid="text-approvals-title">Loan Approvals</h1>
+          <h1 className="text-2xl font-bold" data-testid="text-approvals-title">Financing Approvals</h1>
           <p className="text-muted-foreground">
-            Review and approve pending loan applications
+            Review and approve pending financing applications
           </p>
         </div>
         <div className="flex items-center gap-2">

@@ -210,9 +210,9 @@ export default function LoansPage() {
             <FileText className="h-6 w-6 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold" data-testid="text-loans-title">Loans</h1>
+            <h1 className="text-2xl font-bold" data-testid="text-loans-title">Financings</h1>
             <p className="text-muted-foreground">
-              Manage and track all loan applications
+              Manage and track all financing applications
             </p>
           </div>
         </div>

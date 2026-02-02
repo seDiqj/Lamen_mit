@@ -116,7 +116,7 @@ type LoanApplicationFormData = z.infer<typeof loanApplicationSchema>;
 
 const steps = [
   { id: 1, title: "Customer", icon: User, color: "from-green-500 to-emerald-500" },
-  { id: 2, title: "Loan Details", icon: FileText, color: "from-yellow-500 to-amber-500" },
+  { id: 2, title: "Financing Details", icon: FileText, color: "from-yellow-500 to-amber-500" },
   { id: 3, title: "Business", icon: Building2, color: "from-blue-500 to-indigo-500" },
   { id: 4, title: "Collateral", icon: Shield, color: "from-orange-500 to-red-500" },
   { id: 5, title: "Guarantors", icon: Users, color: "from-teal-500 to-cyan-500" },
@@ -242,7 +242,7 @@ export default function LoanApplicationPage() {
       return response.json();
     },
     onSuccess: () => {
-      toast({ title: "Success", description: "Loan application created successfully" });
+      toast({ title: "Success", description: "Financing application created successfully" });
       queryClient.invalidateQueries({ queryKey: ["/api/loans"] });
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
       navigate(`/loans`);
@@ -615,8 +615,8 @@ export default function LoanApplicationPage() {
                     <FileText className="h-4 w-4 text-white" />
                   </div>
                   <div>
-                    <CardTitle className="text-base">Loan Details</CardTitle>
-                    <p className="text-xs text-muted-foreground">Loan product and financing information</p>
+                    <CardTitle className="text-base">Financing Details</CardTitle>
+                    <p className="text-xs text-muted-foreground">Product and financing information</p>
                   </div>
                 </div>
               </CardHeader>
