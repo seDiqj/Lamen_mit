@@ -798,6 +798,7 @@ export class DatabaseStorage implements IStorage {
       .select({
         status: loans.status,
         count: count(),
+        requestedAmount: sql<number>`COALESCE(SUM(${loans.requestAmount}::numeric), 0)`,
       })
       .from(loans)
       .groupBy(loans.status);
@@ -831,7 +832,7 @@ export class DatabaseStorage implements IStorage {
       totalCollected: Number(amounts.totalCollection),
       outstandingBalance: Number(amounts.outstandingPortfolio),
       overdueLoans: 0,
-      loansByStatus: loansByStatus.map(s => ({ status: s.status || "pending", count: Number(s.count) })),
+      loansByStatus: loansByStatus.map(s => ({ status: s.status || "pending", count: Number(s.count), requestedAmount: Number(s.requestedAmount) })),
       monthlyTrends,
       recentLoans,
     };
