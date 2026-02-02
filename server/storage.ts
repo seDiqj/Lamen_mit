@@ -639,15 +639,16 @@ export class DatabaseStorage implements IStorage {
   async getBranchStats(): Promise<any[]> {
     const result = await db.execute(sql`
       SELECT 
-        COALESCE(l.branch, 'Unknown') as branch_name,
+        COALESCE(b.name, 'Unknown') as branch_name,
         COUNT(DISTINCT l.id) as loan_count,
         COUNT(DISTINCT l.customer_id) as customer_count,
         COALESCE(SUM(COALESCE(l.principle_amount, l.request_amount)::numeric), 0) as total_disbursed,
         COALESCE(SUM(l.total_collection::numeric), 0) as total_collected,
         COALESCE(SUM(l.outstanding_portfolio::numeric), 0) as outstanding_balance
       FROM loans l
+      LEFT JOIN branches b ON l.branch_id = b.id
       WHERE l.status IN ('disbursed', 'active', 'completed')
-      GROUP BY l.branch
+      GROUP BY b.name
       ORDER BY total_disbursed DESC
     `);
 
