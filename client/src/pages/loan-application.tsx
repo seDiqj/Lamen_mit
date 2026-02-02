@@ -33,6 +33,10 @@ const loanApplicationSchema = z.object({
   phoneNumber: z.string().optional(),
   secondPhoneNumber: z.string().optional(),
   numberOfDependents: z.coerce.number().optional(),
+  directMaleDependent: z.coerce.number().optional(),
+  directFemaleDependent: z.coerce.number().optional(),
+  indirectMaleDependent: z.coerce.number().optional(),
+  indirectFemaleDependent: z.coerce.number().optional(),
   branchId: z.string().optional(),
   financeOfficerId: z.string().optional(),
   productName: z.string().optional(),
@@ -325,6 +329,34 @@ export default function LoanApplicationPage() {
                     <FormItem>
                       <FormLabel>No. of Dependents</FormLabel>
                       <FormControl><Input type="number" placeholder="0" {...field} data-testid="input-dependents" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="directMaleDependent" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Direct Male Dependent</FormLabel>
+                      <FormControl><Input type="number" placeholder="0" {...field} data-testid="input-direct-male-dep" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="directFemaleDependent" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Direct Female Dependent</FormLabel>
+                      <FormControl><Input type="number" placeholder="0" {...field} data-testid="input-direct-female-dep" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="indirectMaleDependent" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Indirect Male Dependent</FormLabel>
+                      <FormControl><Input type="number" placeholder="0" {...field} data-testid="input-indirect-male-dep" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="indirectFemaleDependent" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Indirect Female Dependent</FormLabel>
+                      <FormControl><Input type="number" placeholder="0" {...field} data-testid="input-indirect-female-dep" /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />

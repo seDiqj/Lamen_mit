@@ -35,6 +35,10 @@ const loanDetailsSchema = z.object({
   phoneNumber: z.string().optional(),
   secondPhoneNumber: z.string().optional(),
   numberOfDependents: z.coerce.number().optional(),
+  directMaleDependent: z.coerce.number().optional(),
+  directFemaleDependent: z.coerce.number().optional(),
+  indirectMaleDependent: z.coerce.number().optional(),
+  indirectFemaleDependent: z.coerce.number().optional(),
   branchId: z.string().optional(),
   financeOfficerId: z.string().optional(),
   productName: z.string().optional(),
@@ -151,6 +155,10 @@ export default function LoanDetailsPage() {
         phoneNumber: d.customer?.phoneNumber || "",
         secondPhoneNumber: d.customer?.secondPhoneNumber || "",
         numberOfDependents: d.customer?.numberOfDependents || 0,
+        directMaleDependent: d.customer?.directMaleDependent || 0,
+        directFemaleDependent: d.customer?.directFemaleDependent || 0,
+        indirectMaleDependent: d.customer?.indirectMaleDependent || 0,
+        indirectFemaleDependent: d.customer?.indirectFemaleDependent || 0,
         branchId: d.loan?.branchId || "",
         financeOfficerId: d.loan?.financeOfficerId || "",
         productName: d.loan?.productName || "",
@@ -350,6 +358,18 @@ export default function LoanDetailsPage() {
                   )} />
                   <FormField control={form.control} name="numberOfDependents" render={({ field }) => (
                     <FormItem><FormLabel>Dependents</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name="directMaleDependent" render={({ field }) => (
+                    <FormItem><FormLabel>Direct Male Dep.</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name="directFemaleDependent" render={({ field }) => (
+                    <FormItem><FormLabel>Direct Female Dep.</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name="indirectMaleDependent" render={({ field }) => (
+                    <FormItem><FormLabel>Indirect Male Dep.</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name="indirectFemaleDependent" render={({ field }) => (
+                    <FormItem><FormLabel>Indirect Female Dep.</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                 </div>
               </CardContent>

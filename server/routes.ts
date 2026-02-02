@@ -516,6 +516,10 @@ export async function registerRoutes(
             phoneNumber: data.phoneNumber,
             secondPhoneNumber: data.secondPhoneNumber,
             numberOfDependents: data.numberOfDependents,
+            directMaleDependent: data.directMaleDependent,
+            directFemaleDependent: data.directFemaleDependent,
+            indirectMaleDependent: data.indirectMaleDependent,
+            indirectFemaleDependent: data.indirectFemaleDependent,
           });
           customerId = customer.id;
         }
@@ -534,6 +538,10 @@ export async function registerRoutes(
           phoneNumber: data.phoneNumber,
           secondPhoneNumber: data.secondPhoneNumber,
           numberOfDependents: data.numberOfDependents,
+          directMaleDependent: data.directMaleDependent,
+          directFemaleDependent: data.directFemaleDependent,
+          indirectMaleDependent: data.indirectMaleDependent,
+          indirectFemaleDependent: data.indirectFemaleDependent,
         });
         customerId = customer.id;
       }
@@ -730,6 +738,10 @@ export async function registerRoutes(
           phoneNumber: data.phoneNumber,
           secondPhoneNumber: data.secondPhoneNumber,
           numberOfDependents: data.numberOfDependents,
+          directMaleDependent: data.directMaleDependent,
+          directFemaleDependent: data.directFemaleDependent,
+          indirectMaleDependent: data.indirectMaleDependent,
+          indirectFemaleDependent: data.indirectFemaleDependent,
         });
       }
 

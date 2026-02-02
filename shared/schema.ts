@@ -66,6 +66,10 @@ export const customers = pgTable("customers", {
   phoneNumber: varchar("phone_number", { length: 50 }),
   secondPhoneNumber: varchar("second_phone_number", { length: 50 }),
   numberOfDependents: integer("number_of_dependents"),
+  directMaleDependent: integer("direct_male_dependent"),
+  directFemaleDependent: integer("direct_female_dependent"),
+  indirectMaleDependent: integer("indirect_male_dependent"),
+  indirectFemaleDependent: integer("indirect_female_dependent"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
