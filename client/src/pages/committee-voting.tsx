@@ -267,7 +267,7 @@ export default function CommitteeVotingPage() {
     }
 
     const voteStats = selectedLoanInfo ? getVoteStats(selectedLoanInfo.votes) : { approved: 0, rejected: 0, pending: 0, total: 4 };
-    const hasVoted = selectedLoanInfo?.userVote?.vote !== "pending";
+    const hasVoted = selectedLoanInfo?.userVote?.vote === "approved" || selectedLoanInfo?.userVote?.vote === "rejected";
 
     return (
       <div className="p-6 space-y-6 max-w-6xl mx-auto">
