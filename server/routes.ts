@@ -674,6 +674,166 @@ export async function registerRoutes(
     }
   });
 
+  // Get full loan application details
+  app.get("/api/loan-applications/:id", isAuthenticated, async (req, res) => {
+    try {
+      const loan = await storage.getLoan(req.params.id);
+      if (!loan) {
+        return res.status(404).json({ message: "Loan not found" });
+      }
+      
+      const customer = loan.customerId ? await storage.getCustomer(loan.customerId) : null;
+      const business = customer ? await storage.getCustomerBusinessByCustomerId(customer.id) : null;
+      const license = business ? await storage.getBusinessLicenseByBusinessId(business.id) : null;
+      const collateral = await storage.getCollateralByLoanId(loan.id);
+      const guarantors = await storage.getGuarantorsByLoanId(loan.id);
+      const financialGuarantor = guarantors.find(g => g.guarantorType === "financial");
+      const familyGuarantor = guarantors.find(g => g.guarantorType === "family");
+      
+      res.json({
+        loan,
+        customer,
+        business,
+        license,
+        collateral,
+        financialGuarantor,
+        familyGuarantor,
+      });
+    } catch (error) {
+      console.error("Error fetching loan application:", error);
+      res.status(500).json({ message: "Failed to fetch loan application" });
+    }
+  });
+
+  // Update loan application
+  app.put("/api/loan-applications/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const data = req.body;
+      const loan = await storage.getLoan(req.params.id);
+      if (!loan) {
+        return res.status(404).json({ message: "Loan not found" });
+      }
+
+      // Update customer
+      if (loan.customerId) {
+        await storage.updateCustomer(loan.customerId, {
+          customerNo: data.customerNo,
+          firstName: data.firstName,
+          lastName: data.lastName,
+          fatherName: data.fatherName,
+          gender: data.gender,
+          nationalId: data.nationalId,
+          dateOfBirth: data.dateOfBirth,
+          placeOfBirth: data.placeOfBirth,
+          homeAddress: data.homeAddress,
+          district: data.district,
+          phoneNumber: data.phoneNumber,
+          secondPhoneNumber: data.secondPhoneNumber,
+          numberOfDependents: data.numberOfDependents,
+        });
+      }
+
+      // Update loan
+      await storage.updateLoan(loan.id, {
+        branchId: data.branchId,
+        financeOfficerId: data.financeOfficerId,
+        productName: data.productName,
+        productCode: data.productCode,
+        sector: data.sector,
+        businessDescription: data.businessDescription,
+        financingPurpose: data.financingPurpose,
+        sourceOfFund: data.sourceOfFund,
+        requestDate: data.requestDate,
+        requestAmount: data.requestAmount?.toString(),
+        financingDurationMonths: data.financingDurationMonths,
+        gracePeriod: data.gracePeriod,
+        numberOfInstallments: data.numberOfInstallments,
+        principleAmount: data.principleAmount?.toString(),
+        marginRate: data.marginRate?.toString(),
+      });
+
+      // Update business if exists
+      if (loan.customerId) {
+        const business = await storage.getCustomerBusinessByCustomerId(loan.customerId);
+        if (business) {
+          await storage.updateCustomerBusiness(business.id, {
+            businessName: data.businessName,
+            province: data.businessProvince,
+            district: data.businessDistrict,
+            village: data.businessVillage,
+            detailedAddress: data.businessDetailedAddress,
+            yearsOfExperience: data.businessYearsOfExperience,
+          });
+          
+          const license = await storage.getBusinessLicenseByBusinessId(business.id);
+          if (license) {
+            await storage.updateBusinessLicense(license.id, {
+              licenseType: data.licenseType,
+              president: data.licensePresident,
+              licenseNumber: data.licenseNumber,
+              registerDate: data.licenseRegisterDate,
+              expiryDate: data.licenseExpiryDate,
+            });
+          }
+        }
+      }
+
+      // Update collateral
+      const collateral = await storage.getCollateralByLoanId(loan.id);
+      if (collateral) {
+        await storage.updateCollateral(collateral.id, {
+          ownerName: data.collateralOwnerName,
+          ownerNationalId: data.collateralOwnerNid,
+          collateralType: data.collateralType,
+          province: data.collateralProvince,
+          address: data.collateralAddress,
+          purchasedPrice: data.collateralPurchasedPrice?.toString(),
+          marketPrice: data.collateralMarketPrice?.toString(),
+        });
+      }
+
+      // Update guarantors
+      const guarantors = await storage.getGuarantorsByLoanId(loan.id);
+      const financialGuarantor = guarantors.find(g => g.guarantorType === "financial");
+      const familyGuarantor = guarantors.find(g => g.guarantorType === "family");
+
+      if (financialGuarantor) {
+        await storage.updateGuarantor(financialGuarantor.id, {
+          fullName: data.financialGuarantorFullName,
+          fatherName: data.financialGuarantorFatherName,
+          nationalId: data.financialGuarantorNid,
+          phoneNumber: data.financialGuarantorPhone,
+          homeAddress: data.financialGuarantorHomeAddress,
+          district: data.financialGuarantorDistrict,
+          business: data.financialGuarantorBusiness,
+          businessAddress: data.financialGuarantorBusinessAddress,
+          relationshipWithCustomer: data.financialGuarantorRelationship,
+          yearsOfExperience: data.financialGuarantorYearsOfExperience,
+          inventory: data.financialGuarantorInventory?.toString(),
+          monthlyIncome: data.financialGuarantorMonthlyIncome?.toString(),
+        });
+      }
+
+      if (familyGuarantor) {
+        await storage.updateGuarantor(familyGuarantor.id, {
+          fullName: data.familyGuarantorFullName,
+          fatherName: data.familyGuarantorFatherName,
+          nationalId: data.familyGuarantorNid,
+          phoneNumber: data.familyGuarantorPhone,
+          homeAddress: data.familyGuarantorHomeAddress,
+          district: data.familyGuarantorDistrict,
+          relationshipWithCustomer: data.familyGuarantorRelationship,
+        });
+      }
+
+      await logActivity(req, "update_loan_application", "loan", loan.id, `Updated loan application: ${loan.applicationId}`);
+      res.json({ message: "Loan application updated successfully" });
+    } catch (error) {
+      console.error("Error updating loan application:", error);
+      res.status(500).json({ message: "Failed to update loan application" });
+    }
+  });
+
   app.patch("/api/loans/:id", isAuthenticated, requireRole("manager", "admin"), async (req: any, res) => {
     try {
       const loan = await storage.updateLoan(req.params.id, req.body);

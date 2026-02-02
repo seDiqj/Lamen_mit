@@ -288,7 +288,7 @@ export default function LoansPage() {
                           </Button>
                           {(roleData?.role === "manager" || roleData?.role === "admin") && (
                             <Button variant="ghost" size="icon" asChild data-testid={`button-edit-loan-${loan.id}`}>
-                              <Link href={`/loans/${loan.id}/edit`}>
+                              <Link href={`/loans/${loan.id}`}>
                                 <Edit className="h-4 w-4" />
                               </Link>
                             </Button>

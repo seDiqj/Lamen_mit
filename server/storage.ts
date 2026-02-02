@@ -342,6 +342,16 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(customerBusinesses).where(eq(customerBusinesses.customerId, customerId));
   }
 
+  async getCustomerBusinessByCustomerId(customerId: string): Promise<CustomerBusiness | null> {
+    const [business] = await db.select().from(customerBusinesses).where(eq(customerBusinesses.customerId, customerId)).limit(1);
+    return business || null;
+  }
+
+  async updateCustomerBusiness(id: string, data: Partial<InsertCustomerBusiness>): Promise<CustomerBusiness> {
+    const [business] = await db.update(customerBusinesses).set(data).where(eq(customerBusinesses.id, id)).returning();
+    return business;
+  }
+
   // Business Licenses
   async createBusinessLicense(data: InsertBusinessLicense): Promise<BusinessLicense> {
     const [license] = await db.insert(businessLicenses).values(data).returning();
@@ -350,6 +360,16 @@ export class DatabaseStorage implements IStorage {
 
   async getBusinessLicenses(customerBusinessId: string): Promise<BusinessLicense[]> {
     return db.select().from(businessLicenses).where(eq(businessLicenses.customerBusinessId, customerBusinessId));
+  }
+
+  async getBusinessLicenseByBusinessId(customerBusinessId: string): Promise<BusinessLicense | null> {
+    const [license] = await db.select().from(businessLicenses).where(eq(businessLicenses.customerBusinessId, customerBusinessId)).limit(1);
+    return license || null;
+  }
+
+  async updateBusinessLicense(id: string, data: Partial<InsertBusinessLicense>): Promise<BusinessLicense> {
+    const [license] = await db.update(businessLicenses).set(data).where(eq(businessLicenses.id, id)).returning();
+    return license;
   }
 
   // Collaterals
@@ -362,6 +382,16 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(collaterals).where(eq(collaterals.loanId, loanId));
   }
 
+  async getCollateralByLoanId(loanId: string): Promise<Collateral | null> {
+    const [collateral] = await db.select().from(collaterals).where(eq(collaterals.loanId, loanId)).limit(1);
+    return collateral || null;
+  }
+
+  async updateCollateral(id: string, data: Partial<InsertCollateral>): Promise<Collateral> {
+    const [collateral] = await db.update(collaterals).set(data).where(eq(collaterals.id, id)).returning();
+    return collateral;
+  }
+
   // Guarantors
   async createGuarantor(data: InsertGuarantor): Promise<Guarantor> {
     const [guarantor] = await db.insert(guarantors).values(data).returning();
@@ -370,6 +400,15 @@ export class DatabaseStorage implements IStorage {
 
   async getGuarantors(loanId: string): Promise<Guarantor[]> {
     return db.select().from(guarantors).where(eq(guarantors.loanId, loanId));
+  }
+
+  async getGuarantorsByLoanId(loanId: string): Promise<Guarantor[]> {
+    return db.select().from(guarantors).where(eq(guarantors.loanId, loanId));
+  }
+
+  async updateGuarantor(id: string, data: Partial<InsertGuarantor>): Promise<Guarantor> {
+    const [guarantor] = await db.update(guarantors).set(data).where(eq(guarantors.id, id)).returning();
+    return guarantor;
   }
 
   async getGuarantorsByType(loanId: string, type: "financial" | "family"): Promise<Guarantor[]> {
