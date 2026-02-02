@@ -69,6 +69,8 @@ export default function OfficersPage() {
   const [search, setSearch] = useState("");
   const [selectedOfficer, setSelectedOfficer] = useState<OfficerWithBranch | null>(null);
   const [showDialog, setShowDialog] = useState(false);
+  const [officerToToggle, setOfficerToToggle] = useState<OfficerWithBranch | null>(null);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -147,15 +149,16 @@ export default function OfficersPage() {
     mutationFn: async (id: string) => {
       return apiRequest("PATCH", `/api/officers/${id}/toggle-status`, {});
     },
-    onSuccess: (_, id) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/officers"] });
       queryClient.invalidateQueries({ queryKey: ["/api/finance-officers/active"] });
-      const officer = officers?.find(o => o.id === id);
-      const newStatus = officer?.isActive ? "deactivated" : "activated";
+      const newStatus = officerToToggle?.isActive !== false ? "deactivated" : "activated";
       toast({
         title: "Status Changed",
         description: `Officer has been ${newStatus}.`,
       });
+      setShowConfirmDialog(false);
+      setOfficerToToggle(null);
     },
     onError: () => {
       toast({
@@ -163,8 +166,21 @@ export default function OfficersPage() {
         description: "Failed to change officer status.",
         variant: "destructive",
       });
+      setShowConfirmDialog(false);
+      setOfficerToToggle(null);
     },
   });
+
+  const handleToggleStatus = (officer: OfficerWithBranch) => {
+    setOfficerToToggle(officer);
+    setShowConfirmDialog(true);
+  };
+
+  const confirmToggleStatus = () => {
+    if (officerToToggle) {
+      toggleStatusMutation.mutate(officerToToggle.id);
+    }
+  };
 
   const handleOpenDialog = (officer?: OfficerWithBranch) => {
     if (officer) {
@@ -306,8 +322,7 @@ export default function OfficersPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => toggleStatusMutation.mutate(officer.id)}
-                            disabled={toggleStatusMutation.isPending}
+                            onClick={() => handleToggleStatus(officer)}
                             data-testid={`button-toggle-officer-${officer.id}`}
                             title={officer.isActive !== false ? "Deactivate" : "Activate"}
                           >
@@ -415,6 +430,44 @@ export default function OfficersPage() {
               </DialogFooter>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {officerToToggle?.isActive !== false ? "Deactivate Officer" : "Activate Officer"}
+            </DialogTitle>
+            <DialogDescription>
+              {officerToToggle?.isActive !== false 
+                ? `Are you sure you want to deactivate "${officerToToggle?.name}"? This officer will no longer appear in loan applications.`
+                : `Are you sure you want to activate "${officerToToggle?.name}"? This officer will be available for loan applications.`
+              }
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => {
+                setShowConfirmDialog(false);
+                setOfficerToToggle(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={confirmToggleStatus}
+              disabled={toggleStatusMutation.isPending}
+              variant={officerToToggle?.isActive !== false ? "destructive" : "default"}
+              data-testid="button-confirm-toggle"
+            >
+              {toggleStatusMutation.isPending 
+                ? "Processing..." 
+                : officerToToggle?.isActive !== false ? "Deactivate" : "Activate"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
