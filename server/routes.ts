@@ -1470,7 +1470,7 @@ export async function registerRoutes(
         voteRecord = await storage.updateCommitteeVote(existingVote.id, {
           vote,
           comments,
-          votedAt: new Date().toISOString(),
+          votedAt: new Date(),
         });
       } else {
         voteRecord = await storage.createCommitteeVote({
@@ -1480,7 +1480,7 @@ export async function registerRoutes(
           voterRole: userRole.role,
           vote,
           comments,
-          votedAt: new Date().toISOString(),
+          votedAt: new Date(),
         });
       }
 
