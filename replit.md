@@ -37,6 +37,17 @@ Preferred communication style: Simple, everyday language.
   - `loans`, `collaterals`, `guarantors` - Loan information
   - `loanApprovals`, `disbursements`, `installments` - Loan lifecycle
   - `activityLogs` - Audit trail
+  - `accounts` - Chart of accounts with hierarchical structure for double-entry bookkeeping
+  - `journalEntries`, `journalLines` - Double-entry transactions with posting/reversal support
+  - `fiscalPeriods` - Accounting period management
+
+### Accounting Module
+- **Double-Entry Bookkeeping**: Full support for double-entry with strict validation (debits must equal credits)
+- **Chart of Accounts**: Hierarchical account structure with 5 types (asset, liability, equity, income, expense)
+- **Journal Entries**: Create, post, and reverse journal entries with proper audit trail
+- **Financial Reports**: Trial Balance, Income Statement, Balance Sheet, Account Statement
+- **Server-Side Validation**: Enforces minimum 2 lines, no negative amounts, balanced entries
+- **Role Restrictions**: Financial reports restricted to manager and admin roles
 
 ### Authentication & Authorization
 - **Authentication**: Replit Auth integration via OpenID Connect

@@ -1695,12 +1695,33 @@ export async function registerRoutes(
     try {
       const { lines, ...header } = req.body;
       
+      // Validate at least 2 lines
+      if (!Array.isArray(lines) || lines.length < 2) {
+        return res.status(400).json({ message: "Journal entry must have at least 2 lines" });
+      }
+      
+      // Validate no negative amounts
+      for (const line of lines) {
+        const debit = Number(line.debitAmount || 0);
+        const credit = Number(line.creditAmount || 0);
+        if (debit < 0 || credit < 0) {
+          return res.status(400).json({ message: "Amounts cannot be negative" });
+        }
+        if (!line.accountId) {
+          return res.status(400).json({ message: "Each line must have an account" });
+        }
+      }
+      
       // Validate debit = credit
       const totalDebit = lines.reduce((sum: number, line: any) => sum + Number(line.debitAmount || 0), 0);
       const totalCredit = lines.reduce((sum: number, line: any) => sum + Number(line.creditAmount || 0), 0);
       
       if (Math.abs(totalDebit - totalCredit) > 0.01) {
         return res.status(400).json({ message: "Total debits must equal total credits" });
+      }
+      
+      if (totalDebit === 0) {
+        return res.status(400).json({ message: "Journal entry cannot have zero amounts" });
       }
       
       const entryNumber = await storage.getNextEntryNumber();
@@ -1738,8 +1759,8 @@ export async function registerRoutes(
     }
   });
 
-  // Accounting Reports
-  app.get("/api/reports/trial-balance", isAuthenticated, async (req, res) => {
+  // Accounting Reports (restricted to managers and admins)
+  app.get("/api/reports/trial-balance", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
     try {
       const { asOfDate } = req.query;
       const trialBalance = await storage.getTrialBalance(asOfDate as string);
@@ -1750,7 +1771,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/reports/income-statement", isAuthenticated, async (req, res) => {
+  app.get("/api/reports/income-statement", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
     try {
       const { startDate, endDate } = req.query;
       if (!startDate || !endDate) {
@@ -1764,7 +1785,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/reports/balance-sheet", isAuthenticated, async (req, res) => {
+  app.get("/api/reports/balance-sheet", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
     try {
       const { asOfDate } = req.query;
       if (!asOfDate) {
@@ -1778,7 +1799,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/reports/account-statement/:accountId", isAuthenticated, async (req, res) => {
+  app.get("/api/reports/account-statement/:accountId", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
     try {
       const { startDate, endDate } = req.query;
       const statement = await storage.getAccountStatement(
