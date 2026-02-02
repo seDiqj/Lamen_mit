@@ -1719,6 +1719,218 @@ export class DatabaseStorage implements IStorage {
     }
 
     console.log("Seed data created successfully");
+
+    // Seed Chart of Accounts
+    await this.seedChartOfAccounts();
+  }
+
+  async seedChartOfAccounts(): Promise<void> {
+    // Check if accounts already exist
+    const [existingAccounts] = await db.select({ count: count() }).from(accounts);
+    if (Number(existingAccounts.count) > 0) return;
+
+    // 1. ASSETS (1000-1999)
+    const [assets] = await db.insert(accounts).values({
+      accountCode: "1000",
+      accountName: "Assets",
+      accountType: "asset",
+      description: "All company assets",
+      isActive: true,
+    }).returning();
+
+    // Asset sub-accounts
+    const [currentAssets] = await db.insert(accounts).values({
+      accountCode: "1100",
+      accountName: "Current Assets",
+      accountType: "asset",
+      parentId: assets.id,
+      description: "Short-term assets",
+      isActive: true,
+    }).returning();
+
+    await db.insert(accounts).values([
+      { accountCode: "1101", accountName: "Cash on Hand", accountType: "asset", parentId: currentAssets.id, description: "Physical cash", isActive: true },
+      { accountCode: "1102", accountName: "Cash in Bank", accountType: "asset", parentId: currentAssets.id, description: "Bank accounts", isActive: true },
+      { accountCode: "1103", accountName: "Petty Cash", accountType: "asset", parentId: currentAssets.id, description: "Small expenses fund", isActive: true },
+    ]);
+
+    const [receivables] = await db.insert(accounts).values({
+      accountCode: "1200",
+      accountName: "Receivables",
+      accountType: "asset",
+      parentId: assets.id,
+      description: "Amounts owed to the company",
+      isActive: true,
+    }).returning();
+
+    await db.insert(accounts).values([
+      { accountCode: "1201", accountName: "Loan Receivables", accountType: "asset", parentId: receivables.id, description: "Outstanding loan principal", isActive: true },
+      { accountCode: "1202", accountName: "Interest Receivable", accountType: "asset", parentId: receivables.id, description: "Accrued interest income", isActive: true },
+      { accountCode: "1203", accountName: "Fees Receivable", accountType: "asset", parentId: receivables.id, description: "Service fees owed", isActive: true },
+    ]);
+
+    const [fixedAssets] = await db.insert(accounts).values({
+      accountCode: "1500",
+      accountName: "Fixed Assets",
+      accountType: "asset",
+      parentId: assets.id,
+      description: "Long-term assets",
+      isActive: true,
+    }).returning();
+
+    await db.insert(accounts).values([
+      { accountCode: "1501", accountName: "Office Equipment", accountType: "asset", parentId: fixedAssets.id, description: "Computers, furniture", isActive: true },
+      { accountCode: "1502", accountName: "Vehicles", accountType: "asset", parentId: fixedAssets.id, description: "Company vehicles", isActive: true },
+      { accountCode: "1503", accountName: "Buildings", accountType: "asset", parentId: fixedAssets.id, description: "Office buildings", isActive: true },
+    ]);
+
+    // 2. LIABILITIES (2000-2999)
+    const [liabilities] = await db.insert(accounts).values({
+      accountCode: "2000",
+      accountName: "Liabilities",
+      accountType: "liability",
+      description: "All company liabilities",
+      isActive: true,
+    }).returning();
+
+    const [currentLiabilities] = await db.insert(accounts).values({
+      accountCode: "2100",
+      accountName: "Current Liabilities",
+      accountType: "liability",
+      parentId: liabilities.id,
+      description: "Short-term obligations",
+      isActive: true,
+    }).returning();
+
+    await db.insert(accounts).values([
+      { accountCode: "2101", accountName: "Accounts Payable", accountType: "liability", parentId: currentLiabilities.id, description: "Amounts owed to suppliers", isActive: true },
+      { accountCode: "2102", accountName: "Salaries Payable", accountType: "liability", parentId: currentLiabilities.id, description: "Wages owed to employees", isActive: true },
+      { accountCode: "2103", accountName: "Taxes Payable", accountType: "liability", parentId: currentLiabilities.id, description: "Tax obligations", isActive: true },
+    ]);
+
+    const [longTermLiabilities] = await db.insert(accounts).values({
+      accountCode: "2500",
+      accountName: "Long-term Liabilities",
+      accountType: "liability",
+      parentId: liabilities.id,
+      description: "Long-term obligations",
+      isActive: true,
+    }).returning();
+
+    await db.insert(accounts).values([
+      { accountCode: "2501", accountName: "Bank Loans Payable", accountType: "liability", parentId: longTermLiabilities.id, description: "Loans from banks", isActive: true },
+      { accountCode: "2502", accountName: "Borrowings", accountType: "liability", parentId: longTermLiabilities.id, description: "Other borrowings", isActive: true },
+    ]);
+
+    // 3. EQUITY (3000-3999)
+    const [equity] = await db.insert(accounts).values({
+      accountCode: "3000",
+      accountName: "Equity",
+      accountType: "equity",
+      description: "Owner's equity and capital",
+      isActive: true,
+    }).returning();
+
+    await db.insert(accounts).values([
+      { accountCode: "3001", accountName: "Share Capital", accountType: "equity", parentId: equity.id, description: "Invested capital", isActive: true },
+      { accountCode: "3002", accountName: "Retained Earnings", accountType: "equity", parentId: equity.id, description: "Accumulated profits", isActive: true },
+      { accountCode: "3003", accountName: "Reserves", accountType: "equity", parentId: equity.id, description: "Legal and general reserves", isActive: true },
+    ]);
+
+    // 4. INCOME (4000-4999)
+    const [income] = await db.insert(accounts).values({
+      accountCode: "4000",
+      accountName: "Income",
+      accountType: "income",
+      description: "All revenue sources",
+      isActive: true,
+    }).returning();
+
+    const [operatingIncome] = await db.insert(accounts).values({
+      accountCode: "4100",
+      accountName: "Operating Income",
+      accountType: "income",
+      parentId: income.id,
+      description: "Main business revenue",
+      isActive: true,
+    }).returning();
+
+    await db.insert(accounts).values([
+      { accountCode: "4101", accountName: "Interest Income", accountType: "income", parentId: operatingIncome.id, description: "Interest from loans", isActive: true },
+      { accountCode: "4102", accountName: "Service Fee Income", accountType: "income", parentId: operatingIncome.id, description: "Loan processing fees", isActive: true },
+      { accountCode: "4103", accountName: "Penalty Income", accountType: "income", parentId: operatingIncome.id, description: "Late payment penalties", isActive: true },
+    ]);
+
+    const [otherIncome] = await db.insert(accounts).values({
+      accountCode: "4500",
+      accountName: "Other Income",
+      accountType: "income",
+      parentId: income.id,
+      description: "Non-operating revenue",
+      isActive: true,
+    }).returning();
+
+    await db.insert(accounts).values([
+      { accountCode: "4501", accountName: "Investment Income", accountType: "income", parentId: otherIncome.id, description: "Returns on investments", isActive: true },
+      { accountCode: "4502", accountName: "Miscellaneous Income", accountType: "income", parentId: otherIncome.id, description: "Other revenue", isActive: true },
+    ]);
+
+    // 5. EXPENSES (5000-5999)
+    const [expenses] = await db.insert(accounts).values({
+      accountCode: "5000",
+      accountName: "Expenses",
+      accountType: "expense",
+      description: "All company expenses",
+      isActive: true,
+    }).returning();
+
+    const [operatingExpenses] = await db.insert(accounts).values({
+      accountCode: "5100",
+      accountName: "Operating Expenses",
+      accountType: "expense",
+      parentId: expenses.id,
+      description: "Day-to-day business costs",
+      isActive: true,
+    }).returning();
+
+    await db.insert(accounts).values([
+      { accountCode: "5101", accountName: "Salaries and Wages", accountType: "expense", parentId: operatingExpenses.id, description: "Employee compensation", isActive: true },
+      { accountCode: "5102", accountName: "Rent Expense", accountType: "expense", parentId: operatingExpenses.id, description: "Office rent", isActive: true },
+      { accountCode: "5103", accountName: "Utilities Expense", accountType: "expense", parentId: operatingExpenses.id, description: "Electricity, water, etc.", isActive: true },
+      { accountCode: "5104", accountName: "Office Supplies", accountType: "expense", parentId: operatingExpenses.id, description: "Stationery and supplies", isActive: true },
+    ]);
+
+    const [adminExpenses] = await db.insert(accounts).values({
+      accountCode: "5200",
+      accountName: "Administrative Expenses",
+      accountType: "expense",
+      parentId: expenses.id,
+      description: "Administrative costs",
+      isActive: true,
+    }).returning();
+
+    await db.insert(accounts).values([
+      { accountCode: "5201", accountName: "Travel Expense", accountType: "expense", parentId: adminExpenses.id, description: "Business travel costs", isActive: true },
+      { accountCode: "5202", accountName: "Training Expense", accountType: "expense", parentId: adminExpenses.id, description: "Staff training", isActive: true },
+      { accountCode: "5203", accountName: "Professional Fees", accountType: "expense", parentId: adminExpenses.id, description: "Legal, audit fees", isActive: true },
+    ]);
+
+    const [financeExpenses] = await db.insert(accounts).values({
+      accountCode: "5300",
+      accountName: "Finance Expenses",
+      accountType: "expense",
+      parentId: expenses.id,
+      description: "Financial costs",
+      isActive: true,
+    }).returning();
+
+    await db.insert(accounts).values([
+      { accountCode: "5301", accountName: "Interest Expense", accountType: "expense", parentId: financeExpenses.id, description: "Interest on borrowings", isActive: true },
+      { accountCode: "5302", accountName: "Bank Charges", accountType: "expense", parentId: financeExpenses.id, description: "Bank service fees", isActive: true },
+      { accountCode: "5303", accountName: "Bad Debt Expense", accountType: "expense", parentId: financeExpenses.id, description: "Loan write-offs", isActive: true },
+    ]);
+
+    console.log("Chart of Accounts seeded successfully");
   }
 
   // ============== ACCOUNTING METHODS ==============
