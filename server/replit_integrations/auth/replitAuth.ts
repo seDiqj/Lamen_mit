@@ -136,16 +136,38 @@ export async function setupAuth(app: Express) {
 
   // POST handler for AJAX logout
   app.post("/api/logout", async (req, res) => {
-    // Clear cookies first
-    res.clearCookie("connect.sid");
+    const sessionId = req.sessionID;
     
-    // Destroy session
+    // Use passport logout first
+    req.logout((err) => {
+      if (err) {
+        console.error("Passport logout error:", err);
+      }
+    });
+    
+    // Destroy session with callback
     if (req.session) {
-      req.session.destroy(() => {});
+      req.session.destroy((err) => {
+        if (err) {
+          console.error("Session destroy error:", err);
+        }
+      });
     }
     
-    // Use passport logout
-    req.logout(() => {});
+    // Clear all session-related cookies
+    res.clearCookie("connect.sid");
+    res.clearCookie("connect.sid", { path: "/" });
+    
+    // Also try to delete from database directly using raw query
+    try {
+      const { db } = await import("../db");
+      const { sql } = await import("drizzle-orm");
+      if (sessionId) {
+        await db.execute(sql`DELETE FROM sessions WHERE sid = ${sessionId}`);
+      }
+    } catch (e) {
+      console.error("Failed to delete session from DB:", e);
+    }
     
     res.json({ success: true });
   });
