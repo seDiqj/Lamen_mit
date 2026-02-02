@@ -319,17 +319,9 @@ export function AppSidebar() {
           <Button 
             variant="ghost" 
             size="icon"
-            onClick={async () => {
-              try {
-                await fetch("/api/logout", { 
-                  method: "POST",
-                  credentials: "include"
-                });
-              } catch (e) {
-                // Ignore errors
-              }
-              // Force a hard reload to clear all cached state
-              window.location.replace("/");
+            onClick={() => {
+              // Use direct navigation to the logout endpoint which will redirect
+              window.location.href = "/api/logout-redirect";
             }}
             data-testid="button-logout"
           >

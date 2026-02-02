@@ -134,6 +134,59 @@ export async function setupAuth(app: Express) {
     res.redirect("/");
   });
 
+  // GET handler for logout with redirect (works better with cookies)
+  app.get("/api/logout-redirect", async (req, res) => {
+    const sessionId = req.sessionID;
+    const userId = (req.session as any)?.userId;
+    
+    // Delete ALL sessions for this user from database first
+    try {
+      const { db } = await import("../db");
+      const { sql } = await import("drizzle-orm");
+      
+      // Delete current session by ID
+      if (sessionId) {
+        await db.execute(sql`DELETE FROM sessions WHERE sid = ${sessionId}`);
+      }
+      
+      // Also delete any sessions containing this userId
+      if (userId) {
+        await db.execute(sql`DELETE FROM sessions WHERE sess::text LIKE ${'%"userId":"' + userId + '"%'}`);
+      }
+    } catch (e) {
+      console.error("Failed to delete session from DB:", e);
+    }
+    
+    // Clear userId from session
+    if (req.session) {
+      (req.session as any).userId = null;
+      delete (req.session as any).userId;
+    }
+    
+    // Use passport logout
+    req.logout((err) => {
+      if (err) {
+        console.error("Passport logout error:", err);
+      }
+    });
+    
+    // Destroy session
+    if (req.session) {
+      req.session.destroy((err) => {
+        if (err) {
+          console.error("Session destroy error:", err);
+        }
+      });
+    }
+    
+    // Clear all session-related cookies
+    res.clearCookie("connect.sid", { path: "/" });
+    res.clearCookie("connect.sid", { path: "/", httpOnly: true, secure: true });
+    
+    // Redirect to landing page
+    res.redirect("/");
+  });
+
   // POST handler for AJAX logout
   app.post("/api/logout", async (req, res) => {
     const sessionId = req.sessionID;
