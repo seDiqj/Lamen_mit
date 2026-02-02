@@ -6,6 +6,8 @@ import {
   branches,
   financeOfficers,
   fundingSources,
+  sectors,
+  businesses,
   customers,
   customerBusinesses,
   businessLicenses,
@@ -42,6 +44,10 @@ import {
   type FinanceOfficer,
   type InsertFundingSource,
   type FundingSource,
+  type InsertSector,
+  type Sector,
+  type InsertBusiness,
+  type Business,
   type InsertCustomer,
   type Customer,
   type InsertCustomerBusiness,
@@ -97,6 +103,20 @@ export interface IStorage {
   createFundingSource(data: InsertFundingSource): Promise<FundingSource>;
   updateFundingSource(id: string, data: Partial<InsertFundingSource>): Promise<FundingSource>;
   getFundingSourceStats(): Promise<{ id: string; name: string; loanCount: number; totalAmount: string }[]>;
+  
+  // Sectors
+  getSectors(search?: string): Promise<Sector[]>;
+  getSector(id: string): Promise<Sector | undefined>;
+  createSector(data: InsertSector): Promise<Sector>;
+  updateSector(id: string, data: Partial<InsertSector>): Promise<Sector>;
+  deleteSector(id: string): Promise<void>;
+  
+  // Businesses
+  getBusinesses(sectorId?: string, search?: string): Promise<(Business & { sectorName?: string })[]>;
+  getBusiness(id: string): Promise<Business | undefined>;
+  createBusiness(data: InsertBusiness): Promise<Business>;
+  updateBusiness(id: string, data: Partial<InsertBusiness>): Promise<Business>;
+  deleteBusiness(id: string): Promise<void>;
   
   // Customers
   getCustomers(search?: string, page?: number, limit?: number): Promise<{ customers: Customer[]; total: number }>;
@@ -370,6 +390,94 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(loans, eq(loans.fundingSourceId, fundingSources.id))
       .groupBy(fundingSources.id, fundingSources.name);
     return results;
+  }
+
+  // Sectors
+  async getSectors(search?: string): Promise<Sector[]> {
+    if (search) {
+      return db.select().from(sectors).where(
+        or(
+          like(sectors.name, `%${search}%`),
+          like(sectors.code, `%${search}%`)
+        )
+      );
+    }
+    return db.select().from(sectors).orderBy(asc(sectors.name));
+  }
+
+  async getSector(id: string): Promise<Sector | undefined> {
+    const [sector] = await db.select().from(sectors).where(eq(sectors.id, id));
+    return sector;
+  }
+
+  async createSector(data: InsertSector): Promise<Sector> {
+    const [sector] = await db.insert(sectors).values(data).returning();
+    return sector;
+  }
+
+  async updateSector(id: string, data: Partial<InsertSector>): Promise<Sector> {
+    const [sector] = await db.update(sectors).set(data).where(eq(sectors.id, id)).returning();
+    return sector;
+  }
+
+  async deleteSector(id: string): Promise<void> {
+    await db.delete(businesses).where(eq(businesses.sectorId, id));
+    await db.delete(sectors).where(eq(sectors.id, id));
+  }
+
+  // Businesses
+  async getBusinesses(sectorId?: string, search?: string): Promise<(Business & { sectorName?: string })[]> {
+    let query = db
+      .select({
+        id: businesses.id,
+        sectorId: businesses.sectorId,
+        name: businesses.name,
+        code: businesses.code,
+        description: businesses.description,
+        isActive: businesses.isActive,
+        createdAt: businesses.createdAt,
+        sectorName: sectors.name,
+      })
+      .from(businesses)
+      .leftJoin(sectors, eq(businesses.sectorId, sectors.id));
+
+    const conditions = [];
+    if (sectorId) {
+      conditions.push(eq(businesses.sectorId, sectorId));
+    }
+    if (search) {
+      conditions.push(
+        or(
+          like(businesses.name, `%${search}%`),
+          like(businesses.code, `%${search}%`)
+        )
+      );
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as typeof query;
+    }
+
+    return query.orderBy(asc(businesses.name));
+  }
+
+  async getBusiness(id: string): Promise<Business | undefined> {
+    const [business] = await db.select().from(businesses).where(eq(businesses.id, id));
+    return business;
+  }
+
+  async createBusiness(data: InsertBusiness): Promise<Business> {
+    const [business] = await db.insert(businesses).values(data).returning();
+    return business;
+  }
+
+  async updateBusiness(id: string, data: Partial<InsertBusiness>): Promise<Business> {
+    const [business] = await db.update(businesses).set(data).where(eq(businesses.id, id)).returning();
+    return business;
+  }
+
+  async deleteBusiness(id: string): Promise<void> {
+    await db.delete(businesses).where(eq(businesses.id, id));
   }
 
   // Customers
