@@ -567,8 +567,32 @@ export async function registerRoutes(
         }
       }
 
-      // Generate application ID
-      const applicationId = `${Date.now()}`;
+      // Generate application ID in format: [BranchCode 3][ProductCode 2][Sequential 5]
+      // Get branch code
+      let branchCode = "101"; // Default if no branch selected
+      if (data.branchId) {
+        const branch = await storage.getBranch(data.branchId);
+        if (branch?.code) {
+          branchCode = branch.code.substring(0, 3).padStart(3, '0');
+        }
+      }
+      
+      // Get product code (2 digits)
+      const productCode = (data.productCode || "13").substring(0, 2).padStart(2, '0');
+      
+      // Get the prefix for this branch+product combination
+      const prefix = `${branchCode}${productCode}`;
+      
+      // Find the max existing application ID with this prefix
+      const maxAppId = await storage.getMaxApplicationIdByPrefix(prefix);
+      let sequentialNum = 1;
+      if (maxAppId) {
+        // Extract the last 5 digits and increment
+        const lastSeq = parseInt(maxAppId.substring(5)) || 0;
+        sequentialNum = lastSeq + 1;
+      }
+      
+      const applicationId = `${prefix}${sequentialNum.toString().padStart(5, '0')}`;
 
       // Create loan
       const loan = await storage.createLoan({

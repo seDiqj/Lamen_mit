@@ -475,6 +475,19 @@ export class DatabaseStorage implements IStorage {
       .where(eq(loans.status, "approved"));
   }
 
+  async getMaxApplicationIdByPrefix(prefix: string): Promise<string | null> {
+    const result = await db.execute(sql`
+      SELECT application_id FROM loans 
+      WHERE application_id LIKE ${prefix + '%'}
+      ORDER BY application_id DESC
+      LIMIT 1
+    `);
+    if (result.rows.length > 0) {
+      return (result.rows[0] as any).application_id;
+    }
+    return null;
+  }
+
   async createLoan(data: InsertLoan): Promise<Loan> {
     const [loan] = await db.insert(loans).values(data).returning();
     return loan;
