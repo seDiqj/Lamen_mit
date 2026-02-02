@@ -15,7 +15,7 @@ import {
   User, FileText, Building2, Shield, Users, 
   ChevronLeft, ChevronRight, Save, ArrowLeft, Loader2, Check
 } from "lucide-react";
-import type { Branch, FinanceOfficer, FundingSource } from "@shared/schema";
+import type { Branch, FinanceOfficer, FundingSource, Sector, Business } from "@shared/schema";
 import { cn } from "@/lib/utils";
 
 const loanApplicationSchema = z.object({
@@ -117,6 +117,8 @@ export default function LoanApplicationPage() {
   const { data: branches = [] } = useQuery<Branch[]>({ queryKey: ["/api/branches"] });
   const { data: financeOfficers = [] } = useQuery<FinanceOfficer[]>({ queryKey: ["/api/finance-officers/active"] });
   const { data: fundingSources = [] } = useQuery<FundingSource[]>({ queryKey: ["/api/funding-sources"] });
+  const { data: sectors = [] } = useQuery<Sector[]>({ queryKey: ["/api/sectors"] });
+  const { data: businesses = [] } = useQuery<Business[]>({ queryKey: ["/api/businesses"] });
 
   const form = useForm<LoanApplicationFormData>({
     resolver: zodResolver(loanApplicationSchema),
@@ -473,17 +475,58 @@ export default function LoanApplicationPage() {
                   <FormField control={form.control} name="sector" render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-xs">Sector</FormLabel>
-                      <FormControl><Input placeholder="e.g., Transportation" className="h-9" {...field} data-testid="input-sector" /></FormControl>
+                      <Select onValueChange={(value) => {
+                        const sector = sectors.find(s => s.id === value);
+                        field.onChange(sector?.name || "");
+                        form.setValue("businessDescription", "");
+                      }} value={sectors.find(s => s.name === field.value)?.id || ""}>
+                        <FormControl>
+                          <SelectTrigger className="h-9" data-testid="select-sector">
+                            <SelectValue placeholder="Select sector" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {sectors.map((sector) => (
+                            <SelectItem key={sector.id} value={sector.id}>
+                              {sector.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )} />
-                  <FormField control={form.control} name="businessDescription" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs">Business</FormLabel>
-                      <FormControl><Input placeholder="e.g., Three wheel motorcycle" className="h-9" {...field} data-testid="input-business-desc" /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
+                  <FormField control={form.control} name="businessDescription" render={({ field }) => {
+                    const selectedSector = sectors.find(s => s.name === form.watch("sector"));
+                    const sectorBusinesses = businesses.filter(b => b.sectorId === selectedSector?.id);
+                    return (
+                      <FormItem>
+                        <FormLabel className="text-xs">Business</FormLabel>
+                        <Select 
+                          onValueChange={(value) => {
+                            const business = sectorBusinesses.find(b => b.id === value);
+                            field.onChange(business?.name || "");
+                          }} 
+                          value={sectorBusinesses.find(b => b.name === field.value)?.id || ""} 
+                          disabled={!selectedSector}
+                        >
+                          <FormControl>
+                            <SelectTrigger className="h-9" data-testid="select-business">
+                              <SelectValue placeholder={selectedSector ? "Select business" : "Select sector first"} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {sectorBusinesses.map((business) => (
+                              <SelectItem key={business.id} value={business.id}>
+                                {business.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }} />
                   <FormField control={form.control} name="financingPurpose" render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-xs">Financing Purpose</FormLabel>
