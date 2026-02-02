@@ -114,13 +114,14 @@ export default function LoansPage() {
     }).format(num);
   };
 
-  const formatDate = (date: string | Date | null) => {
+  const formatDateLocal = (date: string | Date | null) => {
     if (!date) return "-";
-    return new Date(date).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
+    const d = typeof date === "string" ? new Date(date) : date;
+    const day = d.getDate().toString().padStart(2, "0");
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const month = months[d.getMonth()];
+    const year = d.getFullYear();
+    return `${day}-${month}-${year}`;
   };
 
   return (
@@ -281,7 +282,7 @@ export default function LoansPage() {
                           {loan.financingDurationMonths ? `${loan.financingDurationMonths} months` : "-"}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-muted-foreground">{formatDate(loan.requestDate)}</TableCell>
+                      <TableCell className="text-muted-foreground">{formatDateLocal(loan.requestDate)}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className={getStatusBadge(loan.status || "pending")}>
                           {getStatusLabel(loan.status || "pending")}

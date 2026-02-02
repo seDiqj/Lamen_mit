@@ -551,7 +551,7 @@ export default function CommitteeVotingPage() {
                         <div className="text-xs text-muted-foreground">Reviewed At</div>
                         <div className="text-sm">
                           {selectedLoan.fadReview.reviewedAt
-                            ? format(new Date(selectedLoan.fadReview.reviewedAt), "dd MMM yyyy HH:mm")
+                            ? format(new Date(selectedLoan.fadReview.reviewedAt), "dd-MMM-yyyy HH:mm")
                             : "-"}
                         </div>
                       </div>
@@ -599,7 +599,7 @@ export default function CommitteeVotingPage() {
                             </TableCell>
                             <TableCell>
                               {vote?.votedAt
-                                ? format(new Date(vote.votedAt), "dd MMM yyyy")
+                                ? format(new Date(vote.votedAt), "dd-MMM-yyyy")
                                 : "-"}
                             </TableCell>
                           </TableRow>

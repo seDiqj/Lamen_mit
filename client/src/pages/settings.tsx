@@ -186,7 +186,12 @@ export default function SettingsPage() {
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {user.createdAt 
-                            ? new Date(user.createdAt).toLocaleDateString() 
+                            ? (() => {
+                                const d = new Date(user.createdAt);
+                                const day = d.getDate().toString().padStart(2, "0");
+                                const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                                return `${day}-${months[d.getMonth()]}-${d.getFullYear()}`;
+                              })()
                             : "-"}
                         </TableCell>
                         <TableCell className="text-right">

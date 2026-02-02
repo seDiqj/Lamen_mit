@@ -246,7 +246,12 @@ export default function OfficersPage() {
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {officer.createdAt 
-                          ? new Date(officer.createdAt).toLocaleDateString() 
+                          ? (() => {
+                              const d = new Date(officer.createdAt);
+                              const day = d.getDate().toString().padStart(2, "0");
+                              const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                              return `${day}-${months[d.getMonth()]}-${d.getFullYear()}`;
+                            })()
                           : "-"}
                       </TableCell>
                       <TableCell className="text-right">

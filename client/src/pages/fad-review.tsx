@@ -997,7 +997,7 @@ export default function FadReviewPage() {
                     <TableCell>{loan.financingDurationMonths} months</TableCell>
                     <TableCell>
                       {loan.applicationDate
-                        ? format(new Date(loan.applicationDate), "dd MMM yyyy")
+                        ? format(new Date(loan.applicationDate), "dd-MMM-yyyy")
                         : "-"}
                     </TableCell>
                     <TableCell>{getStatusBadge(loan.status)}</TableCell>

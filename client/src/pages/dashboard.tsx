@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/use-auth";
+import { formatDate } from "@/lib/date-utils";
 import {
   Dialog,
   DialogContent,
@@ -257,12 +258,7 @@ export default function Dashboard() {
     }).format(amount);
   };
 
-  const today = new Date().toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "2-digit",
-    year: "numeric"
-  });
+  const today = formatDate(new Date());
 
   const handleStatusClick = (status: string) => {
     setSelectedStatus(status);
@@ -767,7 +763,7 @@ export default function Dashboard() {
                         {formatCurrency(loan.requestAmount || 0)}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
-                        {loan.requestDate ? new Date(loan.requestDate).toLocaleDateString() : "-"}
+                        {formatDate(loan.requestDate)}
                       </td>
                       <td className="px-4 py-3 text-center">
                         <Badge variant="outline" className={getStatusColor(loan.status)}>
