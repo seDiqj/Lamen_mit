@@ -1493,6 +1493,8 @@ export class DatabaseStorage implements IStorage {
       "officers",
       "funding-sources",
       "activity-logs",
+      "users",
+      "page-permissions",
     ];
   }
 

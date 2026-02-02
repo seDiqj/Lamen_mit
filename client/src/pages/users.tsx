@@ -120,6 +120,8 @@ const PAGE_CATEGORIES: PageCategory[] = [
       { id: "officers", label: "Finance Officers", icon: Briefcase },
       { id: "funding-sources", label: "Funding Sources", icon: PiggyBank },
       { id: "activity-logs", label: "Activity Logs", icon: Activity },
+      { id: "users", label: "User Management", icon: Users },
+      { id: "page-permissions", label: "Page Permissions", icon: Shield },
     ],
   },
 ];
@@ -142,6 +144,8 @@ const PAGE_ICONS: Record<string, any> = {
   branches: Building2,
   officers: Briefcase,
   "funding-sources": PiggyBank,
+  users: Users,
+  "page-permissions": Shield,
 };
 
 const PAGE_LABELS: Record<string, string> = {
@@ -162,6 +166,8 @@ const PAGE_LABELS: Record<string, string> = {
   branches: "Branches",
   officers: "Finance Officers",
   "funding-sources": "Funding Sources",
+  users: "User Management",
+  "page-permissions": "Page Permissions",
 };
 
 interface User {
