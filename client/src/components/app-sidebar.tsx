@@ -88,7 +88,7 @@ const PAGE_URL_TO_NAME: Record<string, string> = {
 };
 
 export function AppSidebar() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const [location] = useLocation();
   const [openGroups, setOpenGroups] = useState<string[]>(["Dashboard", "Loan Operations", "Management"]);
   const { hasAccess, isAdminOrManager } = usePagePermissions();
@@ -319,7 +319,9 @@ export function AppSidebar() {
           <Button 
             variant="ghost" 
             size="icon"
-            onClick={() => logout()}
+            onClick={() => {
+              window.location.href = "/api/logout";
+            }}
             data-testid="button-logout"
           >
             <LogOut className="h-4 w-4" />
