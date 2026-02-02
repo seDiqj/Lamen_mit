@@ -119,35 +119,19 @@ export async function setupAuth(app: Express) {
   });
 
   app.get("/api/logout", async (req, res) => {
-    try {
-      const config = await getOidcConfig();
-      const endSessionUrl = client.buildEndSessionUrl(config, {
-        client_id: process.env.REPL_ID!,
-        post_logout_redirect_uri: `${req.protocol}://${req.hostname}`,
-      }).href;
-
-      req.logout((err) => {
-        if (err) {
-          console.error("Logout error:", err);
-        }
-        if (req.session) {
-          req.session.destroy((destroyErr) => {
-            if (destroyErr) {
-              console.error("Session destruction error:", destroyErr);
-            }
-            res.clearCookie("connect.sid");
-            res.redirect(endSessionUrl);
-          });
-        } else {
-          res.clearCookie("connect.sid");
-          res.redirect(endSessionUrl);
-        }
-      });
-    } catch (error) {
-      console.error("Logout error:", error);
-      res.clearCookie("connect.sid");
-      res.redirect("/");
+    // Clear cookies first
+    res.clearCookie("connect.sid");
+    
+    // Destroy session
+    if (req.session) {
+      req.session.destroy(() => {});
     }
+    
+    // Use passport logout
+    req.logout(() => {});
+    
+    // Redirect to landing page - using 302 explicitly
+    res.status(302).setHeader("Location", "/").end();
   });
 }
 
