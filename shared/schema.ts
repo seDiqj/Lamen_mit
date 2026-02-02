@@ -355,3 +355,87 @@ export const notifications = pgTable("notifications", {
 export const insertNotificationSchema = createInsertSchema(notifications).omit({ id: true, createdAt: true });
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type Notification = typeof notifications.$inferSelect;
+
+// ============== ACCOUNTING MODULE ==============
+
+// Account Types Enum
+export const accountTypeEnum = pgEnum("account_type", ["asset", "liability", "equity", "income", "expense"]);
+
+// Chart of Accounts
+export const accounts = pgTable("accounts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountCode: varchar("account_code", { length: 20 }).notNull().unique(),
+  accountName: varchar("account_name", { length: 255 }).notNull(),
+  accountType: accountTypeEnum("account_type").notNull(),
+  parentId: varchar("parent_id"), // Self-referencing for hierarchy
+  description: text("description"),
+  isActive: boolean("is_active").default(true),
+  isSystemAccount: boolean("is_system_account").default(false), // For auto-generated entries
+  normalBalance: varchar("normal_balance", { length: 10 }).default("debit"), // debit or credit
+  openingBalance: decimal("opening_balance", { precision: 15, scale: 2 }).default("0"),
+  currentBalance: decimal("current_balance", { precision: 15, scale: 2 }).default("0"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Fiscal Periods
+export const fiscalPeriods = pgTable("fiscal_periods", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  periodName: varchar("period_name", { length: 100 }).notNull(),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  fiscalYear: integer("fiscal_year").notNull(),
+  periodNumber: integer("period_number").notNull(), // 1-12 for months
+  isClosed: boolean("is_closed").default(false),
+  closedBy: varchar("closed_by"),
+  closedAt: timestamp("closed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Journal Entries (Header)
+export const journalEntries = pgTable("journal_entries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  entryNumber: varchar("entry_number", { length: 50 }).notNull().unique(),
+  entryDate: date("entry_date").notNull(),
+  description: text("description"),
+  reference: varchar("reference", { length: 255 }), // e.g., Loan ID, Invoice No
+  referenceType: varchar("reference_type", { length: 50 }), // loan_disbursement, payment, manual
+  referenceId: varchar("reference_id"), // ID of related entity
+  fiscalPeriodId: varchar("fiscal_period_id").references(() => fiscalPeriods.id),
+  totalDebit: decimal("total_debit", { precision: 15, scale: 2 }).default("0"),
+  totalCredit: decimal("total_credit", { precision: 15, scale: 2 }).default("0"),
+  isPosted: boolean("is_posted").default(false),
+  isReversed: boolean("is_reversed").default(false),
+  reversedEntryId: varchar("reversed_entry_id"),
+  createdBy: varchar("created_by"),
+  postedBy: varchar("posted_by"),
+  postedAt: timestamp("posted_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Journal Lines (Debit/Credit entries)
+export const journalLines = pgTable("journal_lines", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  journalEntryId: varchar("journal_entry_id").references(() => journalEntries.id).notNull(),
+  accountId: varchar("account_id").references(() => accounts.id).notNull(),
+  description: text("description"),
+  debitAmount: decimal("debit_amount", { precision: 15, scale: 2 }).default("0"),
+  creditAmount: decimal("credit_amount", { precision: 15, scale: 2 }).default("0"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Insert Schemas for Accounting
+export const insertAccountSchema = createInsertSchema(accounts).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertFiscalPeriodSchema = createInsertSchema(fiscalPeriods).omit({ id: true, createdAt: true });
+export const insertJournalEntrySchema = createInsertSchema(journalEntries).omit({ id: true, createdAt: true });
+export const insertJournalLineSchema = createInsertSchema(journalLines).omit({ id: true, createdAt: true });
+
+// Types for Accounting
+export type InsertAccount = z.infer<typeof insertAccountSchema>;
+export type Account = typeof accounts.$inferSelect;
+export type InsertFiscalPeriod = z.infer<typeof insertFiscalPeriodSchema>;
+export type FiscalPeriod = typeof fiscalPeriods.$inferSelect;
+export type InsertJournalEntry = z.infer<typeof insertJournalEntrySchema>;
+export type JournalEntry = typeof journalEntries.$inferSelect;
+export type InsertJournalLine = z.infer<typeof insertJournalLineSchema>;
+export type JournalLine = typeof journalLines.$inferSelect;
