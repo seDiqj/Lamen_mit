@@ -179,6 +179,34 @@ export async function registerRoutes(
     });
   });
 
+  // Logout with redirect - clears session and redirects to landing page
+  app.get("/api/logout-redirect", async (req, res) => {
+    const userId = req.session?.userId;
+    
+    // Delete session from database
+    if (userId) {
+      try {
+        await db.execute(sql`DELETE FROM sessions WHERE sess::text LIKE ${'%"userId":"' + userId + '"%'}`);
+      } catch (e) {
+        console.error("Failed to delete session from DB:", e);
+      }
+    }
+    
+    // Clear userId from session
+    if (req.session) {
+      delete (req.session as any).userId;
+      req.session.destroy((err) => {
+        if (err) console.error("Session destroy error:", err);
+      });
+    }
+    
+    // Clear cookies
+    res.clearCookie("connect.sid", { path: "/" });
+    
+    // Redirect to landing page
+    res.redirect("/");
+  });
+
   // Helper to log activity
   const logActivity = async (req: Request, action: string, entityType?: string, entityId?: string, details?: string) => {
     const userId = req.session.userId;

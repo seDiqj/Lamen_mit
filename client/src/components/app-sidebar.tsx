@@ -126,11 +126,25 @@ export function AppSidebar() {
       ],
     },
     {
-      label: "My Account",
+      label: "Loan Operations",
       icon: FileText,
       items: [
-        { title: "My Loans", url: "/loans", icon: FileText, iconColor: "text-emerald-500" },
-        { title: "Payments", url: "/payments", icon: CreditCard, iconColor: "text-violet-500" },
+        { title: "New Application", url: "/loan-application", icon: FilePlus, iconColor: "text-green-600" },
+        { title: "All Loans", url: "/loans", icon: FileText, iconColor: "text-emerald-500" },
+        { title: "Customers", url: "/customers", icon: Users, iconColor: "text-violet-500" },
+        { title: "FAD Review", url: "/fad-review", icon: FileSearch, iconColor: "text-blue-500" },
+        { title: "Committee Voting", url: "/committee-voting", icon: Vote, iconColor: "text-purple-500" },
+        { title: "Approvals", url: "/approvals", icon: ClipboardList, iconColor: "text-orange-500" },
+        { title: "Disbursements", url: "/disbursements", icon: PiggyBank, iconColor: "text-pink-500" },
+        { title: "Payments", url: "/payments", icon: CreditCard, iconColor: "text-cyan-500" },
+      ],
+    },
+    {
+      label: "Reports",
+      icon: BarChart3,
+      items: [
+        { title: "Analytics", url: "/reports", icon: BarChart3, iconColor: "text-amber-500" },
+        { title: "PAR Report", url: "/par-report", icon: AlertTriangle, iconColor: "text-red-500" },
       ],
     },
   ];
