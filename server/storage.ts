@@ -1478,11 +1478,21 @@ export class DatabaseStorage implements IStorage {
     return [
       "dashboard",
       "customers",
+      "customer-registration",
       "loans",
+      "loan-application",
+      "fad-review",
+      "committee-voting",
+      "approvals",
+      "disbursements",
+      "payments",
       "reports",
       "par-report",
-      "activity-logs",
       "settings",
+      "branches",
+      "officers",
+      "funding-sources",
+      "activity-logs",
     ];
   }
 

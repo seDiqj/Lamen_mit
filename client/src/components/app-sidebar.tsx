@@ -68,7 +68,9 @@ type MenuGroup = {
 const PAGE_URL_TO_NAME: Record<string, string> = {
   "/": "dashboard",
   "/customers": "customers",
+  "/customer-registration": "customer-registration",
   "/loans": "loans",
+  "/loan-application": "loan-application",
   "/reports": "reports",
   "/par-report": "par-report",
   "/activity": "activity-logs",

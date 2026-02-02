@@ -40,33 +40,118 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Switch } from "@/components/ui/switch";
-import { Search, Plus, Pencil, Trash2, Users, Shield, UserCheck, Crown, Lock, Unlock, LayoutDashboard, FileText, BarChart3, AlertTriangle, Activity, Settings, CreditCard, ClipboardList, PiggyBank } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, Users, Shield, UserCheck, Crown, Lock, Unlock, LayoutDashboard, FileText, BarChart3, AlertTriangle, Activity, Settings, CreditCard, ClipboardList, PiggyBank, ChevronDown, ChevronRight, Building2, UserPlus, Briefcase, Gavel, FileCheck, Banknote, BookOpen, FolderOpen } from "lucide-react";
 import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 interface UserPermissions {
   [pageName: string]: boolean;
 }
 
+interface PageCategory {
+  id: string;
+  label: string;
+  icon: any;
+  color: string;
+  pages: { id: string; label: string; icon: any }[];
+}
+
+const PAGE_CATEGORIES: PageCategory[] = [
+  {
+    id: "dashboard",
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    color: "from-blue-500 to-indigo-500",
+    pages: [
+      { id: "dashboard", label: "Overview Dashboard", icon: LayoutDashboard },
+    ],
+  },
+  {
+    id: "customers",
+    label: "Customers",
+    icon: Users,
+    color: "from-green-500 to-emerald-500",
+    pages: [
+      { id: "customers", label: "Customer List", icon: Users },
+      { id: "customer-registration", label: "Customer Registration", icon: UserPlus },
+    ],
+  },
+  {
+    id: "loans",
+    label: "Loan Management",
+    icon: FileText,
+    color: "from-amber-500 to-yellow-500",
+    pages: [
+      { id: "loans", label: "Loan List", icon: FileText },
+      { id: "loan-application", label: "New Loan Application", icon: ClipboardList },
+      { id: "fad-review", label: "FAD Review", icon: FileCheck },
+      { id: "committee-voting", label: "Committee Voting", icon: Gavel },
+      { id: "approvals", label: "Loan Approvals", icon: ClipboardList },
+      { id: "disbursements", label: "Disbursements", icon: Banknote },
+      { id: "payments", label: "Payments", icon: CreditCard },
+    ],
+  },
+  {
+    id: "reports",
+    label: "Reports",
+    icon: BarChart3,
+    color: "from-purple-500 to-violet-500",
+    pages: [
+      { id: "reports", label: "General Reports", icon: BarChart3 },
+      { id: "par-report", label: "PAR Report", icon: AlertTriangle },
+    ],
+  },
+  {
+    id: "settings",
+    label: "Settings & Admin",
+    icon: Settings,
+    color: "from-slate-500 to-gray-500",
+    pages: [
+      { id: "settings", label: "System Settings", icon: Settings },
+      { id: "branches", label: "Branches", icon: Building2 },
+      { id: "officers", label: "Finance Officers", icon: Briefcase },
+      { id: "funding-sources", label: "Funding Sources", icon: PiggyBank },
+      { id: "activity-logs", label: "Activity Logs", icon: Activity },
+    ],
+  },
+];
+
 const PAGE_ICONS: Record<string, any> = {
   dashboard: LayoutDashboard,
   customers: Users,
+  "customer-registration": UserPlus,
   loans: FileText,
+  "loan-application": ClipboardList,
+  "fad-review": FileCheck,
+  "committee-voting": Gavel,
   reports: BarChart3,
   "par-report": AlertTriangle,
   "activity-logs": Activity,
   settings: Settings,
   payments: CreditCard,
   approvals: ClipboardList,
-  disbursements: PiggyBank,
+  disbursements: Banknote,
+  branches: Building2,
+  officers: Briefcase,
+  "funding-sources": PiggyBank,
 };
 
 const PAGE_LABELS: Record<string, string> = {
   dashboard: "Dashboard",
   customers: "Customers",
+  "customer-registration": "Customer Registration",
   loans: "Loans",
+  "loan-application": "Loan Application",
+  "fad-review": "FAD Review",
+  "committee-voting": "Committee Voting",
   reports: "Reports",
   "par-report": "PAR Report",
   "activity-logs": "Activity Logs",
@@ -74,6 +159,9 @@ const PAGE_LABELS: Record<string, string> = {
   payments: "Payments",
   approvals: "Approvals",
   disbursements: "Disbursements",
+  branches: "Branches",
+  officers: "Finance Officers",
+  "funding-sources": "Funding Sources",
 };
 
 interface User {
@@ -103,6 +191,7 @@ export default function UsersPage() {
   const [deleteUser, setDeleteUser] = useState<User | null>(null);
   const [permissionsUser, setPermissionsUser] = useState<User | null>(null);
   const [userPermissions, setUserPermissions] = useState<UserPermissions>({});
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const [formData, setFormData] = useState<UserFormData>({
     username: "",
     password: "",
@@ -663,8 +752,8 @@ export default function UsersPage() {
       </AlertDialog>
 
       {/* Page Permissions Dialog */}
-      <Dialog open={!!permissionsUser} onOpenChange={(open) => { if (!open) setPermissionsUser(null); }}>
-        <DialogContent className="max-w-lg">
+      <Dialog open={!!permissionsUser} onOpenChange={(open) => { if (!open) { setPermissionsUser(null); setExpandedCategories({}); } }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg">
               <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center">
@@ -673,46 +762,132 @@ export default function UsersPage() {
               Page Access for {permissionsUser?.firstName} {permissionsUser?.lastName}
             </DialogTitle>
           </DialogHeader>
-          <div className="py-4">
+          <div className="py-4 flex-1 overflow-y-auto">
             <p className="text-sm text-muted-foreground mb-4">
-              Toggle which pages this user can access. Changes are saved automatically.
+              Expand each category to toggle access to individual pages. Changes are saved automatically.
             </p>
-            <div className="grid grid-cols-2 gap-3">
-              {allPages.map((pageName) => {
-                const IconComponent = PAGE_ICONS[pageName] || FileText;
-                const hasAccess = userPermissions[pageName] === true;
+            <div className="space-y-3">
+              {PAGE_CATEGORIES.map((category) => {
+                const isExpanded = expandedCategories[category.id] === true;
+                const CategoryIcon = category.icon;
+                const enabledCount = category.pages.filter(p => userPermissions[p.id] === true).length;
+                const totalCount = category.pages.length;
+                const allEnabled = enabledCount === totalCount;
+                const someEnabled = enabledCount > 0 && enabledCount < totalCount;
                 
                 return (
-                  <div
-                    key={pageName}
-                    className={`p-3 rounded-lg border transition-colors ${
-                      hasAccess 
-                        ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800" 
-                        : "bg-muted/30 border-muted"
-                    }`}
-                    data-testid={`permission-toggle-${pageName}`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <IconComponent className={`h-4 w-4 ${hasAccess ? "text-green-600" : "text-muted-foreground"}`} />
-                        <span className="text-sm font-medium">
-                          {PAGE_LABELS[pageName] || pageName}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {hasAccess ? (
-                          <Unlock className="h-3.5 w-3.5 text-green-600" />
-                        ) : (
-                          <Lock className="h-3.5 w-3.5 text-muted-foreground" />
-                        )}
-                        <Switch
-                          checked={hasAccess}
-                          onCheckedChange={(checked) => handlePermissionChange(pageName, checked)}
-                          disabled={updatePermissionMutation.isPending}
-                          data-testid={`switch-${pageName}`}
-                        />
-                      </div>
-                    </div>
+                  <div key={category.id} className="border rounded-lg overflow-hidden" data-testid={`category-${category.id}`}>
+                    <Collapsible 
+                      open={isExpanded} 
+                      onOpenChange={(open) => setExpandedCategories(prev => ({ ...prev, [category.id]: open }))}
+                    >
+                      <CollapsibleTrigger asChild>
+                        <div className={cn(
+                          "flex items-center justify-between p-3 cursor-pointer transition-colors hover:bg-muted/50",
+                          isExpanded && "border-b"
+                        )}>
+                          <div className="flex items-center gap-3">
+                            <div className={`h-8 w-8 rounded-lg bg-gradient-to-br ${category.color} flex items-center justify-center`}>
+                              <CategoryIcon className="h-4 w-4 text-white" />
+                            </div>
+                            <div>
+                              <div className="font-medium">{category.label}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {enabledCount} of {totalCount} pages enabled
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <Badge 
+                              variant={allEnabled ? "default" : someEnabled ? "secondary" : "outline"}
+                              className={cn(
+                                "text-xs",
+                                allEnabled && "bg-green-500 hover:bg-green-600",
+                                someEnabled && "bg-amber-500/20 text-amber-700 dark:text-amber-400"
+                              )}
+                            >
+                              {allEnabled ? "Full Access" : someEnabled ? "Partial" : "No Access"}
+                            </Badge>
+                            {isExpanded ? (
+                              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                            )}
+                          </div>
+                        </div>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <div className="p-3 bg-muted/20 space-y-2">
+                          <div className="flex justify-end gap-2 mb-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-xs h-7"
+                              onClick={() => {
+                                category.pages.forEach(page => {
+                                  if (!userPermissions[page.id]) {
+                                    handlePermissionChange(page.id, true);
+                                  }
+                                });
+                              }}
+                              data-testid={`enable-all-${category.id}`}
+                            >
+                              Enable All
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-xs h-7"
+                              onClick={() => {
+                                category.pages.forEach(page => {
+                                  if (userPermissions[page.id]) {
+                                    handlePermissionChange(page.id, false);
+                                  }
+                                });
+                              }}
+                              data-testid={`disable-all-${category.id}`}
+                            >
+                              Disable All
+                            </Button>
+                          </div>
+                          {category.pages.map((page) => {
+                            const PageIcon = page.icon;
+                            const hasAccess = userPermissions[page.id] === true;
+                            
+                            return (
+                              <div
+                                key={page.id}
+                                className={cn(
+                                  "flex items-center justify-between p-2.5 rounded-lg border transition-colors",
+                                  hasAccess 
+                                    ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800" 
+                                    : "bg-background border-muted"
+                                )}
+                                data-testid={`permission-toggle-${page.id}`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <PageIcon className={cn("h-4 w-4", hasAccess ? "text-green-600" : "text-muted-foreground")} />
+                                  <span className="text-sm font-medium">{page.label}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {hasAccess ? (
+                                    <Unlock className="h-3.5 w-3.5 text-green-600" />
+                                  ) : (
+                                    <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+                                  )}
+                                  <Switch
+                                    checked={hasAccess}
+                                    onCheckedChange={(checked) => handlePermissionChange(page.id, checked)}
+                                    disabled={updatePermissionMutation.isPending}
+                                    data-testid={`switch-${page.id}`}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
                   </div>
                 );
               })}
