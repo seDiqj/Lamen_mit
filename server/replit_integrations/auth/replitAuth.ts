@@ -119,14 +119,41 @@ export async function setupAuth(app: Express) {
   });
 
   app.get("/api/logout", (req, res) => {
-    req.logout(() => {
-      req.session.destroy((err) => {
-        if (err) {
-          console.error("Session destruction error:", err);
-        }
+    req.logout((err) => {
+      if (err) {
+        console.error("Logout error:", err);
+      }
+      if (req.session) {
+        req.session.destroy((destroyErr) => {
+          if (destroyErr) {
+            console.error("Session destruction error:", destroyErr);
+          }
+          res.clearCookie("connect.sid");
+          // Send HTML that redirects via JavaScript to ensure clean navigation
+          res.send(`
+            <!DOCTYPE html>
+            <html>
+              <head>
+                <meta http-equiv="refresh" content="0;url=/">
+                <script>window.location.href = "/";</script>
+              </head>
+              <body>Logging out...</body>
+            </html>
+          `);
+        });
+      } else {
         res.clearCookie("connect.sid");
-        res.redirect("/");
-      });
+        res.send(`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <meta http-equiv="refresh" content="0;url=/">
+              <script>window.location.href = "/";</script>
+            </head>
+            <body>Logging out...</body>
+          </html>
+        `);
+      }
     });
   });
 }
