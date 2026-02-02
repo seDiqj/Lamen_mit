@@ -1541,6 +1541,261 @@ export async function registerRoutes(
     }
   });
 
+  // ============== ACCOUNTING ROUTES ==============
+
+  // Chart of Accounts
+  app.get("/api/accounts", isAuthenticated, async (req, res) => {
+    try {
+      const { search, accountType } = req.query;
+      const accounts = await storage.getAccounts({
+        search: search as string,
+        accountType: accountType as string,
+      });
+      res.json(accounts);
+    } catch (error) {
+      console.error("Error fetching accounts:", error);
+      res.status(500).json({ message: "Failed to fetch accounts" });
+    }
+  });
+
+  app.get("/api/accounts/hierarchy", isAuthenticated, async (req, res) => {
+    try {
+      const hierarchy = await storage.getAccountHierarchy();
+      res.json(hierarchy);
+    } catch (error) {
+      console.error("Error fetching account hierarchy:", error);
+      res.status(500).json({ message: "Failed to fetch account hierarchy" });
+    }
+  });
+
+  app.get("/api/accounts/:id", isAuthenticated, async (req, res) => {
+    try {
+      const account = await storage.getAccount(req.params.id);
+      if (!account) {
+        return res.status(404).json({ message: "Account not found" });
+      }
+      res.json(account);
+    } catch (error) {
+      console.error("Error fetching account:", error);
+      res.status(500).json({ message: "Failed to fetch account" });
+    }
+  });
+
+  app.post("/api/accounts", isAuthenticated, requireRole("manager", "admin"), async (req: any, res) => {
+    try {
+      const account = await storage.createAccount(req.body);
+      await logActivity(req, "create", "account", account.id, `Created account: ${account.accountCode} - ${account.accountName}`);
+      res.status(201).json(account);
+    } catch (error) {
+      console.error("Error creating account:", error);
+      res.status(500).json({ message: "Failed to create account" });
+    }
+  });
+
+  app.patch("/api/accounts/:id", isAuthenticated, requireRole("manager", "admin"), async (req: any, res) => {
+    try {
+      const account = await storage.updateAccount(req.params.id, req.body);
+      await logActivity(req, "update", "account", account.id, `Updated account: ${account.accountCode} - ${account.accountName}`);
+      res.json(account);
+    } catch (error) {
+      console.error("Error updating account:", error);
+      res.status(500).json({ message: "Failed to update account" });
+    }
+  });
+
+  app.delete("/api/accounts/:id", isAuthenticated, requireRole("admin"), async (req: any, res) => {
+    try {
+      const account = await storage.getAccount(req.params.id);
+      if (!account) {
+        return res.status(404).json({ message: "Account not found" });
+      }
+      await storage.deleteAccount(req.params.id);
+      await logActivity(req, "delete", "account", req.params.id, `Deleted account: ${account.accountCode} - ${account.accountName}`);
+      res.json({ message: "Account deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting account:", error);
+      res.status(500).json({ message: "Failed to delete account" });
+    }
+  });
+
+  // Fiscal Periods
+  app.get("/api/fiscal-periods", isAuthenticated, async (req, res) => {
+    try {
+      const periods = await storage.getFiscalPeriods();
+      res.json(periods);
+    } catch (error) {
+      console.error("Error fetching fiscal periods:", error);
+      res.status(500).json({ message: "Failed to fetch fiscal periods" });
+    }
+  });
+
+  app.post("/api/fiscal-periods", isAuthenticated, requireRole("manager", "admin"), async (req: any, res) => {
+    try {
+      const period = await storage.createFiscalPeriod(req.body);
+      await logActivity(req, "create", "fiscal_period", period.id, `Created fiscal period: ${period.periodName}`);
+      res.status(201).json(period);
+    } catch (error) {
+      console.error("Error creating fiscal period:", error);
+      res.status(500).json({ message: "Failed to create fiscal period" });
+    }
+  });
+
+  app.post("/api/fiscal-periods/:id/close", isAuthenticated, requireRole("admin"), async (req: any, res) => {
+    try {
+      await storage.closeFiscalPeriod(req.params.id, req.session.userId);
+      await logActivity(req, "close", "fiscal_period", req.params.id, "Closed fiscal period");
+      res.json({ message: "Fiscal period closed successfully" });
+    } catch (error) {
+      console.error("Error closing fiscal period:", error);
+      res.status(500).json({ message: "Failed to close fiscal period" });
+    }
+  });
+
+  // Journal Entries
+  app.get("/api/journal-entries", isAuthenticated, async (req, res) => {
+    try {
+      const { search, startDate, endDate, isPosted } = req.query;
+      const entries = await storage.getJournalEntries({
+        search: search as string,
+        startDate: startDate as string,
+        endDate: endDate as string,
+        isPosted: isPosted === 'true' ? true : isPosted === 'false' ? false : undefined,
+      });
+      res.json(entries);
+    } catch (error) {
+      console.error("Error fetching journal entries:", error);
+      res.status(500).json({ message: "Failed to fetch journal entries" });
+    }
+  });
+
+  app.get("/api/journal-entries/next-number", isAuthenticated, async (req, res) => {
+    try {
+      const entryNumber = await storage.getNextEntryNumber();
+      res.json({ entryNumber });
+    } catch (error) {
+      console.error("Error getting next entry number:", error);
+      res.status(500).json({ message: "Failed to get next entry number" });
+    }
+  });
+
+  app.get("/api/journal-entries/:id", isAuthenticated, async (req, res) => {
+    try {
+      const entry = await storage.getJournalEntry(req.params.id);
+      if (!entry) {
+        return res.status(404).json({ message: "Journal entry not found" });
+      }
+      res.json(entry);
+    } catch (error) {
+      console.error("Error fetching journal entry:", error);
+      res.status(500).json({ message: "Failed to fetch journal entry" });
+    }
+  });
+
+  app.post("/api/journal-entries", isAuthenticated, requireRole("user", "manager", "admin"), async (req: any, res) => {
+    try {
+      const { lines, ...header } = req.body;
+      
+      // Validate debit = credit
+      const totalDebit = lines.reduce((sum: number, line: any) => sum + Number(line.debitAmount || 0), 0);
+      const totalCredit = lines.reduce((sum: number, line: any) => sum + Number(line.creditAmount || 0), 0);
+      
+      if (Math.abs(totalDebit - totalCredit) > 0.01) {
+        return res.status(400).json({ message: "Total debits must equal total credits" });
+      }
+      
+      const entryNumber = await storage.getNextEntryNumber();
+      const entry = await storage.createJournalEntry(
+        { ...header, entryNumber, createdBy: req.session.userId },
+        lines
+      );
+      await logActivity(req, "create", "journal_entry", entry.id, `Created journal entry: ${entry.entryNumber}`);
+      res.status(201).json(entry);
+    } catch (error) {
+      console.error("Error creating journal entry:", error);
+      res.status(500).json({ message: "Failed to create journal entry" });
+    }
+  });
+
+  app.post("/api/journal-entries/:id/post", isAuthenticated, requireRole("manager", "admin"), async (req: any, res) => {
+    try {
+      await storage.postJournalEntry(req.params.id, req.session.userId);
+      await logActivity(req, "post", "journal_entry", req.params.id, "Posted journal entry");
+      res.json({ message: "Journal entry posted successfully" });
+    } catch (error) {
+      console.error("Error posting journal entry:", error);
+      res.status(500).json({ message: "Failed to post journal entry" });
+    }
+  });
+
+  app.post("/api/journal-entries/:id/reverse", isAuthenticated, requireRole("manager", "admin"), async (req: any, res) => {
+    try {
+      const reversalEntry = await storage.reverseJournalEntry(req.params.id, req.session.userId);
+      await logActivity(req, "reverse", "journal_entry", req.params.id, `Reversed journal entry, created ${reversalEntry.entryNumber}`);
+      res.json(reversalEntry);
+    } catch (error) {
+      console.error("Error reversing journal entry:", error);
+      res.status(500).json({ message: "Failed to reverse journal entry" });
+    }
+  });
+
+  // Accounting Reports
+  app.get("/api/reports/trial-balance", isAuthenticated, async (req, res) => {
+    try {
+      const { asOfDate } = req.query;
+      const trialBalance = await storage.getTrialBalance(asOfDate as string);
+      res.json(trialBalance);
+    } catch (error) {
+      console.error("Error fetching trial balance:", error);
+      res.status(500).json({ message: "Failed to fetch trial balance" });
+    }
+  });
+
+  app.get("/api/reports/income-statement", isAuthenticated, async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "startDate and endDate are required" });
+      }
+      const incomeStatement = await storage.getIncomeStatement(startDate as string, endDate as string);
+      res.json(incomeStatement);
+    } catch (error) {
+      console.error("Error fetching income statement:", error);
+      res.status(500).json({ message: "Failed to fetch income statement" });
+    }
+  });
+
+  app.get("/api/reports/balance-sheet", isAuthenticated, async (req, res) => {
+    try {
+      const { asOfDate } = req.query;
+      if (!asOfDate) {
+        return res.status(400).json({ message: "asOfDate is required" });
+      }
+      const balanceSheet = await storage.getBalanceSheet(asOfDate as string);
+      res.json(balanceSheet);
+    } catch (error) {
+      console.error("Error fetching balance sheet:", error);
+      res.status(500).json({ message: "Failed to fetch balance sheet" });
+    }
+  });
+
+  app.get("/api/reports/account-statement/:accountId", isAuthenticated, async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      const statement = await storage.getAccountStatement(
+        req.params.accountId,
+        startDate as string,
+        endDate as string
+      );
+      if (!statement) {
+        return res.status(404).json({ message: "Account not found" });
+      }
+      res.json(statement);
+    } catch (error) {
+      console.error("Error fetching account statement:", error);
+      res.status(500).json({ message: "Failed to fetch account statement" });
+    }
+  });
+
   // Seed data on startup
   try {
     await storage.seedData();
