@@ -970,7 +970,17 @@ export default function LoanApplicationPage() {
                   <FormField control={form.control} name="collateralType" render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-xs">Type</FormLabel>
-                      <FormControl><Input placeholder="e.g., Raksha, Property" className="h-9" {...field} data-testid="input-collateral-type" /></FormControl>
+                      <Select onValueChange={field.onChange} value={field.value || ""}>
+                        <FormControl>
+                          <SelectTrigger className="h-9" data-testid="select-collateral-type">
+                            <SelectValue placeholder="Select collateral type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="Sharyee">Sharyee</SelectItem>
+                          <SelectItem value="Urfee">Urfee</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )} />
