@@ -983,6 +983,7 @@ export class DatabaseStorage implements IStorage {
         financingDurationMonths: loans.financingDurationMonths,
         applicationDate: loans.requestDate,
         purpose: loans.financingPurpose,
+        productName: loans.productName,
         customer: {
           id: customers.id,
           firstName: customers.firstName,

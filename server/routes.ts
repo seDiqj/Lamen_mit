@@ -1342,8 +1342,21 @@ export async function registerRoutes(
     try {
       const loans = await storage.getLoansWithDetails({ status: "risk_compliance_review" });
       const loansWithInfo = await Promise.all(
-        loans.map(async (loan: any) => {
-          const fadReview = await storage.getFadReviewByLoanId(loan.id);
+        loans.map(async (loanData: any) => {
+          const fadReview = await storage.getFadReviewByLoanId(loanData.id);
+          // Flatten loan data for frontend
+          const loan = {
+            id: loanData.id,
+            applicationId: loanData.applicationId,
+            status: loanData.status,
+            requestAmount: loanData.requestedAmount,
+            principleAmount: loanData.requestedAmount,
+            financingDurationMonths: loanData.financingDurationMonths,
+            productName: loanData.productName || "-",
+            createdAt: loanData.applicationDate,
+            customerName: loanData.customer ? `${loanData.customer.firstName || ""} ${loanData.customer.lastName || ""}`.trim() : "-",
+            branchName: loanData.branch?.name || "-",
+          };
           return { loan, fadReview };
         })
       );

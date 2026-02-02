@@ -322,7 +322,7 @@ export default function FadReviewPage() {
       toast({
         title: "Review Submitted",
         description: variables.status === "approved" 
-          ? "Loan application has been forwarded for committee review."
+          ? "Loan application has been forwarded for Risk Compliance review."
           : "Loan application has been rejected.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/loans"] });
