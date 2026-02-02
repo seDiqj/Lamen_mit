@@ -31,6 +31,9 @@ import {
   ChevronRight,
   FileText,
   Wallet,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import type { FundingSource } from "@shared/schema";
 import type { Loan } from "@shared/schema";
@@ -71,11 +74,34 @@ function getStatusLabel(status: string) {
   return labels[status] || status;
 }
 
+type SortColumn = "applicationId" | "customerName" | "productName" | "amount" | "duration" | "requestDate" | "status";
+type SortDirection = "asc" | "desc";
+
 export default function LoansPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [page, setPage] = useState(1);
+  const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const limit = 10;
+
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortDirection("asc");
+    }
+  };
+
+  const getSortIcon = (column: SortColumn) => {
+    if (sortColumn !== column) {
+      return <ArrowUpDown className="ml-1 h-3 w-3 text-muted-foreground/50" />;
+    }
+    return sortDirection === "asc" 
+      ? <ArrowUp className="ml-1 h-3 w-3 text-primary" />
+      : <ArrowDown className="ml-1 h-3 w-3 text-primary" />;
+  };
 
   const { data, isLoading } = useQuery<{
     loans: LoanWithDetails[];
@@ -103,6 +129,57 @@ export default function LoansPage() {
   const { data: fundingStats, isLoading: fundingStatsLoading } = useQuery<{ id: string; name: string; loanCount: number; totalAmount: string }[]>({
     queryKey: ["/api/funding-sources/stats"],
   });
+
+  const sortedLoans = (() => {
+    if (!data?.loans || !sortColumn) return data?.loans || [];
+    
+    return [...data.loans].sort((a, b) => {
+      let aVal: string | number | null = null;
+      let bVal: string | number | null = null;
+      
+      switch (sortColumn) {
+        case "applicationId":
+          aVal = a.applicationId || "";
+          bVal = b.applicationId || "";
+          break;
+        case "customerName":
+          aVal = a.customerName || "";
+          bVal = b.customerName || "";
+          break;
+        case "productName":
+          aVal = a.productName || "";
+          bVal = b.productName || "";
+          break;
+        case "amount":
+          aVal = parseFloat(String(a.principleAmount || a.requestAmount || 0));
+          bVal = parseFloat(String(b.principleAmount || b.requestAmount || 0));
+          break;
+        case "duration":
+          aVal = a.financingDurationMonths || 0;
+          bVal = b.financingDurationMonths || 0;
+          break;
+        case "requestDate":
+          aVal = a.requestDate ? new Date(a.requestDate).getTime() : 0;
+          bVal = b.requestDate ? new Date(b.requestDate).getTime() : 0;
+          break;
+        case "status":
+          aVal = a.status || "";
+          bVal = b.status || "";
+          break;
+      }
+      
+      if (aVal === null || bVal === null) return 0;
+      
+      let comparison = 0;
+      if (typeof aVal === "string" && typeof bVal === "string") {
+        comparison = aVal.localeCompare(bVal);
+      } else {
+        comparison = (aVal as number) - (bVal as number);
+      }
+      
+      return sortDirection === "asc" ? comparison : -comparison;
+    });
+  })();
 
   const formatCurrency = (amount: string | number | null) => {
     if (!amount) return "AFN 0";
@@ -236,13 +313,76 @@ export default function LoansPage() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/30 hover:bg-muted/30">
-                  <TableHead className="font-semibold">Application ID</TableHead>
-                  <TableHead className="font-semibold">Customer</TableHead>
-                  <TableHead className="font-semibold">Product</TableHead>
-                  <TableHead className="text-right font-semibold">Amount</TableHead>
-                  <TableHead className="font-semibold">Duration</TableHead>
-                  <TableHead className="font-semibold">Request Date</TableHead>
-                  <TableHead className="font-semibold">Status</TableHead>
+                  <TableHead 
+                    className="font-semibold cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                    onClick={() => handleSort("applicationId")}
+                    data-testid="header-application-id"
+                  >
+                    <div className="flex items-center">
+                      Application ID
+                      {getSortIcon("applicationId")}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="font-semibold cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                    onClick={() => handleSort("customerName")}
+                    data-testid="header-customer"
+                  >
+                    <div className="flex items-center">
+                      Customer
+                      {getSortIcon("customerName")}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="font-semibold cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                    onClick={() => handleSort("productName")}
+                    data-testid="header-product"
+                  >
+                    <div className="flex items-center">
+                      Product
+                      {getSortIcon("productName")}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="text-right font-semibold cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                    onClick={() => handleSort("amount")}
+                    data-testid="header-amount"
+                  >
+                    <div className="flex items-center justify-end">
+                      Amount
+                      {getSortIcon("amount")}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="font-semibold cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                    onClick={() => handleSort("duration")}
+                    data-testid="header-duration"
+                  >
+                    <div className="flex items-center">
+                      Duration
+                      {getSortIcon("duration")}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="font-semibold cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                    onClick={() => handleSort("requestDate")}
+                    data-testid="header-request-date"
+                  >
+                    <div className="flex items-center">
+                      Request Date
+                      {getSortIcon("requestDate")}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="font-semibold cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                    onClick={() => handleSort("status")}
+                    data-testid="header-status"
+                  >
+                    <div className="flex items-center">
+                      Status
+                      {getSortIcon("status")}
+                    </div>
+                  </TableHead>
                   <TableHead className="text-right font-semibold">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -257,8 +397,8 @@ export default function LoansPage() {
                       ))}
                     </TableRow>
                   ))
-                ) : data?.loans && data.loans.length > 0 ? (
-                  data.loans.map((loan) => (
+                ) : sortedLoans && sortedLoans.length > 0 ? (
+                  sortedLoans.map((loan) => (
                     <TableRow key={loan.id} className="hover:bg-muted/30" data-testid={`row-loan-${loan.id}`}>
                       <TableCell className="font-medium">
                         <span className="text-primary font-semibold">
