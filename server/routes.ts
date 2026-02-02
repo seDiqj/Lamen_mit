@@ -742,7 +742,7 @@ export async function registerRoutes(
         sector: data.sector,
         businessDescription: data.businessDescription,
         financingPurpose: data.financingPurpose,
-        sourceOfFund: data.sourceOfFund,
+        fundingSourceId: data.fundingSourceId,
         requestDate: data.requestDate,
         requestAmount: data.requestAmount?.toString(),
         financingDurationMonths: data.financingDurationMonths,

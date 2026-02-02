@@ -17,7 +17,7 @@ import {
   User, FileText, Building2, Shield, Users, UserCheck, 
   ChevronLeft, ChevronRight, Save, ArrowLeft, Loader2, Check, Eye, Edit2
 } from "lucide-react";
-import type { Branch, FinanceOfficer } from "@shared/schema";
+import type { Branch, FinanceOfficer, FundingSource } from "@shared/schema";
 import { cn } from "@/lib/utils";
 
 const loanDetailsSchema = z.object({
@@ -42,7 +42,7 @@ const loanDetailsSchema = z.object({
   sector: z.string().optional(),
   businessDescription: z.string().optional(),
   financingPurpose: z.string().optional(),
-  sourceOfFund: z.string().optional(),
+  fundingSourceId: z.string().optional(),
   requestDate: z.string().optional(),
   requestAmount: z.coerce.number().optional(),
   financingDurationMonths: z.coerce.number().optional(),
@@ -117,6 +117,7 @@ export default function LoanDetailsPage() {
 
   const { data: branches = [] } = useQuery<Branch[]>({ queryKey: ["/api/branches"] });
   const { data: financeOfficers = [] } = useQuery<FinanceOfficer[]>({ queryKey: ["/api/finance-officers"] });
+  const { data: fundingSources = [] } = useQuery<FundingSource[]>({ queryKey: ["/api/funding-sources"] });
 
   const { data: loanData, isLoading } = useQuery({
     queryKey: ["/api/loan-applications", loanId],
@@ -157,7 +158,7 @@ export default function LoanDetailsPage() {
         sector: d.loan?.sector || "",
         businessDescription: d.loan?.businessDescription || "",
         financingPurpose: d.loan?.financingPurpose || "",
-        sourceOfFund: d.loan?.sourceOfFund || "",
+        fundingSourceId: d.loan?.fundingSourceId || "",
         requestDate: d.loan?.requestDate || "",
         requestAmount: parseFloat(d.loan?.requestAmount) || 0,
         financingDurationMonths: d.loan?.financingDurationMonths || 0,
@@ -401,8 +402,12 @@ export default function LoanDetailsPage() {
                   <FormField control={form.control} name="financingPurpose" render={({ field }) => (
                     <FormItem><FormLabel>Financing Purpose</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
-                  <FormField control={form.control} name="sourceOfFund" render={({ field }) => (
-                    <FormItem><FormLabel>Source of Fund</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormField control={form.control} name="fundingSourceId" render={({ field }) => (
+                    <FormItem><FormLabel>Source of Fund</FormLabel>
+                      <Select disabled={!isEditing} onValueChange={field.onChange} value={field.value || ""}>
+                        <FormControl><SelectTrigger><SelectValue placeholder="Select source" /></SelectTrigger></FormControl>
+                        <SelectContent>{fundingSources.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                      </Select><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="requestDate" render={({ field }) => (
                     <FormItem><FormLabel>Request Date</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>

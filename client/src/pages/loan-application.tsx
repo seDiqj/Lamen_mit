@@ -40,7 +40,6 @@ const loanApplicationSchema = z.object({
   sector: z.string().optional(),
   businessDescription: z.string().optional(),
   financingPurpose: z.string().optional(),
-  sourceOfFund: z.string().optional(),
   fundingSourceId: z.string().optional(),
   requestDate: z.string().optional(),
   requestAmount: z.coerce.number().optional(),
@@ -113,6 +112,7 @@ export default function LoanApplicationPage() {
 
   const { data: branches = [] } = useQuery<Branch[]>({ queryKey: ["/api/branches"] });
   const { data: financeOfficers = [] } = useQuery<FinanceOfficer[]>({ queryKey: ["/api/finance-officers"] });
+  const { data: fundingSources = [] } = useQuery<FundingSource[]>({ queryKey: ["/api/funding-sources"] });
 
   const form = useForm<LoanApplicationFormData>({
     resolver: zodResolver(loanApplicationSchema),
@@ -438,10 +438,13 @@ export default function LoanApplicationPage() {
                       <FormMessage />
                     </FormItem>
                   )} />
-                  <FormField control={form.control} name="sourceOfFund" render={({ field }) => (
+                  <FormField control={form.control} name="fundingSourceId" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Source of Fund</FormLabel>
-                      <FormControl><Input placeholder="e.g., Shareholder" {...field} data-testid="input-source-fund" /></FormControl>
+                      <Select onValueChange={field.onChange} value={field.value || ""}>
+                        <FormControl><SelectTrigger data-testid="select-funding-source"><SelectValue placeholder="Select source" /></SelectTrigger></FormControl>
+                        <SelectContent>{fundingSources.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )} />
