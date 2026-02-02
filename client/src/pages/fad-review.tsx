@@ -91,23 +91,27 @@ export default function FadReviewPage() {
   const [dataQualityScore, setDataQualityScore] = useState(80);
   const [reviewAction, setReviewAction] = useState<"approved" | "rejected">("approved");
 
-  const { data: pendingLoans, isLoading } = useQuery<LoanWithDetails[]>({
+  const { data: pendingLoansData, isLoading } = useQuery<{ loans: LoanWithDetails[]; total: number }>({
     queryKey: ["/api/loans", "pending"],
     queryFn: async () => {
-      const res = await fetch("/api/loans?status=pending");
+      const res = await fetch("/api/loans?status=pending&limit=100");
       if (!res.ok) throw new Error("Failed to fetch loans");
       return res.json();
     },
   });
 
-  const { data: reviewedLoans } = useQuery<LoanWithDetails[]>({
-    queryKey: ["/api/loans", "data_quality_review"],
+  const pendingLoans = pendingLoansData?.loans || [];
+
+  const { data: reviewedLoansData } = useQuery<{ loans: LoanWithDetails[]; total: number }>({
+    queryKey: ["/api/loans", "committee_review"],
     queryFn: async () => {
-      const res = await fetch("/api/loans?status=data_quality_review");
+      const res = await fetch("/api/loans?status=committee_review&limit=100");
       if (!res.ok) throw new Error("Failed to fetch loans");
       return res.json();
     },
   });
+
+  const reviewedLoans = reviewedLoansData?.loans || [];
 
   const submitReviewMutation = useMutation({
     mutationFn: async (data: { loanId: string; status: string; comments: string; dataQualityScore: number }) => {
@@ -164,7 +168,7 @@ export default function FadReviewPage() {
     }).format(num || 0);
   };
 
-  const filteredLoans = pendingLoans?.filter((loan) => {
+  const filteredLoans = pendingLoans.filter((loan) => {
     const searchLower = searchTerm.toLowerCase();
     return (
       loan.applicationId?.toLowerCase().includes(searchLower) ||
