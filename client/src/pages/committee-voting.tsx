@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,36 +14,32 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
   CheckCircle, 
   XCircle, 
-  Eye, 
   Vote, 
   Search,
   User,
   Building2,
   FileText,
   Loader2,
-  Clock,
   Users,
   ThumbsUp,
   ThumbsDown,
-  Timer
+  Timer,
+  Shield,
+  ArrowLeft,
+  ArrowRight,
+  Eye,
+  Check,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
-import { format } from "date-fns";
-import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import { formatCurrency, cn } from "@/lib/utils";
 
 type LoanWithDetails = {
   id: string;
@@ -53,6 +49,7 @@ type LoanWithDetails = {
   financingDurationMonths: number;
   applicationDate: string;
   purpose: string;
+  productName?: string;
   customer: {
     id: string;
     firstName: string;
@@ -65,10 +62,6 @@ type LoanWithDetails = {
     code: string;
   };
   financeOfficer: {
-    id: string;
-    name: string;
-  } | null;
-  product: {
     id: string;
     name: string;
   } | null;
@@ -96,12 +89,32 @@ type FadReview = {
   reviewedAt: string;
 };
 
+type RiskComplianceReview = {
+  id: string;
+  loanId: string;
+  reviewerName: string;
+  status: string;
+  comments: string;
+  riskScore: number;
+  reviewedAt: string;
+};
+
 type LoanApprovalInfo = {
   loan: LoanWithDetails;
   fadReview: FadReview | null;
+  riskComplianceReview: RiskComplianceReview | null;
   votes: CommitteeVote[];
   userVote: CommitteeVote | null;
 };
+
+const steps = [
+  { id: 1, title: "Customer", icon: User, color: "from-violet-500 to-purple-500" },
+  { id: 2, title: "Loan Details", icon: FileText, color: "from-blue-500 to-cyan-500" },
+  { id: 3, title: "Business", icon: Building2, color: "from-emerald-500 to-green-500" },
+  { id: 4, title: "Collateral", icon: Shield, color: "from-amber-500 to-orange-500" },
+  { id: 5, title: "Guarantors", icon: Users, color: "from-pink-500 to-rose-500" },
+  { id: 6, title: "Vote", icon: Vote, color: "from-purple-500 to-indigo-600" },
+];
 
 const COMMITTEE_ROLES = ["cfo", "coo", "ceo", "sharia"];
 const REQUIRED_APPROVALS = 3;
@@ -110,11 +123,9 @@ export default function CommitteeVotingPage() {
   const { toast } = useToast();
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedLoan, setSelectedLoan] = useState<LoanApprovalInfo | null>(null);
-  const [voteDialogOpen, setVoteDialogOpen] = useState(false);
-  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [selectedLoanId, setSelectedLoanId] = useState<string | null>(null);
+  const [currentStep, setCurrentStep] = useState(1);
   const [comments, setComments] = useState("");
-  const [voteAction, setVoteAction] = useState<"approved" | "rejected">("approved");
 
   const { data: pendingLoans, isLoading } = useQuery<LoanApprovalInfo[]>({
     queryKey: ["/api/committee/pending-loans"],
@@ -125,20 +136,42 @@ export default function CommitteeVotingPage() {
     },
   });
 
+  const selectedLoanInfo = pendingLoans?.find((l) => l.loan.id === selectedLoanId);
+
+  const { data: loanDetails, isLoading: isLoadingDetails } = useQuery({
+    queryKey: ["/api/loan-applications", selectedLoanId],
+    queryFn: async () => {
+      const res = await fetch(`/api/loan-applications/${selectedLoanId}`);
+      if (!res.ok) throw new Error("Failed to fetch loan details");
+      return res.json();
+    },
+    enabled: !!selectedLoanId,
+  });
+
+  const { data: guarantors = [] } = useQuery<any[]>({
+    queryKey: ["/api/guarantors", selectedLoanId],
+    queryFn: async () => {
+      const res = await fetch(`/api/guarantors?loanId=${selectedLoanId}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!selectedLoanId,
+  });
+
   const submitVoteMutation = useMutation({
     mutationFn: async (data: { loanId: string; vote: string; comments: string }) => {
       const res = await apiRequest("POST", "/api/committee/vote", data);
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       toast({
         title: "Vote Submitted",
-        description: `Your ${voteAction === "approved" ? "approval" : "rejection"} vote has been recorded.`,
+        description: `Your ${variables.vote === "approved" ? "approval" : "rejection"} vote has been recorded.`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/committee/pending-loans"] });
       queryClient.invalidateQueries({ queryKey: ["/api/loans"] });
-      setVoteDialogOpen(false);
-      setSelectedLoan(null);
+      setSelectedLoanId(null);
+      setCurrentStep(1);
       setComments("");
     },
     onError: (error: Error) => {
@@ -150,34 +183,24 @@ export default function CommitteeVotingPage() {
     },
   });
 
-  const handleVote = (loanInfo: LoanApprovalInfo, action: "approved" | "rejected") => {
-    setSelectedLoan(loanInfo);
-    setVoteAction(action);
-    setVoteDialogOpen(true);
+  const handleBackToList = () => {
+    setSelectedLoanId(null);
+    setCurrentStep(1);
+    setComments("");
   };
 
-  const handleViewDetails = (loanInfo: LoanApprovalInfo) => {
-    setSelectedLoan(loanInfo);
-    setViewDialogOpen(true);
-  };
-
-  const submitVote = () => {
-    if (!selectedLoan) return;
+  const handleVote = (vote: "approved" | "rejected") => {
+    if (!selectedLoanId) return;
     submitVoteMutation.mutate({
-      loanId: selectedLoan.loan.id,
-      vote: voteAction,
+      loanId: selectedLoanId,
+      vote,
       comments,
     });
   };
 
-  const formatCurrency = (value: string | number) => {
-    const num = typeof value === "string" ? parseFloat(value) : value;
-    return new Intl.NumberFormat("en-AF", {
-      style: "currency",
-      currency: "AFN",
-      minimumFractionDigits: 0,
-    }).format(num || 0);
-  };
+  const goToStep = (stepId: number) => setCurrentStep(stepId);
+  const nextStep = () => setCurrentStep((prev) => Math.min(prev + 1, 6));
+  const prevStep = () => setCurrentStep((prev) => Math.max(prev - 1, 1));
 
   const filteredLoans = pendingLoans?.filter((item) => {
     const searchLower = searchTerm.toLowerCase();
@@ -218,23 +241,393 @@ export default function CommitteeVotingPage() {
     return labels[role] || role.toUpperCase();
   };
 
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return "-";
+    const date = new Date(dateStr);
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return `${date.getDate().toString().padStart(2, "0")}-${months[date.getMonth()]}-${date.getFullYear()}`;
+  };
+
+  const renderViewField = (label: string, value: any) => (
+    <div className="space-y-1">
+      <Label className="text-xs text-muted-foreground">{label}</Label>
+      <div className="h-9 px-3 py-2 bg-muted/50 rounded-md text-sm border">
+        {value || "-"}
+      </div>
+    </div>
+  );
+
+  if (selectedLoanId) {
+    if (isLoadingDetails) {
+      return (
+        <div className="p-6 flex items-center justify-center min-h-[400px]">
+          <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
+        </div>
+      );
+    }
+
+    const voteStats = selectedLoanInfo ? getVoteStats(selectedLoanInfo.votes) : { approved: 0, rejected: 0, pending: 0, total: 4 };
+    const hasVoted = selectedLoanInfo?.userVote?.vote !== "pending";
+
+    return (
+      <div className="p-6 space-y-6 max-w-6xl mx-auto">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={handleBackToList} data-testid="button-back">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+                  Committee Review: {loanDetails?.loan?.applicationId}
+                </h1>
+                <Badge variant="secondary">Awaiting Votes</Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Review Mode - Cast your vote on this application
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between mb-6 overflow-x-auto pb-2">
+          {steps.map((step, index) => (
+            <div key={step.id} className="flex items-center flex-1 min-w-0">
+              <button
+                onClick={() => goToStep(step.id)}
+                className={cn("flex flex-col items-center gap-2 group cursor-pointer transition-all flex-shrink-0", currentStep === step.id ? "scale-105" : "")}
+                data-testid={`step-${step.id}`}
+              >
+                <div className={cn("w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-all",
+                  currentStep === step.id ? `bg-gradient-to-r ${step.color} text-white` : currentStep > step.id ? "bg-green-500 text-white" : "bg-muted text-muted-foreground"
+                )}>
+                  {currentStep > step.id ? <Check className="h-4 w-4" /> : <step.icon className="h-4 w-4" />}
+                </div>
+                <span className={cn("text-xs font-medium hidden md:block", currentStep === step.id ? "text-foreground" : "text-muted-foreground")}>{step.title}</span>
+              </button>
+              {index < steps.length - 1 && <div className={cn("flex-1 h-1 mx-2 rounded-full transition-all min-w-4", currentStep > step.id ? "bg-green-500" : "bg-muted")} />}
+            </div>
+          ))}
+        </div>
+
+        <Card className="border-t-4 border-t-purple-500">
+          <CardContent className="pt-6">
+            {currentStep === 1 && (
+              <div className="space-y-6">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <User className="h-5 w-5 text-violet-500" />
+                  Customer Information
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {renderViewField("Customer No", loanDetails?.customer?.customerNo)}
+                  {renderViewField("First Name", loanDetails?.customer?.firstName)}
+                  {renderViewField("Last Name", loanDetails?.customer?.lastName)}
+                  {renderViewField("Father's Name", loanDetails?.customer?.fatherName)}
+                  {renderViewField("Gender", loanDetails?.customer?.gender)}
+                  {renderViewField("National ID", loanDetails?.customer?.nationalId)}
+                  {renderViewField("Date of Birth", formatDate(loanDetails?.customer?.dateOfBirth))}
+                  {renderViewField("Place of Birth", loanDetails?.customer?.placeOfBirth)}
+                  {renderViewField("Phone Number", loanDetails?.customer?.phoneNumber)}
+                  {renderViewField("Second Phone", loanDetails?.customer?.secondPhoneNumber)}
+                  {renderViewField("Home Address", loanDetails?.customer?.homeAddress)}
+                  {renderViewField("District", loanDetails?.customer?.district)}
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                  {renderViewField("Total Dependents", loanDetails?.customer?.numberOfDependents)}
+                  {renderViewField("Direct Male", loanDetails?.customer?.directMaleDependent)}
+                  {renderViewField("Direct Female", loanDetails?.customer?.directFemaleDependent)}
+                  {renderViewField("Indirect Male", loanDetails?.customer?.indirectMaleDependent)}
+                  {renderViewField("Indirect Female", loanDetails?.customer?.indirectFemaleDependent)}
+                </div>
+              </div>
+            )}
+
+            {currentStep === 2 && (
+              <div className="space-y-6">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-blue-500" />
+                  Loan Details
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {renderViewField("Product Name", loanDetails?.loan?.productName)}
+                  {renderViewField("Product Code", loanDetails?.loan?.productCode)}
+                  {renderViewField("Sector", loanDetails?.loan?.sector)}
+                  {renderViewField("Business Description", loanDetails?.loan?.businessDescription)}
+                  {renderViewField("Financing Purpose", loanDetails?.loan?.financingPurpose)}
+                  {renderViewField("Request Date", formatDate(loanDetails?.loan?.requestDate))}
+                  {renderViewField("Request Amount", formatCurrency(parseFloat(loanDetails?.loan?.requestAmount || "0")))}
+                  {renderViewField("Principal Amount", formatCurrency(parseFloat(loanDetails?.loan?.principleAmount || "0")))}
+                  {renderViewField("Duration (Months)", loanDetails?.loan?.financingDurationMonths)}
+                  {renderViewField("Grace Period", loanDetails?.loan?.gracePeriod)}
+                  {renderViewField("Installments", loanDetails?.loan?.numberOfInstallments)}
+                  {renderViewField("Margin Rate %", loanDetails?.loan?.marginRate)}
+                </div>
+              </div>
+            )}
+
+            {currentStep === 3 && (
+              <div className="space-y-6">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <Building2 className="h-5 w-5 text-emerald-500" />
+                  Business Information
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {renderViewField("Business Name", loanDetails?.business?.businessName)}
+                  {renderViewField("Sector", loanDetails?.business?.sector)}
+                  {renderViewField("Business Type", loanDetails?.business?.businessType)}
+                  {renderViewField("Province", loanDetails?.business?.province)}
+                  {renderViewField("District", loanDetails?.business?.district)}
+                  {renderViewField("Village", loanDetails?.business?.village)}
+                  {renderViewField("Detailed Address", loanDetails?.business?.detailedAddress)}
+                  {renderViewField("Years of Experience", loanDetails?.business?.yearsOfExperience)}
+                </div>
+                {loanDetails?.license && (
+                  <>
+                    <h4 className="text-md font-semibold mt-6">Business License</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {renderViewField("License Type", loanDetails?.license?.licenseType)}
+                      {renderViewField("License Number", loanDetails?.license?.licenseNumber)}
+                      {renderViewField("President", loanDetails?.license?.president)}
+                      {renderViewField("Register Date", formatDate(loanDetails?.license?.registerDate))}
+                      {renderViewField("Expiry Date", formatDate(loanDetails?.license?.expiryDate))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {currentStep === 4 && (
+              <div className="space-y-6">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <Shield className="h-5 w-5 text-amber-500" />
+                  Collateral Information
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {renderViewField("Owner Name", loanDetails?.collateral?.ownerName)}
+                  {renderViewField("Owner National ID", loanDetails?.collateral?.ownerNationalId)}
+                  {renderViewField("Collateral Type", loanDetails?.collateral?.collateralType)}
+                  {renderViewField("Title Deed Number", loanDetails?.collateral?.titleDeedNumber)}
+                  {renderViewField("Province", loanDetails?.collateral?.province)}
+                  {renderViewField("District", loanDetails?.collateral?.district)}
+                  {renderViewField("Village", loanDetails?.collateral?.village)}
+                  {renderViewField("Address", loanDetails?.collateral?.address)}
+                  {renderViewField("Purchased Price", formatCurrency(parseFloat(loanDetails?.collateral?.purchasedPrice || "0")))}
+                  {renderViewField("Market Price", formatCurrency(parseFloat(loanDetails?.collateral?.marketPrice || "0")))}
+                </div>
+              </div>
+            )}
+
+            {currentStep === 5 && (
+              <div className="space-y-6">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <Users className="h-5 w-5 text-pink-500" />
+                  Guarantors
+                </h3>
+                {guarantors.length === 0 ? (
+                  <p className="text-muted-foreground">No guarantors registered for this loan.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {guarantors.map((g: any, index: number) => (
+                      <Card key={g.id} className="bg-muted/30">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm">Guarantor {index + 1}</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {renderViewField("Name", g.name)}
+                            {renderViewField("National ID", g.nationalId)}
+                            {renderViewField("Phone", g.phoneNumber)}
+                            {renderViewField("Relationship", g.relationship)}
+                            {renderViewField("Address", g.address)}
+                            {renderViewField("Occupation", g.occupation)}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {currentStep === 6 && (
+              <div className="space-y-6">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <Vote className="h-5 w-5 text-purple-500" />
+                  Committee Voting & Decision
+                </h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="p-4 bg-muted rounded-lg">
+                    <h4 className="font-semibold mb-3">Application Summary</h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Application ID:</span>
+                        <span className="font-mono font-medium">{loanDetails?.loan?.applicationId}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Customer:</span>
+                        <span className="font-medium">{loanDetails?.customer?.firstName} {loanDetails?.customer?.lastName}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Amount:</span>
+                        <span className="font-medium text-emerald-600">
+                          {formatCurrency(parseFloat(loanDetails?.loan?.requestAmount || "0"))}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Duration:</span>
+                        <span className="font-medium">{loanDetails?.loan?.financingDurationMonths} months</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                    <h4 className="font-semibold mb-3 text-blue-700 dark:text-blue-300">FAD Review</h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Data Quality Score:</span>
+                        <Badge variant="outline" className="bg-white">
+                          {selectedLoanInfo?.fadReview?.dataQualityScore || 0}/100
+                        </Badge>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Reviewer:</span>
+                        <span className="font-medium">{selectedLoanInfo?.fadReview?.reviewerName || "-"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Date:</span>
+                        <span className="font-medium">{formatDate(selectedLoanInfo?.fadReview?.reviewedAt || "")}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-red-50 dark:bg-red-950 rounded-lg">
+                    <h4 className="font-semibold mb-3 text-red-700 dark:text-red-300">Risk Compliance</h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Risk Score:</span>
+                        <Badge variant="outline" className="bg-white">
+                          {selectedLoanInfo?.riskComplianceReview?.riskScore || 0}/100
+                        </Badge>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Reviewer:</span>
+                        <span className="font-medium">{selectedLoanInfo?.riskComplianceReview?.reviewerName || "-"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Date:</span>
+                        <span className="font-medium">{formatDate(selectedLoanInfo?.riskComplianceReview?.reviewedAt || "")}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-purple-50 dark:bg-purple-950 rounded-lg">
+                  <h4 className="font-semibold mb-3 text-purple-700 dark:text-purple-300">Voting Progress</h4>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span>Approvals: {voteStats.approved}/{voteStats.total}</span>
+                      <span>Required: {REQUIRED_APPROVALS}</span>
+                    </div>
+                    <Progress value={(voteStats.approved / voteStats.total) * 100} className="h-2" />
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                      {selectedLoanInfo?.votes.map((vote) => (
+                        <div key={vote.id} className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded border">
+                          <span className="text-xs font-medium">{getRoleLabel(vote.voterRole)}</span>
+                          {getVoteBadge(vote.vote)}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {!hasVoted && (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="comments">Your Comments</Label>
+                      <Textarea
+                        id="comments"
+                        placeholder="Add your comments for this vote..."
+                        value={comments}
+                        onChange={(e) => setComments(e.target.value)}
+                        rows={4}
+                        data-testid="input-vote-comments"
+                      />
+                    </div>
+
+                    <div className="flex justify-end gap-3 pt-4 border-t">
+                      <Button
+                        variant="outline"
+                        size="lg"
+                        onClick={() => handleVote("rejected")}
+                        disabled={submitVoteMutation.isPending}
+                        className="min-w-40 text-red-600 border-red-200 hover:bg-red-50"
+                        data-testid="button-vote-reject"
+                      >
+                        {submitVoteMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                        <ThumbsDown className="h-4 w-4 mr-2" />
+                        Vote Reject
+                      </Button>
+                      <Button
+                        size="lg"
+                        onClick={() => handleVote("approved")}
+                        disabled={submitVoteMutation.isPending}
+                        className="min-w-40 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600"
+                        data-testid="button-vote-approve"
+                      >
+                        {submitVoteMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                        <ThumbsUp className="h-4 w-4 mr-2" />
+                        Vote Approve
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {hasVoted && (
+                  <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg text-center">
+                    <CheckCircle className="h-8 w-8 text-green-500 mx-auto mb-2" />
+                    <p className="font-medium text-green-700 dark:text-green-300">You have already voted on this application</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Your vote: {getVoteBadge(selectedLoanInfo?.userVote?.vote || "pending")}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <div className="flex justify-between">
+          <Button variant="outline" onClick={prevStep} disabled={currentStep === 1} data-testid="button-previous">
+            <ChevronLeft className="h-4 w-4 mr-2" />
+            Previous
+          </Button>
+          {currentStep < 6 && (
+            <Button onClick={nextStep} data-testid="button-next">
+              Next
+              <ChevronRight className="h-4 w-4 ml-2" />
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Vote className="h-7 w-7 text-amber-500" />
+            <Vote className="h-7 w-7 text-purple-500" />
             Committee Voting
           </h1>
           <p className="text-muted-foreground mt-1">
             Review and vote on loan applications for final approval
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <Badge variant="outline" className="px-3 py-1">
-            {filteredLoans?.length || 0} Awaiting Votes
-          </Badge>
-        </div>
+        <Badge variant="outline" className="px-3 py-1">
+          {filteredLoans?.length || 0} Awaiting Votes
+        </Badge>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -253,6 +646,17 @@ export default function CommitteeVotingPage() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
+                <div className="text-sm text-muted-foreground">Required Approvals</div>
+                <div className="text-2xl font-bold">{REQUIRED_APPROVALS}</div>
+              </div>
+              <ThumbsUp className="h-8 w-8 text-green-500" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
                 <div className="text-sm text-muted-foreground">Committee Size</div>
                 <div className="text-2xl font-bold">{COMMITTEE_ROLES.length}</div>
               </div>
@@ -264,21 +668,10 @@ export default function CommitteeVotingPage() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm text-muted-foreground">Required Approvals</div>
-                <div className="text-2xl font-bold">{REQUIRED_APPROVALS}</div>
-              </div>
-              <ThumbsUp className="h-8 w-8 text-emerald-500" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
                 <div className="text-sm text-muted-foreground">Your Role</div>
-                <div className="text-lg font-bold">{user?.firstName || "Member"}</div>
+                <div className="text-lg font-bold capitalize">{user?.claims?.role || "Member"}</div>
               </div>
-              <User className="h-8 w-8 text-violet-500" />
+              <Vote className="h-8 w-8 text-purple-500" />
             </div>
           </CardContent>
         </Card>
@@ -286,38 +679,38 @@ export default function CommitteeVotingPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-amber-500" />
-            Applications Awaiting Committee Decision
-          </CardTitle>
-          <CardDescription>
-            Applications that have passed FAD review and require committee approval
-          </CardDescription>
-          <div className="relative mt-4">
+          <CardTitle>Applications Awaiting Committee Review</CardTitle>
+          <div className="relative mt-4 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by application ID, customer name..."
+              placeholder="Search applications..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-              data-testid="input-search-committee"
+              className="pl-10 h-9"
+              data-testid="input-search"
             />
           </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-          ) : filteredLoans && filteredLoans.length > 0 ? (
+          ) : !filteredLoans?.length ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Vote className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>No applications awaiting committee review</p>
+            </div>
+          ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Application</TableHead>
+                  <TableHead>Application ID</TableHead>
                   <TableHead>Customer</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>FAD Score</TableHead>
-                  <TableHead>Voting Progress</TableHead>
+                  <TableHead>Branch</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead>Duration</TableHead>
+                  <TableHead>Votes</TableHead>
                   <TableHead>Your Vote</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -325,302 +718,49 @@ export default function CommitteeVotingPage() {
               <TableBody>
                 {filteredLoans.map((item) => {
                   const stats = getVoteStats(item.votes);
-                  const progressPercent = ((stats.approved + stats.rejected) / stats.total) * 100;
-                  
                   return (
                     <TableRow key={item.loan.id} data-testid={`row-loan-${item.loan.id}`}>
+                      <TableCell className="font-mono font-medium">{item.loan.applicationId}</TableCell>
                       <TableCell>
-                        <div className="font-mono font-medium">{item.loan.applicationId}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {item.loan.branch?.name}
-                        </div>
+                        {item.loan.customer?.firstName} {item.loan.customer?.lastName}
                       </TableCell>
+                      <TableCell>{item.loan.branch?.name || "-"}</TableCell>
+                      <TableCell className="text-right font-medium text-emerald-600">
+                        {formatCurrency(parseFloat(item.loan.requestedAmount || "0"))}
+                      </TableCell>
+                      <TableCell>{item.loan.financingDurationMonths} months</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <User className="h-4 w-4 text-muted-foreground" />
-                          <div>
-                            <div className="font-medium">
-                              {item.loan.customer?.firstName} {item.loan.customer?.lastName}
-                            </div>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-medium text-emerald-600">
-                        {formatCurrency(item.loan.requestedAmount)}
-                      </TableCell>
-                      <TableCell>
-                        {item.fadReview ? (
-                          <Badge variant="outline" className="font-mono">
-                            {item.fadReview.dataQualityScore}/100
-                          </Badge>
-                        ) : (
-                          "-"
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2 text-xs">
-                            <span className="text-emerald-600">{stats.approved} Yes</span>
-                            <span className="text-red-600">{stats.rejected} No</span>
-                            <span className="text-muted-foreground">{stats.pending} Pending</span>
-                          </div>
-                          <Progress value={progressPercent} className="h-2" />
+                          <span className="text-green-600">{stats.approved}</span>
+                          <span className="text-muted-foreground">/</span>
+                          <span className="text-red-600">{stats.rejected}</span>
+                          <span className="text-muted-foreground">/</span>
+                          <span>{stats.total}</span>
                         </div>
                       </TableCell>
                       <TableCell>
-                        {item.userVote ? getVoteBadge(item.userVote.vote) : (
-                          <Badge variant="secondary">Not Voted</Badge>
-                        )}
+                        {getVoteBadge(item.userVote?.vote || "pending")}
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleViewDetails(item)}
-                            data-testid={`button-view-${item.loan.id}`}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          {!item.userVote && (
-                            <>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
-                                onClick={() => handleVote(item, "approved")}
-                                data-testid={`button-approve-${item.loan.id}`}
-                              >
-                                <ThumbsUp className="h-4 w-4 mr-1" />
-                                Approve
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                onClick={() => handleVote(item, "rejected")}
-                                data-testid={`button-reject-${item.loan.id}`}
-                              >
-                                <ThumbsDown className="h-4 w-4 mr-1" />
-                                Reject
-                              </Button>
-                            </>
-                          )}
-                        </div>
+                        <Button 
+                          size="sm" 
+                          className="bg-purple-500 hover:bg-purple-600"
+                          onClick={() => setSelectedLoanId(item.loan.id)}
+                          data-testid={`button-review-${item.loan.id}`}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          Review
+                          <ArrowRight className="h-4 w-4 ml-1" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   );
                 })}
               </TableBody>
             </Table>
-          ) : (
-            <div className="text-center py-12 text-muted-foreground">
-              <Vote className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No applications awaiting committee decision</p>
-            </div>
           )}
         </CardContent>
       </Card>
-
-      <Dialog open={voteDialogOpen} onOpenChange={setVoteDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              {voteAction === "approved" ? (
-                <ThumbsUp className="h-5 w-5 text-emerald-500" />
-              ) : (
-                <ThumbsDown className="h-5 w-5 text-red-500" />
-              )}
-              Submit Your Vote
-            </DialogTitle>
-            <DialogDescription>
-              {voteAction === "approved"
-                ? "Vote to approve this loan application."
-                : "Vote to reject this loan application."}
-            </DialogDescription>
-          </DialogHeader>
-
-          {selectedLoan && (
-            <div className="space-y-4">
-              <div className="p-3 bg-muted rounded-lg">
-                <div className="text-sm font-medium">{selectedLoan.loan.applicationId}</div>
-                <div className="text-sm text-muted-foreground">
-                  {selectedLoan.loan.customer?.firstName} {selectedLoan.loan.customer?.lastName}
-                </div>
-                <div className="text-sm font-medium text-emerald-600 mt-1">
-                  {formatCurrency(selectedLoan.loan.requestedAmount)}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="voteComments">Comments (Optional)</Label>
-                <Textarea
-                  id="voteComments"
-                  placeholder="Add your comments or reasoning..."
-                  value={comments}
-                  onChange={(e) => setComments(e.target.value)}
-                  rows={4}
-                  data-testid="input-vote-comments"
-                />
-              </div>
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setVoteDialogOpen(false)}
-              data-testid="button-cancel-vote"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={submitVote}
-              disabled={submitVoteMutation.isPending}
-              className={
-                voteAction === "approved"
-                  ? "bg-emerald-600 hover:bg-emerald-700"
-                  : "bg-red-600 hover:bg-red-700"
-              }
-              data-testid="button-submit-vote"
-            >
-              {submitVoteMutation.isPending && (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              )}
-              {voteAction === "approved" ? "Vote to Approve" : "Vote to Reject"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-amber-500" />
-              Application & Voting Details
-            </DialogTitle>
-          </DialogHeader>
-
-          {selectedLoan && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <div className="text-xs text-muted-foreground">Application ID</div>
-                  <div className="font-mono font-medium">{selectedLoan.loan.applicationId}</div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-xs text-muted-foreground">Requested Amount</div>
-                  <div className="font-medium text-emerald-600">
-                    {formatCurrency(selectedLoan.loan.requestedAmount)}
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-xs text-muted-foreground">Customer</div>
-                  <div className="font-medium">
-                    {selectedLoan.loan.customer?.firstName} {selectedLoan.loan.customer?.lastName}
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-xs text-muted-foreground">Branch</div>
-                  <div className="font-medium">{selectedLoan.loan.branch?.name}</div>
-                </div>
-              </div>
-
-              {selectedLoan.fadReview && (
-                <Card>
-                  <CardHeader className="py-3">
-                    <CardTitle className="text-sm flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-emerald-500" />
-                      FAD Review Result
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="py-3">
-                    <div className="grid grid-cols-3 gap-4">
-                      <div>
-                        <div className="text-xs text-muted-foreground">Reviewer</div>
-                        <div className="font-medium">{selectedLoan.fadReview.reviewerName}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-muted-foreground">Data Quality Score</div>
-                        <Badge variant="outline" className="font-mono">
-                          {selectedLoan.fadReview.dataQualityScore}/100
-                        </Badge>
-                      </div>
-                      <div>
-                        <div className="text-xs text-muted-foreground">Reviewed At</div>
-                        <div className="text-sm">
-                          {selectedLoan.fadReview.reviewedAt
-                            ? format(new Date(selectedLoan.fadReview.reviewedAt), "dd-MMM-yyyy HH:mm")
-                            : "-"}
-                        </div>
-                      </div>
-                    </div>
-                    {selectedLoan.fadReview.comments && (
-                      <div className="mt-3">
-                        <div className="text-xs text-muted-foreground">Comments</div>
-                        <div className="text-sm mt-1">{selectedLoan.fadReview.comments}</div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
-
-              <Card>
-                <CardHeader className="py-3">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Vote className="h-4 w-4 text-amber-500" />
-                    Committee Votes
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="py-3">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Role</TableHead>
-                        <TableHead>Member</TableHead>
-                        <TableHead>Vote</TableHead>
-                        <TableHead>Comments</TableHead>
-                        <TableHead>Date</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {COMMITTEE_ROLES.map((role) => {
-                        const vote = selectedLoan.votes.find((v) => v.voterRole === role);
-                        return (
-                          <TableRow key={role}>
-                            <TableCell className="font-medium">{getRoleLabel(role)}</TableCell>
-                            <TableCell>{vote?.voterName || "-"}</TableCell>
-                            <TableCell>
-                              {vote ? getVoteBadge(vote.vote) : <Badge variant="secondary">Pending</Badge>}
-                            </TableCell>
-                            <TableCell className="max-w-[200px] truncate">
-                              {vote?.comments || "-"}
-                            </TableCell>
-                            <TableCell>
-                              {vote?.votedAt
-                                ? format(new Date(vote.votedAt), "dd-MMM-yyyy")
-                                : "-"}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-
-              <div className="flex justify-end">
-                <Button asChild variant="outline">
-                  <Link href={`/loan-details/${selectedLoan.loan.id}`}>
-                    View Full Application
-                  </Link>
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

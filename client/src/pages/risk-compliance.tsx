@@ -14,14 +14,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
@@ -32,9 +24,16 @@ import {
   Shield,
   Eye,
   ArrowRight,
+  ArrowLeft,
+  User,
+  FileText,
+  Building2,
+  Users,
+  Check,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
-import { Link } from "wouter";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, cn } from "@/lib/utils";
 
 type LoanWithFadReview = {
   loan: {
@@ -59,16 +58,55 @@ type LoanWithFadReview = {
   } | null;
 };
 
+const steps = [
+  { id: 1, title: "Customer", icon: User, color: "from-violet-500 to-purple-500" },
+  { id: 2, title: "Loan Details", icon: FileText, color: "from-blue-500 to-cyan-500" },
+  { id: 3, title: "Business", icon: Building2, color: "from-emerald-500 to-green-500" },
+  { id: 4, title: "Collateral", icon: Shield, color: "from-amber-500 to-orange-500" },
+  { id: 5, title: "Guarantors", icon: Users, color: "from-pink-500 to-rose-500" },
+  { id: 6, title: "Review", icon: CheckCircle, color: "from-red-500 to-rose-600" },
+];
+
 export default function RiskCompliancePage() {
   const [search, setSearch] = useState("");
-  const [selectedLoan, setSelectedLoan] = useState<LoanWithFadReview | null>(null);
-  const [showReviewDialog, setShowReviewDialog] = useState(false);
+  const [selectedLoanId, setSelectedLoanId] = useState<string | null>(null);
+  const [currentStep, setCurrentStep] = useState(1);
   const [riskScore, setRiskScore] = useState(80);
   const [comments, setComments] = useState("");
   const { toast } = useToast();
 
   const { data: pendingLoans = [], isLoading } = useQuery<LoanWithFadReview[]>({
     queryKey: ["/api/risk-compliance/pending-loans"],
+  });
+
+  const { data: loanDetails, isLoading: isLoadingDetails } = useQuery({
+    queryKey: ["/api/loan-applications", selectedLoanId],
+    queryFn: async () => {
+      const res = await fetch(`/api/loan-applications/${selectedLoanId}`);
+      if (!res.ok) throw new Error("Failed to fetch loan details");
+      return res.json();
+    },
+    enabled: !!selectedLoanId,
+  });
+
+  const { data: guarantors = [] } = useQuery<any[]>({
+    queryKey: ["/api/guarantors", selectedLoanId],
+    queryFn: async () => {
+      const res = await fetch(`/api/guarantors?loanId=${selectedLoanId}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!selectedLoanId,
+  });
+
+  const { data: fadReviewData } = useQuery({
+    queryKey: ["/api/fad-reviews", selectedLoanId],
+    queryFn: async () => {
+      const res = await fetch(`/api/fad-reviews/${selectedLoanId}`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!selectedLoanId,
   });
 
   const submitReviewMutation = useMutation({
@@ -84,8 +122,8 @@ export default function RiskCompliancePage() {
           ? "Application passed to Committee for voting." 
           : "Application has been rejected.",
       });
-      setShowReviewDialog(false);
-      setSelectedLoan(null);
+      setSelectedLoanId(null);
+      setCurrentStep(1);
       setComments("");
       setRiskScore(80);
     },
@@ -98,20 +136,26 @@ export default function RiskCompliancePage() {
     },
   });
 
-  const handleOpenReview = (item: LoanWithFadReview) => {
-    setSelectedLoan(item);
-    setShowReviewDialog(true);
+  const handleBackToList = () => {
+    setSelectedLoanId(null);
+    setCurrentStep(1);
+    setComments("");
+    setRiskScore(80);
   };
 
   const handleSubmitReview = (status: "approved" | "rejected") => {
-    if (!selectedLoan) return;
+    if (!selectedLoanId) return;
     submitReviewMutation.mutate({
-      loanId: selectedLoan.loan.id,
+      loanId: selectedLoanId,
       status,
       comments,
       riskScore,
     });
   };
+
+  const goToStep = (stepId: number) => setCurrentStep(stepId);
+  const nextStep = () => setCurrentStep((prev) => Math.min(prev + 1, 6));
+  const prevStep = () => setCurrentStep((prev) => Math.max(prev - 1, 1));
 
   const filteredLoans = pendingLoans.filter((item) => {
     if (!search) return true;
@@ -129,6 +173,342 @@ export default function RiskCompliancePage() {
     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     return `${date.getDate().toString().padStart(2, "0")}-${months[date.getMonth()]}-${date.getFullYear()}`;
   };
+
+  const renderViewField = (label: string, value: any) => (
+    <div className="space-y-1">
+      <Label className="text-xs text-muted-foreground">{label}</Label>
+      <div className="h-9 px-3 py-2 bg-muted/50 rounded-md text-sm border">
+        {value || "-"}
+      </div>
+    </div>
+  );
+
+  if (selectedLoanId) {
+    if (isLoadingDetails) {
+      return (
+        <div className="p-6 flex items-center justify-center min-h-[400px]">
+          <Loader2 className="h-8 w-8 animate-spin text-red-500" />
+        </div>
+      );
+    }
+
+    return (
+      <div className="p-6 space-y-6 max-w-6xl mx-auto">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={handleBackToList} data-testid="button-back">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-red-600 to-rose-600 bg-clip-text text-transparent">
+                  Risk Compliance Review: {loanDetails?.loan?.applicationId}
+                </h1>
+                <Badge variant="secondary">Pending Risk Review</Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Review Mode - Assess risk and compliance for this application
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between mb-6 overflow-x-auto pb-2">
+          {steps.map((step, index) => (
+            <div key={step.id} className="flex items-center flex-1 min-w-0">
+              <button
+                onClick={() => goToStep(step.id)}
+                className={cn("flex flex-col items-center gap-2 group cursor-pointer transition-all flex-shrink-0", currentStep === step.id ? "scale-105" : "")}
+                data-testid={`step-${step.id}`}
+              >
+                <div className={cn("w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-all",
+                  currentStep === step.id ? `bg-gradient-to-r ${step.color} text-white` : currentStep > step.id ? "bg-green-500 text-white" : "bg-muted text-muted-foreground"
+                )}>
+                  {currentStep > step.id ? <Check className="h-4 w-4" /> : <step.icon className="h-4 w-4" />}
+                </div>
+                <span className={cn("text-xs font-medium hidden md:block", currentStep === step.id ? "text-foreground" : "text-muted-foreground")}>{step.title}</span>
+              </button>
+              {index < steps.length - 1 && <div className={cn("flex-1 h-1 mx-2 rounded-full transition-all min-w-4", currentStep > step.id ? "bg-green-500" : "bg-muted")} />}
+            </div>
+          ))}
+        </div>
+
+        <Card className="border-t-4 border-t-red-500">
+          <CardContent className="pt-6">
+            {currentStep === 1 && (
+              <div className="space-y-6">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <User className="h-5 w-5 text-violet-500" />
+                  Customer Information
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {renderViewField("Customer No", loanDetails?.customer?.customerNo)}
+                  {renderViewField("First Name", loanDetails?.customer?.firstName)}
+                  {renderViewField("Last Name", loanDetails?.customer?.lastName)}
+                  {renderViewField("Father's Name", loanDetails?.customer?.fatherName)}
+                  {renderViewField("Gender", loanDetails?.customer?.gender)}
+                  {renderViewField("National ID", loanDetails?.customer?.nationalId)}
+                  {renderViewField("Date of Birth", formatDate(loanDetails?.customer?.dateOfBirth))}
+                  {renderViewField("Place of Birth", loanDetails?.customer?.placeOfBirth)}
+                  {renderViewField("Phone Number", loanDetails?.customer?.phoneNumber)}
+                  {renderViewField("Second Phone", loanDetails?.customer?.secondPhoneNumber)}
+                  {renderViewField("Home Address", loanDetails?.customer?.homeAddress)}
+                  {renderViewField("District", loanDetails?.customer?.district)}
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                  {renderViewField("Total Dependents", loanDetails?.customer?.numberOfDependents)}
+                  {renderViewField("Direct Male", loanDetails?.customer?.directMaleDependent)}
+                  {renderViewField("Direct Female", loanDetails?.customer?.directFemaleDependent)}
+                  {renderViewField("Indirect Male", loanDetails?.customer?.indirectMaleDependent)}
+                  {renderViewField("Indirect Female", loanDetails?.customer?.indirectFemaleDependent)}
+                </div>
+              </div>
+            )}
+
+            {currentStep === 2 && (
+              <div className="space-y-6">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-blue-500" />
+                  Loan Details
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {renderViewField("Product Name", loanDetails?.loan?.productName)}
+                  {renderViewField("Product Code", loanDetails?.loan?.productCode)}
+                  {renderViewField("Sector", loanDetails?.loan?.sector)}
+                  {renderViewField("Business Description", loanDetails?.loan?.businessDescription)}
+                  {renderViewField("Financing Purpose", loanDetails?.loan?.financingPurpose)}
+                  {renderViewField("Request Date", formatDate(loanDetails?.loan?.requestDate))}
+                  {renderViewField("Request Amount", formatCurrency(parseFloat(loanDetails?.loan?.requestAmount || "0")))}
+                  {renderViewField("Principal Amount", formatCurrency(parseFloat(loanDetails?.loan?.principleAmount || "0")))}
+                  {renderViewField("Duration (Months)", loanDetails?.loan?.financingDurationMonths)}
+                  {renderViewField("Grace Period", loanDetails?.loan?.gracePeriod)}
+                  {renderViewField("Installments", loanDetails?.loan?.numberOfInstallments)}
+                  {renderViewField("Margin Rate %", loanDetails?.loan?.marginRate)}
+                </div>
+              </div>
+            )}
+
+            {currentStep === 3 && (
+              <div className="space-y-6">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <Building2 className="h-5 w-5 text-emerald-500" />
+                  Business Information
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {renderViewField("Business Name", loanDetails?.business?.businessName)}
+                  {renderViewField("Sector", loanDetails?.business?.sector)}
+                  {renderViewField("Business Type", loanDetails?.business?.businessType)}
+                  {renderViewField("Province", loanDetails?.business?.province)}
+                  {renderViewField("District", loanDetails?.business?.district)}
+                  {renderViewField("Village", loanDetails?.business?.village)}
+                  {renderViewField("Detailed Address", loanDetails?.business?.detailedAddress)}
+                  {renderViewField("Years of Experience", loanDetails?.business?.yearsOfExperience)}
+                </div>
+                {loanDetails?.license && (
+                  <>
+                    <h4 className="text-md font-semibold mt-6">Business License</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {renderViewField("License Type", loanDetails?.license?.licenseType)}
+                      {renderViewField("License Number", loanDetails?.license?.licenseNumber)}
+                      {renderViewField("President", loanDetails?.license?.president)}
+                      {renderViewField("Register Date", formatDate(loanDetails?.license?.registerDate))}
+                      {renderViewField("Expiry Date", formatDate(loanDetails?.license?.expiryDate))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {currentStep === 4 && (
+              <div className="space-y-6">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <Shield className="h-5 w-5 text-amber-500" />
+                  Collateral Information
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {renderViewField("Owner Name", loanDetails?.collateral?.ownerName)}
+                  {renderViewField("Owner National ID", loanDetails?.collateral?.ownerNationalId)}
+                  {renderViewField("Collateral Type", loanDetails?.collateral?.collateralType)}
+                  {renderViewField("Title Deed Number", loanDetails?.collateral?.titleDeedNumber)}
+                  {renderViewField("Province", loanDetails?.collateral?.province)}
+                  {renderViewField("District", loanDetails?.collateral?.district)}
+                  {renderViewField("Village", loanDetails?.collateral?.village)}
+                  {renderViewField("Address", loanDetails?.collateral?.address)}
+                  {renderViewField("Purchased Price", formatCurrency(parseFloat(loanDetails?.collateral?.purchasedPrice || "0")))}
+                  {renderViewField("Market Price", formatCurrency(parseFloat(loanDetails?.collateral?.marketPrice || "0")))}
+                </div>
+              </div>
+            )}
+
+            {currentStep === 5 && (
+              <div className="space-y-6">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <Users className="h-5 w-5 text-pink-500" />
+                  Guarantors
+                </h3>
+                {guarantors.length === 0 ? (
+                  <p className="text-muted-foreground">No guarantors registered for this loan.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {guarantors.map((g: any, index: number) => (
+                      <Card key={g.id} className="bg-muted/30">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm">Guarantor {index + 1}</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {renderViewField("Name", g.name)}
+                            {renderViewField("National ID", g.nationalId)}
+                            {renderViewField("Phone", g.phoneNumber)}
+                            {renderViewField("Relationship", g.relationship)}
+                            {renderViewField("Address", g.address)}
+                            {renderViewField("Occupation", g.occupation)}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {currentStep === 6 && (
+              <div className="space-y-6">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <Shield className="h-5 w-5 text-red-500" />
+                  Risk Compliance Review & Decision
+                </h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="p-4 bg-muted rounded-lg">
+                    <h4 className="font-semibold mb-3">Application Summary</h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Application ID:</span>
+                        <span className="font-mono font-medium">{loanDetails?.loan?.applicationId}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Customer:</span>
+                        <span className="font-medium">{loanDetails?.customer?.firstName} {loanDetails?.customer?.lastName}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Amount:</span>
+                        <span className="font-medium text-emerald-600">
+                          {formatCurrency(parseFloat(loanDetails?.loan?.requestAmount || "0"))}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Duration:</span>
+                        <span className="font-medium">{loanDetails?.loan?.financingDurationMonths} months</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Product:</span>
+                        <span className="font-medium">{loanDetails?.loan?.productName || "-"}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                    <h4 className="font-semibold mb-3 text-blue-700 dark:text-blue-300">FAD Review Summary</h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Data Quality Score:</span>
+                        <Badge variant="outline" className="bg-white">
+                          {fadReviewData?.dataQualityScore || 0}/100
+                        </Badge>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Reviewer:</span>
+                        <span className="font-medium">{fadReviewData?.reviewerName || "-"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Date:</span>
+                        <span className="font-medium">{formatDate(fadReviewData?.reviewedAt || "")}</span>
+                      </div>
+                      {fadReviewData?.comments && (
+                        <div className="mt-2 pt-2 border-t">
+                          <span className="text-muted-foreground text-xs">FAD Comments:</span>
+                          <p className="text-xs mt-1">{fadReviewData.comments}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="riskScore">Risk Score (1-100)</Label>
+                    <Input
+                      id="riskScore"
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={riskScore}
+                      onChange={(e) => setRiskScore(parseInt(e.target.value) || 0)}
+                      className="h-9"
+                      data-testid="input-risk-score"
+                    />
+                    <p className="text-xs text-muted-foreground">Rate the overall risk level of this application</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="comments">Review Comments</Label>
+                    <Textarea
+                      id="comments"
+                      placeholder="Add your risk assessment comments and recommendations..."
+                      value={comments}
+                      onChange={(e) => setComments(e.target.value)}
+                      rows={4}
+                      data-testid="input-review-comments"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4 border-t">
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    onClick={() => handleSubmitReview("rejected")}
+                    disabled={submitReviewMutation.isPending}
+                    className="min-w-40 text-red-600 border-red-200 hover:bg-red-50"
+                    data-testid="button-reject"
+                  >
+                    {submitReviewMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    <XCircle className="h-4 w-4 mr-2" />
+                    Reject Application
+                  </Button>
+                  <Button
+                    size="lg"
+                    onClick={() => handleSubmitReview("approved")}
+                    disabled={submitReviewMutation.isPending}
+                    className="min-w-40 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600"
+                    data-testid="button-pass-committee"
+                  >
+                    {submitReviewMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Pass to Committee
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <div className="flex justify-between">
+          <Button variant="outline" onClick={prevStep} disabled={currentStep === 1} data-testid="button-previous">
+            <ChevronLeft className="h-4 w-4 mr-2" />
+            Previous
+          </Button>
+          {currentStep < 6 && (
+            <Button onClick={nextStep} data-testid="button-next">
+              Next
+              <ChevronRight className="h-4 w-4 ml-2" />
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -205,22 +585,16 @@ export default function RiskCompliancePage() {
                     </TableCell>
                     <TableCell>{item.fadReview?.reviewerName || "-"}</TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Link href={`/loans/${item.loan.id}`}>
-                          <Button variant="ghost" size="sm" data-testid={`button-view-${item.loan.id}`}>
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </Link>
-                        <Button 
-                          size="sm" 
-                          className="bg-red-500 hover:bg-red-600"
-                          onClick={() => handleOpenReview(item)}
-                          data-testid={`button-review-${item.loan.id}`}
-                        >
-                          Review
-                          <ArrowRight className="h-4 w-4 ml-1" />
-                        </Button>
-                      </div>
+                      <Button 
+                        size="sm" 
+                        className="bg-red-500 hover:bg-red-600"
+                        onClick={() => setSelectedLoanId(item.loan.id)}
+                        data-testid={`button-review-${item.loan.id}`}
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        Review
+                        <ArrowRight className="h-4 w-4 ml-1" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -229,132 +603,6 @@ export default function RiskCompliancePage() {
           )}
         </CardContent>
       </Card>
-
-      <Dialog open={showReviewDialog} onOpenChange={setShowReviewDialog}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-red-500" />
-              Risk Compliance Review
-            </DialogTitle>
-            <DialogDescription>
-              Review application {selectedLoan?.loan.applicationId} for risk compliance
-            </DialogDescription>
-          </DialogHeader>
-
-          {selectedLoan && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-muted rounded-lg">
-                  <h4 className="font-semibold mb-3">Application Summary</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Application ID:</span>
-                      <span className="font-mono font-medium">{selectedLoan.loan.applicationId}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Customer:</span>
-                      <span className="font-medium">{selectedLoan.loan.customerName}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Amount:</span>
-                      <span className="font-medium text-emerald-600">
-                        {formatCurrency(parseFloat(selectedLoan.loan.requestAmount || "0"))}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Duration:</span>
-                      <span className="font-medium">{selectedLoan.loan.financingDurationMonths} months</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Product:</span>
-                      <span className="font-medium">{selectedLoan.loan.productName || "-"}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
-                  <h4 className="font-semibold mb-3 text-blue-700 dark:text-blue-300">FAD Review Summary</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Data Quality Score:</span>
-                      <Badge variant="outline" className="bg-white">
-                        {selectedLoan.fadReview?.dataQualityScore || 0}/100
-                      </Badge>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Reviewer:</span>
-                      <span className="font-medium">{selectedLoan.fadReview?.reviewerName}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Date:</span>
-                      <span className="font-medium">{formatDate(selectedLoan.fadReview?.reviewedAt || "")}</span>
-                    </div>
-                    {selectedLoan.fadReview?.comments && (
-                      <div className="mt-2 pt-2 border-t">
-                        <span className="text-muted-foreground text-xs">FAD Comments:</span>
-                        <p className="text-xs mt-1">{selectedLoan.fadReview.comments}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="riskScore">Risk Score (1-100)</Label>
-                  <Input
-                    id="riskScore"
-                    type="number"
-                    min={1}
-                    max={100}
-                    value={riskScore}
-                    onChange={(e) => setRiskScore(parseInt(e.target.value) || 0)}
-                    data-testid="input-risk-score"
-                  />
-                  <p className="text-xs text-muted-foreground">Rate the overall risk level of this application</p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="comments">Review Comments</Label>
-                  <Textarea
-                    id="comments"
-                    placeholder="Add your risk assessment comments and recommendations..."
-                    value={comments}
-                    onChange={(e) => setComments(e.target.value)}
-                    rows={4}
-                    data-testid="input-review-comments"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          <DialogFooter className="gap-2">
-            <Button
-              variant="outline"
-              onClick={() => handleSubmitReview("rejected")}
-              disabled={submitReviewMutation.isPending}
-              className="text-red-600 border-red-200 hover:bg-red-50"
-              data-testid="button-reject"
-            >
-              {submitReviewMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              <XCircle className="h-4 w-4 mr-2" />
-              Reject
-            </Button>
-            <Button
-              onClick={() => handleSubmitReview("approved")}
-              disabled={submitReviewMutation.isPending}
-              className="bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600"
-              data-testid="button-pass-committee"
-            >
-              {submitReviewMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              <CheckCircle className="h-4 w-4 mr-2" />
-              Pass to Committee
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
