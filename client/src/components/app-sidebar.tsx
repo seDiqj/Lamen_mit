@@ -37,6 +37,11 @@ import {
   AlertTriangle,
   FileSearch,
   Vote,
+  BookOpen,
+  Receipt,
+  FileSpreadsheet,
+  Scale,
+  TrendingUp,
 } from "lucide-react";
 import lamenLogo from "@assets/LamenLogo_1769936371528.jpeg";
 import {
@@ -85,6 +90,12 @@ const PAGE_URL_TO_NAME: Record<string, string> = {
   "/funding-sources": "funding-sources",
   "/fad-review": "fad-review",
   "/committee-voting": "committee-voting",
+  "/chart-of-accounts": "chart-of-accounts",
+  "/journal-entries": "journal-entries",
+  "/account-statement": "account-statement",
+  "/trial-balance": "trial-balance",
+  "/income-statement": "income-statement",
+  "/balance-sheet": "balance-sheet",
 };
 
 export function AppSidebar() {
@@ -140,6 +151,18 @@ export function AppSidebar() {
       ],
     },
     {
+      label: "Accounting",
+      icon: BookOpen,
+      items: [
+        { title: "Chart of Accounts", url: "/chart-of-accounts", icon: BookOpen, iconColor: "text-emerald-500" },
+        { title: "Journal Entries", url: "/journal-entries", icon: Receipt, iconColor: "text-blue-500" },
+        { title: "Account Statement", url: "/account-statement", icon: FileSpreadsheet, iconColor: "text-violet-500" },
+        { title: "Trial Balance", url: "/trial-balance", icon: Scale, iconColor: "text-amber-500" },
+        { title: "Income Statement", url: "/income-statement", icon: TrendingUp, iconColor: "text-green-500" },
+        { title: "Balance Sheet", url: "/balance-sheet", icon: FileText, iconColor: "text-cyan-500" },
+      ],
+    },
+    {
       label: "Reports",
       icon: BarChart3,
       items: [
@@ -168,6 +191,18 @@ export function AppSidebar() {
         { title: "Approvals", url: "/approvals", icon: ClipboardList, iconColor: "text-orange-500", badge: "3" },
         { title: "Disbursements", url: "/disbursements", icon: PiggyBank, iconColor: "text-pink-500" },
         { title: "Payments", url: "/payments", icon: CreditCard, iconColor: "text-cyan-500" },
+      ],
+    },
+    {
+      label: "Accounting",
+      icon: BookOpen,
+      items: [
+        { title: "Chart of Accounts", url: "/chart-of-accounts", icon: BookOpen, iconColor: "text-emerald-500" },
+        { title: "Journal Entries", url: "/journal-entries", icon: Receipt, iconColor: "text-blue-500" },
+        { title: "Account Statement", url: "/account-statement", icon: FileSpreadsheet, iconColor: "text-violet-500" },
+        { title: "Trial Balance", url: "/trial-balance", icon: Scale, iconColor: "text-amber-500" },
+        { title: "Income Statement", url: "/income-statement", icon: TrendingUp, iconColor: "text-green-500" },
+        { title: "Balance Sheet", url: "/balance-sheet", icon: FileText, iconColor: "text-cyan-500" },
       ],
     },
     {
@@ -210,6 +245,18 @@ export function AppSidebar() {
         { title: "Approvals", url: "/approvals", icon: ClipboardList, iconColor: "text-orange-500" },
         { title: "Disbursements", url: "/disbursements", icon: PiggyBank, iconColor: "text-pink-500" },
         { title: "Payments", url: "/payments", icon: CreditCard, iconColor: "text-cyan-500" },
+      ],
+    },
+    {
+      label: "Accounting",
+      icon: BookOpen,
+      items: [
+        { title: "Chart of Accounts", url: "/chart-of-accounts", icon: BookOpen, iconColor: "text-emerald-500" },
+        { title: "Journal Entries", url: "/journal-entries", icon: Receipt, iconColor: "text-blue-500" },
+        { title: "Account Statement", url: "/account-statement", icon: FileSpreadsheet, iconColor: "text-violet-500" },
+        { title: "Trial Balance", url: "/trial-balance", icon: Scale, iconColor: "text-amber-500" },
+        { title: "Income Statement", url: "/income-statement", icon: TrendingUp, iconColor: "text-green-500" },
+        { title: "Balance Sheet", url: "/balance-sheet", icon: FileText, iconColor: "text-cyan-500" },
       ],
     },
     {

@@ -1538,6 +1538,12 @@ export class DatabaseStorage implements IStorage {
       "activity-logs",
       "users",
       "page-permissions",
+      "chart-of-accounts",
+      "journal-entries",
+      "account-statement",
+      "trial-balance",
+      "income-statement",
+      "balance-sheet",
     ];
   }
 
