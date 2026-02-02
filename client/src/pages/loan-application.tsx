@@ -13,7 +13,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 import { 
   User, FileText, Building2, Shield, Users, 
-  ChevronLeft, ChevronRight, Save, ArrowLeft, Loader2, Check
+  ChevronLeft, ChevronRight, Save, ArrowLeft, Loader2, Check,
+  Camera, Upload, X, File
 } from "lucide-react";
 import type { Branch, FinanceOfficer, FundingSource, Sector, Business, Province, District } from "@shared/schema";
 import { cn } from "@/lib/utils";
@@ -108,11 +109,30 @@ const loanProducts = [
   { code: "13", name: "Qardul Hasana" },
 ];
 
+interface UploadedDocument {
+  documentType: string;
+  fileName: string;
+  fileUrl: string;
+}
+
+const documentTypes = [
+  "Tazkira",
+  "Electricity Bill",
+  "Qawala",
+  "License Copy",
+];
+
 export default function LoanApplicationPage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [currentStep, setCurrentStep] = useState(1);
+  const [customerPhoto, setCustomerPhoto] = useState<{ url: string; name: string } | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [documents, setDocuments] = useState<UploadedDocument[]>([]);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [newDocType, setNewDocType] = useState("");
+  const [newDocName, setNewDocName] = useState("");
 
   const { data: branches = [] } = useQuery<Branch[]>({ queryKey: ["/api/branches"] });
   const { data: financeOfficers = [] } = useQuery<FinanceOfficer[]>({ queryKey: ["/api/finance-officers/active"] });
@@ -130,9 +150,74 @@ export default function LoanApplicationPage() {
     },
   });
 
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setUploadingPhoto(true);
+    try {
+      const formData = new FormData();
+      formData.append("photo", file);
+      const response = await fetch("/api/upload/photo", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Upload failed");
+      const result = await response.json();
+      setCustomerPhoto({ url: result.url, name: result.filename });
+      toast({ title: "Success", description: "Photo uploaded successfully" });
+    } catch {
+      toast({ title: "Error", description: "Failed to upload photo", variant: "destructive" });
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !newDocType) {
+      toast({ title: "Error", description: "Please select a document type first", variant: "destructive" });
+      return;
+    }
+    
+    setUploadingDoc(true);
+    try {
+      const formData = new FormData();
+      formData.append("document", file);
+      const response = await fetch("/api/upload/document", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Upload failed");
+      const result = await response.json();
+      setDocuments([...documents, {
+        documentType: newDocType,
+        fileName: newDocName || result.filename,
+        fileUrl: result.url,
+      }]);
+      setNewDocType("");
+      setNewDocName("");
+      toast({ title: "Success", description: "Document uploaded successfully" });
+    } catch {
+      toast({ title: "Error", description: "Failed to upload document", variant: "destructive" });
+    } finally {
+      setUploadingDoc(false);
+    }
+  };
+
+  const removeDocument = (index: number) => {
+    setDocuments(documents.filter((_, i) => i !== index));
+  };
+
   const submitMutation = useMutation({
     mutationFn: async (data: LoanApplicationFormData) => {
-      const response = await apiRequest("POST", "/api/loan-applications", data);
+      const response = await apiRequest("POST", "/api/loan-applications", {
+        ...data,
+        customerPhoto: customerPhoto?.url,
+        documents,
+      });
       return response.json();
     },
     onSuccess: () => {
@@ -385,6 +470,109 @@ export default function LoanApplicationPage() {
                       <FormMessage />
                     </FormItem>
                   )} />
+                </div>
+
+                {/* Photo & Documents Section */}
+                <div className="border-t pt-3 mt-4">
+                  <h3 className="text-xs font-semibold text-muted-foreground mb-3">Photo & Documents</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Customer Photo */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium">Customer Photo</label>
+                      <div className="flex items-start gap-3">
+                        <div className="w-24 h-24 border-2 border-dashed rounded-lg flex items-center justify-center bg-muted/50 overflow-hidden">
+                          {customerPhoto ? (
+                            <img src={customerPhoto.url} alt="Customer" className="w-full h-full object-cover" />
+                          ) : (
+                            <Camera className="h-8 w-8 text-muted-foreground" />
+                          )}
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <label className="cursor-pointer">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={handlePhotoUpload}
+                              disabled={uploadingPhoto}
+                              data-testid="input-customer-photo"
+                            />
+                            <Button type="button" variant="outline" size="sm" asChild disabled={uploadingPhoto}>
+                              <span>
+                                {uploadingPhoto ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Upload className="h-4 w-4 mr-1" />}
+                                Upload Photo
+                              </span>
+                            </Button>
+                          </label>
+                          {customerPhoto && (
+                            <Button type="button" variant="ghost" size="sm" onClick={() => setCustomerPhoto(null)} data-testid="button-remove-photo">
+                              <X className="h-4 w-4 mr-1" /> Remove
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Documents Upload */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium">Upload Documents</label>
+                      <div className="space-y-2">
+                        <div className="flex gap-2">
+                          <Select value={newDocType} onValueChange={setNewDocType}>
+                            <SelectTrigger className="h-9 w-40" data-testid="select-doc-type">
+                              <SelectValue placeholder="Document Type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {documentTypes.map((type) => (
+                                <SelectItem key={type} value={type}>{type}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Input
+                            placeholder="File name (optional)"
+                            className="h-9 flex-1"
+                            value={newDocName}
+                            onChange={(e) => setNewDocName(e.target.value)}
+                            data-testid="input-doc-name"
+                          />
+                        </div>
+                        <label className="cursor-pointer block">
+                          <input
+                            type="file"
+                            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                            className="hidden"
+                            onChange={handleDocumentUpload}
+                            disabled={uploadingDoc || !newDocType}
+                            data-testid="input-document-file"
+                          />
+                          <Button type="button" variant="outline" size="sm" asChild disabled={uploadingDoc || !newDocType} className="w-full">
+                            <span>
+                              {uploadingDoc ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Upload className="h-4 w-4 mr-1" />}
+                              Upload Document
+                            </span>
+                          </Button>
+                        </label>
+                      </div>
+
+                      {/* Uploaded Documents List */}
+                      {documents.length > 0 && (
+                        <div className="space-y-1 mt-2">
+                          {documents.map((doc, index) => (
+                            <div key={index} className="flex items-center justify-between bg-muted/50 rounded px-2 py-1.5 text-sm" data-testid={`document-item-${index}`}>
+                              <div className="flex items-center gap-2">
+                                <File className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-medium">{doc.documentType}</span>
+                                <span className="text-muted-foreground">- {doc.fileName}</span>
+                              </div>
+                              <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeDocument(index)} data-testid={`button-remove-doc-${index}`}>
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>

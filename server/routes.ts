@@ -6,6 +6,39 @@ import bcrypt from "bcrypt";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { pool } from "./db";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+
+// Configure multer for file uploads
+const uploadsDir = path.join(process.cwd(), "uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+const fileStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, uploadsDir);
+  },
+  filename: (_req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  },
+});
+
+const upload = multer({
+  storage: fileStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (_req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    if (extname && mimetype) {
+      return cb(null, true);
+    }
+    cb(new Error("Only images (jpeg, jpg, png, gif) and documents (pdf, doc, docx) are allowed"));
+  },
+});
 
 declare module "express-session" {
   interface SessionData {
@@ -41,6 +74,10 @@ export async function registerRoutes(
       },
     })
   );
+
+  // Serve uploaded files statically
+  const express = await import("express");
+  app.use("/uploads", express.default.static(uploadsDir));
 
   // Auth middleware
   const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
@@ -663,6 +700,44 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error updating customer:", error);
       res.status(500).json({ message: "Failed to update customer" });
+    }
+  });
+
+  // ===== FILE UPLOADS =====
+  app.post("/api/upload/photo", isAuthenticated, upload.single("photo"), async (req: any, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+      const fileUrl = `/uploads/${req.file.filename}`;
+      res.json({ url: fileUrl, filename: req.file.originalname });
+    } catch (error) {
+      console.error("Error uploading photo:", error);
+      res.status(500).json({ message: "Failed to upload photo" });
+    }
+  });
+
+  app.post("/api/upload/document", isAuthenticated, upload.single("document"), async (req: any, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+      const fileUrl = `/uploads/${req.file.filename}`;
+      res.json({ url: fileUrl, filename: req.file.originalname });
+    } catch (error) {
+      console.error("Error uploading document:", error);
+      res.status(500).json({ message: "Failed to upload document" });
+    }
+  });
+
+  // Get customer documents
+  app.get("/api/customers/:id/documents", isAuthenticated, async (req, res) => {
+    try {
+      const documents = await storage.getCustomerDocuments(req.params.id);
+      res.json(documents);
+    } catch (error) {
+      console.error("Error fetching customer documents:", error);
+      res.status(500).json({ message: "Failed to fetch documents" });
     }
   });
 

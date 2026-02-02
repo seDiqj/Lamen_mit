@@ -56,6 +56,9 @@ import {
   type District,
   type InsertCustomer,
   type Customer,
+  customerDocuments,
+  type InsertCustomerDocument,
+  type CustomerDocument,
   type InsertCustomerBusiness,
   type CustomerBusiness,
   type InsertBusinessLicense,
@@ -143,6 +146,8 @@ export interface IStorage {
   getCustomer(id: string): Promise<Customer | undefined>;
   createCustomer(data: InsertCustomer): Promise<Customer>;
   updateCustomer(id: string, data: Partial<InsertCustomer>): Promise<Customer>;
+  getCustomerDocuments(customerId: string): Promise<CustomerDocument[]>;
+  createCustomerDocument(data: InsertCustomerDocument): Promise<CustomerDocument>;
   
   // Loans
   getLoans(filters: { search?: string; status?: string; page?: number; limit?: number }): Promise<{ loans: any[]; total: number }>;
@@ -621,6 +626,16 @@ export class DatabaseStorage implements IStorage {
   async getCustomerByNo(customerNo: string): Promise<Customer | undefined> {
     const [customer] = await db.select().from(customers).where(eq(customers.customerNo, customerNo));
     return customer;
+  }
+
+  // Customer Documents
+  async getCustomerDocuments(customerId: string): Promise<CustomerDocument[]> {
+    return db.select().from(customerDocuments).where(eq(customerDocuments.customerId, customerId));
+  }
+
+  async createCustomerDocument(data: InsertCustomerDocument): Promise<CustomerDocument> {
+    const [document] = await db.insert(customerDocuments).values(data).returning();
+    return document;
   }
 
   // Customer Businesses

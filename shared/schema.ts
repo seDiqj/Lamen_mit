@@ -108,6 +108,17 @@ export const customers = pgTable("customers", {
   directFemaleDependent: integer("direct_female_dependent"),
   indirectMaleDependent: integer("indirect_male_dependent"),
   indirectFemaleDependent: integer("indirect_female_dependent"),
+  photoUrl: text("photo_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Customer Documents
+export const customerDocuments = pgTable("customer_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").references(() => customers.id),
+  documentType: varchar("document_type", { length: 100 }),
+  fileName: varchar("file_name", { length: 255 }),
+  fileUrl: text("file_url"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -317,6 +328,7 @@ export const insertBusinessSchema = createInsertSchema(businesses).omit({ id: tr
 export const insertProvinceSchema = createInsertSchema(provinces).omit({ id: true, createdAt: true });
 export const insertDistrictSchema = createInsertSchema(districts).omit({ id: true, createdAt: true });
 export const insertCustomerSchema = createInsertSchema(customers).omit({ id: true, createdAt: true });
+export const insertCustomerDocumentSchema = createInsertSchema(customerDocuments).omit({ id: true, createdAt: true });
 export const insertCustomerBusinessSchema = createInsertSchema(customerBusinesses).omit({ id: true, createdAt: true });
 export const insertBusinessLicenseSchema = createInsertSchema(businessLicenses).omit({ id: true, createdAt: true });
 export const insertLoanSchema = createInsertSchema(loans).omit({ id: true, createdAt: true, updatedAt: true });
@@ -349,6 +361,8 @@ export type InsertDistrict = z.infer<typeof insertDistrictSchema>;
 export type District = typeof districts.$inferSelect;
 export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
 export type Customer = typeof customers.$inferSelect;
+export type InsertCustomerDocument = z.infer<typeof insertCustomerDocumentSchema>;
+export type CustomerDocument = typeof customerDocuments.$inferSelect;
 export type InsertCustomerBusiness = z.infer<typeof insertCustomerBusinessSchema>;
 export type CustomerBusiness = typeof customerBusinesses.$inferSelect;
 export type InsertBusinessLicense = z.infer<typeof insertBusinessLicenseSchema>;
