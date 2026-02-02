@@ -98,6 +98,13 @@ const steps = [
   { id: 5, title: "Guarantors", icon: Users, color: "from-teal-500 to-cyan-500" },
 ];
 
+const loanProducts = [
+  { code: "10", name: "Mudarabah" },
+  { code: "11", name: "Murabaha" },
+  { code: "12", name: "Musharakat" },
+  { code: "13", name: "Qardul Hasana" },
+];
+
 export default function LoanApplicationPage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
@@ -377,14 +384,36 @@ export default function LoanApplicationPage() {
                   <FormField control={form.control} name="productName" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Product Name</FormLabel>
-                      <FormControl><Input placeholder="e.g., Qardul Hasana" {...field} data-testid="input-product-name" /></FormControl>
+                      <Select 
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          const product = loanProducts.find(p => p.name === value);
+                          if (product) {
+                            form.setValue("productCode", product.code);
+                          }
+                        }} 
+                        value={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger data-testid="select-product-name">
+                            <SelectValue placeholder="Select product" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {loanProducts.map((product) => (
+                            <SelectItem key={product.code} value={product.name}>
+                              {product.code} - {product.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="productCode" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Product Code</FormLabel>
-                      <FormControl><Input placeholder="e.g., 13" {...field} data-testid="input-product-code" /></FormControl>
+                      <FormControl><Input readOnly className="bg-muted" placeholder="Auto-filled" {...field} data-testid="input-product-code" /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
