@@ -15,7 +15,7 @@ import {
   User, FileText, Building2, Shield, Users, 
   ChevronLeft, ChevronRight, Save, ArrowLeft, Loader2, Check
 } from "lucide-react";
-import type { Branch, FinanceOfficer, FundingSource, Sector, Business } from "@shared/schema";
+import type { Branch, FinanceOfficer, FundingSource, Sector, Business, Province, District } from "@shared/schema";
 import { cn } from "@/lib/utils";
 
 const loanApplicationSchema = z.object({
@@ -119,6 +119,8 @@ export default function LoanApplicationPage() {
   const { data: fundingSources = [] } = useQuery<FundingSource[]>({ queryKey: ["/api/funding-sources"] });
   const { data: sectors = [] } = useQuery<Sector[]>({ queryKey: ["/api/sectors"] });
   const { data: businesses = [] } = useQuery<Business[]>({ queryKey: ["/api/businesses"] });
+  const { data: provinces = [] } = useQuery<Province[]>({ queryKey: ["/api/provinces"] });
+  const { data: districts = [] } = useQuery<(District & { provinceName?: string })[]>({ queryKey: ["/api/districts"] });
 
   const form = useForm<LoanApplicationFormData>({
     resolver: zodResolver(loanApplicationSchema),
@@ -616,17 +618,58 @@ export default function LoanApplicationPage() {
                     <FormField control={form.control} name="businessProvince" render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-xs">Province</FormLabel>
-                        <FormControl><Input placeholder="Province" className="h-9" {...field} data-testid="input-business-province" /></FormControl>
+                        <Select onValueChange={(value) => {
+                          const province = provinces.find(p => p.id.toString() === value);
+                          field.onChange(province?.name || "");
+                          form.setValue("businessDistrict", "");
+                        }} value={provinces.find(p => p.name === field.value)?.id.toString() || ""}>
+                          <FormControl>
+                            <SelectTrigger className="h-9" data-testid="select-business-province">
+                              <SelectValue placeholder="Select province" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {provinces.map((province) => (
+                              <SelectItem key={province.id} value={province.id.toString()}>
+                                {province.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )} />
-                    <FormField control={form.control} name="businessDistrict" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs">District</FormLabel>
-                        <FormControl><Input placeholder="District" className="h-9" {...field} data-testid="input-business-district" /></FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
+                    <FormField control={form.control} name="businessDistrict" render={({ field }) => {
+                      const selectedProvince = provinces.find(p => p.name === form.watch("businessProvince"));
+                      const provinceDistricts = districts.filter(d => d.provinceId === selectedProvince?.id);
+                      return (
+                        <FormItem>
+                          <FormLabel className="text-xs">District</FormLabel>
+                          <Select 
+                            onValueChange={(value) => {
+                              const district = provinceDistricts.find(d => d.id.toString() === value);
+                              field.onChange(district?.name || "");
+                            }} 
+                            value={provinceDistricts.find(d => d.name === field.value)?.id.toString() || ""} 
+                            disabled={!selectedProvince}
+                          >
+                            <FormControl>
+                              <SelectTrigger className="h-9" data-testid="select-business-district">
+                                <SelectValue placeholder={selectedProvince ? "Select district" : "Select province first"} />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {provinceDistricts.map((district) => (
+                                <SelectItem key={district.id} value={district.id.toString()}>
+                                  {district.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }} />
                     <FormField control={form.control} name="businessVillage" render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-xs">Village</FormLabel>
