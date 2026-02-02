@@ -30,6 +30,12 @@ import LoanApplicationPage from "@/pages/loan-application";
 import LoanDetailsPage from "@/pages/loan-details";
 import FadReviewPage from "@/pages/fad-review";
 import CommitteeVotingPage from "@/pages/committee-voting";
+import ChartOfAccountsPage from "@/pages/chart-of-accounts";
+import JournalEntriesPage from "@/pages/journal-entries";
+import AccountStatementPage from "@/pages/account-statement";
+import TrialBalancePage from "@/pages/trial-balance";
+import IncomeStatementPage from "@/pages/income-statement";
+import BalanceSheetPage from "@/pages/balance-sheet";
 import NotFound from "@/pages/not-found";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
@@ -112,6 +118,12 @@ function AppRoutes() {
         <Route path="/page-permissions" component={PagePermissionsPage} />
         <Route path="/activity" component={ActivityPage} />
         <Route path="/settings" component={SettingsPage} />
+        <Route path="/chart-of-accounts" component={ChartOfAccountsPage} />
+        <Route path="/journal-entries" component={JournalEntriesPage} />
+        <Route path="/account-statement" component={AccountStatementPage} />
+        <Route path="/trial-balance" component={TrialBalancePage} />
+        <Route path="/income-statement" component={IncomeStatementPage} />
+        <Route path="/balance-sheet" component={BalanceSheetPage} />
         <Route component={NotFound} />
       </Switch>
     </AuthenticatedLayout>
