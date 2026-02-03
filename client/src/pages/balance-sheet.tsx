@@ -7,14 +7,15 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
-  TableHeader,
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Printer } from "lucide-react";
+import { FileText, FileSpreadsheet } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { formatDate } from "@/lib/date-utils";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 type AccountItem = {
   accountCode: string;
@@ -51,15 +52,169 @@ export default function BalanceSheet() {
     }
   };
 
-  const handlePrint = () => {
-    window.print();
+  const isBalanced = data ? Math.abs(data.totalAssets - (data.totalLiabilities + data.totalEquity)) < 0.01 : true;
+
+  const handleExportExcel = () => {
+    if (!data) return;
+
+    const exportData: any[] = [];
+    
+    exportData.push({ "Account Code": "", "Account Name": "ASSETS", "Amount (AFN)": "" });
+    data.assets.filter(a => a.amount !== 0).forEach(item => {
+      exportData.push({
+        "Account Code": item.accountCode,
+        "Account Name": item.accountName,
+        "Amount (AFN)": item.amount,
+      });
+    });
+    exportData.push({ "Account Code": "", "Account Name": "Total Assets", "Amount (AFN)": data.totalAssets });
+    
+    exportData.push({ "Account Code": "", "Account Name": "", "Amount (AFN)": "" });
+    exportData.push({ "Account Code": "", "Account Name": "LIABILITIES", "Amount (AFN)": "" });
+    data.liabilities.filter(l => l.amount !== 0).forEach(item => {
+      exportData.push({
+        "Account Code": item.accountCode,
+        "Account Name": item.accountName,
+        "Amount (AFN)": item.amount,
+      });
+    });
+    exportData.push({ "Account Code": "", "Account Name": "Total Liabilities", "Amount (AFN)": data.totalLiabilities });
+    
+    exportData.push({ "Account Code": "", "Account Name": "", "Amount (AFN)": "" });
+    exportData.push({ "Account Code": "", "Account Name": "EQUITY", "Amount (AFN)": "" });
+    data.equity.filter(e => e.amount !== 0).forEach(item => {
+      exportData.push({
+        "Account Code": item.accountCode,
+        "Account Name": item.accountName,
+        "Amount (AFN)": item.amount,
+      });
+    });
+    exportData.push({ "Account Code": "", "Account Name": "Total Equity", "Amount (AFN)": data.totalEquity });
+    
+    exportData.push({ "Account Code": "", "Account Name": "", "Amount (AFN)": "" });
+    exportData.push({ "Account Code": "", "Account Name": "TOTAL LIABILITIES & EQUITY", "Amount (AFN)": data.totalLiabilities + data.totalEquity });
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    ws["!cols"] = [{ wch: 15 }, { wch: 45 }, { wch: 20 }];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Balance Sheet");
+
+    const dateStr = asOfDate.replace(/-/g, "");
+    XLSX.writeFile(wb, `Balance_Sheet_${dateStr}.xlsx`);
   };
 
-  const isBalanced = data ? Math.abs(data.totalAssets - (data.totalLiabilities + data.totalEquity)) < 0.01 : true;
+  const handleExportPDF = () => {
+    if (!data) return;
+
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("Lamen Microfinance Institution", 105, 20, { align: "center" });
+
+    doc.setFontSize(14);
+    doc.text("Balance Sheet", 105, 30, { align: "center" });
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`As of: ${formatDate(asOfDate)}`, 105, 38, { align: "center" });
+
+    doc.setFontSize(9);
+    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 105, 44, { align: "center" });
+
+    const tableData: any[] = [];
+    
+    tableData.push([{ content: "ASSETS", colSpan: 3, styles: { fontStyle: "bold", fillColor: [219, 234, 254] } }]);
+    data.assets.filter(a => a.amount !== 0).forEach(item => {
+      tableData.push([
+        item.accountCode,
+        item.accountName,
+        formatCurrency(item.amount.toString()).replace("AFN", "").trim()
+      ]);
+    });
+    tableData.push([
+      "",
+      { content: "Total Assets", styles: { fontStyle: "bold" } },
+      { content: formatCurrency(data.totalAssets.toString()).replace("AFN", "").trim(), styles: { fontStyle: "bold", fillColor: [191, 219, 254] } }
+    ]);
+
+    tableData.push(["", "", ""]);
+    tableData.push([{ content: "LIABILITIES", colSpan: 3, styles: { fontStyle: "bold", fillColor: [254, 226, 226] } }]);
+    data.liabilities.filter(l => l.amount !== 0).forEach(item => {
+      tableData.push([
+        item.accountCode,
+        item.accountName,
+        formatCurrency(item.amount.toString()).replace("AFN", "").trim()
+      ]);
+    });
+    tableData.push([
+      "",
+      { content: "Total Liabilities", styles: { fontStyle: "bold" } },
+      { content: formatCurrency(data.totalLiabilities.toString()).replace("AFN", "").trim(), styles: { fontStyle: "bold", fillColor: [254, 202, 202] } }
+    ]);
+
+    tableData.push(["", "", ""]);
+    tableData.push([{ content: "EQUITY", colSpan: 3, styles: { fontStyle: "bold", fillColor: [243, 232, 255] } }]);
+    data.equity.filter(e => e.amount !== 0).forEach(item => {
+      tableData.push([
+        item.accountCode,
+        item.accountName,
+        formatCurrency(item.amount.toString()).replace("AFN", "").trim()
+      ]);
+    });
+    tableData.push([
+      "",
+      { content: "Total Equity", styles: { fontStyle: "bold" } },
+      { content: formatCurrency(data.totalEquity.toString()).replace("AFN", "").trim(), styles: { fontStyle: "bold", fillColor: [233, 213, 255] } }
+    ]);
+
+    tableData.push(["", "", ""]);
+    tableData.push([
+      "",
+      { content: "TOTAL LIABILITIES & EQUITY", styles: { fontStyle: "bold" } },
+      { content: formatCurrency((data.totalLiabilities + data.totalEquity).toString()).replace("AFN", "").trim(), styles: { fontStyle: "bold", fillColor: [240, 240, 240] } }
+    ]);
+
+    autoTable(doc, {
+      startY: 50,
+      head: [["Account Code", "Account Name", "Amount (AFN)"]],
+      body: tableData,
+      theme: "grid",
+      headStyles: { fillColor: [34, 139, 34], textColor: [255, 255, 255], fontStyle: "bold", halign: "center" },
+      columnStyles: {
+        0: { halign: "left", cellWidth: 30 },
+        1: { halign: "left", cellWidth: 100 },
+        2: { halign: "right", cellWidth: 40 },
+      },
+      styles: { fontSize: 9, cellPadding: 2 },
+    });
+
+    const finalY = (doc as any).lastAutoTable?.finalY || 200;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    const statusText = isBalanced ? "Status: BALANCED" : "Status: OUT OF BALANCE";
+    const statusColor = isBalanced ? [34, 139, 34] : [220, 38, 38];
+    doc.setTextColor(statusColor[0], statusColor[1], statusColor[2]);
+    doc.text(statusText, 105, finalY + 10, { align: "center" });
+
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(128, 128, 128);
+      doc.text(`Page ${i} of ${pageCount}`, 105, 290, { align: "center" });
+      doc.text("Lamen Microfinance Institution - Confidential", 14, 290);
+    }
+
+    const dateStr = asOfDate.replace(/-/g, "");
+    const balanceStatus = isBalanced ? "Balanced" : "OUT_OF_BALANCE";
+    doc.save(`Balance_Sheet_${dateStr}_${balanceStatus}.pdf`);
+  };
 
   return (
     <div className="flex flex-col gap-4 p-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-cyan-500/10 rounded-lg">
             <FileText className="h-6 w-6 text-cyan-500" />
@@ -70,9 +225,14 @@ export default function BalanceSheet() {
           </div>
         </div>
         {data && (
-          <Button variant="outline" onClick={handlePrint} className="gap-2" data-testid="button-print">
-            <Printer className="h-4 w-4" /> Print
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={handleExportExcel} className="gap-2 bg-green-600 hover:bg-green-700 text-white" data-testid="button-export-excel">
+              <FileSpreadsheet className="h-4 w-4" /> Excel
+            </Button>
+            <Button onClick={handleExportPDF} className="gap-2 bg-red-600 hover:bg-red-700 text-white" data-testid="button-export-pdf">
+              <FileText className="h-4 w-4" /> PDF
+            </Button>
+          </div>
         )}
       </div>
 

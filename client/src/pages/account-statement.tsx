@@ -13,9 +13,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { FileSpreadsheet, Download, Printer } from "lucide-react";
+import { FileSpreadsheet, FileText } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { formatDate } from "@/lib/date-utils";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 type Account = {
   id: string;
@@ -71,13 +74,155 @@ export default function AccountStatement() {
     }
   };
 
-  const handlePrint = () => {
-    window.print();
+  const handleExportExcel = () => {
+    if (!statement) return;
+
+    const exportData: any[] = [];
+    
+    exportData.push({
+      "Date": "",
+      "Entry #": "",
+      "Description": "Opening Balance",
+      "Reference": "",
+      "Debit (AFN)": "",
+      "Credit (AFN)": "",
+      "Balance (AFN)": statement.openingBalance,
+    });
+
+    statement.transactions.forEach(tx => {
+      exportData.push({
+        "Date": formatDate(tx.entryDate),
+        "Entry #": tx.entryNumber,
+        "Description": tx.description || "-",
+        "Reference": tx.reference || "-",
+        "Debit (AFN)": Number(tx.debitAmount) > 0 ? Number(tx.debitAmount) : "",
+        "Credit (AFN)": Number(tx.creditAmount) > 0 ? Number(tx.creditAmount) : "",
+        "Balance (AFN)": tx.balance,
+      });
+    });
+
+    exportData.push({
+      "Date": "",
+      "Entry #": "",
+      "Description": "Closing Balance",
+      "Reference": "",
+      "Debit (AFN)": "",
+      "Credit (AFN)": "",
+      "Balance (AFN)": statement.closingBalance,
+    });
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    ws["!cols"] = [
+      { wch: 12 },
+      { wch: 15 },
+      { wch: 40 },
+      { wch: 15 },
+      { wch: 15 },
+      { wch: 15 },
+      { wch: 18 },
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Account Statement");
+
+    const startStr = startDate.replace(/-/g, "");
+    const endStr = endDate.replace(/-/g, "");
+    const accCode = statement.account.accountCode;
+    XLSX.writeFile(wb, `Account_Statement_${accCode}_${startStr}_to_${endStr}.xlsx`);
+  };
+
+  const handleExportPDF = () => {
+    if (!statement) return;
+
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("Lamen Microfinance Institution", 148, 15, { align: "center" });
+
+    doc.setFontSize(14);
+    doc.text("Account Statement", 148, 23, { align: "center" });
+
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Account: ${statement.account.accountCode} - ${statement.account.accountName}`, 148, 31, { align: "center" });
+
+    doc.setFontSize(10);
+    doc.text(`Period: ${formatDate(startDate)} to ${formatDate(endDate)}`, 148, 38, { align: "center" });
+
+    doc.setFontSize(9);
+    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 148, 44, { align: "center" });
+
+    const tableData: any[] = [];
+    
+    tableData.push([
+      "",
+      "",
+      { content: "Opening Balance", styles: { fontStyle: "bold" } },
+      "",
+      "",
+      "",
+      { content: formatCurrency(statement.openingBalance.toString()).replace("AFN", "").trim(), styles: { fontStyle: "bold" } }
+    ]);
+
+    statement.transactions.forEach(tx => {
+      tableData.push([
+        formatDate(tx.entryDate),
+        tx.entryNumber,
+        tx.description || "-",
+        tx.reference || "-",
+        Number(tx.debitAmount) > 0 ? formatCurrency(tx.debitAmount).replace("AFN", "").trim() : "-",
+        Number(tx.creditAmount) > 0 ? formatCurrency(tx.creditAmount).replace("AFN", "").trim() : "-",
+        formatCurrency(tx.balance.toString()).replace("AFN", "").trim()
+      ]);
+    });
+
+    tableData.push([
+      "",
+      "",
+      { content: "Closing Balance", styles: { fontStyle: "bold" } },
+      "",
+      "",
+      "",
+      { content: formatCurrency(statement.closingBalance.toString()).replace("AFN", "").trim(), styles: { fontStyle: "bold", fillColor: [240, 240, 240] } }
+    ]);
+
+    autoTable(doc, {
+      startY: 50,
+      head: [["Date", "Entry #", "Description", "Reference", "Debit (AFN)", "Credit (AFN)", "Balance (AFN)"]],
+      body: tableData,
+      theme: "grid",
+      headStyles: { fillColor: [34, 139, 34], textColor: [255, 255, 255], fontStyle: "bold", halign: "center" },
+      columnStyles: {
+        0: { halign: "center", cellWidth: 25 },
+        1: { halign: "center", cellWidth: 25 },
+        2: { halign: "left", cellWidth: 80 },
+        3: { halign: "center", cellWidth: 25 },
+        4: { halign: "right", cellWidth: 30 },
+        5: { halign: "right", cellWidth: 30 },
+        6: { halign: "right", cellWidth: 35 },
+      },
+      styles: { fontSize: 8, cellPadding: 2 },
+    });
+
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(128, 128, 128);
+      doc.text(`Page ${i} of ${pageCount}`, 148, 200, { align: "center" });
+      doc.text("Lamen Microfinance Institution - Confidential", 14, 200);
+    }
+
+    const startStr = startDate.replace(/-/g, "");
+    const endStr = endDate.replace(/-/g, "");
+    const accCode = statement.account.accountCode;
+    doc.save(`Account_Statement_${accCode}_${startStr}_to_${endStr}.pdf`);
   };
 
   return (
     <div className="flex flex-col gap-4 p-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-violet-500/10 rounded-lg">
             <FileSpreadsheet className="h-6 w-6 text-violet-500" />
@@ -88,9 +233,14 @@ export default function AccountStatement() {
           </div>
         </div>
         {statement && (
-          <Button variant="outline" onClick={handlePrint} className="gap-2" data-testid="button-print">
-            <Printer className="h-4 w-4" /> Print
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={handleExportExcel} className="gap-2 bg-green-600 hover:bg-green-700 text-white" data-testid="button-export-excel">
+              <FileSpreadsheet className="h-4 w-4" /> Excel
+            </Button>
+            <Button onClick={handleExportPDF} className="gap-2 bg-red-600 hover:bg-red-700 text-white" data-testid="button-export-pdf">
+              <FileText className="h-4 w-4" /> PDF
+            </Button>
+          </div>
         )}
       </div>
 
@@ -129,7 +279,7 @@ export default function AccountStatement() {
       {statement && (
         <Card className="print:shadow-none">
           <CardHeader className="border-b">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <div>
                 <CardTitle className="text-xl">{statement.account.accountCode} - {statement.account.accountName}</CardTitle>
                 <p className="text-muted-foreground text-sm mt-1">
