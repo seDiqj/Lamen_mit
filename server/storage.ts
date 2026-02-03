@@ -243,6 +243,7 @@ export interface IStorage {
   updateAccount(id: string, data: any): Promise<any>;
   deleteAccount(id: string): Promise<void>;
   getAccountHierarchy(): Promise<any[]>;
+  importChartOfAccounts(accountsData: { code: string; name: string; type: string; parent_code: string | null }[]): Promise<{ imported: number; errors: string[] }>;
   
   // Accounting - Fiscal Periods
   getFiscalPeriods(): Promise<any[]>;
@@ -2367,6 +2368,64 @@ export class DatabaseStorage implements IStorage {
     };
     
     return buildTree(null);
+  }
+
+  async importChartOfAccounts(accountsData: { code: string; name: string; type: string; parent_code: string | null }[]): Promise<{ imported: number; errors: string[] }> {
+    const errors: string[] = [];
+    let imported = 0;
+
+    // Check if there are any journal lines referencing accounts
+    const journalLinesCount = await db.select({ count: sql<number>`count(*)` }).from(journalLines);
+    if (journalLinesCount[0]?.count > 0) {
+      throw new Error("Cannot replace Chart of Accounts: There are existing journal entries. Please delete all journal entries first.");
+    }
+
+    // Delete existing accounts
+    await db.delete(accounts);
+
+    // Create a map of code to UUID for parent references
+    const codeToId: Record<string, string> = {};
+
+    // First pass: create all accounts without parent references
+    for (const acc of accountsData) {
+      try {
+        const id = crypto.randomUUID();
+        codeToId[acc.code] = id;
+
+        await db.insert(accounts).values({
+          id,
+          accountCode: acc.code,
+          accountName: acc.name,
+          accountType: acc.type as any,
+          parentId: null,
+          description: acc.name,
+          isActive: true,
+          isSystemAccount: false,
+          normalBalance: ["asset", "expense"].includes(acc.type) ? "debit" : "credit",
+          openingBalance: "0",
+          currentBalance: "0",
+        });
+        imported++;
+      } catch (error: any) {
+        errors.push(`Failed to import ${acc.code}: ${error.message}`);
+      }
+    }
+
+    // Second pass: update parent references
+    for (const acc of accountsData) {
+      if (acc.parent_code && codeToId[acc.parent_code]) {
+        try {
+          await db
+            .update(accounts)
+            .set({ parentId: codeToId[acc.parent_code] })
+            .where(eq(accounts.id, codeToId[acc.code]));
+        } catch (error: any) {
+          errors.push(`Failed to set parent for ${acc.code}: ${error.message}`);
+        }
+      }
+    }
+
+    return { imported, errors };
   }
 
   // Fiscal Periods

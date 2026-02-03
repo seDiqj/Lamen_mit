@@ -2147,6 +2147,22 @@ export async function registerRoutes(
     }
   });
 
+  // Import Chart of Accounts
+  app.post("/api/accounts/import", isAuthenticated, requireRole("admin"), async (req: any, res) => {
+    try {
+      const { accounts } = req.body;
+      if (!accounts || !Array.isArray(accounts)) {
+        return res.status(400).json({ message: "Invalid accounts data. Expected an array." });
+      }
+      const result = await storage.importChartOfAccounts(accounts);
+      await logActivity(req, "import", "chart_of_accounts", null, `Imported ${result.imported} accounts`);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error importing accounts:", error);
+      res.status(500).json({ message: error.message || "Failed to import accounts" });
+    }
+  });
+
   // Fiscal Periods
   app.get("/api/fiscal-periods", isAuthenticated, async (req, res) => {
     try {
