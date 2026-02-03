@@ -1,5 +1,3 @@
-BEGIN;
-
 INSERT INTO journal_entries (id, entry_number, entry_date, description, reference, reference_type, total_debit, total_credit, is_posted, posted_at, created_by) VALUES ('3f893cc6-674d-402f-ae26-246a1f8a4174', 'JE-000801', '2025-11-03', 'Paid for the purchase of cartridge for the office', 'JV-JV-755', 'journal_entry', 900.00, 900.00, true, NOW(), 'import-script');
 INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_amount, credit_amount) SELECT '875aef55-dc06-4b9e-87a8-68b35dfcb268', '3f893cc6-674d-402f-ae26-246a1f8a4174', id, 'Paid for the purchase of cartridge for the office', 900.00, 0.00 FROM accounts WHERE account_code = '60502';
 INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_amount, credit_amount) SELECT 'a755328c-58ca-4d6f-bd98-6b9694e13624', '3f893cc6-674d-402f-ae26-246a1f8a4174', id, 'Paid for the purchase of cartridge for the office', 0.00, 900.00 FROM accounts WHERE account_code = '10101';
@@ -2147,5 +2145,3 @@ UPDATE accounts SET current_balance = CASE WHEN account_type IN ('asset', 'expen
 UPDATE accounts SET current_balance = CASE WHEN account_type IN ('asset', 'expense') THEN 232150.00 ELSE -232150.00 END WHERE account_code = '10208';
 UPDATE accounts SET current_balance = CASE WHEN account_type IN ('asset', 'expense') THEN 19900.00 ELSE -19900.00 END WHERE account_code = '10209';
 UPDATE accounts SET current_balance = CASE WHEN account_type IN ('asset', 'expense') THEN 594900.00 ELSE -594900.00 END WHERE account_code = '10210';
-
-COMMIT;

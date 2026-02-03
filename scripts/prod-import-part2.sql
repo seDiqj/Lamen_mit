@@ -1,5 +1,3 @@
-BEGIN;
-
 INSERT INTO journal_entries (id, entry_number, entry_date, description, reference, reference_type, total_debit, total_credit, is_posted, posted_at, created_by) VALUES ('751d3736-a9d3-4eb6-a956-6deef0f9b809', 'JE-000401', '2025-07-27', 'Paid for lunch expenses', 'JV-JV-393', 'journal_entry', 490.00, 490.00, true, NOW(), 'import-script');
 INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_amount, credit_amount) SELECT '0ca657f2-0797-4226-bbf0-40ecad70475b', '751d3736-a9d3-4eb6-a956-6deef0f9b809', id, 'Paid for lunch expenses', 490.00, 0.00 FROM accounts WHERE account_code = '60601';
 INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_amount, credit_amount) SELECT '3385a898-910e-4ba6-a33a-4f9e26fdde95', '751d3736-a9d3-4eb6-a956-6deef0f9b809', id, 'Paid for lunch expenses', 0.00, 490.00 FROM accounts WHERE account_code = '10101';
@@ -1625,5 +1623,3 @@ INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_
 INSERT INTO journal_entries (id, entry_number, entry_date, description, reference, reference_type, total_debit, total_credit, is_posted, posted_at, created_by) VALUES ('2fd7acb0-3e54-4d79-9f1d-a1c50c8ec363', 'JE-000800', '2025-11-03', 'Paid for taxi used by Shakoor to bring cash', 'JV-JV-754', 'journal_entry', 150.00, 150.00, true, NOW(), 'import-script');
 INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_amount, credit_amount) SELECT '7b4cedc2-03bd-4747-a7c1-3750a044960e', '2fd7acb0-3e54-4d79-9f1d-a1c50c8ec363', id, 'Paid for taxi used by Shakoor to bring cash', 150.00, 0.00 FROM accounts WHERE account_code = '60802';
 INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_amount, credit_amount) SELECT '2aa8b15c-d086-41c9-8042-daf35e8f7aca', '2fd7acb0-3e54-4d79-9f1d-a1c50c8ec363', id, 'Paid for taxi used by Shakoor to bring cash', 0.00, 150.00 FROM accounts WHERE account_code = '10101';
-
-COMMIT;

@@ -1,5 +1,3 @@
-BEGIN;
-
 UPDATE accounts SET current_balance = 0;
 
 INSERT INTO journal_entries (id, entry_number, entry_date, description, reference, reference_type, total_debit, total_credit, is_posted, posted_at, created_by) VALUES ('4f550bdd-0885-41b9-ab61-7e35424219ac', 'JE-000001', '2025-01-01', 'Opening Shared capital by the shareholders.', 'JV-1', 'journal_entry', 51000000.00, 51000000.00, true, NOW(), 'import-script');
@@ -1641,5 +1639,3 @@ INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_
 INSERT INTO journal_entries (id, entry_number, entry_date, description, reference, reference_type, total_debit, total_credit, is_posted, posted_at, created_by) VALUES ('1166998e-231d-42b1-9a77-c1a0bdb265c8', 'JE-000400', '2025-07-27', 'Taxi used by Faisal Achakzai to receive cash', 'JV-JV-392', 'journal_entry', 40.00, 40.00, true, NOW(), 'import-script');
 INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_amount, credit_amount) SELECT 'a865df64-fa83-4f06-8ca8-e2f7e62a7c85', '1166998e-231d-42b1-9a77-c1a0bdb265c8', id, 'Taxi used by Faisal Achakzai to receive cash', 40.00, 0.00 FROM accounts WHERE account_code = '60802';
 INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_amount, credit_amount) SELECT '563b3012-069b-4020-9e05-fc9becbdeb6a', '1166998e-231d-42b1-9a77-c1a0bdb265c8', id, 'Taxi used by Faisal Achakzai to receive cash', 0.00, 40.00 FROM accounts WHERE account_code = '10101';
-
-COMMIT;
