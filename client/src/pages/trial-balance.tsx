@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,9 +12,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Scale, Printer, Download } from "lucide-react";
+import { Scale, Printer, FileSpreadsheet, FileText } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { formatDate } from "@/lib/date-utils";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 type TrialBalanceItem = {
   accountCode: string;
@@ -52,6 +54,7 @@ export default function TrialBalance() {
     }
   };
 
+  const filteredData = data?.filter(item => item.debit > 0 || item.credit > 0) || [];
   const totalDebit = data?.reduce((sum, item) => sum + item.debit, 0) || 0;
   const totalCredit = data?.reduce((sum, item) => sum + item.credit, 0) || 0;
   const isBalanced = Math.abs(totalDebit - totalCredit) < 0.01;
@@ -60,9 +63,158 @@ export default function TrialBalance() {
     window.print();
   };
 
+  const handleExportExcel = () => {
+    if (!data) return;
+
+    const exportData = filteredData.map(item => ({
+      "Account Code": item.accountCode,
+      "Account Name": item.accountName,
+      "Type": item.accountType.charAt(0).toUpperCase() + item.accountType.slice(1),
+      "Debit (AFN)": item.debit > 0 ? item.debit : "",
+      "Credit (AFN)": item.credit > 0 ? item.credit : "",
+    }));
+
+    exportData.push({
+      "Account Code": "",
+      "Account Name": "",
+      "Type": "TOTAL",
+      "Debit (AFN)": totalDebit,
+      "Credit (AFN)": totalCredit,
+    });
+
+    if (!isBalanced) {
+      exportData.push({
+        "Account Code": "",
+        "Account Name": "",
+        "Type": "DIFFERENCE",
+        "Debit (AFN)": Math.abs(totalDebit - totalCredit),
+        "Credit (AFN)": "",
+      });
+    }
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    
+    const colWidths = [
+      { wch: 15 },
+      { wch: 40 },
+      { wch: 12 },
+      { wch: 18 },
+      { wch: 18 },
+    ];
+    ws["!cols"] = colWidths;
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Trial Balance");
+
+    const dateStr = asOfDate.replace(/-/g, "");
+    XLSX.writeFile(wb, `Trial_Balance_${dateStr}.xlsx`);
+  };
+
+  const handleExportPDF = () => {
+    if (!data) return;
+
+    const doc = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: "a4",
+    });
+
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("Lamen Microfinance Institution", 105, 20, { align: "center" });
+
+    doc.setFontSize(14);
+    doc.text("Trial Balance", 105, 30, { align: "center" });
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`As of: ${formatDate(asOfDate)}`, 105, 38, { align: "center" });
+
+    doc.setFontSize(9);
+    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 105, 44, { align: "center" });
+
+    const tableData = filteredData.map(item => [
+      item.accountCode,
+      item.accountName,
+      item.accountType.charAt(0).toUpperCase() + item.accountType.slice(1),
+      item.debit > 0 ? formatCurrency(item.debit.toString()).replace("AFN", "").trim() : "-",
+      item.credit > 0 ? formatCurrency(item.credit.toString()).replace("AFN", "").trim() : "-",
+    ]);
+
+    tableData.push([
+      "",
+      "",
+      "TOTAL",
+      formatCurrency(totalDebit.toString()).replace("AFN", "").trim(),
+      formatCurrency(totalCredit.toString()).replace("AFN", "").trim(),
+    ]);
+
+    if (!isBalanced) {
+      tableData.push([
+        "",
+        "",
+        "DIFFERENCE",
+        formatCurrency(Math.abs(totalDebit - totalCredit).toString()).replace("AFN", "").trim(),
+        "",
+      ]);
+    }
+
+    autoTable(doc, {
+      startY: 50,
+      head: [["Account Code", "Account Name", "Type", "Debit (AFN)", "Credit (AFN)"]],
+      body: tableData,
+      theme: "grid",
+      headStyles: {
+        fillColor: [34, 139, 34],
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+        halign: "center",
+      },
+      columnStyles: {
+        0: { halign: "left", cellWidth: 25 },
+        1: { halign: "left", cellWidth: 70 },
+        2: { halign: "center", cellWidth: 22 },
+        3: { halign: "right", cellWidth: 30 },
+        4: { halign: "right", cellWidth: 30 },
+      },
+      styles: {
+        fontSize: 8,
+        cellPadding: 2,
+      },
+      didParseCell: function (data) {
+        const rowIndex = data.row.index;
+        const totalRowIndex = tableData.length - (isBalanced ? 1 : 2);
+        const diffRowIndex = tableData.length - 1;
+
+        if (rowIndex === totalRowIndex) {
+          data.cell.styles.fontStyle = "bold";
+          data.cell.styles.fillColor = [240, 240, 240];
+        }
+        if (!isBalanced && rowIndex === diffRowIndex) {
+          data.cell.styles.fontStyle = "bold";
+          data.cell.styles.fillColor = [255, 200, 200];
+          data.cell.styles.textColor = [180, 0, 0];
+        }
+      },
+    });
+
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(128, 128, 128);
+      doc.text(`Page ${i} of ${pageCount}`, 105, 290, { align: "center" });
+      doc.text("Lamen Microfinance Institution - Confidential", 14, 290);
+    }
+
+    const balanceStatus = isBalanced ? "Balanced" : "OUT_OF_BALANCE";
+    const dateStr = asOfDate.replace(/-/g, "");
+    doc.save(`Trial_Balance_${dateStr}_${balanceStatus}.pdf`);
+  };
+
   return (
     <div className="flex flex-col gap-4 p-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-amber-500/10 rounded-lg">
             <Scale className="h-6 w-6 text-amber-500" />
@@ -73,9 +225,17 @@ export default function TrialBalance() {
           </div>
         </div>
         {data && (
-          <Button variant="outline" onClick={handlePrint} className="gap-2" data-testid="button-print">
-            <Printer className="h-4 w-4" /> Print
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={handleExportExcel} className="gap-2" data-testid="button-export-excel">
+              <FileSpreadsheet className="h-4 w-4" /> Excel
+            </Button>
+            <Button variant="outline" onClick={handleExportPDF} className="gap-2" data-testid="button-export-pdf">
+              <FileText className="h-4 w-4" /> PDF
+            </Button>
+            <Button variant="outline" onClick={handlePrint} className="gap-2" data-testid="button-print">
+              <Printer className="h-4 w-4" /> Print
+            </Button>
+          </div>
         )}
       </div>
 
@@ -99,7 +259,7 @@ export default function TrialBalance() {
       {data && (
         <Card className="print:shadow-none">
           <CardHeader className="border-b">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <div>
                 <CardTitle className="text-xl">Trial Balance</CardTitle>
                 <p className="text-muted-foreground text-sm mt-1">As of {formatDate(asOfDate)}</p>
@@ -121,7 +281,7 @@ export default function TrialBalance() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.filter(item => item.debit > 0 || item.credit > 0).map((item, idx) => (
+                {filteredData.map((item, idx) => (
                   <TableRow key={idx}>
                     <TableCell className="font-mono">{item.accountCode}</TableCell>
                     <TableCell>{item.accountName}</TableCell>
@@ -138,7 +298,7 @@ export default function TrialBalance() {
                     </TableCell>
                   </TableRow>
                 ))}
-                {data.filter(item => item.debit > 0 || item.credit > 0).length === 0 && (
+                {filteredData.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                       No accounts with balances found.
