@@ -25,6 +25,9 @@ async function importJournalEntries() {
   // Group lines by JV Number
   const entriesMap = new Map();
   let skippedAccounts = new Set();
+  let lastJvNumber = '';
+  let lastTransactionDate = null;
+  let lastTransactionType = '';
 
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
@@ -32,12 +35,21 @@ async function importJournalEntries() {
 
     const transactionDate = row[0];
     const transactionType = row[1];
-    const jvNumber = String(row[2] || '').trim();
+    let jvNumber = String(row[2] || '').trim();
     const description = row[3] || '';
     const accountCode = String(row[4] || '').trim();
     const accountFullName = row[5] || '';
     const debit = parseFloat(row[6]) || 0;
     const credit = parseFloat(row[7]) || 0;
+
+    // If JV number is empty, use the last non-empty JV number (continuation line)
+    if (!jvNumber && lastJvNumber) {
+      jvNumber = lastJvNumber;
+    } else if (jvNumber) {
+      lastJvNumber = jvNumber;
+      lastTransactionDate = transactionDate;
+      lastTransactionType = transactionType;
+    }
 
     if (!jvNumber || !accountCode) continue;
 
