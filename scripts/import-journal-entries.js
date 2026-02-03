@@ -6,9 +6,11 @@ const pool = new Pool({
 });
 
 async function importJournalEntries() {
-  const workbook = XLSX.readFile('attached_assets/JVEntry_1770113033731.xlsx');
+  const workbook = XLSX.readFile('attached_assets/JVEntryClean_1770114117286.xlsx');
   const sheet = workbook.Sheets['JVEntry'];
   const data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+  console.log(`Total rows in Excel: ${data.length}`);
 
   // Get all accounts from database for mapping
   const accountsResult = await pool.query('SELECT id, account_code, account_name FROM accounts');
@@ -19,108 +21,71 @@ async function importJournalEntries() {
 
   console.log(`Loaded ${accountsMap.size} accounts from database`);
 
-  // Parse the Excel data
-  // Structure: rows starting from row 6 (index 5)
-  // Each entry group starts with just a number, followed by detail lines, then "Total for X"
-  
-  const entries = [];
-  let currentEntry = null;
+  // Parse the Excel data - skip header row (index 0)
+  // Group lines by JV Number
+  const entriesMap = new Map();
   let skippedAccounts = new Set();
-  let rowsProcessed = 0;
 
-  for (let i = 5; i < data.length; i++) {
+  for (let i = 1; i < data.length; i++) {
     const row = data[i];
     if (!row || row.length === 0) continue;
 
-    const firstCell = String(row[0] || '').trim();
-    
-    // Skip "Total for X" rows
-    if (firstCell.startsWith('Total for')) {
-      if (currentEntry && currentEntry.lines.length > 0) {
-        entries.push(currentEntry);
-      }
-      currentEntry = null;
+    const transactionDate = row[0];
+    const transactionType = row[1];
+    const jvNumber = String(row[2] || '').trim();
+    const description = row[3] || '';
+    const accountCode = String(row[4] || '').trim();
+    const accountFullName = row[5] || '';
+    const debit = parseFloat(row[6]) || 0;
+    const credit = parseFloat(row[7]) || 0;
+
+    if (!jvNumber || !accountCode) continue;
+
+    // Convert Excel date to JS date
+    let entryDate;
+    if (typeof transactionDate === 'number') {
+      entryDate = new Date((transactionDate - 25569) * 86400 * 1000);
+    } else if (typeof transactionDate === 'string') {
+      entryDate = new Date(transactionDate);
+    } else {
+      entryDate = new Date();
+    }
+
+    // Find account ID
+    const accountId = accountsMap.get(accountCode);
+    if (!accountId) {
+      skippedAccounts.add(`${accountCode} - ${accountFullName}`);
       continue;
     }
 
-    // Skip header rows and empty rows
-    if (firstCell === 'TOTAL' || firstCell === '' && !row[1]) continue;
-
-    // Check if this is a new entry group (just a number in first column)
-    if (/^\d+$/.test(firstCell) && !row[1]) {
-      if (currentEntry && currentEntry.lines.length > 0) {
-        entries.push(currentEntry);
-      }
-      currentEntry = {
-        groupId: firstCell,
+    // Get or create entry group
+    if (!entriesMap.has(jvNumber)) {
+      entriesMap.set(jvNumber, {
+        jvNumber,
+        entryDate,
+        transactionType,
+        description,
         lines: []
-      };
-      continue;
-    }
-
-    // This is a detail line
-    if (currentEntry && row[1]) {
-      const transactionDate = row[1]; // Excel date or string
-      const transactionType = row[2];
-      const jvNumber = row[3] || '';
-      const description = row[4] || '';
-      const accountCode = String(row[5] || '').trim();
-      const accountFullName = row[6] || '';
-      const debit = parseFloat(row[7]) || 0;
-      const credit = parseFloat(row[8]) || 0;
-
-      // Convert Excel date to JS date
-      let entryDate;
-      if (typeof transactionDate === 'number') {
-        // Excel date serial number
-        entryDate = new Date((transactionDate - 25569) * 86400 * 1000);
-      } else if (typeof transactionDate === 'string') {
-        entryDate = new Date(transactionDate);
-      } else {
-        entryDate = new Date();
-      }
-
-      // Find account ID
-      const accountId = accountsMap.get(accountCode);
-      if (!accountId) {
-        skippedAccounts.add(accountCode);
-        continue;
-      }
-
-      // Set entry header info from first line
-      if (currentEntry.lines.length === 0) {
-        currentEntry.entryDate = entryDate;
-        currentEntry.transactionType = transactionType;
-        currentEntry.jvNumber = jvNumber;
-        currentEntry.description = description;
-      } else if (description && !currentEntry.description) {
-        currentEntry.description = description;
-      }
-
-      currentEntry.lines.push({
-        accountId,
-        accountCode,
-        description: description || currentEntry.description,
-        debitAmount: debit.toFixed(2),
-        creditAmount: credit.toFixed(2)
       });
-
-      rowsProcessed++;
     }
+
+    const entry = entriesMap.get(jvNumber);
+    entry.lines.push({
+      accountId,
+      accountCode,
+      description: description || entry.description,
+      debitAmount: debit.toFixed(2),
+      creditAmount: credit.toFixed(2)
+    });
   }
 
-  // Don't forget the last entry
-  if (currentEntry && currentEntry.lines.length > 0) {
-    entries.push(currentEntry);
-  }
-
-  console.log(`Parsed ${entries.length} journal entries from ${rowsProcessed} detail rows`);
+  console.log(`\nParsed ${entriesMap.size} journal entries`);
   
   if (skippedAccounts.size > 0) {
     console.log(`\nWARNING: ${skippedAccounts.size} account codes not found in database:`);
-    console.log([...skippedAccounts].slice(0, 20).join(', '));
+    [...skippedAccounts].slice(0, 20).forEach(acc => console.log(`  - ${acc}`));
     if (skippedAccounts.size > 20) {
-      console.log(`... and ${skippedAccounts.size - 20} more`);
+      console.log(`  ... and ${skippedAccounts.size - 20} more`);
     }
   }
 
@@ -130,13 +95,17 @@ async function importJournalEntries() {
     await client.query('BEGIN');
 
     let insertedCount = 0;
+    let skippedCount = 0;
     let errorCount = 0;
+
+    const entries = [...entriesMap.values()].sort((a, b) => parseInt(a.jvNumber) - parseInt(b.jvNumber));
 
     for (const entry of entries) {
       try {
-        // Skip entries with no valid lines
+        // Skip entries with less than 2 lines
         if (entry.lines.length < 2) {
-          console.log(`Skipping entry ${entry.groupId}: less than 2 lines`);
+          console.log(`Skipping JV ${entry.jvNumber}: less than 2 lines`);
+          skippedCount++;
           continue;
         }
 
@@ -146,7 +115,8 @@ async function importJournalEntries() {
 
         // Check balance
         if (Math.abs(totalDebit - totalCredit) > 0.01) {
-          console.log(`Skipping entry ${entry.groupId}: unbalanced (D:${totalDebit} C:${totalCredit})`);
+          console.log(`Skipping JV ${entry.jvNumber}: unbalanced (D:${totalDebit.toFixed(2)} C:${totalCredit.toFixed(2)})`);
+          skippedCount++;
           continue;
         }
 
@@ -168,17 +138,17 @@ async function importJournalEntries() {
           referenceType = 'manual';
         }
 
-        // Insert journal entry
+        // Insert journal entry (as posted)
         const insertResult = await client.query(
           `INSERT INTO journal_entries 
-           (entry_number, entry_date, description, reference, reference_type, total_debit, total_credit, is_posted, created_by)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, true, $8)
+           (entry_number, entry_date, description, reference, reference_type, total_debit, total_credit, is_posted, posted_at, created_by)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, true, NOW(), $8)
            RETURNING id`,
           [
             entryNumber,
             formattedDate,
             entry.description || 'Imported entry',
-            entry.jvNumber || null,
+            `JV-${entry.jvNumber}`,
             referenceType,
             totalDebit.toFixed(2),
             totalCredit.toFixed(2),
@@ -198,20 +168,43 @@ async function importJournalEntries() {
           );
         }
 
+        // Update account balances for posted entries
+        for (const line of entry.lines) {
+          const debit = parseFloat(line.debitAmount);
+          const credit = parseFloat(line.creditAmount);
+          
+          // Get account type to determine balance direction
+          const accResult = await client.query('SELECT account_type FROM accounts WHERE id = $1', [line.accountId]);
+          const accountType = accResult.rows[0]?.account_type;
+          
+          let balanceChange = 0;
+          if (['asset', 'expense'].includes(accountType)) {
+            balanceChange = debit - credit;
+          } else {
+            balanceChange = credit - debit;
+          }
+          
+          await client.query(
+            'UPDATE accounts SET current_balance = COALESCE(current_balance, 0) + $1 WHERE id = $2',
+            [balanceChange, line.accountId]
+          );
+        }
+
         insertedCount++;
         
         if (insertedCount % 100 === 0) {
           console.log(`Inserted ${insertedCount} entries...`);
         }
       } catch (err) {
-        console.error(`Error inserting entry ${entry.groupId}:`, err.message);
+        console.error(`Error inserting JV ${entry.jvNumber}:`, err.message);
         errorCount++;
       }
     }
 
     await client.query('COMMIT');
-    console.log(`\nImport complete!`);
+    console.log(`\n=== Import Complete ===`);
     console.log(`Inserted: ${insertedCount} entries`);
+    console.log(`Skipped: ${skippedCount} entries`);
     console.log(`Errors: ${errorCount}`);
 
   } catch (err) {
