@@ -279,6 +279,30 @@ export async function registerRoutes(
     };
   };
 
+  // Middleware for page permission check
+  const requirePageAccess = (pageName: string) => {
+    return async (req: Request, res: Response, next: NextFunction) => {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      // Admins and managers have full access
+      if (await hasRole(userId, ["admin", "manager"])) {
+        return next();
+      }
+      
+      // Check page-specific permissions
+      const permissions = await storage.getPagePermissions(userId);
+      const hasAccess = permissions.some(p => p.pageName === pageName && p.canAccess);
+      
+      if (hasAccess) {
+        return next();
+      }
+      return res.status(403).json({ message: "Forbidden" });
+    };
+  };
+
   // Get user role
   app.get("/api/user/role", isAuthenticated, async (req: Request, res) => {
     try {
@@ -331,7 +355,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/branches", isAuthenticated, requireRole("admin"), async (req: any, res) => {
+  app.post("/api/branches", isAuthenticated, requirePageAccess("branches"), async (req: any, res) => {
     try {
       const branch = await storage.createBranch(req.body);
       await logActivity(req, "create_branch", "branch", branch.id, `Created branch: ${branch.name}`);
@@ -342,7 +366,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/branches/:id", isAuthenticated, requireRole("admin"), async (req: any, res) => {
+  app.patch("/api/branches/:id", isAuthenticated, requirePageAccess("branches"), async (req: any, res) => {
     try {
       const branch = await storage.updateBranch(req.params.id, req.body);
       await logActivity(req, "update_branch", "branch", branch.id, `Updated branch: ${branch.name}`);
@@ -377,7 +401,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/officers", isAuthenticated, requireRole("admin"), async (req: any, res) => {
+  app.post("/api/officers", isAuthenticated, requirePageAccess("officers"), async (req: any, res) => {
     try {
       const officer = await storage.createOfficer(req.body);
       await logActivity(req, "create_officer", "officer", officer.id, `Created officer: ${officer.name}`);
@@ -388,7 +412,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/officers/:id", isAuthenticated, requireRole("admin"), async (req: any, res) => {
+  app.patch("/api/officers/:id", isAuthenticated, requirePageAccess("officers"), async (req: any, res) => {
     try {
       const officer = await storage.updateOfficer(req.params.id, req.body);
       await logActivity(req, "update_officer", "officer", officer.id, `Updated officer: ${officer.name}`);
@@ -399,7 +423,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/officers/:id/toggle-status", isAuthenticated, requireRole("admin"), async (req: any, res) => {
+  app.patch("/api/officers/:id/toggle-status", isAuthenticated, requirePageAccess("officers"), async (req: any, res) => {
     try {
       const officer = await storage.toggleOfficerStatus(req.params.id);
       const action = officer.isActive ? "activated" : "deactivated";
@@ -433,7 +457,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/funding-sources", isAuthenticated, requireRole("admin"), async (req: any, res) => {
+  app.post("/api/funding-sources", isAuthenticated, requirePageAccess("funding-sources"), async (req: any, res) => {
     try {
       const fundingSource = await storage.createFundingSource(req.body);
       await logActivity(req, "create_funding_source", "funding_source", fundingSource.id, `Created funding source: ${fundingSource.name}`);
@@ -444,7 +468,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/funding-sources/:id", isAuthenticated, requireRole("admin"), async (req: any, res) => {
+  app.patch("/api/funding-sources/:id", isAuthenticated, requirePageAccess("funding-sources"), async (req: any, res) => {
     try {
       const fundingSource = await storage.updateFundingSource(req.params.id, req.body);
       await logActivity(req, "update_funding_source", "funding_source", fundingSource.id, `Updated funding source: ${fundingSource.name}`);
@@ -478,7 +502,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/sectors", isAuthenticated, requireRole("admin", "manager"), async (req: any, res) => {
+  app.post("/api/sectors", isAuthenticated, requirePageAccess("lookup"), async (req: any, res) => {
     try {
       const sector = await storage.createSector(req.body);
       await logActivity(req, "create_sector", "sector", sector.id, `Created sector: ${sector.name}`);
@@ -489,7 +513,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/sectors/:id", isAuthenticated, requireRole("admin", "manager"), async (req: any, res) => {
+  app.patch("/api/sectors/:id", isAuthenticated, requirePageAccess("lookup"), async (req: any, res) => {
     try {
       const sector = await storage.updateSector(req.params.id, req.body);
       await logActivity(req, "update_sector", "sector", sector.id, `Updated sector: ${sector.name}`);
@@ -500,7 +524,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/sectors/:id", isAuthenticated, requireRole("admin", "manager"), async (req: any, res) => {
+  app.delete("/api/sectors/:id", isAuthenticated, requirePageAccess("lookup"), async (req: any, res) => {
     try {
       await storage.deleteSector(req.params.id);
       await logActivity(req, "delete_sector", "sector", req.params.id, `Deleted sector`);
@@ -524,7 +548,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/businesses", isAuthenticated, requireRole("admin", "manager"), async (req: any, res) => {
+  app.post("/api/businesses", isAuthenticated, requirePageAccess("lookup"), async (req: any, res) => {
     try {
       const business = await storage.createBusiness(req.body);
       await logActivity(req, "create_business", "business", business.id, `Created business: ${business.name}`);
@@ -535,7 +559,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/businesses/:id", isAuthenticated, requireRole("admin", "manager"), async (req: any, res) => {
+  app.patch("/api/businesses/:id", isAuthenticated, requirePageAccess("lookup"), async (req: any, res) => {
     try {
       const business = await storage.updateBusiness(req.params.id, req.body);
       await logActivity(req, "update_business", "business", business.id, `Updated business: ${business.name}`);
@@ -546,7 +570,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/businesses/:id", isAuthenticated, requireRole("admin", "manager"), async (req: any, res) => {
+  app.delete("/api/businesses/:id", isAuthenticated, requirePageAccess("lookup"), async (req: any, res) => {
     try {
       await storage.deleteBusiness(req.params.id);
       await logActivity(req, "delete_business", "business", req.params.id, `Deleted business`);
@@ -569,7 +593,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/provinces", isAuthenticated, requireRole("admin", "manager"), async (req: any, res) => {
+  app.post("/api/provinces", isAuthenticated, requirePageAccess("lookup"), async (req: any, res) => {
     try {
       const province = await storage.createProvince(req.body);
       await logActivity(req, "create_province", "province", province.id.toString(), `Created province: ${province.name}`);
@@ -580,7 +604,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/provinces/:id", isAuthenticated, requireRole("admin", "manager"), async (req: any, res) => {
+  app.patch("/api/provinces/:id", isAuthenticated, requirePageAccess("lookup"), async (req: any, res) => {
     try {
       const province = await storage.updateProvince(parseInt(req.params.id), req.body);
       await logActivity(req, "update_province", "province", province.id.toString(), `Updated province: ${province.name}`);
@@ -591,7 +615,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/provinces/:id", isAuthenticated, requireRole("admin", "manager"), async (req: any, res) => {
+  app.delete("/api/provinces/:id", isAuthenticated, requirePageAccess("lookup"), async (req: any, res) => {
     try {
       await storage.deleteProvince(parseInt(req.params.id));
       await logActivity(req, "delete_province", "province", req.params.id, `Deleted province`);
@@ -615,7 +639,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/districts", isAuthenticated, requireRole("admin", "manager"), async (req: any, res) => {
+  app.post("/api/districts", isAuthenticated, requirePageAccess("lookup"), async (req: any, res) => {
     try {
       const district = await storage.createDistrict(req.body);
       await logActivity(req, "create_district", "district", district.id.toString(), `Created district: ${district.name}`);
@@ -626,7 +650,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/districts/:id", isAuthenticated, requireRole("admin", "manager"), async (req: any, res) => {
+  app.patch("/api/districts/:id", isAuthenticated, requirePageAccess("lookup"), async (req: any, res) => {
     try {
       const district = await storage.updateDistrict(parseInt(req.params.id), req.body);
       await logActivity(req, "update_district", "district", district.id.toString(), `Updated district: ${district.name}`);
@@ -637,7 +661,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/districts/:id", isAuthenticated, requireRole("admin", "manager"), async (req: any, res) => {
+  app.delete("/api/districts/:id", isAuthenticated, requirePageAccess("lookup"), async (req: any, res) => {
     try {
       await storage.deleteDistrict(parseInt(req.params.id));
       await logActivity(req, "delete_district", "district", req.params.id, `Deleted district`);
@@ -660,7 +684,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/license-types", isAuthenticated, requireRole("admin", "manager"), async (req: any, res) => {
+  app.post("/api/license-types", isAuthenticated, requirePageAccess("lookup"), async (req: any, res) => {
     try {
       const licenseType = await storage.createLicenseType(req.body);
       await logActivity(req, "create_license_type", "license_type", licenseType.id.toString(), `Created license type: ${licenseType.name}`);
@@ -671,7 +695,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/license-types/:id", isAuthenticated, requireRole("admin", "manager"), async (req: any, res) => {
+  app.patch("/api/license-types/:id", isAuthenticated, requirePageAccess("lookup"), async (req: any, res) => {
     try {
       const licenseType = await storage.updateLicenseType(parseInt(req.params.id), req.body);
       await logActivity(req, "update_license_type", "license_type", req.params.id, `Updated license type: ${licenseType.name}`);
@@ -682,7 +706,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/license-types/:id", isAuthenticated, requireRole("admin", "manager"), async (req: any, res) => {
+  app.delete("/api/license-types/:id", isAuthenticated, requirePageAccess("lookup"), async (req: any, res) => {
     try {
       await storage.deleteLicenseType(parseInt(req.params.id));
       await logActivity(req, "delete_license_type", "license_type", req.params.id, `Deleted license type`);
