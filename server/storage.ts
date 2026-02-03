@@ -2708,6 +2708,8 @@ export class DatabaseStorage implements IStorage {
     const assetAccounts = await db.select().from(accounts).where(eq(accounts.accountType, 'asset'));
     const liabilityAccounts = await db.select().from(accounts).where(eq(accounts.accountType, 'liability'));
     const equityAccounts = await db.select().from(accounts).where(eq(accounts.accountType, 'equity'));
+    const incomeAccounts = await db.select().from(accounts).where(eq(accounts.accountType, 'income'));
+    const expenseAccounts = await db.select().from(accounts).where(eq(accounts.accountType, 'expense'));
     
     const assets = assetAccounts.map(acc => ({
       accountCode: acc.accountCode,
@@ -2727,14 +2729,24 @@ export class DatabaseStorage implements IStorage {
       amount: Math.abs(Number(acc.currentBalance || 0)),
     }));
     
+    // Calculate net income from income and expense accounts
+    // Income accounts have credit balances (negative in our system), expense have debit balances (positive)
+    const totalIncome = incomeAccounts.reduce((sum, acc) => sum + Math.abs(Number(acc.currentBalance || 0)), 0);
+    const totalExpenses = expenseAccounts.reduce((sum, acc) => sum + Math.abs(Number(acc.currentBalance || 0)), 0);
+    const netIncome = totalIncome - totalExpenses;
+    
     const totalAssets = assets.reduce((sum, a) => sum + a.amount, 0);
     const totalLiabilities = liabilities.reduce((sum, l) => sum + l.amount, 0);
-    const totalEquity = equity.reduce((sum, e) => sum + e.amount, 0);
+    const totalEquityFromAccounts = equity.reduce((sum, e) => sum + e.amount, 0);
+    const totalEquity = totalEquityFromAccounts + netIncome;
     
     return {
       assets,
       liabilities,
       equity,
+      netIncome,
+      totalIncome,
+      totalExpenses,
       totalAssets,
       totalLiabilities,
       totalEquity,

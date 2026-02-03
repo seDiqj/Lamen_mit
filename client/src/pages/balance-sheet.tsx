@@ -27,6 +27,7 @@ type BalanceSheetData = {
   assets: AccountItem[];
   liabilities: AccountItem[];
   equity: AccountItem[];
+  netIncome: number;
   totalAssets: number;
   totalLiabilities: number;
   totalEquity: number;
@@ -89,6 +90,13 @@ export default function BalanceSheet() {
         "Amount (AFN)": item.amount,
       });
     });
+    if (data.netIncome !== 0) {
+      exportData.push({
+        "Account Code": "",
+        "Account Name": data.netIncome >= 0 ? "Current Period Net Income" : "Current Period Net Loss",
+        "Amount (AFN)": data.netIncome,
+      });
+    }
     exportData.push({ "Account Code": "", "Account Name": "Total Equity", "Amount (AFN)": data.totalEquity });
     
     exportData.push({ "Account Code": "", "Account Name": "", "Amount (AFN)": "" });
@@ -163,6 +171,15 @@ export default function BalanceSheet() {
         formatCurrency(item.amount.toString()).replace("AFN", "").trim()
       ]);
     });
+    if (data.netIncome !== 0) {
+      const netIncomeLabel = data.netIncome >= 0 ? "Current Period Net Income" : "Current Period Net Loss";
+      const fillColor = data.netIncome >= 0 ? [220, 252, 231] : [254, 226, 226];
+      tableData.push([
+        "",
+        { content: netIncomeLabel, styles: { fontStyle: "italic" } },
+        { content: formatCurrency(Math.abs(data.netIncome).toString()).replace("AFN", "").trim(), styles: { fillColor } }
+      ]);
+    }
     tableData.push([
       "",
       { content: "Total Equity", styles: { fontStyle: "bold" } },
@@ -325,6 +342,18 @@ export default function BalanceSheet() {
                   )) : (
                     <TableRow>
                       <TableCell colSpan={3} className="text-center text-muted-foreground py-2 text-sm">No equity recorded</TableCell>
+                    </TableRow>
+                  )}
+                  {data.netIncome !== 0 && (
+                    <TableRow className={data.netIncome >= 0 ? "bg-green-50 dark:bg-green-950/30" : "bg-red-50 dark:bg-red-950/30"}>
+                      <TableCell className="font-mono w-24"></TableCell>
+                      <TableCell className="italic">
+                        {data.netIncome >= 0 ? "Current Period Net Income" : "Current Period Net Loss"}
+                      </TableCell>
+                      <TableCell className={`text-right font-mono ${data.netIncome >= 0 ? "text-green-600" : "text-red-600"}`}>
+                        {formatCurrency(Math.abs(data.netIncome).toString())}
+                        {data.netIncome < 0 && " (Loss)"}
+                      </TableCell>
                     </TableRow>
                   )}
                   <TableRow className="bg-purple-100 dark:bg-purple-950/50 font-semibold">
