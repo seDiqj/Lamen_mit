@@ -89,6 +89,7 @@ const PAGE_URL_TO_NAME: Record<string, string> = {
   "/page-permissions": "page-permissions",
   "/funding-sources": "funding-sources",
   "/lookup": "lookup",
+  "/par-categories": "par-categories",
   "/fad-review": "fad-review",
   "/risk-compliance": "risk-compliance",
   "/committee-voting": "committee-voting",
@@ -146,6 +147,7 @@ export function AppSidebar() {
         { title: "Officers", url: "/officers", icon: UserCheck, iconColor: "text-indigo-500" },
         { title: "Funding Sources", url: "/funding-sources", icon: Wallet, iconColor: "text-amber-500" },
         { title: "Lookup", url: "/lookup", icon: Layers, iconColor: "text-emerald-500" },
+        { title: "PAR Categories", url: "/par-categories", icon: AlertTriangle, iconColor: "text-amber-500" },
       ],
     },
     {
@@ -201,6 +203,7 @@ export function AppSidebar() {
         { title: "Officers", url: "/officers", icon: UserCheck, iconColor: "text-indigo-500" },
         { title: "Funding Sources", url: "/funding-sources", icon: Wallet, iconColor: "text-amber-500" },
         { title: "Lookup", url: "/lookup", icon: Layers, iconColor: "text-emerald-500" },
+        { title: "PAR Categories", url: "/par-categories", icon: AlertTriangle, iconColor: "text-amber-500" },
       ],
     },
     {
@@ -252,6 +255,7 @@ export function AppSidebar() {
         { title: "Officers", url: "/officers", icon: UserCheck, iconColor: "text-indigo-500" },
         { title: "Funding Sources", url: "/funding-sources", icon: Wallet, iconColor: "text-amber-500" },
         { title: "Lookup", url: "/lookup", icon: Layers, iconColor: "text-emerald-500" },
+        { title: "PAR Categories", url: "/par-categories", icon: AlertTriangle, iconColor: "text-amber-500" },
         { title: "Users", url: "/users", icon: Shield, iconColor: "text-red-500" },
       ],
     },

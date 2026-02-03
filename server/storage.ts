@@ -85,6 +85,8 @@ import {
   type RiskComplianceReview,
   type InsertCommitteeVote,
   type CommitteeVote,
+  type InsertParCategory,
+  type ParCategory,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -153,6 +155,13 @@ export interface IStorage {
   createLicenseType(data: InsertLicenseType): Promise<LicenseType>;
   updateLicenseType(id: number, data: Partial<InsertLicenseType>): Promise<LicenseType>;
   deleteLicenseType(id: number): Promise<void>;
+  
+  // PAR Categories
+  getParCategories(): Promise<ParCategory[]>;
+  getParCategory(id: number): Promise<ParCategory | undefined>;
+  createParCategory(data: InsertParCategory): Promise<ParCategory>;
+  updateParCategory(id: number, data: Partial<InsertParCategory>): Promise<ParCategory>;
+  deleteParCategory(id: number): Promise<void>;
   
   // Customers
   getCustomers(search?: string, page?: number, limit?: number): Promise<{ customers: Customer[]; total: number }>;
@@ -624,6 +633,30 @@ export class DatabaseStorage implements IStorage {
 
   async deleteLicenseType(id: number): Promise<void> {
     await db.delete(licenseTypes).where(eq(licenseTypes.id, id));
+  }
+
+  // PAR Categories
+  async getParCategories(): Promise<ParCategory[]> {
+    return db.select().from(parCategories).orderBy(asc(parCategories.startDay));
+  }
+
+  async getParCategory(id: number): Promise<ParCategory | undefined> {
+    const [parCategory] = await db.select().from(parCategories).where(eq(parCategories.id, id));
+    return parCategory;
+  }
+
+  async createParCategory(data: InsertParCategory): Promise<ParCategory> {
+    const [parCategory] = await db.insert(parCategories).values(data).returning();
+    return parCategory;
+  }
+
+  async updateParCategory(id: number, data: Partial<InsertParCategory>): Promise<ParCategory> {
+    const [parCategory] = await db.update(parCategories).set(data).where(eq(parCategories.id, id)).returning();
+    return parCategory;
+  }
+
+  async deleteParCategory(id: number): Promise<void> {
+    await db.delete(parCategories).where(eq(parCategories.id, id));
   }
 
   // Customers
@@ -1843,6 +1876,7 @@ export class DatabaseStorage implements IStorage {
       "officers",
       "funding-sources",
       "lookup",
+      "par-categories",
       "activity-logs",
       "users",
       "page-permissions",

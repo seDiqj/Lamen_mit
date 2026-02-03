@@ -717,6 +717,63 @@ export async function registerRoutes(
     }
   });
 
+  // ===== PAR CATEGORIES =====
+  app.get("/api/par-categories", isAuthenticated, async (req, res) => {
+    try {
+      const parCategories = await storage.getParCategories();
+      res.json(parCategories);
+    } catch (error) {
+      console.error("Error fetching PAR categories:", error);
+      res.status(500).json({ message: "Failed to fetch PAR categories" });
+    }
+  });
+
+  app.get("/api/par-categories/:id", isAuthenticated, async (req, res) => {
+    try {
+      const parCategory = await storage.getParCategory(parseInt(req.params.id));
+      if (!parCategory) {
+        return res.status(404).json({ message: "PAR category not found" });
+      }
+      res.json(parCategory);
+    } catch (error) {
+      console.error("Error fetching PAR category:", error);
+      res.status(500).json({ message: "Failed to fetch PAR category" });
+    }
+  });
+
+  app.post("/api/par-categories", isAuthenticated, requirePageAccess("par-categories"), async (req: any, res) => {
+    try {
+      const parCategory = await storage.createParCategory(req.body);
+      await logActivity(req, "create_par_category", "par_category", parCategory.id.toString(), `Created PAR category: ${parCategory.category}`);
+      res.status(201).json(parCategory);
+    } catch (error) {
+      console.error("Error creating PAR category:", error);
+      res.status(500).json({ message: "Failed to create PAR category" });
+    }
+  });
+
+  app.patch("/api/par-categories/:id", isAuthenticated, requirePageAccess("par-categories"), async (req: any, res) => {
+    try {
+      const parCategory = await storage.updateParCategory(parseInt(req.params.id), req.body);
+      await logActivity(req, "update_par_category", "par_category", req.params.id, `Updated PAR category: ${parCategory.category}`);
+      res.json(parCategory);
+    } catch (error) {
+      console.error("Error updating PAR category:", error);
+      res.status(500).json({ message: "Failed to update PAR category" });
+    }
+  });
+
+  app.delete("/api/par-categories/:id", isAuthenticated, requirePageAccess("par-categories"), async (req: any, res) => {
+    try {
+      await storage.deleteParCategory(parseInt(req.params.id));
+      await logActivity(req, "delete_par_category", "par_category", req.params.id, `Deleted PAR category`);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting PAR category:", error);
+      res.status(500).json({ message: "Failed to delete PAR category" });
+    }
+  });
+
   // ===== CUSTOMERS =====
   app.get("/api/customers", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
     try {

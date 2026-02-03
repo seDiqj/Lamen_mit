@@ -37,6 +37,7 @@ import TrialBalancePage from "@/pages/trial-balance";
 import IncomeStatementPage from "@/pages/income-statement";
 import BalanceSheetPage from "@/pages/balance-sheet";
 import LookupPage from "@/pages/lookup";
+import ParCategoriesPage from "@/pages/par-categories";
 import NotFound from "@/pages/not-found";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
@@ -116,6 +117,7 @@ function AppRoutes() {
         <Route path="/officers" component={OfficersPage} />
         <Route path="/funding-sources" component={FundingSourcesPage} />
         <Route path="/lookup" component={LookupPage} />
+        <Route path="/par-categories" component={ParCategoriesPage} />
         <Route path="/users" component={UsersPage} />
         <Route path="/page-permissions" component={PagePermissionsPage} />
         <Route path="/activity" component={ActivityPage} />
