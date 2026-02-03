@@ -139,6 +139,16 @@ export function AppSidebar() {
       ],
     },
     {
+      label: "Management",
+      icon: Building2,
+      items: [
+        { title: "Branches", url: "/branches", icon: Building2, iconColor: "text-teal-500" },
+        { title: "Officers", url: "/officers", icon: UserCheck, iconColor: "text-indigo-500" },
+        { title: "Funding Sources", url: "/funding-sources", icon: Wallet, iconColor: "text-amber-500" },
+        { title: "Lookup", url: "/lookup", icon: Layers, iconColor: "text-emerald-500" },
+      ],
+    },
+    {
       label: "Financing Operations",
       icon: FileText,
       items: [
@@ -181,6 +191,16 @@ export function AppSidebar() {
       defaultOpen: true,
       items: [
         { title: "Overview", url: "/", icon: LayoutDashboard, iconColor: "text-blue-500" },
+      ],
+    },
+    {
+      label: "Management",
+      icon: Building2,
+      items: [
+        { title: "Branches", url: "/branches", icon: Building2, iconColor: "text-teal-500" },
+        { title: "Officers", url: "/officers", icon: UserCheck, iconColor: "text-indigo-500" },
+        { title: "Funding Sources", url: "/funding-sources", icon: Wallet, iconColor: "text-amber-500" },
+        { title: "Lookup", url: "/lookup", icon: Layers, iconColor: "text-emerald-500" },
       ],
     },
     {
