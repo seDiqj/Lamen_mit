@@ -2582,8 +2582,8 @@ export async function registerRoutes(
     }
   });
 
-  // Accounting Reports (restricted to managers and admins)
-  app.get("/api/reports/trial-balance", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
+  // Accounting Reports (available to all authenticated users)
+  app.get("/api/reports/trial-balance", isAuthenticated, async (req, res) => {
     try {
       const { asOfDate } = req.query;
       const trialBalance = await storage.getTrialBalance(asOfDate as string);
@@ -2594,7 +2594,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/reports/income-statement", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
+  app.get("/api/reports/income-statement", isAuthenticated, async (req, res) => {
     try {
       const { startDate, endDate } = req.query;
       if (!startDate || !endDate) {
@@ -2608,7 +2608,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/reports/balance-sheet", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
+  app.get("/api/reports/balance-sheet", isAuthenticated, async (req, res) => {
     try {
       const { asOfDate } = req.query;
       if (!asOfDate) {
@@ -2622,7 +2622,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/reports/account-statement/:accountId", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
+  app.get("/api/reports/account-statement/:accountId", isAuthenticated, async (req, res) => {
     try {
       const { startDate, endDate } = req.query;
       const statement = await storage.getAccountStatement(
