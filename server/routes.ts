@@ -2229,7 +2229,8 @@ export async function registerRoutes(
       const cashBalance = cashAccounts.reduce((sum, a) => sum + Number(a.currentBalance || 0), 0);
       
       // Get installments for receivables data
-      const installments = await storage.getInstallments({});
+      const installmentsResult = await storage.getInstallments({ limit: 1000 });
+      const installments = installmentsResult.installments || [];
       const now = new Date();
       
       // Calculate receivables aging
