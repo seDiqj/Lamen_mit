@@ -48,7 +48,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Switch } from "@/components/ui/switch";
-import { Search, Plus, Pencil, Trash2, Users, Shield, UserCheck, Crown, Lock, Unlock, LayoutDashboard, FileText, BarChart3, AlertTriangle, Activity, Settings, CreditCard, ClipboardList, PiggyBank, ChevronDown, ChevronRight, Building2, UserPlus, Briefcase, Gavel, FileCheck, Banknote, BookOpen, FolderOpen } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, Users, Shield, UserCheck, Crown, Lock, Unlock, LayoutDashboard, FileText, BarChart3, AlertTriangle, Activity, Settings, CreditCard, ClipboardList, PiggyBank, ChevronDown, ChevronRight, Building2, UserPlus, Briefcase, Gavel, FileCheck, Banknote, BookOpen, FolderOpen, Layers, Receipt, Scale, FileSpreadsheet } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -93,6 +93,7 @@ const PAGE_CATEGORIES: PageCategory[] = [
       { id: "loans", label: "Financing List", icon: FileText },
       { id: "loan-application", label: "New Financing Application", icon: ClipboardList },
       { id: "fad-review", label: "FAD Review", icon: FileCheck },
+      { id: "risk-compliance", label: "Risk Compliance", icon: Shield },
       { id: "committee-voting", label: "Committee Voting", icon: Gavel },
       { id: "approvals", label: "Financing Approvals", icon: ClipboardList },
       { id: "disbursements", label: "Disbursements", icon: Banknote },
@@ -110,15 +111,38 @@ const PAGE_CATEGORIES: PageCategory[] = [
     ],
   },
   {
+    id: "management",
+    label: "Management",
+    icon: Layers,
+    color: "from-teal-500 to-cyan-500",
+    pages: [
+      { id: "branches", label: "Branches", icon: Building2 },
+      { id: "officers", label: "Finance Officers", icon: Briefcase },
+      { id: "funding-sources", label: "Funding Sources", icon: PiggyBank },
+      { id: "lookup", label: "Lookup", icon: Layers },
+    ],
+  },
+  {
+    id: "accounting",
+    label: "Accounting",
+    icon: BookOpen,
+    color: "from-emerald-500 to-green-500",
+    pages: [
+      { id: "chart-of-accounts", label: "Chart of Accounts", icon: BookOpen },
+      { id: "journal-entries", label: "Journal Entries", icon: Receipt },
+      { id: "account-statement", label: "Account Statement", icon: FileSpreadsheet },
+      { id: "trial-balance", label: "Trial Balance", icon: Scale },
+      { id: "income-statement", label: "Income Statement", icon: BarChart3 },
+      { id: "balance-sheet", label: "Balance Sheet", icon: FileSpreadsheet },
+    ],
+  },
+  {
     id: "settings",
     label: "Settings & Admin",
     icon: Settings,
     color: "from-slate-500 to-gray-500",
     pages: [
       { id: "settings", label: "System Settings", icon: Settings },
-      { id: "branches", label: "Branches", icon: Building2 },
-      { id: "officers", label: "Finance Officers", icon: Briefcase },
-      { id: "funding-sources", label: "Funding Sources", icon: PiggyBank },
       { id: "activity-logs", label: "Activity Logs", icon: Activity },
       { id: "users", label: "User Management", icon: Users },
       { id: "page-permissions", label: "Page Permissions", icon: Shield },
@@ -133,6 +157,7 @@ const PAGE_ICONS: Record<string, any> = {
   loans: FileText,
   "loan-application": ClipboardList,
   "fad-review": FileCheck,
+  "risk-compliance": Shield,
   "committee-voting": Gavel,
   reports: BarChart3,
   "par-report": AlertTriangle,
@@ -144,8 +169,15 @@ const PAGE_ICONS: Record<string, any> = {
   branches: Building2,
   officers: Briefcase,
   "funding-sources": PiggyBank,
+  lookup: Layers,
   users: Users,
   "page-permissions": Shield,
+  "chart-of-accounts": BookOpen,
+  "journal-entries": Receipt,
+  "account-statement": FileSpreadsheet,
+  "trial-balance": Scale,
+  "income-statement": BarChart3,
+  "balance-sheet": FileSpreadsheet,
 };
 
 const PAGE_LABELS: Record<string, string> = {
@@ -155,6 +187,7 @@ const PAGE_LABELS: Record<string, string> = {
   loans: "Financings",
   "loan-application": "Financing Application",
   "fad-review": "FAD Review",
+  "risk-compliance": "Risk Compliance",
   "committee-voting": "Committee Voting",
   reports: "Reports",
   "par-report": "PAR Report",
@@ -166,8 +199,15 @@ const PAGE_LABELS: Record<string, string> = {
   branches: "Branches",
   officers: "Finance Officers",
   "funding-sources": "Funding Sources",
+  lookup: "Lookup",
   users: "User Management",
   "page-permissions": "Page Permissions",
+  "chart-of-accounts": "Chart of Accounts",
+  "journal-entries": "Journal Entries",
+  "account-statement": "Account Statement",
+  "trial-balance": "Trial Balance",
+  "income-statement": "Income Statement",
+  "balance-sheet": "Balance Sheet",
 };
 
 interface User {
