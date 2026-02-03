@@ -130,12 +130,14 @@ async function importJournalEntries() {
         // Format date
         const formattedDate = entry.entryDate.toISOString().split('T')[0];
 
-        // Determine reference type
+        // Map transaction type to reference type
         let referenceType = 'general';
-        if (entry.transactionType === 'Payment') {
-          referenceType = 'payment';
-        } else if (entry.jvNumber) {
-          referenceType = 'manual';
+        if (entry.transactionType === 'Invoice') {
+          referenceType = 'financing_disbursement';
+        } else if (entry.transactionType === 'Payment') {
+          referenceType = 'financing_repayment';
+        } else if (entry.transactionType === 'Journal Entry') {
+          referenceType = 'journal_entry';
         }
 
         // Insert journal entry (as posted)
