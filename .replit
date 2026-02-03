@@ -4,7 +4,7 @@ hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["python3", "python312Packages.openpyxl", "python312Packages.pandas", "python312Packages.xlrd"]
+packages = ["glibcLocales", "python3", "python312Packages.openpyxl", "python312Packages.pandas", "python312Packages.xlrd"]
 
 [[ports]]
 localPort = 5000
