@@ -4,13 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableAccountSelect } from "@/components/searchable-account-select";
 import {
   Table,
   TableBody,
@@ -106,18 +100,16 @@ export default function AccountStatement() {
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap items-end gap-4">
-            <div className="space-y-2 min-w-[250px]">
+            <div className="space-y-2 min-w-[300px]">
               <Label>Account</Label>
-              <Select value={selectedAccount} onValueChange={setSelectedAccount}>
-                <SelectTrigger data-testid="select-account">
-                  <SelectValue placeholder="Select an account" />
-                </SelectTrigger>
-                <SelectContent>
-                  {accounts.map(acc => (
-                    <SelectItem key={acc.id} value={acc.id}>{acc.accountCode} - {acc.accountName}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableAccountSelect
+                accounts={accounts}
+                value={selectedAccount}
+                onValueChange={setSelectedAccount}
+                placeholder="Search by code or name..."
+                className="w-full"
+                data-testid="select-account"
+              />
             </div>
             <div className="space-y-2">
               <Label>Start Date</Label>

@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SearchableAccountSelect } from "@/components/searchable-account-select";
 import {
   Table,
   TableBody,
@@ -244,16 +245,14 @@ export default function JournalEntries() {
                     {lines.map((line, index) => (
                       <TableRow key={index}>
                         <TableCell>
-                          <Select value={line.accountId} onValueChange={(val) => updateLine(index, "accountId", val)}>
-                            <SelectTrigger data-testid={`select-account-${index}`}>
-                              <SelectValue placeholder="Select account" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {accounts.map(acc => (
-                                <SelectItem key={acc.id} value={acc.id}>{acc.accountCode} - {acc.accountName}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <SearchableAccountSelect
+                            accounts={accounts}
+                            value={line.accountId}
+                            onValueChange={(val) => updateLine(index, "accountId", val)}
+                            placeholder="Search account..."
+                            className="w-full"
+                            data-testid={`select-account-${index}`}
+                          />
                         </TableCell>
                         <TableCell>
                           <Input value={line.description} onChange={(e) => updateLine(index, "description", e.target.value)} placeholder="Line description" data-testid={`input-line-desc-${index}`} />
