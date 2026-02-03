@@ -57,7 +57,7 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
                 <div className="h-6 w-px bg-border" />
               </div>
               <span className="hidden sm:inline-flex text-sm font-medium text-muted-foreground">
-                Loan Management System
+                Financing Management System
               </span>
             </div>
             <ThemeToggle />

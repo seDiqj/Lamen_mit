@@ -142,7 +142,7 @@ export function AppSidebar() {
       label: "Financing Operations",
       icon: FileText,
       items: [
-        { title: "New Application", url: "/loan-application", icon: FilePlus, iconColor: "text-green-600" },
+        { title: "New Financing", url: "/loan-application", icon: FilePlus, iconColor: "text-green-600" },
         { title: "All Financings", url: "/loans", icon: FileText, iconColor: "text-emerald-500" },
         { title: "Customers", url: "/customers", icon: Users, iconColor: "text-violet-500" },
         { title: "FAD Review", url: "/fad-review", icon: FileSearch, iconColor: "text-blue-500" },
@@ -187,7 +187,7 @@ export function AppSidebar() {
       label: "Financing Operations",
       icon: FileText,
       items: [
-        { title: "New Application", url: "/loan-application", icon: FilePlus, iconColor: "text-green-600" },
+        { title: "New Financing", url: "/loan-application", icon: FilePlus, iconColor: "text-green-600" },
         { title: "All Financings", url: "/loans", icon: FileText, iconColor: "text-emerald-500" },
         { title: "Customers", url: "/customers", icon: Users, iconColor: "text-violet-500" },
         { title: "Disbursements", url: "/disbursements", icon: PiggyBank, iconColor: "text-pink-500" },
@@ -239,7 +239,7 @@ export function AppSidebar() {
       label: "Financing Operations",
       icon: FileText,
       items: [
-        { title: "New Application", url: "/loan-application", icon: FilePlus, iconColor: "text-green-600" },
+        { title: "New Financing", url: "/loan-application", icon: FilePlus, iconColor: "text-green-600" },
         { title: "All Financings", url: "/loans", icon: FileText, iconColor: "text-emerald-500" },
         { title: "Customers", url: "/customers", icon: Users, iconColor: "text-violet-500" },
         { title: "FAD Review", url: "/fad-review", icon: FileSearch, iconColor: "text-blue-500" },

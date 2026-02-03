@@ -359,7 +359,7 @@ export default function LoginPage() {
           )}
 
           <p className="text-center text-xs text-muted-foreground mt-8 bg-white/50 dark:bg-black/20 px-4 py-2 rounded-full inline-block mx-auto w-full">
-            Lamen Microfinance Institution Loan Management System
+            Lamen Microfinance Institution Financing Management System
           </p>
         </div>
       </div>

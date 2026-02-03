@@ -290,7 +290,7 @@ export default function Dashboard() {
             <Button asChild data-testid="button-new-loan">
               <Link href="/loans/new">
                 <FileText className="mr-2 h-4 w-4" />
-                New Loan
+                New Financing
               </Link>
             </Button>
           )}
@@ -299,7 +299,7 @@ export default function Dashboard() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          title="Total Loans"
+          title="Total Financings"
           value={stats?.totalLoans?.toString() || "0"}
           icon={FileText}
           loading={isLoading}
@@ -307,7 +307,7 @@ export default function Dashboard() {
           iconBg="bg-gradient-to-br from-blue-500 to-cyan-600"
         />
         <StatCard
-          title="Active Loans"
+          title="Active Financings"
           value={stats?.activeLoans?.toString() || "0"}
           change="+12% from last month"
           changeType="positive"
@@ -354,7 +354,7 @@ export default function Dashboard() {
           iconBg="bg-gradient-to-br from-green-500 to-lime-600"
         />
         <StatCard
-          title="Pending Loans"
+          title="Pending Financings"
           value={stats?.pendingLoans?.toString() || "0"}
           icon={Clock}
           loading={isLoading}
@@ -458,7 +458,7 @@ export default function Dashboard() {
                 <thead>
                   <tr className="border-b bg-muted/30">
                     <th className="px-4 py-3 text-left text-sm font-semibold text-muted-foreground">Branch</th>
-                    <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">No. of Loans</th>
+                    <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">No. of Financings</th>
                     <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">No. of Customers</th>
                     <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Total Disbursed</th>
                     <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Total Collected</th>
@@ -674,7 +674,7 @@ export default function Dashboard() {
           <div className="h-1 bg-gradient-to-r from-cyan-500 to-blue-500" />
           <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
             <div>
-              <CardTitle className="text-lg font-semibold">Recent Loans</CardTitle>
+              <CardTitle className="text-lg font-semibold">Recent Financings</CardTitle>
               <p className="text-sm text-muted-foreground">Latest applications</p>
             </div>
             <Button variant="ghost" size="sm" asChild className="text-primary hover:text-primary">
@@ -732,9 +732,9 @@ export default function Dashboard() {
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader className="flex-shrink-0">
             <DialogTitle className="flex items-center gap-2">
-              <span className="capitalize">{selectedStatus}</span> Loans
+              <span className="capitalize">{selectedStatus}</span> Financings
               <Badge variant="outline" className={getStatusColor(selectedStatus || "")}>
-                {loansData?.total || 0} loans
+                {loansData?.total || 0} financings
               </Badge>
             </DialogTitle>
           </DialogHeader>
