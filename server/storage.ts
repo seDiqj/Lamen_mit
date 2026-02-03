@@ -846,7 +846,7 @@ export class DatabaseStorage implements IStorage {
         productName: loans.productName,
         productCode: loans.productCode,
         requestDate: loans.requestDate,
-        requestAmount: loans.requestAmount,
+        requestedAmount: loans.requestAmount,
         principleAmount: loans.principleAmount,
         financingDurationMonths: loans.financingDurationMonths,
         status: loans.status,
