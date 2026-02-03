@@ -41,7 +41,7 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Plus, Search, Receipt, Eye, CheckCircle, RotateCcw, Trash2, Pencil } from "lucide-react";
+import { Plus, Search, Receipt, Eye, CheckCircle, RotateCcw, Trash2, Pencil, ChevronLeft, ChevronRight } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { formatDate } from "@/lib/date-utils";
 
@@ -74,9 +74,17 @@ type JournalEntry = {
   lines?: Array<JournalLine & { accountCode?: string; accountName?: string }>;
 };
 
+type PaginatedResponse = {
+  entries: JournalEntry[];
+  total: number;
+  page: number;
+  totalPages: number;
+};
+
 export default function JournalEntries() {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null);
@@ -96,15 +104,20 @@ export default function JournalEntries() {
     { accountId: "", description: "", debitAmount: "", creditAmount: "" },
   ]);
 
-  const { data: entries = [], isLoading } = useQuery<JournalEntry[]>({
-    queryKey: ["/api/journal-entries", searchTerm],
+  const { data: paginatedData, isLoading } = useQuery<PaginatedResponse>({
+    queryKey: ["/api/journal-entries", searchTerm, currentPage],
     queryFn: async () => {
-      const url = searchTerm ? `/api/journal-entries?search=${encodeURIComponent(searchTerm)}` : "/api/journal-entries";
-      const res = await fetch(url, { credentials: "include" });
+      const params = new URLSearchParams({ page: String(currentPage), limit: "50" });
+      if (searchTerm) params.set("search", searchTerm);
+      const res = await fetch(`/api/journal-entries?${params}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch journal entries");
       return res.json();
     },
   });
+
+  const entries = paginatedData?.entries ?? [];
+  const totalPages = paginatedData?.totalPages ?? 1;
+  const totalEntries = paginatedData?.total ?? 0;
 
   const { data: accounts = [] } = useQuery<Account[]>({
     queryKey: ["/api/accounts"],
@@ -371,7 +384,7 @@ export default function JournalEntries() {
         <CardHeader className="pb-3">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search entries..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9" data-testid="input-search" />
+            <Input placeholder="Search entries..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} className="pl-9" data-testid="input-search" />
           </div>
         </CardHeader>
         <CardContent>
@@ -441,6 +454,38 @@ export default function JournalEntries() {
                 )}
               </TableBody>
             </Table>
+          )}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4 pt-4 border-t">
+              <div className="text-sm text-muted-foreground">
+                Showing {((currentPage - 1) * 50) + 1} - {Math.min(currentPage * 50, totalEntries)} of {totalEntries} entries
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage <= 1}
+                  data-testid="button-prev-page"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+                <span className="text-sm px-2">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage >= totalPages}
+                  data-testid="button-next-page"
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>

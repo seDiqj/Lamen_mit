@@ -251,7 +251,7 @@ export interface IStorage {
   closeFiscalPeriod(id: string, closedBy: string): Promise<void>;
   
   // Accounting - Journal Entries
-  getJournalEntries(filters?: { search?: string; startDate?: string; endDate?: string; isPosted?: boolean }): Promise<any[]>;
+  getJournalEntries(filters?: { search?: string; startDate?: string; endDate?: string; isPosted?: boolean; page?: number; limit?: number }): Promise<{ entries: any[]; total: number; page: number; totalPages: number }>;
   getJournalEntry(id: string): Promise<any | undefined>;
   createJournalEntry(header: any, lines: any[]): Promise<any>;
   updateJournalEntry(id: string, data: any): Promise<any>;
@@ -2447,8 +2447,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Journal Entries
-  async getJournalEntries(filters?: { search?: string; startDate?: string; endDate?: string; isPosted?: boolean }): Promise<any[]> {
-    let query = db.select().from(journalEntries);
+  async getJournalEntries(filters?: { search?: string; startDate?: string; endDate?: string; isPosted?: boolean; page?: number; limit?: number }): Promise<{ entries: any[]; total: number; page: number; totalPages: number }> {
+    const page = filters?.page || 1;
+    const limit = filters?.limit || 50;
+    const offset = (page - 1) * limit;
     
     const conditions = [];
     if (filters?.search) {
@@ -2468,11 +2470,31 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(journalEntries.isPosted, filters.isPosted));
     }
     
+    // Get total count
+    let countQuery = db.select({ count: sql<number>`count(*)` }).from(journalEntries);
+    if (conditions.length > 0) {
+      countQuery = countQuery.where(and(...conditions)) as any;
+    }
+    const [{ count }] = await countQuery;
+    const total = Number(count);
+    
+    // Get paginated entries
+    let query = db.select().from(journalEntries);
     if (conditions.length > 0) {
       query = query.where(and(...conditions)) as any;
     }
     
-    return await query.orderBy(desc(journalEntries.entryDate), desc(journalEntries.createdAt));
+    const entries = await query
+      .orderBy(desc(journalEntries.entryDate), desc(journalEntries.createdAt))
+      .limit(limit)
+      .offset(offset);
+    
+    return {
+      entries,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit)
+    };
   }
 
   async getJournalEntry(id: string): Promise<any | undefined> {

@@ -2421,14 +2421,16 @@ export async function registerRoutes(
   // Journal Entries
   app.get("/api/journal-entries", isAuthenticated, async (req, res) => {
     try {
-      const { search, startDate, endDate, isPosted } = req.query;
-      const entries = await storage.getJournalEntries({
+      const { search, startDate, endDate, isPosted, page, limit } = req.query;
+      const result = await storage.getJournalEntries({
         search: search as string,
         startDate: startDate as string,
         endDate: endDate as string,
         isPosted: isPosted === 'true' ? true : isPosted === 'false' ? false : undefined,
+        page: page ? parseInt(page as string) : 1,
+        limit: limit ? parseInt(limit as string) : 50,
       });
-      res.json(entries);
+      res.json(result);
     } catch (error) {
       console.error("Error fetching journal entries:", error);
       res.status(500).json({ message: "Failed to fetch journal entries" });
