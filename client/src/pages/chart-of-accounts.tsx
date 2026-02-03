@@ -133,7 +133,18 @@ export default function ChartOfAccounts() {
     const children = accounts.filter(a => a.parentId === parentAccount.id);
     
     if (children.length === 0) {
-      return parentCode.slice(0, -1) + "1";
+      // For a parent like "5100", first child should be "5101"
+      // For a parent like "1000", first child should be "1100" (category level)
+      if (parentCode.endsWith("000")) {
+        // Top-level category (1000, 2000, etc.) - first sub-category is X100
+        return parentCode.slice(0, 1) + "100";
+      } else if (parentCode.endsWith("00")) {
+        // Sub-category (1100, 5100, etc.) - first child is X101
+        return parentCode.slice(0, -1) + "1";
+      } else {
+        // Leaf account - add 1 to the last digit pattern
+        return parentCode + "1";
+      }
     }
     
     const childCodes = children.map(c => parseInt(c.accountCode)).filter(n => !isNaN(n));
