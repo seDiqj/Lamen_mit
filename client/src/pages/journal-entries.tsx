@@ -84,7 +84,13 @@ export default function JournalEntries() {
   ]);
 
   const { data: entries = [], isLoading } = useQuery<JournalEntry[]>({
-    queryKey: ["/api/journal-entries", { search: searchTerm }],
+    queryKey: ["/api/journal-entries", searchTerm],
+    queryFn: async () => {
+      const url = searchTerm ? `/api/journal-entries?search=${encodeURIComponent(searchTerm)}` : "/api/journal-entries";
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch journal entries");
+      return res.json();
+    },
   });
 
   const { data: accounts = [] } = useQuery<Account[]>({
