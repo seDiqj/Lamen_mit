@@ -2619,15 +2619,38 @@ export class DatabaseStorage implements IStorage {
   async getTrialBalance(asOfDate?: string): Promise<any[]> {
     const allAccounts = await db.select().from(accounts).where(eq(accounts.isActive, true)).orderBy(asc(accounts.accountCode));
     
-    return allAccounts.map(acc => ({
-      accountCode: acc.accountCode,
-      accountName: acc.accountName,
-      accountType: acc.accountType,
-      debit: (acc.accountType === 'asset' || acc.accountType === 'expense') && Number(acc.currentBalance) > 0 
-        ? Number(acc.currentBalance) : 0,
-      credit: (acc.accountType === 'liability' || acc.accountType === 'equity' || acc.accountType === 'income') && Number(acc.currentBalance) > 0 
-        ? Number(acc.currentBalance) : (Number(acc.currentBalance) < 0 ? Math.abs(Number(acc.currentBalance)) : 0),
-    }));
+    return allAccounts.map(acc => {
+      const balance = Number(acc.currentBalance) || 0;
+      const isDebitNormal = acc.accountType === 'asset' || acc.accountType === 'expense';
+      const isCreditNormal = acc.accountType === 'liability' || acc.accountType === 'equity' || acc.accountType === 'income';
+      
+      let debit = 0;
+      let credit = 0;
+      
+      if (isDebitNormal) {
+        // Asset/Expense: positive balance = debit, negative = credit (abnormal)
+        if (balance > 0) {
+          debit = balance;
+        } else if (balance < 0) {
+          credit = Math.abs(balance);
+        }
+      } else if (isCreditNormal) {
+        // Liability/Equity/Income: positive balance = credit, negative = debit (abnormal)
+        if (balance > 0) {
+          credit = balance;
+        } else if (balance < 0) {
+          debit = Math.abs(balance);
+        }
+      }
+      
+      return {
+        accountCode: acc.accountCode,
+        accountName: acc.accountName,
+        accountType: acc.accountType,
+        debit,
+        credit,
+      };
+    });
   }
 
   async getIncomeStatement(startDate: string, endDate: string): Promise<any> {
