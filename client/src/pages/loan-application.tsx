@@ -253,7 +253,16 @@ export default function LoanApplicationPage() {
   });
 
   const onSubmit = (data: LoanApplicationFormData) => {
+    if (currentStep !== 5) {
+      return;
+    }
     submitMutation.mutate(data);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && currentStep !== 5) {
+      e.preventDefault();
+    }
   };
 
   const nextStep = () => {
@@ -333,7 +342,7 @@ export default function LoanApplicationPage() {
       </div>
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)}>
+        <form onSubmit={form.handleSubmit(onSubmit)} onKeyDown={handleKeyDown}>
           {currentStep === 1 && (
             <Card className="border-0 shadow-md overflow-hidden">
               <div className="h-1 bg-gradient-to-r from-green-500 to-emerald-500" />
