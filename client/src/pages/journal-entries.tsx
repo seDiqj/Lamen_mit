@@ -14,6 +14,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -71,6 +81,8 @@ export default function JournalEntries() {
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null);
   const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
+  const [postConfirmOpen, setPostConfirmOpen] = useState(false);
+  const [entryToPost, setEntryToPost] = useState<JournalEntry | null>(null);
 
   const [formData, setFormData] = useState({
     entryDate: new Date().toISOString().split("T")[0],
@@ -407,7 +419,7 @@ export default function JournalEntries() {
                             <Button variant="ghost" size="icon" onClick={() => editEntry(entry)} data-testid={`button-edit-${entry.id}`}>
                               <Pencil className="h-4 w-4 text-blue-500" />
                             </Button>
-                            <Button variant="ghost" size="icon" onClick={() => postMutation.mutate(entry.id)} data-testid={`button-post-${entry.id}`}>
+                            <Button variant="ghost" size="icon" onClick={() => { setEntryToPost(entry); setPostConfirmOpen(true); }} data-testid={`button-post-${entry.id}`}>
                               <CheckCircle className="h-4 w-4 text-green-500" />
                             </Button>
                           </>
@@ -475,6 +487,47 @@ export default function JournalEntries() {
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={postConfirmOpen} onOpenChange={setPostConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Post Journal Entry</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>Are you sure you want to post this journal entry? This action cannot be undone.</p>
+              {entryToPost && (
+                <div className="mt-4 p-3 bg-muted rounded-md text-sm space-y-1">
+                  <div><strong>Entry:</strong> {entryToPost.entryNumber}</div>
+                  <div><strong>Date:</strong> {formatDate(entryToPost.entryDate)}</div>
+                  <div><strong>Description:</strong> {entryToPost.description}</div>
+                  <div className="flex gap-4">
+                    <span><strong>Total Debit:</strong> {formatCurrency(entryToPost.totalDebit)}</span>
+                    <span><strong>Total Credit:</strong> {formatCurrency(entryToPost.totalCredit)}</span>
+                  </div>
+                </div>
+              )}
+              <p className="text-orange-600 dark:text-orange-400 font-medium mt-2">
+                Once posted, this entry will affect account balances and can only be reversed, not edited.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-post">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (entryToPost) {
+                  postMutation.mutate(entryToPost.id);
+                }
+                setPostConfirmOpen(false);
+                setEntryToPost(null);
+              }}
+              className="bg-green-600 hover:bg-green-700"
+              data-testid="button-confirm-post"
+            >
+              Post Entry
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
