@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Shield, Users, Lock, Unlock, LayoutDashboard, UserCircle, FileText, BarChart3, AlertTriangle, Activity, Settings } from "lucide-react";
+import { Shield, Users, Lock, Unlock, LayoutDashboard, UserCircle, FileText, BarChart3, AlertTriangle, Activity, Settings, Building2, UserCheck, Banknote, CreditCard, CheckCircle, Vote, ClipboardCheck, BookOpen, Receipt, Scale, FileSpreadsheet, Layers } from "lucide-react";
 
 interface UserWithPermissions {
   id: string;
@@ -22,21 +22,61 @@ interface UserWithPermissions {
 const PAGE_ICONS: Record<string, any> = {
   dashboard: LayoutDashboard,
   customers: UserCircle,
+  "customer-registration": UserCircle,
   loans: FileText,
+  "loan-application": FileText,
+  "fad-review": ClipboardCheck,
+  "risk-compliance": CheckCircle,
+  "committee-voting": Vote,
+  approvals: CheckCircle,
+  disbursements: Banknote,
+  payments: CreditCard,
   reports: BarChart3,
   "par-report": AlertTriangle,
-  "activity-logs": Activity,
   settings: Settings,
+  branches: Building2,
+  officers: UserCheck,
+  "funding-sources": Banknote,
+  lookup: Layers,
+  "activity-logs": Activity,
+  users: Users,
+  "page-permissions": Shield,
+  "chart-of-accounts": BookOpen,
+  "journal-entries": Receipt,
+  "account-statement": FileSpreadsheet,
+  "trial-balance": Scale,
+  "income-statement": BarChart3,
+  "balance-sheet": FileSpreadsheet,
 };
 
 const PAGE_LABELS: Record<string, string> = {
   dashboard: "Dashboard",
   customers: "Customers",
-  loans: "Financings",
+  "customer-registration": "Customer Registration",
+  loans: "All Financings",
+  "loan-application": "Financing Application",
+  "fad-review": "FAD Review",
+  "risk-compliance": "Risk Compliance",
+  "committee-voting": "Committee Voting",
+  approvals: "Approvals",
+  disbursements: "Disbursements",
+  payments: "Payments",
   reports: "Reports",
   "par-report": "PAR Report",
-  "activity-logs": "Activity Logs",
   settings: "Settings",
+  branches: "Branches",
+  officers: "Officers",
+  "funding-sources": "Funding Sources",
+  lookup: "Lookup",
+  "activity-logs": "Activity Logs",
+  users: "Users",
+  "page-permissions": "Page Permissions",
+  "chart-of-accounts": "Chart of Accounts",
+  "journal-entries": "Journal Entries",
+  "account-statement": "Account Statement",
+  "trial-balance": "Trial Balance",
+  "income-statement": "Income Statement",
+  "balance-sheet": "Balance Sheet",
 };
 
 export default function PagePermissionsPage() {
