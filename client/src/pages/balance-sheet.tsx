@@ -94,7 +94,7 @@ export default function BalanceSheet() {
       </Card>
 
       {data && (
-        <div className="grid md:grid-cols-2 gap-4 print:grid-cols-2">
+        <div className="flex flex-col gap-4">
           <Card className="print:shadow-none">
             <CardHeader className="border-b bg-blue-50 dark:bg-blue-950/30">
               <CardTitle className="text-lg text-blue-600">Assets</CardTitle>
@@ -123,68 +123,71 @@ export default function BalanceSheet() {
           </Card>
 
           <Card className="print:shadow-none">
-            <CardHeader className="border-b bg-purple-50 dark:bg-purple-950/30">
-              <CardTitle className="text-lg text-purple-600">Liabilities & Equity</CardTitle>
+            <CardHeader className="border-b bg-red-50 dark:bg-red-950/30">
+              <CardTitle className="text-lg text-red-600">Liabilities</CardTitle>
             </CardHeader>
-            <CardContent className="pt-4 space-y-4">
-              <div>
-                <h4 className="font-medium text-red-600 mb-2">Liabilities</h4>
-                <Table>
-                  <TableBody>
-                    {data.liabilities.length > 0 ? data.liabilities.filter(l => l.amount !== 0).map((item, idx) => (
-                      <TableRow key={idx}>
-                        <TableCell className="font-mono w-24">{item.accountCode}</TableCell>
-                        <TableCell>{item.accountName}</TableCell>
-                        <TableCell className="text-right font-mono">{formatCurrency(item.amount.toString())}</TableCell>
-                      </TableRow>
-                    )) : (
-                      <TableRow>
-                        <TableCell colSpan={3} className="text-center text-muted-foreground py-2 text-sm">No liabilities</TableCell>
-                      </TableRow>
-                    )}
-                    <TableRow className="bg-red-50 dark:bg-red-950/30 font-semibold">
-                      <TableCell colSpan={2}>Total Liabilities</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency(data.totalLiabilities.toString())}</TableCell>
+            <CardContent className="pt-4">
+              <Table>
+                <TableBody>
+                  {data.liabilities.length > 0 ? data.liabilities.filter(l => l.amount !== 0).map((item, idx) => (
+                    <TableRow key={idx}>
+                      <TableCell className="font-mono w-24">{item.accountCode}</TableCell>
+                      <TableCell>{item.accountName}</TableCell>
+                      <TableCell className="text-right font-mono">{formatCurrency(item.amount.toString())}</TableCell>
                     </TableRow>
-                  </TableBody>
-                </Table>
-              </div>
+                  )) : (
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-center text-muted-foreground py-2 text-sm">No liabilities</TableCell>
+                    </TableRow>
+                  )}
+                  <TableRow className="bg-red-100 dark:bg-red-950/50 font-semibold">
+                    <TableCell colSpan={2}>Total Liabilities</TableCell>
+                    <TableCell className="text-right font-mono">{formatCurrency(data.totalLiabilities.toString())}</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
 
-              <div>
-                <h4 className="font-medium text-purple-600 mb-2">Equity</h4>
-                <Table>
-                  <TableBody>
-                    {data.equity.length > 0 ? data.equity.filter(e => e.amount !== 0).map((item, idx) => (
-                      <TableRow key={idx}>
-                        <TableCell className="font-mono w-24">{item.accountCode}</TableCell>
-                        <TableCell>{item.accountName}</TableCell>
-                        <TableCell className="text-right font-mono">{formatCurrency(item.amount.toString())}</TableCell>
-                      </TableRow>
-                    )) : (
-                      <TableRow>
-                        <TableCell colSpan={3} className="text-center text-muted-foreground py-2 text-sm">No equity recorded</TableCell>
-                      </TableRow>
-                    )}
-                    <TableRow className="bg-purple-100 dark:bg-purple-950/50 font-semibold">
-                      <TableCell colSpan={2}>Total Equity</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency(data.totalEquity.toString())}</TableCell>
+          <Card className="print:shadow-none">
+            <CardHeader className="border-b bg-purple-50 dark:bg-purple-950/30">
+              <CardTitle className="text-lg text-purple-600">Equity</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-4">
+              <Table>
+                <TableBody>
+                  {data.equity.length > 0 ? data.equity.filter(e => e.amount !== 0).map((item, idx) => (
+                    <TableRow key={idx}>
+                      <TableCell className="font-mono w-24">{item.accountCode}</TableCell>
+                      <TableCell>{item.accountName}</TableCell>
+                      <TableCell className="text-right font-mono">{formatCurrency(item.amount.toString())}</TableCell>
                     </TableRow>
-                  </TableBody>
-                </Table>
-              </div>
+                  )) : (
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-center text-muted-foreground py-2 text-sm">No equity recorded</TableCell>
+                    </TableRow>
+                  )}
+                  <TableRow className="bg-purple-100 dark:bg-purple-950/50 font-semibold">
+                    <TableCell colSpan={2}>Total Equity</TableCell>
+                    <TableCell className="text-right font-mono">{formatCurrency(data.totalEquity.toString())}</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
 
-              <div className="pt-2 border-t">
-                <Table>
-                  <TableBody>
-                    <TableRow className="font-bold text-lg">
-                      <TableCell colSpan={2}>Total Liabilities & Equity</TableCell>
-                      <TableCell className="text-right font-mono">
-                        {formatCurrency((data.totalLiabilities + data.totalEquity).toString())}
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </div>
+          <Card className="print:shadow-none border-2 border-primary/20">
+            <CardContent className="py-4">
+              <Table>
+                <TableBody>
+                  <TableRow className="font-bold text-lg">
+                    <TableCell colSpan={2}>Total Liabilities & Equity</TableCell>
+                    <TableCell className="text-right font-mono">
+                      {formatCurrency((data.totalLiabilities + data.totalEquity).toString())}
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
         </div>
