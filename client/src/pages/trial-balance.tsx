@@ -12,7 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Scale, Printer, FileSpreadsheet, FileText } from "lucide-react";
+import { Scale, FileSpreadsheet, FileText } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { formatDate } from "@/lib/date-utils";
 import * as XLSX from "xlsx";
@@ -58,10 +58,6 @@ export default function TrialBalance() {
   const totalDebit = data?.reduce((sum, item) => sum + item.debit, 0) || 0;
   const totalCredit = data?.reduce((sum, item) => sum + item.credit, 0) || 0;
   const isBalanced = Math.abs(totalDebit - totalCredit) < 0.01;
-
-  const handlePrint = () => {
-    window.print();
-  };
 
   const handleExportExcel = () => {
     if (!data) return;
@@ -226,14 +222,11 @@ export default function TrialBalance() {
         </div>
         {data && (
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={handleExportExcel} className="gap-2" data-testid="button-export-excel">
+            <Button onClick={handleExportExcel} className="gap-2 bg-green-600 hover:bg-green-700 text-white" data-testid="button-export-excel">
               <FileSpreadsheet className="h-4 w-4" /> Excel
             </Button>
-            <Button variant="outline" onClick={handleExportPDF} className="gap-2" data-testid="button-export-pdf">
+            <Button onClick={handleExportPDF} className="gap-2 bg-red-600 hover:bg-red-700 text-white" data-testid="button-export-pdf">
               <FileText className="h-4 w-4" /> PDF
-            </Button>
-            <Button variant="outline" onClick={handlePrint} className="gap-2" data-testid="button-print">
-              <Printer className="h-4 w-4" /> Print
             </Button>
           </div>
         )}
