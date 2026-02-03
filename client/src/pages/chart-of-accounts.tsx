@@ -132,24 +132,34 @@ export default function ChartOfAccounts() {
     const parentCode = parentAccount.accountCode;
     const children = accounts.filter(a => a.parentId === parentAccount.id);
     
-    if (children.length === 0) {
-      // For a parent like "5100", first child should be "5101"
-      // For a parent like "1000", first child should be "1100" (category level)
-      if (parentCode.endsWith("000")) {
-        // Top-level category (1000, 2000, etc.) - first sub-category is X100
-        return parentCode.slice(0, 1) + "100";
-      } else if (parentCode.endsWith("00")) {
-        // Sub-category (1100, 5100, etc.) - first child is X101
-        return parentCode.slice(0, -1) + "1";
-      } else {
-        // Leaf account - add 1 to the last digit pattern
-        return parentCode + "1";
-      }
+    // If children already exist, find the max and add 1
+    if (children.length > 0) {
+      const childCodes = children.map(c => parseInt(c.accountCode)).filter(n => !isNaN(n));
+      const maxCode = Math.max(...childCodes);
+      return String(maxCode + 1);
     }
     
-    const childCodes = children.map(c => parseInt(c.accountCode)).filter(n => !isNaN(n));
-    const maxCode = Math.max(...childCodes);
-    return String(maxCode + 1);
+    // No children yet - generate first child code based on parent pattern
+    // Your COA uses 5-digit codes with this hierarchy:
+    // Level 1 (Category):    10000, 20000, 30000, 40000, 50000
+    // Level 2 (Sub-cat):     10100, 10200, 10300...
+    // Level 3 (Detail):      10101, 10102, 10103...
+    
+    const codeLength = parentCode.length;
+    
+    if (parentCode.endsWith("0000")) {
+      // Level 1 category (10000, 20000, etc.) → first sub-category is X0100
+      // Example: 10000 → 10100
+      return parentCode.slice(0, 2) + "100";
+    } else if (parentCode.endsWith("00")) {
+      // Level 2 sub-category (10100, 10200, etc.) → first detail is XX01
+      // Example: 10100 → 10101, 10200 → 10201
+      return parentCode.slice(0, -2) + "01";
+    } else {
+      // Level 3 detail account - append "1" for sub-detail
+      // Example: 10101 → 101011 (extends to 6 digits if needed)
+      return parentCode + "1";
+    }
   };
 
   const handleAddSubAccount = (parentAccount: Account) => {
