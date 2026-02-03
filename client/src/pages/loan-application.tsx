@@ -260,8 +260,19 @@ export default function LoanApplicationPage() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && currentStep !== 5) {
-      e.preventDefault();
+    // Prevent Enter key from submitting form on steps 1-4
+    // Allow Enter only on step 5 (Guarantors - final step) for form submission
+    if (e.key === 'Enter') {
+      const target = e.target as HTMLElement;
+      // Allow Enter in textareas for multi-line input
+      if (target.tagName === 'TEXTAREA') {
+        return;
+      }
+      // Prevent form submission on all steps except the final step
+      if (currentStep !== 5) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
     }
   };
 
