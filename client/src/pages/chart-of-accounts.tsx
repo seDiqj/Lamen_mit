@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Plus, Edit2, Trash2, ChevronRight, ChevronDown, BookOpen, Search, Filter } from "lucide-react";
+import { Plus, Edit2, Trash2, ChevronRight, ChevronDown, BookOpen, Search, Filter, PlusCircle } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 
 type Account = {
@@ -128,6 +128,33 @@ export default function ChartOfAccounts() {
     setDialogOpen(true);
   };
 
+  const generateNextChildCode = (parentAccount: Account): string => {
+    const parentCode = parentAccount.accountCode;
+    const children = accounts.filter(a => a.parentId === parentAccount.id);
+    
+    if (children.length === 0) {
+      return parentCode.slice(0, -1) + "1";
+    }
+    
+    const childCodes = children.map(c => parseInt(c.accountCode)).filter(n => !isNaN(n));
+    const maxCode = Math.max(...childCodes);
+    return String(maxCode + 1);
+  };
+
+  const handleAddSubAccount = (parentAccount: Account) => {
+    const nextCode = generateNextChildCode(parentAccount);
+    setEditingAccount(null);
+    setFormData({
+      accountCode: nextCode,
+      accountName: "",
+      accountType: parentAccount.accountType,
+      parentId: parentAccount.id,
+      description: "",
+      openingBalance: "0",
+    });
+    setDialogOpen(true);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const submitData = { ...formData, parentId: formData.parentId || null };
@@ -178,6 +205,9 @@ export default function ChartOfAccounts() {
         </TableCell>
         <TableCell>
           <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" onClick={() => handleAddSubAccount(account)} title="Add Sub-Account" data-testid={`button-add-sub-${account.id}`}>
+              <PlusCircle className="h-4 w-4 text-green-600" />
+            </Button>
             <Button variant="ghost" size="icon" onClick={() => handleEdit(account)} data-testid={`button-edit-${account.id}`}>
               <Edit2 className="h-4 w-4" />
             </Button>
