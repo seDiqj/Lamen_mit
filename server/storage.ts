@@ -1,4 +1,5 @@
 import { db } from "./db";
+import bcrypt from "bcrypt";
 import { eq, and, like, or, desc, asc, sql, count, gte, lte, isNull, inArray } from "drizzle-orm";
 import {
   users,
@@ -99,6 +100,8 @@ export interface IStorage {
   // User Roles
   getUserRole(userId: string): Promise<UserRole | undefined>;
   setUserRole(data: InsertUserRole): Promise<UserRole>;
+  updateUserProfile(userId: string, data: { firstName?: string | null; lastName?: string | null; email?: string | null }): Promise<User>;
+  changeUserPassword(userId: string, currentPassword: string, newPassword: string): Promise<boolean>;
   
   // Branches
   getBranches(search?: string): Promise<Branch[]>;
@@ -302,6 +305,35 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return role;
+  }
+
+  async updateUserProfile(userId: string, data: { firstName?: string | null; lastName?: string | null; email?: string | null }): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return user;
+  }
+
+  async changeUserPassword(userId: string, currentPassword: string, newPassword: string): Promise<boolean> {
+    const [user] = await db.select().from(users).where(eq(users.id, userId));
+    if (!user) return false;
+
+    const isValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isValid) return false;
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await db
+      .update(users)
+      .set({ password: hashedPassword, updatedAt: new Date() })
+      .where(eq(users.id, userId));
+    return true;
   }
 
   // Branches

@@ -322,6 +322,54 @@ export async function registerRoutes(
     }
   });
 
+  // Update user profile
+  app.patch("/api/user/profile", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session.userId!;
+      const { firstName, lastName, email } = req.body;
+      
+      const updatedUser = await storage.updateUserProfile(userId, {
+        firstName: firstName || null,
+        lastName: lastName || null,
+        email: email || null,
+      });
+      
+      await logActivity(req, "update_profile", "user", userId, "Updated user profile");
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
+
+  // Change password
+  app.post("/api/user/change-password", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session.userId!;
+      const { currentPassword, newPassword } = req.body;
+      
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ message: "Current password and new password are required" });
+      }
+      
+      if (newPassword.length < 6) {
+        return res.status(400).json({ message: "New password must be at least 6 characters" });
+      }
+      
+      const success = await storage.changeUserPassword(userId, currentPassword, newPassword);
+      
+      if (!success) {
+        return res.status(400).json({ message: "Current password is incorrect" });
+      }
+      
+      await logActivity(req, "change_password", "user", userId, "Changed password");
+      res.json({ message: "Password changed successfully" });
+    } catch (error) {
+      console.error("Error changing password:", error);
+      res.status(500).json({ message: "Failed to change password" });
+    }
+  });
+
   // Dashboard stats
   app.get("/api/dashboard/stats", isAuthenticated, async (req, res) => {
     try {

@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { UserMenu } from "@/components/user-menu";
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { useAuth } from "@/hooks/use-auth";
@@ -38,6 +39,8 @@ import IncomeStatementPage from "@/pages/income-statement";
 import BalanceSheetPage from "@/pages/balance-sheet";
 import LookupPage from "@/pages/lookup";
 import ParCategoriesPage from "@/pages/par-categories";
+import ProfilePage from "@/pages/profile";
+import ChangePasswordPage from "@/pages/change-password";
 import NotFound from "@/pages/not-found";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
@@ -61,7 +64,10 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
                 Financing Management System
               </span>
             </div>
-            <ThemeToggle />
+            <div className="flex items-center gap-3">
+              <ThemeToggle />
+              <UserMenu />
+            </div>
           </header>
           <main className="flex-1 overflow-auto p-6">
             {children}
@@ -128,6 +134,8 @@ function AppRoutes() {
         <Route path="/trial-balance" component={TrialBalancePage} />
         <Route path="/income-statement" component={IncomeStatementPage} />
         <Route path="/balance-sheet" component={BalanceSheetPage} />
+        <Route path="/profile" component={ProfilePage} />
+        <Route path="/change-password" component={ChangePasswordPage} />
         <Route component={NotFound} />
       </Switch>
     </AuthenticatedLayout>
