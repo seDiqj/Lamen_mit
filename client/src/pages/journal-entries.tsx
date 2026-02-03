@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Plus, Search, Receipt, Eye, CheckCircle, RotateCcw, Trash2 } from "lucide-react";
+import { Plus, Search, Receipt, Eye, CheckCircle, RotateCcw, Trash2, Pencil } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { formatDate } from "@/lib/date-utils";
 
@@ -70,6 +70,7 @@ export default function JournalEntries() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null);
+  const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
 
   const [formData, setFormData] = useState({
     entryDate: new Date().toISOString().split("T")[0],
@@ -129,6 +130,48 @@ export default function JournalEntries() {
     onError: () => toast({ title: "Error", description: "Failed to reverse journal entry", variant: "destructive" }),
   });
 
+  const updateMutation = useMutation({
+    mutationFn: (data: { id: string; entryDate: string; description: string; reference: string; referenceType: string; lines: JournalLine[] }) =>
+      apiRequest("PATCH", `/api/journal-entries/${data.id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/journal-entries"] });
+      toast({ title: "Success", description: "Journal entry updated successfully" });
+      resetForm();
+      setEditingEntry(null);
+      setDialogOpen(false);
+    },
+    onError: (error: any) => toast({ title: "Error", description: error.message || "Failed to update journal entry", variant: "destructive" }),
+  });
+
+  const editEntry = async (entry: JournalEntry) => {
+    try {
+      const res = await fetch(`/api/journal-entries/${entry.id}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load");
+      const fullEntry = await res.json();
+      setEditingEntry(fullEntry);
+      setFormData({
+        entryDate: fullEntry.entryDate?.split("T")[0] || new Date().toISOString().split("T")[0],
+        description: fullEntry.description || "",
+        reference: fullEntry.reference || "",
+        referenceType: fullEntry.referenceType || "manual",
+      });
+      setLines(
+        fullEntry.lines?.map((line: any) => ({
+          accountId: line.accountId,
+          description: line.description || "",
+          debitAmount: line.debitAmount || "",
+          creditAmount: line.creditAmount || "",
+        })) || [
+          { accountId: "", description: "", debitAmount: "", creditAmount: "" },
+          { accountId: "", description: "", debitAmount: "", creditAmount: "" },
+        ]
+      );
+      setDialogOpen(true);
+    } catch {
+      toast({ title: "Error", description: "Failed to load entry for editing", variant: "destructive" });
+    }
+  };
+
   const resetForm = () => {
     setFormData({ entryDate: new Date().toISOString().split("T")[0], description: "", reference: "", referenceType: "manual" });
     setLines([
@@ -158,7 +201,19 @@ export default function JournalEntries() {
       toast({ title: "Error", description: "At least two valid lines are required", variant: "destructive" });
       return;
     }
-    createMutation.mutate({ ...formData, lines: validLines });
+    if (editingEntry) {
+      updateMutation.mutate({ id: editingEntry.id, ...formData, lines: validLines });
+    } else {
+      createMutation.mutate({ ...formData, lines: validLines });
+    }
+  };
+
+  const handleDialogClose = (open: boolean) => {
+    if (!open) {
+      setEditingEntry(null);
+      resetForm();
+    }
+    setDialogOpen(open);
   };
 
   const viewEntry = async (entry: JournalEntry) => {
@@ -189,7 +244,7 @@ export default function JournalEntries() {
             <p className="text-muted-foreground text-sm">Record and manage double-entry transactions</p>
           </div>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
+        <Dialog open={dialogOpen} onOpenChange={handleDialogClose}>
           <DialogTrigger asChild>
             <Button className="gap-2" data-testid="button-add-entry">
               <Plus className="h-4 w-4" /> New Entry
@@ -197,7 +252,7 @@ export default function JournalEntries() {
           </DialogTrigger>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Create Journal Entry</DialogTitle>
+              <DialogTitle>{editingEntry ? "Edit Journal Entry" : "Create Journal Entry"}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-3 gap-4">
@@ -348,9 +403,14 @@ export default function JournalEntries() {
                           <Eye className="h-4 w-4" />
                         </Button>
                         {!entry.isPosted && !entry.isReversed && (
-                          <Button variant="ghost" size="icon" onClick={() => postMutation.mutate(entry.id)} data-testid={`button-post-${entry.id}`}>
-                            <CheckCircle className="h-4 w-4 text-green-500" />
-                          </Button>
+                          <>
+                            <Button variant="ghost" size="icon" onClick={() => editEntry(entry)} data-testid={`button-edit-${entry.id}`}>
+                              <Pencil className="h-4 w-4 text-blue-500" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => postMutation.mutate(entry.id)} data-testid={`button-post-${entry.id}`}>
+                              <CheckCircle className="h-4 w-4 text-green-500" />
+                            </Button>
+                          </>
                         )}
                         {entry.isPosted && !entry.isReversed && (
                           <Button variant="ghost" size="icon" onClick={() => reverseMutation.mutate(entry.id)} data-testid={`button-reverse-${entry.id}`}>

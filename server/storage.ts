@@ -254,6 +254,7 @@ export interface IStorage {
   getJournalEntries(filters?: { search?: string; startDate?: string; endDate?: string; isPosted?: boolean }): Promise<any[]>;
   getJournalEntry(id: string): Promise<any | undefined>;
   createJournalEntry(header: any, lines: any[]): Promise<any>;
+  updateJournalEntry(id: string, data: any): Promise<any>;
   postJournalEntry(id: string, postedBy: string): Promise<void>;
   reverseJournalEntry(id: string, createdBy: string): Promise<any>;
   
@@ -2509,6 +2510,40 @@ export class DatabaseStorage implements IStorage {
       await db.insert(journalLines).values({
         ...line,
         journalEntryId: entry.id,
+      });
+    }
+    
+    return entry;
+  }
+
+  async updateJournalEntry(id: string, data: any): Promise<JournalEntry> {
+    const { entryDate, description, reference, referenceType, totalDebit, totalCredit, lines } = data;
+    
+    // Update the entry
+    const [entry] = await db.update(journalEntries)
+      .set({
+        entryDate,
+        description,
+        reference,
+        referenceType,
+        totalDebit,
+        totalCredit,
+        updatedAt: new Date(),
+      })
+      .where(eq(journalEntries.id, id))
+      .returning();
+    
+    // Delete existing lines
+    await db.delete(journalLines).where(eq(journalLines.journalEntryId, id));
+    
+    // Insert new lines
+    for (const line of lines) {
+      await db.insert(journalLines).values({
+        journalEntryId: id,
+        accountId: line.accountId,
+        description: line.description || null,
+        debitAmount: line.debitAmount || "0",
+        creditAmount: line.creditAmount || "0",
       });
     }
     

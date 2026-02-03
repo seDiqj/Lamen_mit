@@ -2504,6 +2504,60 @@ export async function registerRoutes(
     }
   });
 
+  // Update journal entry (only draft entries)
+  app.patch("/api/journal-entries/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { entryDate, description, reference, referenceType, lines } = req.body;
+      
+      // Get existing entry
+      const existingEntry = await storage.getJournalEntry(id);
+      if (!existingEntry) {
+        return res.status(404).json({ message: "Journal entry not found" });
+      }
+      
+      // Only allow editing draft entries
+      if (existingEntry.isPosted) {
+        return res.status(400).json({ message: "Cannot edit posted journal entries" });
+      }
+      
+      if (existingEntry.isReversed) {
+        return res.status(400).json({ message: "Cannot edit reversed journal entries" });
+      }
+      
+      // Validate lines
+      if (!lines || lines.length < 2) {
+        return res.status(400).json({ message: "At least two lines are required" });
+      }
+      
+      // Calculate totals
+      const totalDebit = lines.reduce((sum: number, l: any) => sum + Number(l.debitAmount || 0), 0);
+      const totalCredit = lines.reduce((sum: number, l: any) => sum + Number(l.creditAmount || 0), 0);
+      
+      // Check balance
+      if (Math.abs(totalDebit - totalCredit) > 0.01) {
+        return res.status(400).json({ message: "Debits must equal credits" });
+      }
+      
+      // Update entry
+      const updatedEntry = await storage.updateJournalEntry(id, {
+        entryDate,
+        description,
+        reference: reference || null,
+        referenceType: referenceType || null,
+        totalDebit: String(totalDebit),
+        totalCredit: String(totalCredit),
+        lines,
+      });
+      
+      await logActivity(req, "update", "journal_entry", id, `Updated journal entry: ${existingEntry.entryNumber}`);
+      res.json(updatedEntry);
+    } catch (error) {
+      console.error("Error updating journal entry:", error);
+      res.status(500).json({ message: "Failed to update journal entry" });
+    }
+  });
+
   app.post("/api/journal-entries/:id/post", isAuthenticated, requireRole("manager", "admin"), async (req: any, res) => {
     try {
       await storage.postJournalEntry(req.params.id, req.session.userId);
