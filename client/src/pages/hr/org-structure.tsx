@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Building2, Users, ChevronDown, ChevronRight, User, List, GitBranch, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 
 interface Department {
@@ -19,6 +19,7 @@ interface PositionType {
   code: string;
   departmentId?: string;
   parentPositionId?: string;
+  secondaryReportingPositionId?: string;
   grade?: string;
   department?: Department;
 }
@@ -77,8 +78,9 @@ function TreeNode({
         onClick={() => childPositions.length > 0 && setExpanded(!expanded)}
       >
         <div 
-          className="relative z-10 p-3 rounded-lg border-2 bg-card shadow-md min-w-[140px] max-w-[160px] text-center transition-all hover:shadow-lg"
+          className="position-node relative z-10 p-3 rounded-lg border-2 bg-card shadow-md min-w-[140px] max-w-[160px] text-center transition-all hover:shadow-lg"
           style={{ borderColor: lineColor }}
+          data-position-id={position.id}
         >
           {posEmployees.length > 0 && posEmployees[0].photoUrl && (
             <div className="flex justify-center mb-2">
@@ -154,10 +156,60 @@ function HierarchyTreeView({
   employees: Employee[];
 }) {
   const [zoom, setZoom] = useState(0.85);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [secondaryLines, setSecondaryLines] = useState<{from: string; to: string; path: string}[]>([]);
+  
   const topLevelPositions = useMemo(() => 
     positions.filter(p => !p.parentPositionId),
     [positions]
   );
+  
+  const secondaryReportingPositions = useMemo(() => 
+    positions.filter(p => p.secondaryReportingPositionId),
+    [positions]
+  );
+
+  const updateSecondaryLines = useCallback(() => {
+    if (!containerRef.current) return;
+    
+    const newLines: {from: string; to: string; path: string}[] = [];
+    const containerRect = containerRef.current.getBoundingClientRect();
+    
+    secondaryReportingPositions.forEach(pos => {
+      const fromEl = containerRef.current?.querySelector(`[data-position-id="${pos.id}"]`);
+      const toEl = containerRef.current?.querySelector(`[data-position-id="${pos.secondaryReportingPositionId}"]`);
+      
+      if (fromEl && toEl) {
+        const fromRect = fromEl.getBoundingClientRect();
+        const toRect = toEl.getBoundingClientRect();
+        
+        const fromX = (fromRect.left + fromRect.width / 2 - containerRect.left) / zoom;
+        const fromY = (fromRect.top - containerRect.top) / zoom;
+        const toX = (toRect.left + toRect.width / 2 - containerRect.left) / zoom;
+        const toY = (toRect.bottom - containerRect.top) / zoom;
+        
+        const midY = (fromY + toY) / 2;
+        const controlOffset = Math.abs(toX - fromX) * 0.3;
+        
+        const path = `M ${fromX} ${fromY} C ${fromX} ${fromY - controlOffset}, ${toX} ${toY + controlOffset}, ${toX} ${toY}`;
+        
+        newLines.push({ from: pos.id, to: pos.secondaryReportingPositionId!, path });
+      }
+    });
+    
+    setSecondaryLines(newLines);
+  }, [secondaryReportingPositions, zoom]);
+  
+  useEffect(() => {
+    const timer = setTimeout(updateSecondaryLines, 100);
+    return () => clearTimeout(timer);
+  }, [updateSecondaryLines, positions]);
+  
+  useEffect(() => {
+    window.addEventListener('resize', updateSecondaryLines);
+    return () => window.removeEventListener('resize', updateSecondaryLines);
+  }, [updateSecondaryLines]);
 
   const handleZoomIn = () => setZoom(z => Math.min(z + 0.1, 1.5));
   const handleZoomOut = () => setZoom(z => Math.max(z - 0.1, 0.4));
@@ -189,7 +241,7 @@ function HierarchyTreeView({
           <Maximize2 className="h-4 w-4" />
         </Button>
       </div>
-    <div className="org-tree-container overflow-auto p-4 min-h-[600px]">
+    <div ref={containerRef} className="org-tree-container overflow-auto p-4 min-h-[600px] relative">
       <style>{`
         .org-tree-container {
           background: linear-gradient(135deg, hsl(var(--background)) 0%, hsl(var(--muted)/0.3) 100%);
@@ -291,6 +343,38 @@ function HierarchyTreeView({
           transform: translateX(-50%);
         }
       `}</style>
+      
+      {secondaryLines.length > 0 && (
+        <svg 
+          ref={svgRef}
+          className="absolute inset-0 pointer-events-none z-20"
+          style={{ width: '100%', height: '100%', overflow: 'visible' }}
+        >
+          <defs>
+            <marker
+              id="arrowhead-secondary"
+              markerWidth="8"
+              markerHeight="6"
+              refX="7"
+              refY="3"
+              orient="auto"
+            >
+              <polygon points="0 0, 8 3, 0 6" fill="#f59e0b" />
+            </marker>
+          </defs>
+          {secondaryLines.map((line, idx) => (
+            <path
+              key={`${line.from}-${line.to}-${idx}`}
+              d={line.path}
+              fill="none"
+              stroke="#f59e0b"
+              strokeWidth="2"
+              strokeDasharray="6 4"
+              markerEnd="url(#arrowhead-secondary)"
+            />
+          ))}
+        </svg>
+      )}
       
       <div className="org-tree-inner">
       <div className="flex flex-col items-center mb-6">

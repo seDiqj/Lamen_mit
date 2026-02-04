@@ -55,6 +55,7 @@ export default function Positions() {
     code: "",
     departmentId: "",
     parentPositionId: "",
+    secondaryReportingPositionId: "",
     grade: "",
     description: "",
   });
@@ -114,7 +115,7 @@ export default function Positions() {
 
   const openCreateDialog = () => {
     setEditingPosition(null);
-    setFormData({ title: "", code: "", departmentId: "", parentPositionId: "", grade: "", description: "" });
+    setFormData({ title: "", code: "", departmentId: "", parentPositionId: "", secondaryReportingPositionId: "", grade: "", description: "" });
     setDialogOpen(true);
   };
 
@@ -125,6 +126,7 @@ export default function Positions() {
       code: pos.code || "",
       departmentId: pos.departmentId || "",
       parentPositionId: pos.parentPositionId || "",
+      secondaryReportingPositionId: pos.secondaryReportingPositionId || "",
       grade: pos.grade || "",
       description: pos.description || "",
     });
@@ -134,7 +136,7 @@ export default function Positions() {
   const closeDialog = () => {
     setDialogOpen(false);
     setEditingPosition(null);
-    setFormData({ title: "", code: "", departmentId: "", parentPositionId: "", grade: "", description: "" });
+    setFormData({ title: "", code: "", departmentId: "", parentPositionId: "", secondaryReportingPositionId: "", grade: "", description: "" });
   };
 
   const getParentPositionName = (parentId: string | null | undefined) => {
@@ -290,17 +292,34 @@ export default function Positions() {
               </Select>
             </div>
             <div className="grid gap-2">
-              <Label>Reports To (Parent Position)</Label>
+              <Label>Reports To - Major (Solid Line)</Label>
               <Select 
                 value={formData.parentPositionId} 
                 onValueChange={(v) => setFormData({ ...formData, parentPositionId: v === "none" ? "" : v })}
               >
                 <SelectTrigger data-testid="select-parent-position">
-                  <SelectValue placeholder="Select parent position (optional)" />
+                  <SelectValue placeholder="Select primary reporting position" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">None (Top Level)</SelectItem>
                   {positions?.filter(p => p.id !== editingPosition?.id).map((pos) => (
+                    <SelectItem key={pos.id} value={pos.id}>{pos.title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label>Reports To - Minor (Dotted Line) - Optional</Label>
+              <Select 
+                value={formData.secondaryReportingPositionId} 
+                onValueChange={(v) => setFormData({ ...formData, secondaryReportingPositionId: v === "none" ? "" : v })}
+              >
+                <SelectTrigger data-testid="select-secondary-position">
+                  <SelectValue placeholder="Select secondary reporting (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {positions?.filter(p => p.id !== editingPosition?.id && p.id !== formData.parentPositionId).map((pos) => (
                     <SelectItem key={pos.id} value={pos.id}>{pos.title}</SelectItem>
                   ))}
                 </SelectContent>
