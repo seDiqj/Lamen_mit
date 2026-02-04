@@ -188,9 +188,12 @@ const DepartmentFlowNode = ({ data }: { data: { label: string; code: string; cou
   </div>
 );
 
-const PositionFlowNode = ({ data }: { data: { label: string; grade?: string; employees: { name: string; code: string }[] } }) => (
+const PositionFlowNode = ({ data }: { data: { label: string; grade?: string; department?: string; employees: { name: string; code: string }[] } }) => (
   <div className="px-3 py-2 shadow-sm rounded-md bg-muted/80 border border-border min-w-[140px]">
     <div className="font-medium text-sm text-center mb-1">{data.label}</div>
+    {data.department && (
+      <Badge variant="outline" className="text-xs mb-1 w-full justify-center">{data.department}</Badge>
+    )}
     {data.grade && (
       <div className="text-xs text-muted-foreground text-center mb-2">Grade: {data.grade}</div>
     )}
@@ -242,30 +245,46 @@ function HierarchyTreeView({
       targetPosition: Position.Top,
     });
     
-    const executivePositions = positions.filter(p => !p.departmentId);
-    const topExecutives = executivePositions.filter(p => 
-      !p.parentPositionId || !positions.find(ep => ep.id === p.parentPositionId)
-    );
+    const topLevelPositions = positions.filter(p => !p.parentPositionId);
     
-    const getChildPositionsGlobal = (parentId: string): PositionType[] => {
+    const getChildPositions = (parentId: string): PositionType[] => {
       return positions.filter(p => p.parentPositionId === parentId);
     };
     
-    let currentYLevel = 0;
+    const getPositionLevel = (pos: PositionType, visited = new Set<string>()): number => {
+      if (visited.has(pos.id)) return 0;
+      visited.add(pos.id);
+      if (!pos.parentPositionId) return 0;
+      const parent = positions.find(p => p.id === pos.parentPositionId);
+      if (!parent) return 0;
+      return 1 + getPositionLevel(parent, visited);
+    };
     
-    const addPositionNodesGlobal = (
+    const positionsByLevel: Map<number, PositionType[]> = new Map();
+    positions.forEach(pos => {
+      const level = getPositionLevel(pos);
+      if (!positionsByLevel.has(level)) {
+        positionsByLevel.set(level, []);
+      }
+      positionsByLevel.get(level)!.push(pos);
+    });
+    
+    const maxLevel = Math.max(...Array.from(positionsByLevel.keys()), 0);
+    
+    const positionNodes: Map<string, { x: number; y: number }> = new Map();
+    
+    const addPositionNodes = (
       positionsList: PositionType[], 
-      parentNodeId: string, 
       level: number, 
-      baseX: number
-    ): number => {
-      if (positionsList.length === 0) return level;
+      baseX: number,
+      spreadWidth: number
+    ) => {
+      if (positionsList.length === 0) return;
       
-      const posSpacing = 200;
+      const posSpacing = Math.min(220, spreadWidth / Math.max(positionsList.length, 1));
       const posTotalWidth = (positionsList.length - 1) * posSpacing;
       const posStartX = baseX - posTotalWidth / 2;
-      const yPos = 60 + level * 120;
-      let maxLevel = level;
+      const yPos = 100 + level * 140;
       
       positionsList.forEach((pos, posIndex) => {
         const posEmployees = employees
@@ -274,12 +293,17 @@ function HierarchyTreeView({
         
         const posX = posStartX + posIndex * posSpacing;
         
+        positionNodes.set(pos.id, { x: posX, y: yPos });
+        
+        const dept = departments.find(d => d.id === pos.departmentId);
+        
         nodes.push({
           id: `pos-${pos.id}`,
           type: "position",
           data: { 
             label: pos.title, 
             grade: pos.grade,
+            department: dept?.name,
             employees: posEmployees 
           },
           position: { x: posX, y: yPos },
@@ -287,121 +311,31 @@ function HierarchyTreeView({
           targetPosition: Position.Top,
         });
         
+        const sourceId = pos.parentPositionId ? `pos-${pos.parentPositionId}` : "company";
         edges.push({
-          id: `e-${parentNodeId}-pos-${pos.id}`,
-          source: parentNodeId,
+          id: `e-${sourceId}-pos-${pos.id}`,
+          source: sourceId,
           target: `pos-${pos.id}`,
           type: "smoothstep",
-          style: { stroke: "hsl(var(--muted-foreground))", strokeWidth: 1.5 },
-          markerEnd: { type: MarkerType.ArrowClosed, color: "hsl(var(--muted-foreground))" },
+          style: { 
+            stroke: pos.parentPositionId ? "hsl(var(--muted-foreground))" : "hsl(var(--primary))", 
+            strokeWidth: pos.parentPositionId ? 1.5 : 2 
+          },
+          markerEnd: { 
+            type: MarkerType.ArrowClosed, 
+            color: pos.parentPositionId ? "hsl(var(--muted-foreground))" : "hsl(var(--primary))" 
+          },
         });
         
-        const children = getChildPositionsGlobal(pos.id);
+        const children = getChildPositions(pos.id);
         if (children.length > 0) {
-          const childMaxLevel = addPositionNodesGlobal(children, `pos-${pos.id}`, level + 1, posX);
-          maxLevel = Math.max(maxLevel, childMaxLevel);
+          addPositionNodes(children, level + 1, posX, posSpacing * 0.9);
         }
       });
-      
-      return maxLevel;
     };
     
-    if (topExecutives.length > 0) {
-      currentYLevel = addPositionNodesGlobal(topExecutives, "company", 1, 400);
-    }
-    
-    const deptYBase = 60 + (currentYLevel + 1) * 120;
-    
-    const deptSpacing = 320;
-    const totalWidth = (departments.length - 1) * deptSpacing;
-    const startX = 400 - totalWidth / 2;
-    
-    departments.forEach((dept, deptIndex) => {
-      const deptEmployees = employees.filter(e => e.departmentId === dept.id);
-      const deptX = startX + deptIndex * deptSpacing;
-      
-      nodes.push({
-        id: `dept-${dept.id}`,
-        type: "department",
-        data: { 
-          label: dept.name, 
-          code: dept.code,
-          count: deptEmployees.length 
-        },
-        position: { x: deptX, y: deptYBase },
-        sourcePosition: Position.Bottom,
-        targetPosition: Position.Top,
-      });
-      
-      const lastExecId = topExecutives.length > 0 ? `pos-${topExecutives[Math.floor(topExecutives.length / 2)]?.id}` : "company";
-      edges.push({
-        id: `e-exec-dept-${dept.id}`,
-        source: currentYLevel > 0 ? lastExecId : "company",
-        target: `dept-${dept.id}`,
-        type: "smoothstep",
-        style: { stroke: "hsl(var(--primary))", strokeWidth: 2 },
-        markerEnd: { type: MarkerType.ArrowClosed, color: "hsl(var(--primary))" },
-      });
-      
-      const deptPositions = positions.filter(p => p.departmentId === dept.id);
-      
-      const topLevelDeptPositions = deptPositions.filter(p => 
-        !p.parentPositionId || !deptPositions.find(dp => dp.id === p.parentPositionId)
-      );
-      
-      const getChildPositions = (parentId: string): PositionType[] => {
-        return deptPositions.filter(p => p.parentPositionId === parentId);
-      };
-      
-      const addPositionNodes = (
-        positionsList: PositionType[], 
-        parentNodeId: string, 
-        level: number, 
-        baseX: number
-      ) => {
-        const posSpacing = 180;
-        const posTotalWidth = (positionsList.length - 1) * posSpacing;
-        const posStartX = baseX - posTotalWidth / 2;
-        const yPos = deptYBase + level * 130;
-        
-        positionsList.forEach((pos, posIndex) => {
-          const posEmployees = deptEmployees
-            .filter(e => e.positionId === pos.id)
-            .map(e => ({ name: `${e.firstName} ${e.lastName}`, code: e.employeeCode }));
-          
-          const posX = posStartX + posIndex * posSpacing;
-          
-          nodes.push({
-            id: `pos-${pos.id}`,
-            type: "position",
-            data: { 
-              label: pos.title, 
-              grade: pos.grade,
-              employees: posEmployees 
-            },
-            position: { x: posX, y: yPos },
-            sourcePosition: Position.Bottom,
-            targetPosition: Position.Top,
-          });
-          
-          edges.push({
-            id: `e-${parentNodeId}-pos-${pos.id}`,
-            source: parentNodeId,
-            target: `pos-${pos.id}`,
-            type: "smoothstep",
-            style: { stroke: "hsl(var(--muted-foreground))", strokeWidth: 1.5 },
-            markerEnd: { type: MarkerType.ArrowClosed, color: "hsl(var(--muted-foreground))" },
-          });
-          
-          const children = getChildPositions(pos.id);
-          if (children.length > 0) {
-            addPositionNodes(children, `pos-${pos.id}`, level + 1, posX);
-          }
-        });
-      };
-      
-      addPositionNodes(topLevelDeptPositions, `dept-${dept.id}`, 1, deptX);
-    });
+    const totalWidth = Math.max(800, topLevelPositions.length * 250);
+    addPositionNodes(topLevelPositions, 1, 400, totalWidth);
     
     return { nodes, edges };
   }, [departments, positions, employees]);
