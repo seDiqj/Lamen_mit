@@ -559,6 +559,7 @@ export const positions = pgTable("positions", {
   title: varchar("title", { length: 255 }).notNull(),
   code: varchar("code", { length: 50 }),
   departmentId: varchar("department_id").references(() => departments.id),
+  parentPositionId: varchar("parent_position_id"),
   grade: varchar("grade", { length: 50 }),
   description: text("description"),
   isActive: boolean("is_active").default(true),

@@ -29,6 +29,7 @@ interface PositionType {
   title: string;
   code: string;
   departmentId?: string;
+  parentPositionId?: string;
   grade?: string;
   department?: Department;
 }
@@ -241,7 +242,7 @@ function HierarchyTreeView({
       targetPosition: Position.Top,
     });
     
-    const deptSpacing = 280;
+    const deptSpacing = 320;
     const totalWidth = (departments.length - 1) * deptSpacing;
     const startX = 400 - totalWidth / 2;
     
@@ -272,38 +273,63 @@ function HierarchyTreeView({
       });
       
       const deptPositions = positions.filter(p => p.departmentId === dept.id);
-      const posSpacing = 180;
-      const posTotalWidth = (deptPositions.length - 1) * posSpacing;
-      const posStartX = deptX - posTotalWidth / 2;
       
-      deptPositions.forEach((pos, posIndex) => {
-        const posEmployees = deptEmployees
-          .filter(e => e.positionId === pos.id)
-          .map(e => ({ name: `${e.firstName} ${e.lastName}`, code: e.employeeCode }));
+      const topLevelPositions = deptPositions.filter(p => 
+        !p.parentPositionId || !deptPositions.find(dp => dp.id === p.parentPositionId)
+      );
+      
+      const getChildPositions = (parentId: string): PositionType[] => {
+        return deptPositions.filter(p => p.parentPositionId === parentId);
+      };
+      
+      const addPositionNodes = (
+        positionsList: PositionType[], 
+        parentNodeId: string, 
+        level: number, 
+        baseX: number
+      ) => {
+        const posSpacing = 200;
+        const posTotalWidth = (positionsList.length - 1) * posSpacing;
+        const posStartX = baseX - posTotalWidth / 2;
+        const yPos = 120 + level * 140;
         
-        const posX = posStartX + posIndex * posSpacing;
-        
-        nodes.push({
-          id: `pos-${pos.id}`,
-          type: "position",
-          data: { 
-            label: pos.title, 
-            grade: pos.grade,
-            employees: posEmployees 
-          },
-          position: { x: posX, y: 260 },
-          sourcePosition: Position.Bottom,
-          targetPosition: Position.Top,
+        positionsList.forEach((pos, posIndex) => {
+          const posEmployees = deptEmployees
+            .filter(e => e.positionId === pos.id)
+            .map(e => ({ name: `${e.firstName} ${e.lastName}`, code: e.employeeCode }));
+          
+          const posX = posStartX + posIndex * posSpacing;
+          
+          nodes.push({
+            id: `pos-${pos.id}`,
+            type: "position",
+            data: { 
+              label: pos.title, 
+              grade: pos.grade,
+              employees: posEmployees 
+            },
+            position: { x: posX, y: yPos },
+            sourcePosition: Position.Bottom,
+            targetPosition: Position.Top,
+          });
+          
+          edges.push({
+            id: `e-${parentNodeId}-pos-${pos.id}`,
+            source: parentNodeId,
+            target: `pos-${pos.id}`,
+            type: "smoothstep",
+            style: { stroke: "hsl(var(--muted-foreground))", strokeWidth: 1.5 },
+            markerEnd: { type: MarkerType.ArrowClosed, color: "hsl(var(--muted-foreground))" },
+          });
+          
+          const children = getChildPositions(pos.id);
+          if (children.length > 0) {
+            addPositionNodes(children, `pos-${pos.id}`, level + 1, posX);
+          }
         });
-        
-        edges.push({
-          id: `e-dept-${dept.id}-pos-${pos.id}`,
-          source: `dept-${dept.id}`,
-          target: `pos-${pos.id}`,
-          type: "smoothstep",
-          style: { stroke: "hsl(var(--muted-foreground))", strokeWidth: 1.5 },
-        });
-      });
+      };
+      
+      addPositionNodes(topLevelPositions, `dept-${dept.id}`, 1, deptX);
     });
     
     return { nodes, edges };

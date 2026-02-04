@@ -54,6 +54,7 @@ export default function Positions() {
     title: "",
     code: "",
     departmentId: "",
+    parentPositionId: "",
     grade: "",
     description: "",
   });
@@ -113,7 +114,7 @@ export default function Positions() {
 
   const openCreateDialog = () => {
     setEditingPosition(null);
-    setFormData({ title: "", code: "", departmentId: "", grade: "", description: "" });
+    setFormData({ title: "", code: "", departmentId: "", parentPositionId: "", grade: "", description: "" });
     setDialogOpen(true);
   };
 
@@ -123,6 +124,7 @@ export default function Positions() {
       title: pos.title || "",
       code: pos.code || "",
       departmentId: pos.departmentId || "",
+      parentPositionId: pos.parentPositionId || "",
       grade: pos.grade || "",
       description: pos.description || "",
     });
@@ -132,7 +134,13 @@ export default function Positions() {
   const closeDialog = () => {
     setDialogOpen(false);
     setEditingPosition(null);
-    setFormData({ title: "", code: "", departmentId: "", grade: "", description: "" });
+    setFormData({ title: "", code: "", departmentId: "", parentPositionId: "", grade: "", description: "" });
+  };
+
+  const getParentPositionName = (parentId: string | null | undefined) => {
+    if (!parentId || !positions) return null;
+    const parent = positions.find(p => p.id === parentId);
+    return parent?.title || null;
   };
 
   const handleSubmit = () => {
@@ -190,6 +198,7 @@ export default function Positions() {
                   <TableHead>Title</TableHead>
                   <TableHead>Code</TableHead>
                   <TableHead>Department</TableHead>
+                  <TableHead>Reports To</TableHead>
                   <TableHead>Grade</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -201,6 +210,7 @@ export default function Positions() {
                     <TableCell className="font-medium">{pos.title}</TableCell>
                     <TableCell>{pos.code || "-"}</TableCell>
                     <TableCell>{pos.department?.name || "-"}</TableCell>
+                    <TableCell>{getParentPositionName(pos.parentPositionId) || "-"}</TableCell>
                     <TableCell>{pos.grade || "-"}</TableCell>
                     <TableCell>
                       <Badge variant={pos.isActive ? "default" : "secondary"}>
@@ -275,6 +285,23 @@ export default function Positions() {
                 <SelectContent>
                   {departments?.map((dept) => (
                     <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label>Reports To (Parent Position)</Label>
+              <Select 
+                value={formData.parentPositionId} 
+                onValueChange={(v) => setFormData({ ...formData, parentPositionId: v === "none" ? "" : v })}
+              >
+                <SelectTrigger data-testid="select-parent-position">
+                  <SelectValue placeholder="Select parent position (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None (Top Level)</SelectItem>
+                  {positions?.filter(p => p.id !== editingPosition?.id).map((pos) => (
+                    <SelectItem key={pos.id} value={pos.id}>{pos.title}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
