@@ -2972,6 +2972,7 @@ export class DatabaseStorage implements IStorage {
       totalExperienceYears: data.totalExperienceYears || 0,
       jobRelatedExperienceYears: data.jobRelatedExperienceYears || 0,
       otherExperienceYears: data.otherExperienceYears || 0,
+      photoUrl: data.photoUrl || null,
     }).returning();
     return employee;
   }
@@ -3003,6 +3004,7 @@ export class DatabaseStorage implements IStorage {
         totalExperienceYears: data.totalExperienceYears || 0,
         jobRelatedExperienceYears: data.jobRelatedExperienceYears || 0,
         otherExperienceYears: data.otherExperienceYears || 0,
+        photoUrl: data.photoUrl || null,
       })
       .where(eq(employees.id, id))
       .returning();

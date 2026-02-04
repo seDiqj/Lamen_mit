@@ -30,6 +30,7 @@ interface Employee {
   departmentId?: string;
   positionId?: string;
   employmentStatus: string;
+  photoUrl?: string;
   department?: Department;
   position?: PositionType;
 }
@@ -95,12 +96,20 @@ function TreeNode({
             <div className="mt-2 pt-2 border-t space-y-1">
               {posEmployees.slice(0, 3).map(emp => (
                 <div key={emp.id} className="flex items-center justify-center gap-1 text-xs">
-                  <div 
-                    className="h-5 w-5 rounded-full flex items-center justify-center text-white text-[10px] font-medium"
-                    style={{ backgroundColor: lineColor }}
-                  >
-                    {emp.firstName[0]}{emp.lastName[0]}
-                  </div>
+                  {emp.photoUrl ? (
+                    <img 
+                      src={emp.photoUrl} 
+                      alt={`${emp.firstName} ${emp.lastName}`}
+                      className="h-5 w-5 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div 
+                      className="h-5 w-5 rounded-full flex items-center justify-center text-white text-[10px] font-medium"
+                      style={{ backgroundColor: lineColor }}
+                    >
+                      {emp.firstName[0]}{emp.lastName[0]}
+                    </div>
+                  )}
                   <span className="truncate">{emp.firstName} {emp.lastName}</span>
                 </div>
               ))}
