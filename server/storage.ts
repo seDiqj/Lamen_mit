@@ -31,6 +31,13 @@ import {
   fiscalPeriods,
   journalEntries,
   journalLines,
+  departments,
+  positions,
+  employees,
+  leaveTypes,
+  leaveRequests,
+  holidays,
+  attendance,
   type Account,
   type InsertAccount,
   type FiscalPeriod,
@@ -2799,6 +2806,377 @@ export class DatabaseStorage implements IStorage {
       transactions: statement,
       closingBalance: runningBalance,
     };
+  }
+
+  // ============== HR Module Storage Methods ==============
+
+  // Departments
+  async getDepartments() {
+    return db.select().from(departments).orderBy(asc(departments.name));
+  }
+
+  async createDepartment(data: any) {
+    const [department] = await db.insert(departments).values({
+      name: data.name,
+      code: data.code,
+      description: data.description,
+      isActive: true,
+    }).returning();
+    return department;
+  }
+
+  async updateDepartment(id: string, data: any) {
+    const [department] = await db.update(departments)
+      .set({
+        name: data.name,
+        code: data.code,
+        description: data.description,
+      })
+      .where(eq(departments.id, id))
+      .returning();
+    return department;
+  }
+
+  async deleteDepartment(id: string) {
+    await db.delete(departments).where(eq(departments.id, id));
+  }
+
+  // Positions
+  async getPositions() {
+    const positionList = await db.select().from(positions).orderBy(asc(positions.title));
+    
+    const positionsWithDept = await Promise.all(positionList.map(async (pos) => {
+      let department = null;
+      if (pos.departmentId) {
+        const [dept] = await db.select().from(departments).where(eq(departments.id, pos.departmentId));
+        department = dept;
+      }
+      return { ...pos, department };
+    }));
+    
+    return positionsWithDept;
+  }
+
+  async createPosition(data: any) {
+    const [position] = await db.insert(positions).values({
+      title: data.title,
+      code: data.code,
+      departmentId: data.departmentId || null,
+      grade: data.grade,
+      description: data.description,
+      isActive: true,
+    }).returning();
+    return position;
+  }
+
+  async updatePosition(id: string, data: any) {
+    const [position] = await db.update(positions)
+      .set({
+        title: data.title,
+        code: data.code,
+        departmentId: data.departmentId || null,
+        grade: data.grade,
+        description: data.description,
+      })
+      .where(eq(positions.id, id))
+      .returning();
+    return position;
+  }
+
+  async deletePosition(id: string) {
+    await db.delete(positions).where(eq(positions.id, id));
+  }
+
+  // Employees
+  async getEmployees() {
+    const employeeList = await db.select().from(employees).orderBy(asc(employees.firstName));
+    
+    const employeesWithRelations = await Promise.all(employeeList.map(async (emp) => {
+      let department = null;
+      let position = null;
+      let branch = null;
+      
+      if (emp.departmentId) {
+        const [dept] = await db.select().from(departments).where(eq(departments.id, emp.departmentId));
+        department = dept;
+      }
+      if (emp.positionId) {
+        const [pos] = await db.select().from(positions).where(eq(positions.id, emp.positionId));
+        position = pos;
+      }
+      if (emp.branchId) {
+        const [br] = await db.select().from(branches).where(eq(branches.id, emp.branchId));
+        branch = br;
+      }
+      
+      return { ...emp, department, position, branch };
+    }));
+    
+    return employeesWithRelations;
+  }
+
+  async getEmployee(id: string) {
+    const [emp] = await db.select().from(employees).where(eq(employees.id, id));
+    if (!emp) return null;
+    
+    let department = null;
+    let position = null;
+    let branch = null;
+    
+    if (emp.departmentId) {
+      const [dept] = await db.select().from(departments).where(eq(departments.id, emp.departmentId));
+      department = dept;
+    }
+    if (emp.positionId) {
+      const [pos] = await db.select().from(positions).where(eq(positions.id, emp.positionId));
+      position = pos;
+    }
+    if (emp.branchId) {
+      const [br] = await db.select().from(branches).where(eq(branches.id, emp.branchId));
+      branch = br;
+    }
+    
+    return { ...emp, department, position, branch };
+  }
+
+  async createEmployee(data: any) {
+    const employeeCount = await db.select({ count: count() }).from(employees);
+    const nextNumber = (employeeCount[0]?.count || 0) + 1;
+    const employeeCode = `EMP${String(nextNumber).padStart(5, '0')}`;
+    
+    const [employee] = await db.insert(employees).values({
+      employeeCode,
+      firstName: data.firstName,
+      lastName: data.lastName,
+      fatherName: data.fatherName,
+      gender: data.gender,
+      dateOfBirth: data.dateOfBirth,
+      maritalStatus: data.maritalStatus,
+      nationalId: data.nationalId,
+      nationalIdPlaceOfIssue: data.nationalIdPlaceOfIssue,
+      phoneNumber: data.phoneNumber,
+      secondPhoneNumber: data.secondPhoneNumber,
+      email: data.email || null,
+      permanentAddress: data.permanentAddress,
+      currentAddress: data.currentAddress,
+      positionId: data.positionId || null,
+      departmentId: data.departmentId || null,
+      branchId: data.branchId || null,
+      dutyStation: data.dutyStation,
+      hireDate: data.hireDate,
+      employmentStatus: data.employmentStatus || 'active',
+      educationLevel: data.educationLevel,
+      educationDetails: data.educationDetails,
+      totalExperienceYears: data.totalExperienceYears || 0,
+      jobRelatedExperienceYears: data.jobRelatedExperienceYears || 0,
+      otherExperienceYears: data.otherExperienceYears || 0,
+    }).returning();
+    return employee;
+  }
+
+  async updateEmployee(id: string, data: any) {
+    const [employee] = await db.update(employees)
+      .set({
+        firstName: data.firstName,
+        lastName: data.lastName,
+        fatherName: data.fatherName,
+        gender: data.gender,
+        dateOfBirth: data.dateOfBirth,
+        maritalStatus: data.maritalStatus,
+        nationalId: data.nationalId,
+        nationalIdPlaceOfIssue: data.nationalIdPlaceOfIssue,
+        phoneNumber: data.phoneNumber,
+        secondPhoneNumber: data.secondPhoneNumber,
+        email: data.email || null,
+        permanentAddress: data.permanentAddress,
+        currentAddress: data.currentAddress,
+        positionId: data.positionId || null,
+        departmentId: data.departmentId || null,
+        branchId: data.branchId || null,
+        dutyStation: data.dutyStation,
+        hireDate: data.hireDate,
+        employmentStatus: data.employmentStatus,
+        educationLevel: data.educationLevel,
+        educationDetails: data.educationDetails,
+        totalExperienceYears: data.totalExperienceYears || 0,
+        jobRelatedExperienceYears: data.jobRelatedExperienceYears || 0,
+        otherExperienceYears: data.otherExperienceYears || 0,
+      })
+      .where(eq(employees.id, id))
+      .returning();
+    return employee;
+  }
+
+  async deleteEmployee(id: string) {
+    await db.delete(employees).where(eq(employees.id, id));
+  }
+
+  // Leave Types
+  async getLeaveTypes() {
+    return db.select().from(leaveTypes).orderBy(asc(leaveTypes.name));
+  }
+
+  async createLeaveType(data: any) {
+    const [leaveType] = await db.insert(leaveTypes).values({
+      name: data.name,
+      code: data.code,
+      daysPerYear: data.daysPerYear || 0,
+      isPaid: data.isPaid ?? true,
+      carryForward: data.carryForward ?? false,
+      maxCarryForwardDays: data.maxCarryForwardDays || 0,
+      description: data.description,
+      isActive: true,
+    }).returning();
+    return leaveType;
+  }
+
+  async updateLeaveType(id: string, data: any) {
+    const [leaveType] = await db.update(leaveTypes)
+      .set({
+        name: data.name,
+        code: data.code,
+        daysPerYear: data.daysPerYear || 0,
+        isPaid: data.isPaid,
+        carryForward: data.carryForward,
+        maxCarryForwardDays: data.maxCarryForwardDays || 0,
+        description: data.description,
+      })
+      .where(eq(leaveTypes.id, id))
+      .returning();
+    return leaveType;
+  }
+
+  async deleteLeaveType(id: string) {
+    await db.delete(leaveTypes).where(eq(leaveTypes.id, id));
+  }
+
+  // Leave Requests
+  async getLeaveRequests() {
+    const requests = await db.select().from(leaveRequests).orderBy(desc(leaveRequests.createdAt));
+    
+    const requestsWithRelations = await Promise.all(requests.map(async (req) => {
+      let employee = null;
+      let leaveType = null;
+      
+      if (req.employeeId) {
+        const [emp] = await db.select().from(employees).where(eq(employees.id, req.employeeId));
+        employee = emp;
+      }
+      if (req.leaveTypeId) {
+        const [lt] = await db.select().from(leaveTypes).where(eq(leaveTypes.id, req.leaveTypeId));
+        leaveType = lt;
+      }
+      
+      return { ...req, employee, leaveType };
+    }));
+    
+    return requestsWithRelations;
+  }
+
+  async createLeaveRequest(data: any) {
+    const [request] = await db.insert(leaveRequests).values({
+      employeeId: data.employeeId,
+      leaveTypeId: data.leaveTypeId,
+      startDate: data.startDate,
+      endDate: data.endDate,
+      totalDays: data.totalDays || 1,
+      reason: data.reason,
+      status: 'pending',
+    }).returning();
+    return request;
+  }
+
+  async updateLeaveRequest(id: string, data: any) {
+    const updateData: any = {};
+    if (data.status) updateData.status = data.status;
+    if (data.rejectionReason) updateData.rejectionReason = data.rejectionReason;
+    if (data.status === 'approved' || data.status === 'rejected') {
+      updateData.approvedAt = new Date();
+    }
+    
+    const [request] = await db.update(leaveRequests)
+      .set(updateData)
+      .where(eq(leaveRequests.id, id))
+      .returning();
+    return request;
+  }
+
+  // Holidays
+  async getHolidays() {
+    return db.select().from(holidays).orderBy(asc(holidays.date));
+  }
+
+  async createHoliday(data: any) {
+    const [holiday] = await db.insert(holidays).values({
+      name: data.name,
+      date: data.date,
+      year: data.year || new Date(data.date).getFullYear(),
+      isRecurring: data.isRecurring ?? false,
+      description: data.description,
+    }).returning();
+    return holiday;
+  }
+
+  async updateHoliday(id: string, data: any) {
+    const [holiday] = await db.update(holidays)
+      .set({
+        name: data.name,
+        date: data.date,
+        year: data.year,
+        isRecurring: data.isRecurring,
+        description: data.description,
+      })
+      .where(eq(holidays.id, id))
+      .returning();
+    return holiday;
+  }
+
+  async deleteHoliday(id: string) {
+    await db.delete(holidays).where(eq(holidays.id, id));
+  }
+
+  // Attendance
+  async getAttendance(date?: string) {
+    let query;
+    if (date) {
+      query = db.select().from(attendance).where(eq(attendance.date, date));
+    } else {
+      query = db.select().from(attendance);
+    }
+    
+    const records = await query.orderBy(desc(attendance.date));
+    
+    const recordsWithEmployee = await Promise.all(records.map(async (rec) => {
+      let employee = null;
+      if (rec.employeeId) {
+        const [emp] = await db.select().from(employees).where(eq(employees.id, rec.employeeId));
+        employee = emp;
+      }
+      return { ...rec, employee };
+    }));
+    
+    return recordsWithEmployee;
+  }
+
+  async createAttendance(data: any) {
+    const [record] = await db.insert(attendance).values({
+      employeeId: data.employeeId,
+      date: data.date,
+      status: data.status || 'present',
+      notes: data.notes,
+    }).returning();
+    return record;
+  }
+
+  async updateAttendance(id: string, data: any) {
+    const [record] = await db.update(attendance)
+      .set({
+        status: data.status,
+        notes: data.notes,
+      })
+      .where(eq(attendance.id, id))
+      .returning();
+    return record;
   }
 }
 

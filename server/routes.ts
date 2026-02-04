@@ -2640,6 +2640,308 @@ export async function registerRoutes(
     }
   });
 
+  // ============== HR Module Routes ==============
+  
+  // HR Departments
+  app.get("/api/hr/departments", isAuthenticated, async (req, res) => {
+    try {
+      const departments = await storage.getDepartments();
+      res.json(departments);
+    } catch (error) {
+      console.error("Error fetching departments:", error);
+      res.status(500).json({ message: "Failed to fetch departments" });
+    }
+  });
+
+  app.post("/api/hr/departments", isAuthenticated, async (req: any, res) => {
+    try {
+      const department = await storage.createDepartment(req.body);
+      await logActivity(req, "create", "department", department.id, `Created department: ${department.name}`);
+      res.status(201).json(department);
+    } catch (error) {
+      console.error("Error creating department:", error);
+      res.status(500).json({ message: "Failed to create department" });
+    }
+  });
+
+  app.patch("/api/hr/departments/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const department = await storage.updateDepartment(req.params.id, req.body);
+      await logActivity(req, "update", "department", req.params.id, `Updated department: ${department.name}`);
+      res.json(department);
+    } catch (error) {
+      console.error("Error updating department:", error);
+      res.status(500).json({ message: "Failed to update department" });
+    }
+  });
+
+  app.delete("/api/hr/departments/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.deleteDepartment(req.params.id);
+      await logActivity(req, "delete", "department", req.params.id, "Deleted department");
+      res.json({ message: "Department deleted" });
+    } catch (error) {
+      console.error("Error deleting department:", error);
+      res.status(500).json({ message: "Failed to delete department" });
+    }
+  });
+
+  // HR Positions
+  app.get("/api/hr/positions", isAuthenticated, async (req, res) => {
+    try {
+      const positions = await storage.getPositions();
+      res.json(positions);
+    } catch (error) {
+      console.error("Error fetching positions:", error);
+      res.status(500).json({ message: "Failed to fetch positions" });
+    }
+  });
+
+  app.post("/api/hr/positions", isAuthenticated, async (req: any, res) => {
+    try {
+      const position = await storage.createPosition(req.body);
+      await logActivity(req, "create", "position", position.id, `Created position: ${position.title}`);
+      res.status(201).json(position);
+    } catch (error) {
+      console.error("Error creating position:", error);
+      res.status(500).json({ message: "Failed to create position" });
+    }
+  });
+
+  app.patch("/api/hr/positions/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const position = await storage.updatePosition(req.params.id, req.body);
+      await logActivity(req, "update", "position", req.params.id, `Updated position: ${position.title}`);
+      res.json(position);
+    } catch (error) {
+      console.error("Error updating position:", error);
+      res.status(500).json({ message: "Failed to update position" });
+    }
+  });
+
+  app.delete("/api/hr/positions/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.deletePosition(req.params.id);
+      await logActivity(req, "delete", "position", req.params.id, "Deleted position");
+      res.json({ message: "Position deleted" });
+    } catch (error) {
+      console.error("Error deleting position:", error);
+      res.status(500).json({ message: "Failed to delete position" });
+    }
+  });
+
+  // HR Employees
+  app.get("/api/hr/employees", isAuthenticated, async (req, res) => {
+    try {
+      const employees = await storage.getEmployees();
+      res.json(employees);
+    } catch (error) {
+      console.error("Error fetching employees:", error);
+      res.status(500).json({ message: "Failed to fetch employees" });
+    }
+  });
+
+  app.get("/api/hr/employees/:id", isAuthenticated, async (req, res) => {
+    try {
+      const employee = await storage.getEmployee(req.params.id);
+      if (!employee) {
+        return res.status(404).json({ message: "Employee not found" });
+      }
+      res.json(employee);
+    } catch (error) {
+      console.error("Error fetching employee:", error);
+      res.status(500).json({ message: "Failed to fetch employee" });
+    }
+  });
+
+  app.post("/api/hr/employees", isAuthenticated, async (req: any, res) => {
+    try {
+      const employee = await storage.createEmployee(req.body);
+      await logActivity(req, "create", "employee", employee.id, `Created employee: ${employee.firstName} ${employee.lastName}`);
+      res.status(201).json(employee);
+    } catch (error) {
+      console.error("Error creating employee:", error);
+      res.status(500).json({ message: "Failed to create employee" });
+    }
+  });
+
+  app.patch("/api/hr/employees/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const employee = await storage.updateEmployee(req.params.id, req.body);
+      await logActivity(req, "update", "employee", req.params.id, `Updated employee: ${employee.firstName} ${employee.lastName}`);
+      res.json(employee);
+    } catch (error) {
+      console.error("Error updating employee:", error);
+      res.status(500).json({ message: "Failed to update employee" });
+    }
+  });
+
+  app.delete("/api/hr/employees/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.deleteEmployee(req.params.id);
+      await logActivity(req, "delete", "employee", req.params.id, "Deleted employee");
+      res.json({ message: "Employee deleted" });
+    } catch (error) {
+      console.error("Error deleting employee:", error);
+      res.status(500).json({ message: "Failed to delete employee" });
+    }
+  });
+
+  // HR Leave Types
+  app.get("/api/hr/leave-types", isAuthenticated, async (req, res) => {
+    try {
+      const leaveTypes = await storage.getLeaveTypes();
+      res.json(leaveTypes);
+    } catch (error) {
+      console.error("Error fetching leave types:", error);
+      res.status(500).json({ message: "Failed to fetch leave types" });
+    }
+  });
+
+  app.post("/api/hr/leave-types", isAuthenticated, async (req: any, res) => {
+    try {
+      const leaveType = await storage.createLeaveType(req.body);
+      await logActivity(req, "create", "leave_type", leaveType.id, `Created leave type: ${leaveType.name}`);
+      res.status(201).json(leaveType);
+    } catch (error) {
+      console.error("Error creating leave type:", error);
+      res.status(500).json({ message: "Failed to create leave type" });
+    }
+  });
+
+  app.patch("/api/hr/leave-types/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const leaveType = await storage.updateLeaveType(req.params.id, req.body);
+      await logActivity(req, "update", "leave_type", req.params.id, `Updated leave type: ${leaveType.name}`);
+      res.json(leaveType);
+    } catch (error) {
+      console.error("Error updating leave type:", error);
+      res.status(500).json({ message: "Failed to update leave type" });
+    }
+  });
+
+  app.delete("/api/hr/leave-types/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.deleteLeaveType(req.params.id);
+      await logActivity(req, "delete", "leave_type", req.params.id, "Deleted leave type");
+      res.json({ message: "Leave type deleted" });
+    } catch (error) {
+      console.error("Error deleting leave type:", error);
+      res.status(500).json({ message: "Failed to delete leave type" });
+    }
+  });
+
+  // HR Leave Requests
+  app.get("/api/hr/leave-requests", isAuthenticated, async (req, res) => {
+    try {
+      const leaveRequests = await storage.getLeaveRequests();
+      res.json(leaveRequests);
+    } catch (error) {
+      console.error("Error fetching leave requests:", error);
+      res.status(500).json({ message: "Failed to fetch leave requests" });
+    }
+  });
+
+  app.post("/api/hr/leave-requests", isAuthenticated, async (req: any, res) => {
+    try {
+      const leaveRequest = await storage.createLeaveRequest(req.body);
+      await logActivity(req, "create", "leave_request", leaveRequest.id, "Created leave request");
+      res.status(201).json(leaveRequest);
+    } catch (error) {
+      console.error("Error creating leave request:", error);
+      res.status(500).json({ message: "Failed to create leave request" });
+    }
+  });
+
+  app.patch("/api/hr/leave-requests/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const leaveRequest = await storage.updateLeaveRequest(req.params.id, req.body);
+      await logActivity(req, "update", "leave_request", req.params.id, `Updated leave request status to: ${req.body.status}`);
+      res.json(leaveRequest);
+    } catch (error) {
+      console.error("Error updating leave request:", error);
+      res.status(500).json({ message: "Failed to update leave request" });
+    }
+  });
+
+  // HR Holidays
+  app.get("/api/hr/holidays", isAuthenticated, async (req, res) => {
+    try {
+      const holidays = await storage.getHolidays();
+      res.json(holidays);
+    } catch (error) {
+      console.error("Error fetching holidays:", error);
+      res.status(500).json({ message: "Failed to fetch holidays" });
+    }
+  });
+
+  app.post("/api/hr/holidays", isAuthenticated, async (req: any, res) => {
+    try {
+      const holiday = await storage.createHoliday(req.body);
+      await logActivity(req, "create", "holiday", holiday.id, `Created holiday: ${holiday.name}`);
+      res.status(201).json(holiday);
+    } catch (error) {
+      console.error("Error creating holiday:", error);
+      res.status(500).json({ message: "Failed to create holiday" });
+    }
+  });
+
+  app.patch("/api/hr/holidays/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const holiday = await storage.updateHoliday(req.params.id, req.body);
+      await logActivity(req, "update", "holiday", req.params.id, `Updated holiday: ${holiday.name}`);
+      res.json(holiday);
+    } catch (error) {
+      console.error("Error updating holiday:", error);
+      res.status(500).json({ message: "Failed to update holiday" });
+    }
+  });
+
+  app.delete("/api/hr/holidays/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.deleteHoliday(req.params.id);
+      await logActivity(req, "delete", "holiday", req.params.id, "Deleted holiday");
+      res.json({ message: "Holiday deleted" });
+    } catch (error) {
+      console.error("Error deleting holiday:", error);
+      res.status(500).json({ message: "Failed to delete holiday" });
+    }
+  });
+
+  // HR Attendance
+  app.get("/api/hr/attendance", isAuthenticated, async (req, res) => {
+    try {
+      const { date } = req.query;
+      const attendanceRecords = await storage.getAttendance(date as string);
+      res.json(attendanceRecords);
+    } catch (error) {
+      console.error("Error fetching attendance:", error);
+      res.status(500).json({ message: "Failed to fetch attendance" });
+    }
+  });
+
+  app.post("/api/hr/attendance", isAuthenticated, async (req: any, res) => {
+    try {
+      const attendanceRecord = await storage.createAttendance(req.body);
+      await logActivity(req, "create", "attendance", attendanceRecord.id, "Recorded attendance");
+      res.status(201).json(attendanceRecord);
+    } catch (error) {
+      console.error("Error creating attendance:", error);
+      res.status(500).json({ message: "Failed to create attendance" });
+    }
+  });
+
+  app.patch("/api/hr/attendance/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const attendanceRecord = await storage.updateAttendance(req.params.id, req.body);
+      await logActivity(req, "update", "attendance", req.params.id, "Updated attendance");
+      res.json(attendanceRecord);
+    } catch (error) {
+      console.error("Error updating attendance:", error);
+      res.status(500).json({ message: "Failed to update attendance" });
+    }
+  });
+
   // Seed data on startup
   try {
     await storage.seedData();
