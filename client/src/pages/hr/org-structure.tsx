@@ -439,7 +439,11 @@ function HierarchyTreeView({
         )}
       <div className="flex flex-col items-center mb-6">
         <div className="p-5 rounded-xl bg-primary text-primary-foreground shadow-lg min-w-[240px] text-center">
-          <Building2 className="h-8 w-8 mx-auto mb-2" />
+          <img 
+            src="/logo.jpeg" 
+            alt="Lamen Logo" 
+            className="h-12 w-auto mx-auto mb-2 rounded"
+          />
           <div className="font-bold text-xl">Lamen Microfinance Institution</div>
           <div className="text-sm opacity-90 mt-1">{employees.length} Total Employees</div>
         </div>
