@@ -2872,6 +2872,7 @@ export class DatabaseStorage implements IStorage {
       code: data.code,
       departmentId: data.departmentId || null,
       parentPositionId: data.parentPositionId || null,
+      secondaryReportingPositionId: data.secondaryReportingPositionId || null,
       grade: data.grade,
       description: data.description,
       isActive: true,
@@ -2886,6 +2887,7 @@ export class DatabaseStorage implements IStorage {
         code: data.code,
         departmentId: data.departmentId || null,
         parentPositionId: data.parentPositionId || null,
+        secondaryReportingPositionId: data.secondaryReportingPositionId || null,
         grade: data.grade,
         description: data.description,
       })
