@@ -79,6 +79,26 @@ function TreeNode({
           className="relative z-10 p-4 rounded-lg border-2 bg-card shadow-md min-w-[180px] text-center transition-all hover:shadow-lg"
           style={{ borderColor: lineColor }}
         >
+          {posEmployees.length > 0 && posEmployees[0].photoUrl && (
+            <div className="flex justify-center mb-2">
+              <img 
+                src={posEmployees[0].photoUrl} 
+                alt={`${posEmployees[0].firstName} ${posEmployees[0].lastName}`}
+                className="h-12 w-12 rounded-full object-cover border-2"
+                style={{ borderColor: lineColor }}
+              />
+            </div>
+          )}
+          {posEmployees.length > 0 && !posEmployees[0].photoUrl && (
+            <div className="flex justify-center mb-2">
+              <div 
+                className="h-12 w-12 rounded-full flex items-center justify-center text-white text-sm font-semibold border-2"
+                style={{ backgroundColor: lineColor, borderColor: lineColor }}
+              >
+                {posEmployees[0].firstName[0]}{posEmployees[0].lastName[0]}
+              </div>
+            </div>
+          )}
           <div className="font-semibold text-sm">{position.title}</div>
           {dept && (
             <Badge 
@@ -95,22 +115,8 @@ function TreeNode({
           {posEmployees.length > 0 && (
             <div className="mt-2 pt-2 border-t space-y-1">
               {posEmployees.slice(0, 3).map(emp => (
-                <div key={emp.id} className="flex items-center justify-center gap-1 text-xs">
-                  {emp.photoUrl ? (
-                    <img 
-                      src={emp.photoUrl} 
-                      alt={`${emp.firstName} ${emp.lastName}`}
-                      className="h-5 w-5 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div 
-                      className="h-5 w-5 rounded-full flex items-center justify-center text-white text-[10px] font-medium"
-                      style={{ backgroundColor: lineColor }}
-                    >
-                      {emp.firstName[0]}{emp.lastName[0]}
-                    </div>
-                  )}
-                  <span className="truncate">{emp.firstName} {emp.lastName}</span>
+                <div key={emp.id} className="text-xs text-muted-foreground">
+                  {emp.firstName} {emp.lastName}
                 </div>
               ))}
               {posEmployees.length > 3 && (
