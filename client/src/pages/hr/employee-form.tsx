@@ -392,15 +392,36 @@ export default function EmployeeForm() {
             <FormField
               control={form.control}
               name="dateOfBirth"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Date of Birth</FormLabel>
-                  <FormControl>
-                    <Input type="date" {...field} data-testid="input-dob" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+              render={({ field }) => {
+                const calculateAge = (dob: string) => {
+                  if (!dob) return null;
+                  const birthDate = new Date(dob);
+                  const today = new Date();
+                  let age = today.getFullYear() - birthDate.getFullYear();
+                  const monthDiff = today.getMonth() - birthDate.getMonth();
+                  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                    age--;
+                  }
+                  return age;
+                };
+                const age = calculateAge(field.value);
+                return (
+                  <FormItem>
+                    <FormLabel>Date of Birth</FormLabel>
+                    <div className="flex items-center gap-3">
+                      <FormControl>
+                        <Input type="date" {...field} data-testid="input-dob" className="flex-1" />
+                      </FormControl>
+                      {age !== null && age >= 0 && (
+                        <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
+                          Age: <span className="text-foreground font-semibold">{age}</span> years
+                        </span>
+                      )}
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
             />
             <FormField
               control={form.control}
