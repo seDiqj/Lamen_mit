@@ -188,14 +188,29 @@ function HierarchyTreeView({
         const fromRect = fromEl.getBoundingClientRect();
         const toRect = toEl.getBoundingClientRect();
         
-        const fromX = (fromRect.left + fromRect.width / 2 - innerRect.left) / zoom;
-        const fromY = (fromRect.top - innerRect.top) / zoom;
-        const toX = (toRect.left + toRect.width / 2 - innerRect.left) / zoom;
-        const toY = (toRect.bottom - innerRect.top) / zoom;
+        const fromCenterX = (fromRect.left + fromRect.width / 2 - innerRect.left) / zoom;
+        const toCenterX = (toRect.left + toRect.width / 2 - innerRect.left) / zoom;
         
-        const controlOffset = Math.min(Math.abs(toX - fromX) * 0.5, 80);
+        const isChildOnLeft = fromCenterX < toCenterX;
         
-        const path = `M ${fromX} ${fromY} C ${fromX - controlOffset} ${fromY - 40}, ${toX + controlOffset} ${toY + 40}, ${toX} ${toY}`;
+        let fromX: number, fromY: number, toX: number, toY: number;
+        
+        if (isChildOnLeft) {
+          fromX = (fromRect.left - innerRect.left) / zoom;
+          fromY = (fromRect.top + fromRect.height / 2 - innerRect.top) / zoom;
+          toX = (toRect.left - innerRect.left) / zoom;
+          toY = (toRect.top + toRect.height / 2 - innerRect.top) / zoom;
+        } else {
+          fromX = (fromRect.right - innerRect.left) / zoom;
+          fromY = (fromRect.top + fromRect.height / 2 - innerRect.top) / zoom;
+          toX = (toRect.right - innerRect.left) / zoom;
+          toY = (toRect.top + toRect.height / 2 - innerRect.top) / zoom;
+        }
+        
+        const horizontalOffset = isChildOnLeft ? -50 : 50;
+        const midX = fromX + horizontalOffset;
+        
+        const path = `M ${fromX} ${fromY} C ${midX} ${fromY}, ${midX} ${toY}, ${toX} ${toY}`;
         
         newLines.push({ from: pos.id, to: pos.secondaryReportingPositionId!, path });
       }
