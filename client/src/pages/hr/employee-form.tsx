@@ -57,7 +57,10 @@ import {
   Plus,
   Trash2,
   FileText,
+  Upload,
+  Camera,
 } from "lucide-react";
+import { useUpload } from "@/hooks/use-upload";
 import type { 
   Branch, 
   Department, 
@@ -162,6 +165,17 @@ export default function EmployeeForm() {
   const [newLanguage, setNewLanguage] = useState<LanguageForm>({ language: "", speakingLevel: "basic", writingLevel: "basic", readingLevel: "basic" });
   const [newFamilyMember, setNewFamilyMember] = useState<FamilyMemberForm>({ name: "", fatherName: "", relationship: "", position: "", department: "" });
   const [newReference, setNewReference] = useState<ReferenceForm>({ name: "", relationship: "", phoneNumber: "", email: "", address: "" });
+  const [photoUrl, setPhotoUrl] = useState<string>("");
+  
+  const { uploadFile, isUploading } = useUpload({
+    onSuccess: (response) => {
+      setPhotoUrl(response.objectPath);
+      toast({ title: "Photo uploaded successfully" });
+    },
+    onError: (error) => {
+      toast({ title: "Upload failed", description: error.message, variant: "destructive" });
+    },
+  });
 
   const form = useForm<EmployeeFormData>({
     resolver: zodResolver(employeeFormSchema),
@@ -230,6 +244,9 @@ export default function EmployeeForm() {
         jobRelatedExperienceYears: existingEmployee.jobRelatedExperienceYears || 0,
         otherExperienceYears: existingEmployee.otherExperienceYears || 0,
       });
+      if (existingEmployee.photoUrl) {
+        setPhotoUrl(existingEmployee.photoUrl);
+      }
     }
   }, [existingEmployee, isEditing, form]);
 
@@ -266,6 +283,7 @@ export default function EmployeeForm() {
   const onSubmit = (data: EmployeeFormData) => {
     const submitData = {
       ...data,
+      photoUrl,
       emergencyContacts,
       languages,
       familyMembers,
@@ -327,7 +345,65 @@ export default function EmployeeForm() {
     switch (WIZARD_TABS[activeTab].id) {
       case "personal":
         return (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="space-y-6">
+            {/* Photo Upload Section */}
+            <div className="flex items-start gap-6 pb-4 border-b">
+              <div className="relative">
+                {photoUrl ? (
+                  <img 
+                    src={photoUrl} 
+                    alt="Employee photo" 
+                    className="h-32 w-32 rounded-full object-cover border-4 border-primary/20"
+                  />
+                ) : (
+                  <div className="h-32 w-32 rounded-full bg-muted flex items-center justify-center border-4 border-dashed border-muted-foreground/30">
+                    <Camera className="h-10 w-10 text-muted-foreground" />
+                  </div>
+                )}
+              </div>
+              <div className="flex-1">
+                <Label className="text-base font-medium">Employee Photo</Label>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Upload a professional photo for the employee's profile.
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isUploading}
+                    onClick={() => {
+                      const input = document.createElement('input');
+                      input.type = 'file';
+                      input.accept = 'image/*';
+                      input.onchange = (e) => {
+                        const file = (e.target as HTMLInputElement).files?.[0];
+                        if (file) {
+                          uploadFile(file);
+                        }
+                      };
+                      input.click();
+                    }}
+                    data-testid="button-upload-photo"
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    {isUploading ? "Uploading..." : "Upload Photo"}
+                  </Button>
+                  {photoUrl && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => setPhotoUrl("")}
+                      data-testid="button-remove-photo"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Remove
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <FormField
               control={form.control}
               name="firstName"
@@ -540,6 +616,7 @@ export default function EmployeeForm() {
                   </FormItem>
                 )}
               />
+            </div>
             </div>
           </div>
         );

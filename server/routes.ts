@@ -9,6 +9,7 @@ import { pool } from "./db";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 
 // Configure multer for file uploads
 const uploadsDir = path.join(process.cwd(), "uploads");
@@ -78,6 +79,9 @@ export async function registerRoutes(
   // Serve uploaded files statically
   const express = await import("express");
   app.use("/uploads", express.default.static(uploadsDir));
+
+  // Register object storage routes for file uploads
+  registerObjectStorageRoutes(app);
 
   // Auth middleware
   const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
