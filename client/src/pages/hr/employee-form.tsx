@@ -793,9 +793,15 @@ export default function EmployeeForm() {
                   <FormLabel>Total Experience (Years)</FormLabel>
                   <FormControl>
                     <Input 
-                      type="number" 
-                      {...field}
-                      onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={field.value?.toString() || ""}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '');
+                        field.onChange(val ? parseInt(val) : 0);
+                      }}
+                      placeholder="Enter years"
                       data-testid="input-total-exp" 
                     />
                   </FormControl>
@@ -811,9 +817,15 @@ export default function EmployeeForm() {
                   <FormLabel>Job Related Experience (Years)</FormLabel>
                   <FormControl>
                     <Input 
-                      type="number" 
-                      {...field}
-                      onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={field.value?.toString() || ""}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '');
+                        field.onChange(val ? parseInt(val) : 0);
+                      }}
+                      placeholder="Enter years"
                       data-testid="input-job-exp" 
                     />
                   </FormControl>
@@ -829,9 +841,15 @@ export default function EmployeeForm() {
                   <FormLabel>Other Experience (Years)</FormLabel>
                   <FormControl>
                     <Input 
-                      type="number" 
-                      {...field}
-                      onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={field.value?.toString() || ""}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '');
+                        field.onChange(val ? parseInt(val) : 0);
+                      }}
+                      placeholder="Enter years"
                       data-testid="input-other-exp" 
                     />
                   </FormControl>
@@ -1188,8 +1206,8 @@ export default function EmployeeForm() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setContactDialogOpen(false)}>Cancel</Button>
-            <Button onClick={addContact}>Add Contact</Button>
+            <Button type="button" variant="outline" onClick={() => setContactDialogOpen(false)}>Cancel</Button>
+            <Button type="button" onClick={addContact}>Add Contact</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1252,8 +1270,8 @@ export default function EmployeeForm() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setLanguageDialogOpen(false)}>Cancel</Button>
-            <Button onClick={addLanguage}>Add Language</Button>
+            <Button type="button" variant="outline" onClick={() => setLanguageDialogOpen(false)}>Cancel</Button>
+            <Button type="button" onClick={addLanguage}>Add Language</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1306,8 +1324,8 @@ export default function EmployeeForm() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setFamilyDialogOpen(false)}>Cancel</Button>
-            <Button onClick={addFamilyMember}>Add Family Member</Button>
+            <Button type="button" variant="outline" onClick={() => setFamilyDialogOpen(false)}>Cancel</Button>
+            <Button type="button" onClick={addFamilyMember}>Add Family Member</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1361,8 +1379,8 @@ export default function EmployeeForm() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setReferenceDialogOpen(false)}>Cancel</Button>
-            <Button onClick={addReference}>Add Reference</Button>
+            <Button type="button" variant="outline" onClick={() => setReferenceDialogOpen(false)}>Cancel</Button>
+            <Button type="button" onClick={addReference}>Add Reference</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
