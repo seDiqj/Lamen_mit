@@ -242,6 +242,76 @@ function HierarchyTreeView({
       targetPosition: Position.Top,
     });
     
+    const executivePositions = positions.filter(p => !p.departmentId);
+    const topExecutives = executivePositions.filter(p => 
+      !p.parentPositionId || !positions.find(ep => ep.id === p.parentPositionId)
+    );
+    
+    const getChildPositionsGlobal = (parentId: string): PositionType[] => {
+      return positions.filter(p => p.parentPositionId === parentId);
+    };
+    
+    let currentYLevel = 0;
+    
+    const addPositionNodesGlobal = (
+      positionsList: PositionType[], 
+      parentNodeId: string, 
+      level: number, 
+      baseX: number
+    ): number => {
+      if (positionsList.length === 0) return level;
+      
+      const posSpacing = 200;
+      const posTotalWidth = (positionsList.length - 1) * posSpacing;
+      const posStartX = baseX - posTotalWidth / 2;
+      const yPos = 60 + level * 120;
+      let maxLevel = level;
+      
+      positionsList.forEach((pos, posIndex) => {
+        const posEmployees = employees
+          .filter(e => e.positionId === pos.id)
+          .map(e => ({ name: `${e.firstName} ${e.lastName}`, code: e.employeeCode }));
+        
+        const posX = posStartX + posIndex * posSpacing;
+        
+        nodes.push({
+          id: `pos-${pos.id}`,
+          type: "position",
+          data: { 
+            label: pos.title, 
+            grade: pos.grade,
+            employees: posEmployees 
+          },
+          position: { x: posX, y: yPos },
+          sourcePosition: Position.Bottom,
+          targetPosition: Position.Top,
+        });
+        
+        edges.push({
+          id: `e-${parentNodeId}-pos-${pos.id}`,
+          source: parentNodeId,
+          target: `pos-${pos.id}`,
+          type: "smoothstep",
+          style: { stroke: "hsl(var(--muted-foreground))", strokeWidth: 1.5 },
+          markerEnd: { type: MarkerType.ArrowClosed, color: "hsl(var(--muted-foreground))" },
+        });
+        
+        const children = getChildPositionsGlobal(pos.id);
+        if (children.length > 0) {
+          const childMaxLevel = addPositionNodesGlobal(children, `pos-${pos.id}`, level + 1, posX);
+          maxLevel = Math.max(maxLevel, childMaxLevel);
+        }
+      });
+      
+      return maxLevel;
+    };
+    
+    if (topExecutives.length > 0) {
+      currentYLevel = addPositionNodesGlobal(topExecutives, "company", 1, 400);
+    }
+    
+    const deptYBase = 60 + (currentYLevel + 1) * 120;
+    
     const deptSpacing = 320;
     const totalWidth = (departments.length - 1) * deptSpacing;
     const startX = 400 - totalWidth / 2;
@@ -258,14 +328,15 @@ function HierarchyTreeView({
           code: dept.code,
           count: deptEmployees.length 
         },
-        position: { x: deptX, y: 120 },
+        position: { x: deptX, y: deptYBase },
         sourcePosition: Position.Bottom,
         targetPosition: Position.Top,
       });
       
+      const lastExecId = topExecutives.length > 0 ? `pos-${topExecutives[Math.floor(topExecutives.length / 2)]?.id}` : "company";
       edges.push({
-        id: `e-company-dept-${dept.id}`,
-        source: "company",
+        id: `e-exec-dept-${dept.id}`,
+        source: currentYLevel > 0 ? lastExecId : "company",
         target: `dept-${dept.id}`,
         type: "smoothstep",
         style: { stroke: "hsl(var(--primary))", strokeWidth: 2 },
@@ -274,7 +345,7 @@ function HierarchyTreeView({
       
       const deptPositions = positions.filter(p => p.departmentId === dept.id);
       
-      const topLevelPositions = deptPositions.filter(p => 
+      const topLevelDeptPositions = deptPositions.filter(p => 
         !p.parentPositionId || !deptPositions.find(dp => dp.id === p.parentPositionId)
       );
       
@@ -288,10 +359,10 @@ function HierarchyTreeView({
         level: number, 
         baseX: number
       ) => {
-        const posSpacing = 200;
+        const posSpacing = 180;
         const posTotalWidth = (positionsList.length - 1) * posSpacing;
         const posStartX = baseX - posTotalWidth / 2;
-        const yPos = 120 + level * 140;
+        const yPos = deptYBase + level * 130;
         
         positionsList.forEach((pos, posIndex) => {
           const posEmployees = deptEmployees
@@ -329,7 +400,7 @@ function HierarchyTreeView({
         });
       };
       
-      addPositionNodes(topLevelPositions, `dept-${dept.id}`, 1, deptX);
+      addPositionNodes(topLevelDeptPositions, `dept-${dept.id}`, 1, deptX);
     });
     
     return { nodes, edges };
