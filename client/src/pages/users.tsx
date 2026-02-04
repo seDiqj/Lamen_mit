@@ -48,7 +48,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Switch } from "@/components/ui/switch";
-import { Search, Plus, Pencil, Trash2, Users, Shield, UserCheck, Crown, Lock, Unlock, LayoutDashboard, FileText, BarChart3, AlertTriangle, Activity, Settings, CreditCard, ClipboardList, PiggyBank, ChevronDown, ChevronRight, Building2, UserPlus, Briefcase, Gavel, FileCheck, Banknote, BookOpen, FolderOpen, Layers, Receipt, Scale, FileSpreadsheet } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, Users, Shield, UserCheck, Crown, Lock, Unlock, LayoutDashboard, FileText, BarChart3, AlertTriangle, Activity, Settings, CreditCard, ClipboardList, PiggyBank, ChevronDown, ChevronRight, Building2, UserPlus, Briefcase, Gavel, FileCheck, Banknote, BookOpen, FolderOpen, Layers, Receipt, Scale, FileSpreadsheet, UserCog, Network, Calendar, Clock, Plane, CalendarOff, GitBranch } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -123,6 +123,23 @@ const PAGE_CATEGORIES: PageCategory[] = [
     ],
   },
   {
+    id: "hr",
+    label: "Human Resources",
+    icon: UserCog,
+    color: "from-pink-500 to-rose-500",
+    pages: [
+      { id: "hr-dashboard", label: "HR Dashboard", icon: LayoutDashboard },
+      { id: "hr-employees", label: "Employees", icon: Users },
+      { id: "hr-departments", label: "Departments", icon: Building2 },
+      { id: "hr-positions", label: "Positions", icon: Briefcase },
+      { id: "hr-org-structure", label: "Org Structure", icon: GitBranch },
+      { id: "hr-attendance", label: "Attendance", icon: Clock },
+      { id: "hr-leave-types", label: "Leave Types", icon: CalendarOff },
+      { id: "hr-leave-requests", label: "Leave Requests", icon: Plane },
+      { id: "hr-holidays", label: "Holidays", icon: Calendar },
+    ],
+  },
+  {
     id: "accounting",
     label: "Accounting",
     icon: BookOpen,
@@ -178,6 +195,15 @@ const PAGE_ICONS: Record<string, any> = {
   "trial-balance": Scale,
   "income-statement": BarChart3,
   "balance-sheet": FileSpreadsheet,
+  "hr-dashboard": LayoutDashboard,
+  "hr-employees": Users,
+  "hr-departments": Building2,
+  "hr-positions": Briefcase,
+  "hr-org-structure": GitBranch,
+  "hr-attendance": Clock,
+  "hr-leave-types": CalendarOff,
+  "hr-leave-requests": Plane,
+  "hr-holidays": Calendar,
 };
 
 const PAGE_LABELS: Record<string, string> = {
@@ -208,6 +234,15 @@ const PAGE_LABELS: Record<string, string> = {
   "trial-balance": "Trial Balance",
   "income-statement": "Income Statement",
   "balance-sheet": "Balance Sheet",
+  "hr-dashboard": "HR Dashboard",
+  "hr-employees": "Employees",
+  "hr-departments": "Departments",
+  "hr-positions": "Positions",
+  "hr-org-structure": "Org Structure",
+  "hr-attendance": "Attendance",
+  "hr-leave-types": "Leave Types",
+  "hr-leave-requests": "Leave Requests",
+  "hr-holidays": "Holidays",
 };
 
 interface User {

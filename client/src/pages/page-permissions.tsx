@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Shield, Users, Lock, Unlock, LayoutDashboard, UserCircle, FileText, BarChart3, AlertTriangle, Activity, Settings, Building2, UserCheck, Banknote, CreditCard, CheckCircle, Vote, ClipboardCheck, BookOpen, Receipt, Scale, FileSpreadsheet, Layers } from "lucide-react";
+import { Shield, Users, Lock, Unlock, LayoutDashboard, UserCircle, FileText, BarChart3, AlertTriangle, Activity, Settings, Building2, UserCheck, Banknote, CreditCard, CheckCircle, Vote, ClipboardCheck, BookOpen, Receipt, Scale, FileSpreadsheet, Layers, GitBranch, Clock, CalendarOff, Plane, Calendar, Briefcase } from "lucide-react";
 
 interface UserWithPermissions {
   id: string;
@@ -47,6 +47,15 @@ const PAGE_ICONS: Record<string, any> = {
   "trial-balance": Scale,
   "income-statement": BarChart3,
   "balance-sheet": FileSpreadsheet,
+  "hr-dashboard": LayoutDashboard,
+  "hr-employees": Users,
+  "hr-departments": Building2,
+  "hr-positions": Briefcase,
+  "hr-org-structure": GitBranch,
+  "hr-attendance": Clock,
+  "hr-leave-types": CalendarOff,
+  "hr-leave-requests": Plane,
+  "hr-holidays": Calendar,
 };
 
 const PAGE_LABELS: Record<string, string> = {
@@ -77,6 +86,15 @@ const PAGE_LABELS: Record<string, string> = {
   "trial-balance": "Trial Balance",
   "income-statement": "Income Statement",
   "balance-sheet": "Balance Sheet",
+  "hr-dashboard": "HR Dashboard",
+  "hr-employees": "Employees",
+  "hr-departments": "Departments",
+  "hr-positions": "Positions",
+  "hr-org-structure": "Org Structure",
+  "hr-attendance": "Attendance",
+  "hr-leave-types": "Leave Types",
+  "hr-leave-requests": "Leave Requests",
+  "hr-holidays": "Holidays",
 };
 
 export default function PagePermissionsPage() {

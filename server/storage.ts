@@ -1927,6 +1927,15 @@ export class DatabaseStorage implements IStorage {
       "trial-balance",
       "income-statement",
       "balance-sheet",
+      "hr-dashboard",
+      "hr-employees",
+      "hr-departments",
+      "hr-positions",
+      "hr-org-structure",
+      "hr-attendance",
+      "hr-leave-types",
+      "hr-leave-requests",
+      "hr-holidays",
     ];
   }
 
