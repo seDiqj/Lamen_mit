@@ -2,8 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, Users, ChevronDown, ChevronRight, User, List, GitBranch } from "lucide-react";
+import { Building2, Users, ChevronDown, ChevronRight, User, List, GitBranch, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 import { useState, useMemo } from "react";
+import { Button } from "@/components/ui/button";
 
 interface Department {
   id: string;
@@ -76,7 +77,7 @@ function TreeNode({
         onClick={() => childPositions.length > 0 && setExpanded(!expanded)}
       >
         <div 
-          className="relative z-10 p-4 rounded-lg border-2 bg-card shadow-md min-w-[180px] text-center transition-all hover:shadow-lg"
+          className="relative z-10 p-3 rounded-lg border-2 bg-card shadow-md min-w-[140px] max-w-[160px] text-center transition-all hover:shadow-lg"
           style={{ borderColor: lineColor }}
         >
           {posEmployees.length > 0 && posEmployees[0].photoUrl && (
@@ -152,10 +153,15 @@ function HierarchyTreeView({
   positions: PositionType[]; 
   employees: Employee[];
 }) {
+  const [zoom, setZoom] = useState(0.85);
   const topLevelPositions = useMemo(() => 
     positions.filter(p => !p.parentPositionId),
     [positions]
   );
+
+  const handleZoomIn = () => setZoom(z => Math.min(z + 0.1, 1.5));
+  const handleZoomOut = () => setZoom(z => Math.max(z - 0.1, 0.4));
+  const handleResetZoom = () => setZoom(0.85);
 
   if (positions.length === 0) {
     return (
@@ -170,12 +176,33 @@ function HierarchyTreeView({
   }
 
   return (
-    <div className="org-tree-container overflow-auto p-8 min-h-[600px]">
+    <div className="relative">
+      <div className="absolute top-2 right-2 z-10 flex items-center gap-1 bg-background/80 backdrop-blur-sm rounded-lg border p-1">
+        <Button variant="ghost" size="icon" onClick={handleZoomOut} className="h-8 w-8" data-testid="button-zoom-out">
+          <ZoomOut className="h-4 w-4" />
+        </Button>
+        <span className="text-xs font-medium w-12 text-center">{Math.round(zoom * 100)}%</span>
+        <Button variant="ghost" size="icon" onClick={handleZoomIn} className="h-8 w-8" data-testid="button-zoom-in">
+          <ZoomIn className="h-4 w-4" />
+        </Button>
+        <Button variant="ghost" size="icon" onClick={handleResetZoom} className="h-8 w-8" data-testid="button-zoom-reset">
+          <Maximize2 className="h-4 w-4" />
+        </Button>
+      </div>
+    <div className="org-tree-container overflow-auto p-4 min-h-[600px]">
       <style>{`
         .org-tree-container {
           background: linear-gradient(135deg, hsl(var(--background)) 0%, hsl(var(--muted)/0.3) 100%);
           border-radius: 0.5rem;
           border: 1px solid hsl(var(--border));
+        }
+        
+        .org-tree-inner {
+          transform: scale(${zoom});
+          transform-origin: top center;
+          transition: transform 0.2s ease;
+          min-width: max-content;
+          padding: 1rem;
         }
         
         .org-tree {
@@ -185,11 +212,11 @@ function HierarchyTreeView({
         }
         
         .org-tree ul {
-          padding-top: 40px;
+          padding-top: 30px;
           position: relative;
           display: flex;
           justify-content: center;
-          gap: 20px;
+          gap: 8px;
         }
         
         .org-tree li {
@@ -197,7 +224,7 @@ function HierarchyTreeView({
           flex-direction: column;
           align-items: center;
           position: relative;
-          padding: 20px 10px 0;
+          padding: 15px 5px 0;
         }
         
         .org-tree-children {
@@ -265,7 +292,8 @@ function HierarchyTreeView({
         }
       `}</style>
       
-      <div className="flex flex-col items-center mb-8">
+      <div className="org-tree-inner">
+      <div className="flex flex-col items-center mb-6">
         <div className="p-5 rounded-xl bg-primary text-primary-foreground shadow-lg min-w-[240px] text-center">
           <Building2 className="h-8 w-8 mx-auto mb-2" />
           <div className="font-bold text-xl">Lamen Microfinance Institution</div>
@@ -287,6 +315,8 @@ function HierarchyTreeView({
           />
         ))}
       </ul>
+      </div>
+    </div>
     </div>
   );
 }
