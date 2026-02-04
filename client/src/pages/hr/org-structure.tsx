@@ -100,18 +100,6 @@ function TreeNode({
             </div>
           )}
           <div className="font-semibold text-sm">{position.title}</div>
-          {dept && (
-            <Badge 
-              variant="outline" 
-              className="mt-1 text-xs"
-              style={{ borderColor: lineColor, color: lineColor }}
-            >
-              {dept.name}
-            </Badge>
-          )}
-          {position.grade && (
-            <div className="text-xs text-muted-foreground mt-1">Grade: {position.grade}</div>
-          )}
           {posEmployees.length > 0 && (
             <div className="mt-2 pt-2 border-t space-y-1">
               {posEmployees.slice(0, 3).map(emp => (
