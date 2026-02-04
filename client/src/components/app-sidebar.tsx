@@ -43,6 +43,11 @@ import {
   Scale,
   TrendingUp,
   Layers,
+  UserPlus,
+  CalendarCheck,
+  CalendarDays,
+  Briefcase,
+  GraduationCap,
 } from "lucide-react";
 import lamenLogo from "@assets/LamenLogo_1769936371528.jpeg";
 import {
@@ -100,6 +105,14 @@ const PAGE_URL_TO_NAME: Record<string, string> = {
   "/income-statement": "income-statement",
   "/balance-sheet": "balance-sheet",
   "/accounting-dashboard": "accounting-dashboard",
+  "/hr/employees": "hr-employees",
+  "/hr/employees/new": "hr-employees-new",
+  "/hr/departments": "hr-departments",
+  "/hr/positions": "hr-positions",
+  "/hr/attendance": "hr-attendance",
+  "/hr/leave-types": "hr-leave-types",
+  "/hr/leave-requests": "hr-leave-requests",
+  "/hr/holidays": "hr-holidays",
 };
 
 export function AppSidebar() {
@@ -179,6 +192,20 @@ export function AppSidebar() {
       ],
     },
     {
+      label: "Human Resources",
+      icon: Users,
+      items: [
+        { title: "Employees", url: "/hr/employees", icon: Users, iconColor: "text-blue-500" },
+        { title: "Add Employee", url: "/hr/employees/new", icon: UserPlus, iconColor: "text-green-500" },
+        { title: "Departments", url: "/hr/departments", icon: Building2, iconColor: "text-violet-500" },
+        { title: "Positions", url: "/hr/positions", icon: Briefcase, iconColor: "text-amber-500" },
+        { title: "Attendance", url: "/hr/attendance", icon: CalendarCheck, iconColor: "text-teal-500" },
+        { title: "Leave Types", url: "/hr/leave-types", icon: CalendarDays, iconColor: "text-pink-500" },
+        { title: "Leave Requests", url: "/hr/leave-requests", icon: FileText, iconColor: "text-orange-500" },
+        { title: "Holidays", url: "/hr/holidays", icon: CalendarDays, iconColor: "text-red-500" },
+      ],
+    },
+    {
       label: "Reports",
       icon: BarChart3,
       items: [
@@ -230,6 +257,20 @@ export function AppSidebar() {
         { title: "Trial Balance", url: "/trial-balance", icon: Scale, iconColor: "text-amber-500" },
         { title: "Income Statement", url: "/income-statement", icon: TrendingUp, iconColor: "text-green-500" },
         { title: "Balance Sheet", url: "/balance-sheet", icon: FileText, iconColor: "text-cyan-500" },
+      ],
+    },
+    {
+      label: "Human Resources",
+      icon: Users,
+      items: [
+        { title: "Employees", url: "/hr/employees", icon: Users, iconColor: "text-blue-500" },
+        { title: "Add Employee", url: "/hr/employees/new", icon: UserPlus, iconColor: "text-green-500" },
+        { title: "Departments", url: "/hr/departments", icon: Building2, iconColor: "text-violet-500" },
+        { title: "Positions", url: "/hr/positions", icon: Briefcase, iconColor: "text-amber-500" },
+        { title: "Attendance", url: "/hr/attendance", icon: CalendarCheck, iconColor: "text-teal-500" },
+        { title: "Leave Types", url: "/hr/leave-types", icon: CalendarDays, iconColor: "text-pink-500" },
+        { title: "Leave Requests", url: "/hr/leave-requests", icon: FileText, iconColor: "text-orange-500" },
+        { title: "Holidays", url: "/hr/holidays", icon: CalendarDays, iconColor: "text-red-500" },
       ],
     },
     {
@@ -287,6 +328,20 @@ export function AppSidebar() {
         { title: "Trial Balance", url: "/trial-balance", icon: Scale, iconColor: "text-amber-500" },
         { title: "Income Statement", url: "/income-statement", icon: TrendingUp, iconColor: "text-green-500" },
         { title: "Balance Sheet", url: "/balance-sheet", icon: FileText, iconColor: "text-cyan-500" },
+      ],
+    },
+    {
+      label: "Human Resources",
+      icon: Users,
+      items: [
+        { title: "Employees", url: "/hr/employees", icon: Users, iconColor: "text-blue-500" },
+        { title: "Add Employee", url: "/hr/employees/new", icon: UserPlus, iconColor: "text-green-500" },
+        { title: "Departments", url: "/hr/departments", icon: Building2, iconColor: "text-violet-500" },
+        { title: "Positions", url: "/hr/positions", icon: Briefcase, iconColor: "text-amber-500" },
+        { title: "Attendance", url: "/hr/attendance", icon: CalendarCheck, iconColor: "text-teal-500" },
+        { title: "Leave Types", url: "/hr/leave-types", icon: CalendarDays, iconColor: "text-pink-500" },
+        { title: "Leave Requests", url: "/hr/leave-requests", icon: FileText, iconColor: "text-orange-500" },
+        { title: "Holidays", url: "/hr/holidays", icon: CalendarDays, iconColor: "text-red-500" },
       ],
     },
     {

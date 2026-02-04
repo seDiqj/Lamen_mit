@@ -530,3 +530,263 @@ export type JournalLine = typeof journalLines.$inferSelect;
 export const insertLicenseTypeSchema = createInsertSchema(licenseTypes).omit({ id: true, createdAt: true });
 export type InsertLicenseType = z.infer<typeof insertLicenseTypeSchema>;
 export type LicenseType = typeof licenseTypes.$inferSelect;
+
+// ============== HR MODULE ==============
+
+// HR Enums
+export const employmentStatusEnum = pgEnum("employment_status", ["active", "on_leave", "suspended", "terminated", "resigned"]);
+export const maritalStatusEnum = pgEnum("marital_status", ["single", "married", "divorced", "widowed"]);
+export const educationLevelEnum = pgEnum("education_level", ["not_graduate", "high_school", "bachelor", "master", "phd"]);
+export const leaveStatusEnum = pgEnum("leave_status", ["pending", "approved", "rejected", "cancelled"]);
+export const attendanceStatusEnum = pgEnum("attendance_status", ["present", "absent", "late", "half_day", "on_leave", "holiday"]);
+export const languageProficiencyEnum = pgEnum("language_proficiency", ["basic", "conversational", "fluent"]);
+
+// HR Departments
+export const departments = pgTable("departments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(),
+  code: varchar("code", { length: 50 }),
+  parentId: varchar("parent_id"),
+  managerId: varchar("manager_id"),
+  description: text("description"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// HR Positions/Job Titles
+export const positions = pgTable("positions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: varchar("title", { length: 255 }).notNull(),
+  code: varchar("code", { length: 50 }),
+  departmentId: varchar("department_id").references(() => departments.id),
+  grade: varchar("grade", { length: 50 }),
+  description: text("description"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Employees - Main Table (Based on Staff Personal Information Form)
+export const employees = pgTable("employees", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  employeeCode: varchar("employee_code", { length: 50 }).unique(),
+  userId: varchar("user_id"),
+  financeOfficerId: varchar("finance_officer_id").references(() => financeOfficers.id),
+  
+  // Personal Information
+  firstName: varchar("first_name", { length: 255 }).notNull(),
+  lastName: varchar("last_name", { length: 255 }).notNull(),
+  fatherName: varchar("father_name", { length: 255 }),
+  gender: genderEnum("gender"),
+  dateOfBirth: date("date_of_birth"),
+  age: integer("age"),
+  maritalStatus: maritalStatusEnum("marital_status"),
+  
+  // NIC/Tazkira
+  nationalId: varchar("national_id", { length: 100 }),
+  nationalIdPlaceOfIssue: varchar("national_id_place_of_issue", { length: 255 }),
+  
+  // Contact Information
+  phoneNumber: varchar("phone_number", { length: 50 }),
+  secondPhoneNumber: varchar("second_phone_number", { length: 50 }),
+  email: varchar("email", { length: 255 }),
+  permanentAddress: text("permanent_address"),
+  currentAddress: text("current_address"),
+  
+  // Employment Details
+  positionId: varchar("position_id").references(() => positions.id),
+  departmentId: varchar("department_id").references(() => departments.id),
+  branchId: varchar("branch_id").references(() => branches.id),
+  dutyStation: varchar("duty_station", { length: 255 }),
+  hireDate: date("hire_date"),
+  terminationDate: date("termination_date"),
+  employmentStatus: employmentStatusEnum("employment_status").default("active"),
+  
+  // Education
+  educationLevel: educationLevelEnum("education_level"),
+  educationDetails: text("education_details"),
+  
+  // Work Experience
+  totalExperienceYears: integer("total_experience_years"),
+  jobRelatedExperienceYears: integer("job_related_experience_years"),
+  otherExperienceYears: integer("other_experience_years"),
+  
+  // Photo
+  photoUrl: text("photo_url"),
+  
+  // Metadata
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Employee Emergency Contacts
+export const employeeEmergencyContacts = pgTable("employee_emergency_contacts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  employeeId: varchar("employee_id").references(() => employees.id).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  relationship: varchar("relationship", { length: 100 }),
+  phoneNumber: varchar("phone_number", { length: 50 }),
+  email: varchar("email", { length: 255 }),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Employee Languages
+export const employeeLanguages = pgTable("employee_languages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  employeeId: varchar("employee_id").references(() => employees.id).notNull(),
+  language: varchar("language", { length: 100 }).notNull(),
+  speakingLevel: languageProficiencyEnum("speaking_level"),
+  writingLevel: languageProficiencyEnum("writing_level"),
+  readingLevel: languageProficiencyEnum("reading_level"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Employee Family Members Working at Lamen
+export const employeeFamilyMembers = pgTable("employee_family_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  employeeId: varchar("employee_id").references(() => employees.id).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  fatherName: varchar("father_name", { length: 255 }),
+  relationship: varchar("relationship", { length: 100 }),
+  position: varchar("position", { length: 255 }),
+  department: varchar("department", { length: 255 }),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Employee Professional References
+export const employeeReferences = pgTable("employee_references", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  employeeId: varchar("employee_id").references(() => employees.id).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  relationship: varchar("relationship", { length: 100 }),
+  phoneNumber: varchar("phone_number", { length: 50 }),
+  email: varchar("email", { length: 255 }),
+  address: text("address"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Employee Documents
+export const employeeDocuments = pgTable("employee_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  employeeId: varchar("employee_id").references(() => employees.id).notNull(),
+  documentType: varchar("document_type", { length: 100 }),
+  documentName: varchar("document_name", { length: 255 }),
+  fileName: varchar("file_name", { length: 255 }),
+  fileUrl: text("file_url"),
+  expiryDate: date("expiry_date"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Leave Types
+export const leaveTypes = pgTable("leave_types", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 100 }).notNull(),
+  code: varchar("code", { length: 20 }),
+  daysPerYear: integer("days_per_year").default(0),
+  isPaid: boolean("is_paid").default(true),
+  carryForward: boolean("carry_forward").default(false),
+  maxCarryForwardDays: integer("max_carry_forward_days").default(0),
+  description: text("description"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Leave Balances
+export const leaveBalances = pgTable("leave_balances", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  employeeId: varchar("employee_id").references(() => employees.id).notNull(),
+  leaveTypeId: varchar("leave_type_id").references(() => leaveTypes.id).notNull(),
+  year: integer("year").notNull(),
+  entitlement: integer("entitlement").default(0),
+  used: integer("used").default(0),
+  carriedForward: integer("carried_forward").default(0),
+  balance: integer("balance").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Leave Requests
+export const leaveRequests = pgTable("leave_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  employeeId: varchar("employee_id").references(() => employees.id).notNull(),
+  leaveTypeId: varchar("leave_type_id").references(() => leaveTypes.id).notNull(),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  totalDays: integer("total_days").notNull(),
+  reason: text("reason"),
+  status: leaveStatusEnum("status").default("pending"),
+  approvedById: varchar("approved_by_id"),
+  approvedAt: timestamp("approved_at"),
+  rejectionReason: text("rejection_reason"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Holidays Calendar
+export const holidays = pgTable("holidays", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(),
+  date: date("date").notNull(),
+  year: integer("year").notNull(),
+  isRecurring: boolean("is_recurring").default(false),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Attendance Records
+export const attendance = pgTable("attendance", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  employeeId: varchar("employee_id").references(() => employees.id).notNull(),
+  date: date("date").notNull(),
+  checkIn: timestamp("check_in"),
+  checkOut: timestamp("check_out"),
+  status: attendanceStatusEnum("status").default("present"),
+  workHours: decimal("work_hours", { precision: 4, scale: 2 }),
+  overtimeHours: decimal("overtime_hours", { precision: 4, scale: 2 }),
+  notes: text("notes"),
+  recordedBy: varchar("recorded_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// HR Insert Schemas
+export const insertDepartmentSchema = createInsertSchema(departments).omit({ id: true, createdAt: true });
+export const insertPositionSchema = createInsertSchema(positions).omit({ id: true, createdAt: true });
+export const insertEmployeeSchema = createInsertSchema(employees).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertEmployeeEmergencyContactSchema = createInsertSchema(employeeEmergencyContacts).omit({ id: true, createdAt: true });
+export const insertEmployeeLanguageSchema = createInsertSchema(employeeLanguages).omit({ id: true, createdAt: true });
+export const insertEmployeeFamilyMemberSchema = createInsertSchema(employeeFamilyMembers).omit({ id: true, createdAt: true });
+export const insertEmployeeReferenceSchema = createInsertSchema(employeeReferences).omit({ id: true, createdAt: true });
+export const insertEmployeeDocumentSchema = createInsertSchema(employeeDocuments).omit({ id: true, createdAt: true });
+export const insertLeaveTypeSchema = createInsertSchema(leaveTypes).omit({ id: true, createdAt: true });
+export const insertLeaveBalanceSchema = createInsertSchema(leaveBalances).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertLeaveRequestSchema = createInsertSchema(leaveRequests).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertHolidaySchema = createInsertSchema(holidays).omit({ id: true, createdAt: true });
+export const insertAttendanceSchema = createInsertSchema(attendance).omit({ id: true, createdAt: true });
+
+// HR Types
+export type InsertDepartment = z.infer<typeof insertDepartmentSchema>;
+export type Department = typeof departments.$inferSelect;
+export type InsertPosition = z.infer<typeof insertPositionSchema>;
+export type Position = typeof positions.$inferSelect;
+export type InsertEmployee = z.infer<typeof insertEmployeeSchema>;
+export type Employee = typeof employees.$inferSelect;
+export type InsertEmployeeEmergencyContact = z.infer<typeof insertEmployeeEmergencyContactSchema>;
+export type EmployeeEmergencyContact = typeof employeeEmergencyContacts.$inferSelect;
+export type InsertEmployeeLanguage = z.infer<typeof insertEmployeeLanguageSchema>;
+export type EmployeeLanguage = typeof employeeLanguages.$inferSelect;
+export type InsertEmployeeFamilyMember = z.infer<typeof insertEmployeeFamilyMemberSchema>;
+export type EmployeeFamilyMember = typeof employeeFamilyMembers.$inferSelect;
+export type InsertEmployeeReference = z.infer<typeof insertEmployeeReferenceSchema>;
+export type EmployeeReference = typeof employeeReferences.$inferSelect;
+export type InsertEmployeeDocument = z.infer<typeof insertEmployeeDocumentSchema>;
+export type EmployeeDocument = typeof employeeDocuments.$inferSelect;
+export type InsertLeaveType = z.infer<typeof insertLeaveTypeSchema>;
+export type LeaveType = typeof leaveTypes.$inferSelect;
+export type InsertLeaveBalance = z.infer<typeof insertLeaveBalanceSchema>;
+export type LeaveBalance = typeof leaveBalances.$inferSelect;
+export type InsertLeaveRequest = z.infer<typeof insertLeaveRequestSchema>;
+export type LeaveRequest = typeof leaveRequests.$inferSelect;
+export type InsertHoliday = z.infer<typeof insertHolidaySchema>;
+export type Holiday = typeof holidays.$inferSelect;
+export type InsertAttendance = z.infer<typeof insertAttendanceSchema>;
+export type Attendance = typeof attendance.$inferSelect;
