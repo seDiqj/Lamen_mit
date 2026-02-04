@@ -173,26 +173,29 @@ function HierarchyTreeView({
   const updateSecondaryLines = useCallback(() => {
     if (!containerRef.current) return;
     
+    const container = containerRef.current;
+    const innerEl = container.querySelector('.org-tree-inner') as HTMLElement;
+    if (!innerEl) return;
+    
     const newLines: {from: string; to: string; path: string}[] = [];
-    const containerRect = containerRef.current.getBoundingClientRect();
+    const innerRect = innerEl.getBoundingClientRect();
     
     secondaryReportingPositions.forEach(pos => {
-      const fromEl = containerRef.current?.querySelector(`[data-position-id="${pos.id}"]`);
-      const toEl = containerRef.current?.querySelector(`[data-position-id="${pos.secondaryReportingPositionId}"]`);
+      const fromEl = container.querySelector(`[data-position-id="${pos.id}"]`) as HTMLElement;
+      const toEl = container.querySelector(`[data-position-id="${pos.secondaryReportingPositionId}"]`) as HTMLElement;
       
       if (fromEl && toEl) {
         const fromRect = fromEl.getBoundingClientRect();
         const toRect = toEl.getBoundingClientRect();
         
-        const fromX = (fromRect.left + fromRect.width / 2 - containerRect.left) / zoom;
-        const fromY = (fromRect.top - containerRect.top) / zoom;
-        const toX = (toRect.left + toRect.width / 2 - containerRect.left) / zoom;
-        const toY = (toRect.bottom - containerRect.top) / zoom;
+        const fromX = (fromRect.left + fromRect.width / 2 - innerRect.left) / zoom;
+        const fromY = (fromRect.top - innerRect.top) / zoom;
+        const toX = (toRect.left + toRect.width / 2 - innerRect.left) / zoom;
+        const toY = (toRect.bottom - innerRect.top) / zoom;
         
-        const midY = (fromY + toY) / 2;
-        const controlOffset = Math.abs(toX - fromX) * 0.3;
+        const controlOffset = Math.min(Math.abs(toX - fromX) * 0.5, 80);
         
-        const path = `M ${fromX} ${fromY} C ${fromX} ${fromY - controlOffset}, ${toX} ${toY + controlOffset}, ${toX} ${toY}`;
+        const path = `M ${fromX} ${fromY} C ${fromX - controlOffset} ${fromY - 40}, ${toX + controlOffset} ${toY + 40}, ${toX} ${toY}`;
         
         newLines.push({ from: pos.id, to: pos.secondaryReportingPositionId!, path });
       }
@@ -202,13 +205,38 @@ function HierarchyTreeView({
   }, [secondaryReportingPositions, zoom]);
   
   useEffect(() => {
-    const timer = setTimeout(updateSecondaryLines, 100);
+    const timer = setTimeout(updateSecondaryLines, 150);
     return () => clearTimeout(timer);
-  }, [updateSecondaryLines, positions]);
+  }, [updateSecondaryLines, positions, zoom]);
   
   useEffect(() => {
-    window.addEventListener('resize', updateSecondaryLines);
-    return () => window.removeEventListener('resize', updateSecondaryLines);
+    const container = containerRef.current;
+    if (!container) return;
+    
+    const handleUpdate = () => updateSecondaryLines();
+    
+    window.addEventListener('resize', handleUpdate);
+    container.addEventListener('scroll', handleUpdate);
+    
+    const innerEl = container.querySelector('.org-tree-inner');
+    let mutationObserver: MutationObserver | null = null;
+    
+    if (innerEl) {
+      mutationObserver = new MutationObserver(() => {
+        requestAnimationFrame(updateSecondaryLines);
+      });
+      mutationObserver.observe(innerEl, { 
+        childList: true, 
+        subtree: true,
+        attributes: false
+      });
+    }
+    
+    return () => {
+      window.removeEventListener('resize', handleUpdate);
+      container.removeEventListener('scroll', handleUpdate);
+      mutationObserver?.disconnect();
+    };
   }, [updateSecondaryLines]);
 
   const handleZoomIn = () => setZoom(z => Math.min(z + 0.1, 1.5));
@@ -344,39 +372,43 @@ function HierarchyTreeView({
         }
       `}</style>
       
-      {secondaryLines.length > 0 && (
-        <svg 
-          ref={svgRef}
-          className="absolute inset-0 pointer-events-none z-20"
-          style={{ width: '100%', height: '100%', overflow: 'visible' }}
-        >
-          <defs>
-            <marker
-              id="arrowhead-secondary"
-              markerWidth="8"
-              markerHeight="6"
-              refX="7"
-              refY="3"
-              orient="auto"
-            >
-              <polygon points="0 0, 8 3, 0 6" fill="#f59e0b" />
-            </marker>
-          </defs>
-          {secondaryLines.map((line, idx) => (
-            <path
-              key={`${line.from}-${line.to}-${idx}`}
-              d={line.path}
-              fill="none"
-              stroke="#f59e0b"
-              strokeWidth="2"
-              strokeDasharray="6 4"
-              markerEnd="url(#arrowhead-secondary)"
-            />
-          ))}
-        </svg>
-      )}
-      
-      <div className="org-tree-inner">
+      <div className="org-tree-inner relative">
+        {secondaryLines.length > 0 && (
+          <svg 
+            ref={svgRef}
+            className="absolute inset-0 pointer-events-none"
+            style={{ 
+              width: '100%', 
+              height: '100%', 
+              overflow: 'visible',
+              zIndex: 5 
+            }}
+          >
+            <defs>
+              <marker
+                id="arrowhead-secondary"
+                markerWidth="8"
+                markerHeight="6"
+                refX="7"
+                refY="3"
+                orient="auto"
+              >
+                <polygon points="0 0, 8 3, 0 6" fill="#f59e0b" />
+              </marker>
+            </defs>
+            {secondaryLines.map((line, idx) => (
+              <path
+                key={`${line.from}-${line.to}-${idx}`}
+                d={line.path}
+                fill="none"
+                stroke="#f59e0b"
+                strokeWidth="2.5"
+                strokeDasharray="8 5"
+                markerEnd="url(#arrowhead-secondary)"
+              />
+            ))}
+          </svg>
+        )}
       <div className="flex flex-col items-center mb-6">
         <div className="p-5 rounded-xl bg-primary text-primary-foreground shadow-lg min-w-[240px] text-center">
           <Building2 className="h-8 w-8 mx-auto mb-2" />
