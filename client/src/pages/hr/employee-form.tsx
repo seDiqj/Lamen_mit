@@ -59,7 +59,10 @@ import {
   FileText,
   Upload,
   Camera,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useUpload } from "@/hooks/use-upload";
 import type { 
   Branch, 
@@ -72,14 +75,14 @@ import type {
   EmployeeReference,
 } from "@shared/schema";
 
-const WIZARD_TABS = [
-  { id: "personal", label: "Personal Info", icon: User },
-  { id: "employment", label: "Employment", icon: Briefcase },
-  { id: "education", label: "Education & Experience", icon: GraduationCap },
-  { id: "contacts", label: "Emergency Contacts", icon: Phone },
-  { id: "languages", label: "Languages", icon: Languages },
-  { id: "family", label: "Family at Lamen", icon: Users },
-  { id: "references", label: "References", icon: FileText },
+const WIZARD_STEPS = [
+  { id: 1, title: "Personal", icon: User, color: "from-green-500 to-emerald-500" },
+  { id: 2, title: "Employment", icon: Briefcase, color: "from-blue-500 to-indigo-500" },
+  { id: 3, title: "Education", icon: GraduationCap, color: "from-purple-500 to-violet-500" },
+  { id: 4, title: "Contacts", icon: Phone, color: "from-orange-500 to-red-500" },
+  { id: 5, title: "Languages", icon: Languages, color: "from-teal-500 to-cyan-500" },
+  { id: 6, title: "Family", icon: Users, color: "from-pink-500 to-rose-500" },
+  { id: 7, title: "References", icon: FileText, color: "from-amber-500 to-yellow-500" },
 ];
 
 const employeeFormSchema = z.object({
@@ -149,7 +152,7 @@ export default function EmployeeForm() {
   const employeeId = params?.id;
   
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState(0);
+  const [currentStep, setCurrentStep] = useState(1);
   
   const [emergencyContacts, setEmergencyContacts] = useState<EmergencyContactForm[]>([]);
   const [languages, setLanguages] = useState<LanguageForm[]>([]);
@@ -297,16 +300,20 @@ export default function EmployeeForm() {
     }
   };
 
-  const nextTab = () => {
-    if (activeTab < WIZARD_TABS.length - 1) {
-      setActiveTab(activeTab + 1);
+  const nextStep = () => {
+    if (currentStep < WIZARD_STEPS.length) {
+      setCurrentStep(currentStep + 1);
     }
   };
 
-  const prevTab = () => {
-    if (activeTab > 0) {
-      setActiveTab(activeTab - 1);
+  const prevStep = () => {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1);
     }
+  };
+
+  const goToStep = (step: number) => {
+    setCurrentStep(step);
   };
 
   const addContact = () => {
@@ -341,9 +348,9 @@ export default function EmployeeForm() {
     }
   };
 
-  const renderTabContent = () => {
-    switch (WIZARD_TABS[activeTab].id) {
-      case "personal":
+  const renderStepContent = () => {
+    switch (currentStep) {
+      case 1: // Personal
         return (
           <div className="space-y-6">
             {/* Photo Upload Section */}
@@ -621,7 +628,7 @@ export default function EmployeeForm() {
           </div>
         );
 
-      case "employment":
+      case 2: // Employment
         return (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <FormField
@@ -743,7 +750,7 @@ export default function EmployeeForm() {
           </div>
         );
 
-      case "education":
+      case 3: // Education
         return (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <FormField
@@ -860,7 +867,7 @@ export default function EmployeeForm() {
           </div>
         );
 
-      case "contacts":
+      case 4: // Emergency Contacts
         return (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
@@ -911,7 +918,7 @@ export default function EmployeeForm() {
           </div>
         );
 
-      case "languages":
+      case 5: // Languages
         return (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
@@ -962,7 +969,7 @@ export default function EmployeeForm() {
           </div>
         );
 
-      case "family":
+      case 6: // Family at Lamen
         return (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
@@ -1015,7 +1022,7 @@ export default function EmployeeForm() {
           </div>
         );
 
-      case "references":
+      case 7: // References
         return (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
@@ -1071,80 +1078,103 @@ export default function EmployeeForm() {
     }
   };
 
+  const currentStepData = WIZARD_STEPS[currentStep - 1];
+
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <div className="flex items-center justify-between flex-wrap gap-2">
+    <div className="space-y-3 p-3 max-w-5xl mx-auto">
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-blue-500/10 rounded-lg">
-            <UserPlus className="h-6 w-6 text-blue-500" />
-          </div>
+          <Button variant="ghost" size="icon" onClick={() => setLocation("/hr/employees")} data-testid="button-back">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
           <div>
-            <h1 className="text-2xl font-bold" data-testid="text-page-title">
-              {isEditing ? "Edit Employee" : "Add New Employee"}
+            <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent" data-testid="text-page-title">
+              {isEditing ? "Edit Employee" : "New Employee"}
             </h1>
-            <p className="text-muted-foreground text-sm">Staff Personal Information Form</p>
+            <p className="text-xs text-muted-foreground">Step {currentStep} of {WIZARD_STEPS.length}</p>
           </div>
         </div>
-        <Button variant="outline" onClick={() => setLocation("/hr/employees")} data-testid="button-back">
-          <ArrowLeft className="h-4 w-4 mr-2" /> Back to Employees
-        </Button>
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-2">
-        {WIZARD_TABS.map((tab, index) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(index)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-              activeTab === index
-                ? "bg-primary text-primary-foreground"
-                : index < activeTab
-                ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                : "bg-muted text-muted-foreground hover:bg-muted/80"
-            }`}
-            data-testid={`tab-${tab.id}`}
-          >
-            {index < activeTab ? (
-              <Check className="h-4 w-4" />
-            ) : (
-              <tab.icon className="h-4 w-4" />
+      <div className="flex items-center justify-between mb-4">
+        {WIZARD_STEPS.map((step, index) => (
+          <div key={step.id} className="flex items-center flex-1">
+            <button
+              type="button"
+              onClick={() => goToStep(step.id)}
+              className={cn(
+                "flex flex-col items-center gap-1 group cursor-pointer transition-all",
+                currentStep === step.id ? "scale-105" : ""
+              )}
+              data-testid={`step-${step.id}`}
+            >
+              <div
+                className={cn(
+                  "w-10 h-10 rounded-full flex items-center justify-center shadow-md transition-all",
+                  currentStep === step.id
+                    ? `bg-gradient-to-r ${step.color} text-white`
+                    : currentStep > step.id
+                    ? "bg-green-500 text-white"
+                    : "bg-muted text-muted-foreground"
+                )}
+              >
+                {currentStep > step.id ? (
+                  <Check className="h-4 w-4" />
+                ) : (
+                  <step.icon className="h-4 w-4" />
+                )}
+              </div>
+              <span
+                className={cn(
+                  "text-xs font-medium hidden sm:block",
+                  currentStep === step.id ? "text-foreground" : "text-muted-foreground"
+                )}
+              >
+                {step.title}
+              </span>
+            </button>
+            {index < WIZARD_STEPS.length - 1 && (
+              <div
+                className={cn(
+                  "flex-1 h-0.5 mx-2 rounded-full transition-all",
+                  currentStep > step.id ? "bg-green-500" : "bg-muted"
+                )}
+              />
             )}
-            {tab.label}
-          </button>
+          </div>
         ))}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            {(() => {
-              const TabIcon = WIZARD_TABS[activeTab].icon;
-              return <TabIcon className="h-5 w-5" />;
-            })()}
-            {WIZARD_TABS[activeTab].label}
-          </CardTitle>
-          <CardDescription>
-            Step {activeTab + 1} of {WIZARD_TABS.length}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              {renderTabContent()}
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)}>
+          <Card className="border-0 shadow-md overflow-hidden">
+            <div className={`h-1 bg-gradient-to-r ${currentStepData.color}`} />
+            <CardHeader className="py-3 px-4">
+              <div className="flex items-center gap-2">
+                <div className={`h-8 w-8 rounded-lg bg-gradient-to-br ${currentStepData.color} flex items-center justify-center shadow`}>
+                  <currentStepData.icon className="h-4 w-4 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-base">{currentStepData.title}</CardTitle>
+                  <p className="text-xs text-muted-foreground">Step {currentStep} of {WIZARD_STEPS.length}</p>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="px-4 pb-4 pt-0">
+              {renderStepContent()}
               
-              <div className="flex justify-between pt-4 border-t">
+              <div className="flex justify-between pt-4 mt-4 border-t">
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={prevTab}
-                  disabled={activeTab === 0}
+                  onClick={prevStep}
+                  disabled={currentStep === 1}
                   data-testid="button-prev"
                 >
-                  <ArrowLeft className="h-4 w-4 mr-2" /> Previous
+                  <ChevronLeft className="h-4 w-4 mr-1" /> Previous
                 </Button>
                 
-                {activeTab === WIZARD_TABS.length - 1 ? (
+                {currentStep === WIZARD_STEPS.length ? (
                   <Button 
                     type="submit" 
                     disabled={createMutation.isPending || updateMutation.isPending}
@@ -1155,15 +1185,15 @@ export default function EmployeeForm() {
                     {createMutation.isPending || updateMutation.isPending ? "Saving..." : "Save Employee"}
                   </Button>
                 ) : (
-                  <Button type="button" onClick={nextTab} data-testid="button-next">
-                    Next <ArrowRight className="h-4 w-4 ml-2" />
+                  <Button type="button" onClick={nextStep} data-testid="button-next">
+                    Next <ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
                 )}
               </div>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </form>
+      </Form>
 
       <Dialog open={contactDialogOpen} onOpenChange={setContactDialogOpen}>
         <DialogContent>
