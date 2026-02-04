@@ -3,7 +3,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Building2, Users, ChevronDown, ChevronRight, User, List, GitBranch } from "lucide-react";
-import { useState } from "react";
+import { useState, useCallback, useMemo } from "react";
+import ReactFlow, {
+  Node,
+  Edge,
+  Background,
+  Controls,
+  MiniMap,
+  useNodesState,
+  useEdgesState,
+  Position,
+  MarkerType,
+} from "reactflow";
+import "reactflow/dist/style.css";
 
 interface Department {
   id: string;
@@ -12,7 +24,7 @@ interface Department {
   description?: string;
 }
 
-interface Position {
+interface PositionType {
   id: string;
   title: string;
   code: string;
@@ -30,7 +42,7 @@ interface Employee {
   positionId?: string;
   employmentStatus: string;
   department?: Department;
-  position?: Position;
+  position?: PositionType;
 }
 
 function DepartmentNode({ 
@@ -40,7 +52,7 @@ function DepartmentNode({
 }: { 
   department: Department; 
   employees: Employee[]; 
-  positions: Position[];
+  positions: PositionType[];
 }) {
   const [expanded, setExpanded] = useState(true);
   
@@ -156,105 +168,186 @@ function DepartmentNode({
   );
 }
 
+const CompanyNode = ({ data }: { data: { label: string } }) => (
+  <div className="px-6 py-4 shadow-lg rounded-lg bg-primary text-primary-foreground border-2 border-primary min-w-[200px] text-center">
+    <div className="font-bold text-lg">{data.label}</div>
+  </div>
+);
+
+const DepartmentFlowNode = ({ data }: { data: { label: string; code: string; count: number } }) => (
+  <div className="px-4 py-3 shadow-md rounded-lg bg-card border-2 border-primary/50 min-w-[160px]">
+    <div className="flex items-center gap-2 mb-1">
+      <Building2 className="h-4 w-4 text-primary" />
+      <span className="font-semibold text-sm">{data.label}</span>
+    </div>
+    <div className="flex items-center justify-between">
+      <Badge variant="secondary" className="text-xs">{data.code}</Badge>
+      <span className="text-xs text-muted-foreground">{data.count} staff</span>
+    </div>
+  </div>
+);
+
+const PositionFlowNode = ({ data }: { data: { label: string; grade?: string; employees: { name: string; code: string }[] } }) => (
+  <div className="px-3 py-2 shadow-sm rounded-md bg-muted/80 border border-border min-w-[140px]">
+    <div className="font-medium text-sm text-center mb-1">{data.label}</div>
+    {data.grade && (
+      <div className="text-xs text-muted-foreground text-center mb-2">Grade: {data.grade}</div>
+    )}
+    {data.employees.length > 0 && (
+      <div className="space-y-1 pt-1 border-t border-border">
+        {data.employees.slice(0, 3).map((emp, i) => (
+          <div key={i} className="flex items-center gap-1 text-xs">
+            <div className="h-4 w-4 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <User className="h-2 w-2 text-primary" />
+            </div>
+            <span className="truncate">{emp.name}</span>
+          </div>
+        ))}
+        {data.employees.length > 3 && (
+          <div className="text-xs text-muted-foreground text-center">
+            +{data.employees.length - 3} more
+          </div>
+        )}
+      </div>
+    )}
+  </div>
+);
+
+const nodeTypes = {
+  company: CompanyNode,
+  department: DepartmentFlowNode,
+  position: PositionFlowNode,
+};
+
 function HierarchyTreeView({ 
   departments, 
   positions, 
   employees 
 }: { 
   departments: Department[]; 
-  positions: Position[]; 
+  positions: PositionType[]; 
   employees: Employee[];
 }) {
+  const { nodes: initialNodes, edges: initialEdges } = useMemo(() => {
+    const nodes: Node[] = [];
+    const edges: Edge[] = [];
+    
+    nodes.push({
+      id: "company",
+      type: "company",
+      data: { label: "Lamen Microfinance Institution" },
+      position: { x: 400, y: 0 },
+      sourcePosition: Position.Bottom,
+      targetPosition: Position.Top,
+    });
+    
+    const deptSpacing = 280;
+    const totalWidth = (departments.length - 1) * deptSpacing;
+    const startX = 400 - totalWidth / 2;
+    
+    departments.forEach((dept, deptIndex) => {
+      const deptEmployees = employees.filter(e => e.departmentId === dept.id);
+      const deptX = startX + deptIndex * deptSpacing;
+      
+      nodes.push({
+        id: `dept-${dept.id}`,
+        type: "department",
+        data: { 
+          label: dept.name, 
+          code: dept.code,
+          count: deptEmployees.length 
+        },
+        position: { x: deptX, y: 120 },
+        sourcePosition: Position.Bottom,
+        targetPosition: Position.Top,
+      });
+      
+      edges.push({
+        id: `e-company-dept-${dept.id}`,
+        source: "company",
+        target: `dept-${dept.id}`,
+        type: "smoothstep",
+        style: { stroke: "hsl(var(--primary))", strokeWidth: 2 },
+        markerEnd: { type: MarkerType.ArrowClosed, color: "hsl(var(--primary))" },
+      });
+      
+      const deptPositions = positions.filter(p => p.departmentId === dept.id);
+      const posSpacing = 180;
+      const posTotalWidth = (deptPositions.length - 1) * posSpacing;
+      const posStartX = deptX - posTotalWidth / 2;
+      
+      deptPositions.forEach((pos, posIndex) => {
+        const posEmployees = deptEmployees
+          .filter(e => e.positionId === pos.id)
+          .map(e => ({ name: `${e.firstName} ${e.lastName}`, code: e.employeeCode }));
+        
+        const posX = posStartX + posIndex * posSpacing;
+        
+        nodes.push({
+          id: `pos-${pos.id}`,
+          type: "position",
+          data: { 
+            label: pos.title, 
+            grade: pos.grade,
+            employees: posEmployees 
+          },
+          position: { x: posX, y: 260 },
+          sourcePosition: Position.Bottom,
+          targetPosition: Position.Top,
+        });
+        
+        edges.push({
+          id: `e-dept-${dept.id}-pos-${pos.id}`,
+          source: `dept-${dept.id}`,
+          target: `pos-${pos.id}`,
+          type: "smoothstep",
+          style: { stroke: "hsl(var(--muted-foreground))", strokeWidth: 1.5 },
+        });
+      });
+    });
+    
+    return { nodes, edges };
+  }, [departments, positions, employees]);
+
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+
+  if (departments.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12">
+        <Building2 className="h-12 w-12 text-muted-foreground mb-4" />
+        <h3 className="text-lg font-medium">No Departments Yet</h3>
+        <p className="text-sm text-muted-foreground">
+          Create departments to build your organizational structure
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col items-center">
-      <div className="bg-primary text-primary-foreground px-6 py-3 rounded-lg font-bold text-lg shadow-md">
-        Lamen Microfinance Institution
-      </div>
-      
-      <div className="w-0.5 h-8 bg-primary"></div>
-      
-      <div className="flex flex-wrap justify-center gap-4">
-        {departments.map((dept, index) => {
-          const deptPositions = positions.filter(p => p.departmentId === dept.id);
-          const deptEmployees = employees.filter(e => e.departmentId === dept.id);
-          
-          return (
-            <div key={dept.id} className="flex flex-col items-center">
-              {index > 0 && departments.length > 1 && (
-                <div className="hidden md:block absolute top-0 w-full h-0.5 bg-primary"></div>
-              )}
-              
-              <div className="bg-card border-2 border-primary rounded-lg p-4 min-w-[200px] shadow-sm">
-                <div className="flex items-center gap-2 mb-2">
-                  <Building2 className="h-5 w-5 text-primary" />
-                  <span className="font-semibold text-sm">{dept.name}</span>
-                </div>
-                <Badge variant="secondary" className="text-xs">{dept.code}</Badge>
-                <div className="text-xs text-muted-foreground mt-2">
-                  {deptEmployees.length} employees
-                </div>
-              </div>
-              
-              {deptPositions.length > 0 && (
-                <>
-                  <div className="w-0.5 h-6 bg-muted-foreground/50"></div>
-                  
-                  <div className="flex flex-col gap-2">
-                    {deptPositions.map(pos => {
-                      const posEmployees = deptEmployees.filter(e => e.positionId === pos.id);
-                      
-                      return (
-                        <div key={pos.id} className="flex flex-col items-center">
-                          <div className="bg-muted border border-border rounded-md p-3 min-w-[180px]">
-                            <div className="font-medium text-sm text-center">{pos.title}</div>
-                            {pos.grade && (
-                              <div className="text-xs text-muted-foreground text-center">
-                                Grade: {pos.grade}
-                              </div>
-                            )}
-                            
-                            {posEmployees.length > 0 && (
-                              <>
-                                <div className="w-full h-px bg-border my-2"></div>
-                                <div className="space-y-1">
-                                  {posEmployees.map(emp => (
-                                    <div 
-                                      key={emp.id} 
-                                      className="flex items-center gap-2 text-xs"
-                                    >
-                                      <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                                        <User className="h-3 w-3 text-primary" />
-                                      </div>
-                                      <span className="truncate">{emp.firstName} {emp.lastName}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </>
-                            )}
-                          </div>
-                          
-                          {deptPositions.indexOf(pos) < deptPositions.length - 1 && (
-                            <div className="w-0.5 h-4 bg-muted-foreground/30"></div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-            </div>
-          );
-        })}
-      </div>
-      
-      {departments.length === 0 && (
-        <Card className="mt-4">
-          <CardContent className="flex flex-col items-center justify-center py-8">
-            <Building2 className="h-10 w-10 text-muted-foreground mb-3" />
-            <p className="text-sm text-muted-foreground">No departments to display</p>
-          </CardContent>
-        </Card>
-      )}
+    <div className="h-[600px] w-full bg-background rounded-lg border">
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        nodeTypes={nodeTypes}
+        fitView
+        attributionPosition="bottom-left"
+        minZoom={0.3}
+        maxZoom={1.5}
+      >
+        <Background color="hsl(var(--muted-foreground))" gap={20} size={1} />
+        <Controls className="bg-card border rounded-md" />
+        <MiniMap 
+          nodeColor={(node) => {
+            if (node.type === "company") return "hsl(var(--primary))";
+            if (node.type === "department") return "hsl(var(--primary) / 0.5)";
+            return "hsl(var(--muted))";
+          }}
+          className="bg-card border rounded-md"
+        />
+      </ReactFlow>
     </div>
   );
 }
@@ -265,7 +358,7 @@ function ListView({
   employees 
 }: { 
   departments: Department[]; 
-  positions: Position[]; 
+  positions: PositionType[]; 
   employees: Employee[];
 }) {
   const unassignedEmployees = employees.filter(
@@ -335,7 +428,7 @@ export default function OrgStructure() {
     queryKey: ["/api/hr/departments"],
   });
 
-  const { data: positions = [], isLoading: loadingPos } = useQuery<Position[]>({
+  const { data: positions = [], isLoading: loadingPos } = useQuery<PositionType[]>({
     queryKey: ["/api/hr/positions"],
   });
 
@@ -376,17 +469,25 @@ export default function OrgStructure() {
           <div className="text-muted-foreground">Loading organizational structure...</div>
         </div>
       ) : (
-        <Tabs defaultValue="list" className="w-full">
+        <Tabs defaultValue="tree" className="w-full">
           <TabsList className="mb-4">
-            <TabsTrigger value="list" className="flex items-center gap-2" data-testid="tab-list-view">
-              <List className="h-4 w-4" />
-              List View
-            </TabsTrigger>
             <TabsTrigger value="tree" className="flex items-center gap-2" data-testid="tab-tree-view">
               <GitBranch className="h-4 w-4" />
               Hierarchy Tree
             </TabsTrigger>
+            <TabsTrigger value="list" className="flex items-center gap-2" data-testid="tab-list-view">
+              <List className="h-4 w-4" />
+              List View
+            </TabsTrigger>
           </TabsList>
+          
+          <TabsContent value="tree">
+            <HierarchyTreeView 
+              departments={departments} 
+              positions={positions} 
+              employees={employees} 
+            />
+          </TabsContent>
           
           <TabsContent value="list">
             <ListView 
@@ -394,18 +495,6 @@ export default function OrgStructure() {
               positions={positions} 
               employees={employees} 
             />
-          </TabsContent>
-          
-          <TabsContent value="tree">
-            <Card>
-              <CardContent className="p-6 overflow-x-auto">
-                <HierarchyTreeView 
-                  departments={departments} 
-                  positions={positions} 
-                  employees={employees} 
-                />
-              </CardContent>
-            </Card>
           </TabsContent>
         </Tabs>
       )}
