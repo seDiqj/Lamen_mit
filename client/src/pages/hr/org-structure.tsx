@@ -381,31 +381,44 @@ function HierarchyTreeView({
               width: '100%', 
               height: '100%', 
               overflow: 'visible',
-              zIndex: 5 
+              zIndex: 100 
             }}
           >
             <defs>
               <marker
                 id="arrowhead-secondary"
-                markerWidth="8"
-                markerHeight="6"
-                refX="7"
-                refY="3"
+                markerWidth="10"
+                markerHeight="8"
+                refX="9"
+                refY="4"
                 orient="auto"
               >
-                <polygon points="0 0, 8 3, 0 6" fill="#f59e0b" />
+                <polygon points="0 0, 10 4, 0 8" fill="#ea580c" />
               </marker>
+              <filter id="secondary-line-shadow" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="1" stdDeviation="1" floodColor="#000" floodOpacity="0.3"/>
+              </filter>
             </defs>
             {secondaryLines.map((line, idx) => (
-              <path
-                key={`${line.from}-${line.to}-${idx}`}
-                d={line.path}
-                fill="none"
-                stroke="#f59e0b"
-                strokeWidth="2.5"
-                strokeDasharray="8 5"
-                markerEnd="url(#arrowhead-secondary)"
-              />
+              <g key={`${line.from}-${line.to}-${idx}`}>
+                <path
+                  d={line.path}
+                  fill="none"
+                  stroke="white"
+                  strokeWidth="6"
+                  strokeDasharray="12 6"
+                />
+                <path
+                  d={line.path}
+                  fill="none"
+                  stroke="#ea580c"
+                  strokeWidth="3.5"
+                  strokeDasharray="12 6"
+                  strokeLinecap="round"
+                  markerEnd="url(#arrowhead-secondary)"
+                  filter="url(#secondary-line-shadow)"
+                />
+              </g>
             ))}
           </svg>
         )}
