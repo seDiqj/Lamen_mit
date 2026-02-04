@@ -207,10 +207,10 @@ function HierarchyTreeView({
           toY = (toRect.top + toRect.height / 2 - innerRect.top) / zoom;
         }
         
-        const horizontalOffset = isChildOnLeft ? -50 : 50;
+        const horizontalOffset = isChildOnLeft ? -40 : 40;
         const midX = fromX + horizontalOffset;
         
-        const path = `M ${fromX} ${fromY} C ${midX} ${fromY}, ${midX} ${toY}, ${toX} ${toY}`;
+        const path = `M ${fromX} ${fromY} L ${midX} ${fromY} L ${midX} ${toY} L ${toX} ${toY}`;
         
         newLines.push({ from: pos.id, to: pos.secondaryReportingPositionId!, path });
       }
@@ -402,13 +402,13 @@ function HierarchyTreeView({
             <defs>
               <marker
                 id="arrowhead-secondary"
-                markerWidth="10"
-                markerHeight="8"
-                refX="9"
-                refY="4"
+                markerWidth="6"
+                markerHeight="5"
+                refX="5"
+                refY="2.5"
                 orient="auto"
               >
-                <polygon points="0 0, 10 4, 0 8" fill="#ea580c" />
+                <polygon points="0 0, 6 2.5, 0 5" fill="#ea580c" />
               </marker>
               <filter id="secondary-line-shadow" x="-20%" y="-20%" width="140%" height="140%">
                 <feDropShadow dx="0" dy="1" stdDeviation="1" floodColor="#000" floodOpacity="0.3"/>
