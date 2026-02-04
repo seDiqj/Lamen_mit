@@ -6,8 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { UserMenu } from "@/components/user-menu";
-import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/app-sidebar";
+import { IconRailNav } from "@/components/icon-rail-nav";
 import { useAuth } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -53,37 +52,26 @@ import HRHolidaysPage from "@/pages/hr/holidays";
 import NotFound from "@/pages/not-found";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
-  const style = {
-    "--sidebar-width": "17rem",
-    "--sidebar-width-icon": "3rem",
-  } as React.CSSProperties;
-
   return (
-    <SidebarProvider style={style}>
-      <div className="flex h-screen w-full bg-gradient-to-br from-background via-background to-muted/30">
-        <AppSidebar />
-        <SidebarInset className="flex flex-col flex-1 overflow-hidden">
-          <header className="flex items-center justify-between gap-4 px-4 py-3 border-b bg-card/80 backdrop-blur-sm shadow-sm">
-            <div className="flex items-center gap-3">
-              <SidebarTrigger data-testid="button-sidebar-toggle" />
-              <div className="hidden sm:block">
-                <div className="h-6 w-px bg-border" />
-              </div>
-              <span className="hidden sm:inline-flex text-sm font-medium text-muted-foreground">
-                Financing Management System
-              </span>
-            </div>
-            <div className="flex items-center gap-3">
-              <ThemeToggle />
-              <UserMenu />
-            </div>
-          </header>
-          <main className="flex-1 overflow-auto p-6">
-            {children}
-          </main>
-        </SidebarInset>
+    <div className="flex h-screen w-full bg-gradient-to-br from-background via-background to-muted/30">
+      <IconRailNav />
+      <div className="flex flex-col flex-1 overflow-hidden">
+        <header className="flex items-center justify-between gap-4 px-4 py-3 border-b bg-card/80 backdrop-blur-sm shadow-sm">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-muted-foreground">
+              Financing Management System
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <UserMenu />
+          </div>
+        </header>
+        <main className="flex-1 overflow-auto p-6">
+          {children}
+        </main>
       </div>
-    </SidebarProvider>
+    </div>
   );
 }
 
