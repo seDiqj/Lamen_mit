@@ -48,6 +48,7 @@ import {
   CalendarDays,
   Briefcase,
   GraduationCap,
+  Network,
 } from "lucide-react";
 import lamenLogo from "@assets/LamenLogo_1769936371528.jpeg";
 import {
@@ -105,6 +106,8 @@ const PAGE_URL_TO_NAME: Record<string, string> = {
   "/income-statement": "income-statement",
   "/balance-sheet": "balance-sheet",
   "/accounting-dashboard": "accounting-dashboard",
+  "/hr/dashboard": "hr-dashboard",
+  "/hr/org-structure": "hr-org-structure",
   "/hr/employees": "hr-employees",
   "/hr/employees/new": "hr-employees-new",
   "/hr/departments": "hr-departments",
@@ -195,6 +198,8 @@ export function AppSidebar() {
       label: "Human Resources",
       icon: Users,
       items: [
+        { title: "HR Dashboard", url: "/hr/dashboard", icon: LayoutDashboard, iconColor: "text-emerald-500" },
+        { title: "Org Structure", url: "/hr/org-structure", icon: Network, iconColor: "text-indigo-500" },
         { title: "Employees", url: "/hr/employees", icon: Users, iconColor: "text-blue-500" },
         { title: "Add Employee", url: "/hr/employees/new", icon: UserPlus, iconColor: "text-green-500" },
         { title: "Departments", url: "/hr/departments", icon: Building2, iconColor: "text-violet-500" },
@@ -263,6 +268,8 @@ export function AppSidebar() {
       label: "Human Resources",
       icon: Users,
       items: [
+        { title: "HR Dashboard", url: "/hr/dashboard", icon: LayoutDashboard, iconColor: "text-emerald-500" },
+        { title: "Org Structure", url: "/hr/org-structure", icon: Network, iconColor: "text-indigo-500" },
         { title: "Employees", url: "/hr/employees", icon: Users, iconColor: "text-blue-500" },
         { title: "Add Employee", url: "/hr/employees/new", icon: UserPlus, iconColor: "text-green-500" },
         { title: "Departments", url: "/hr/departments", icon: Building2, iconColor: "text-violet-500" },
@@ -334,6 +341,8 @@ export function AppSidebar() {
       label: "Human Resources",
       icon: Users,
       items: [
+        { title: "HR Dashboard", url: "/hr/dashboard", icon: LayoutDashboard, iconColor: "text-emerald-500" },
+        { title: "Org Structure", url: "/hr/org-structure", icon: Network, iconColor: "text-indigo-500" },
         { title: "Employees", url: "/hr/employees", icon: Users, iconColor: "text-blue-500" },
         { title: "Add Employee", url: "/hr/employees/new", icon: UserPlus, iconColor: "text-green-500" },
         { title: "Departments", url: "/hr/departments", icon: Building2, iconColor: "text-violet-500" },

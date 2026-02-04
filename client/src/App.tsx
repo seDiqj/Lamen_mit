@@ -40,6 +40,8 @@ import BalanceSheetPage from "@/pages/balance-sheet";
 import LookupPage from "@/pages/lookup";
 import ParCategoriesPage from "@/pages/par-categories";
 import AccountingDashboardPage from "@/pages/accounting-dashboard";
+import HRDashboardPage from "@/pages/hr/dashboard";
+import HROrgStructurePage from "@/pages/hr/org-structure";
 import HREmployeesPage from "@/pages/hr/employees";
 import HREmployeeFormPage from "@/pages/hr/employee-form";
 import HRDepartmentsPage from "@/pages/hr/departments";
@@ -142,6 +144,8 @@ function AppRoutes() {
         <Route path="/income-statement" component={IncomeStatementPage} />
         <Route path="/balance-sheet" component={BalanceSheetPage} />
         <Route path="/accounting-dashboard" component={AccountingDashboardPage} />
+        <Route path="/hr/dashboard" component={HRDashboardPage} />
+        <Route path="/hr/org-structure" component={HROrgStructurePage} />
         <Route path="/hr/employees" component={HREmployeesPage} />
         <Route path="/hr/employees/new" component={HREmployeeFormPage} />
         <Route path="/hr/employees/:id/edit" component={HREmployeeFormPage} />
