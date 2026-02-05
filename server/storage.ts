@@ -3909,6 +3909,144 @@ export class DatabaseStorage implements IStorage {
     await db.delete(benefitDependents).where(eq(benefitDependents.id, id));
   }
 
+  // ============== ADMIN DASHBOARD ==============
+
+  async getAdminDashboardStats() {
+    // HR Staff counts
+    const totalStaff = await db.select({ count: count() }).from(employees).where(eq(employees.employmentStatus, 'active'));
+    const femaleStaff = await db.select({ count: count() }).from(employees).where(
+      and(eq(employees.employmentStatus, 'active'), eq(employees.gender, 'female'))
+    );
+    
+    // Credit officers - employees in positions containing "credit" or "officer"
+    const allActiveEmployees = await db.select({
+      id: employees.id,
+      positionId: employees.positionId,
+      gender: employees.gender,
+    }).from(employees).where(eq(employees.employmentStatus, 'active'));
+
+    const positionsList = await db.select().from(positions);
+    const creditOfficerPositionIds = positionsList
+      .filter(p => p.title?.toLowerCase().includes('credit') || p.title?.toLowerCase().includes('officer'))
+      .map(p => p.id);
+
+    const creditOfficers = allActiveEmployees.filter(e => e.positionId && creditOfficerPositionIds.includes(e.positionId));
+    const femaleCreditOfficers = creditOfficers.filter(e => e.gender === 'female');
+
+    // Disbursement data - current month
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    
+    const [disbursementStats] = await db.select({
+      totalDisbursed: sql<number>`COALESCE(SUM(CASE WHEN ${loans.status} IN ('disbursed', 'active', 'completed') THEN ${loans.principleAmount}::numeric ELSE 0 END), 0)`,
+      disbursedCount: sql<number>`COUNT(*) FILTER (WHERE ${loans.status} IN ('disbursed', 'active', 'completed'))`,
+    }).from(loans);
+
+    // Branch-wise OLB with female client data and PAR
+    const branchWiseResult = await db.execute(sql`
+      SELECT 
+        COALESCE(b.name, 'Unknown') as branch,
+        COUNT(DISTINCT l.id) as no,
+        COALESCE(SUM(l.outstanding_portfolio::numeric), 0) as olb,
+        COUNT(DISTINCT CASE WHEN c.gender = 'female' THEN l.id END) as female_no,
+        COALESCE(SUM(CASE WHEN c.gender = 'female' THEN l.outstanding_portfolio::numeric ELSE 0 END), 0) as female_value,
+        COUNT(DISTINCT CASE WHEN l.days_in_arrears > 0 AND l.days_in_arrears <= 30 THEN l.id END) as par_1_30_no,
+        COUNT(DISTINCT CASE WHEN l.days_in_arrears > 30 THEN l.id END) as par_30_plus_no
+      FROM loans l
+      LEFT JOIN branches b ON l.branch_id = b.id
+      LEFT JOIN customers c ON l.customer_id = c.id
+      WHERE l.status IN ('disbursed', 'active')
+      GROUP BY b.name
+      ORDER BY olb DESC
+    `);
+
+    // Sector-wise OLB
+    const sectorWiseResult = await db.execute(sql`
+      SELECT 
+        COALESCE(s.name, 'Other') as sector,
+        COALESCE(SUM(l.outstanding_portfolio::numeric), 0) as olb
+      FROM loans l
+      LEFT JOIN sectors s ON l.sector_id = s.id
+      WHERE l.status IN ('disbursed', 'active')
+      GROUP BY s.name
+      ORDER BY olb DESC
+    `);
+
+    const totalOLB = (sectorWiseResult.rows as any[]).reduce((sum, r) => sum + parseFloat(r.olb || 0), 0);
+
+    // Loans closing dates - count loans by expected end date
+    const loansClosingResult = await db.execute(sql`
+      SELECT 
+        TO_CHAR(l.end_date, 'Mon-YY') as period,
+        COUNT(*) as count
+      FROM loans l
+      WHERE l.status IN ('disbursed', 'active')
+        AND l.end_date >= CURRENT_DATE
+        AND l.end_date <= CURRENT_DATE + INTERVAL '3 months'
+      GROUP BY TO_CHAR(l.end_date, 'Mon-YY'), l.end_date
+      ORDER BY l.end_date
+    `);
+
+    // Calculate caseload and productivity
+    const activeCreditOfficerCount = creditOfficers.length || 1;
+    const activeLoansCount = await db.select({ count: count() }).from(loans).where(
+      or(eq(loans.status, 'disbursed'), eq(loans.status, 'active'))
+    );
+    const caseload = activeLoansCount[0]?.count ? (Number(activeLoansCount[0].count) / activeCreditOfficerCount).toFixed(2) : 0;
+
+    // Productivity - disbursements this month per credit officer
+    const monthlyDisbursements = await db.execute(sql`
+      SELECT COUNT(*) as count
+      FROM loans l
+      WHERE l.status IN ('disbursed', 'active', 'completed')
+        AND l.disbursement_date >= DATE_TRUNC('month', CURRENT_DATE)
+    `);
+    const productivity = ((monthlyDisbursements.rows[0] as any)?.count || 0) / activeCreditOfficerCount;
+
+    return {
+      hrStaff: {
+        totalStaff: Number(totalStaff[0]?.count) || 0,
+        totalFemaleStaff: Number(femaleStaff[0]?.count) || 0,
+        totalCreditOfficers: creditOfficers.length,
+        femaleCreditOfficers: femaleCreditOfficers.length,
+        caseload: parseFloat(String(caseload)),
+        productivity: parseFloat(productivity.toFixed(2)),
+      },
+      disbursement: {
+        target: 66000000, // This could be from a settings table
+        disbursedNo: Number(disbursementStats?.disbursedCount) || 0,
+        actual: Number(disbursementStats?.totalDisbursed) || 0,
+      },
+      branchWise: (branchWiseResult.rows as any[]).map(row => {
+        const olb = parseFloat(row.olb) || 0;
+        const femaleValue = parseFloat(row.female_value) || 0;
+        const no = parseInt(row.no) || 0;
+        return {
+          branch: row.branch,
+          no,
+          olb,
+          femaleNo: parseInt(row.female_no) || 0,
+          femaleValue,
+          femalePercent: no > 0 ? parseFloat(((parseInt(row.female_no) / no) * 100).toFixed(1)) : 0,
+          par1_30No: parseInt(row.par_1_30_no) || 0,
+          par1_30Percent: no > 0 ? parseFloat(((parseInt(row.par_1_30_no) / no) * 100).toFixed(1)) : 0,
+          par30No: parseInt(row.par_30_plus_no) || 0,
+          par30Percent: no > 0 ? parseFloat(((parseInt(row.par_30_plus_no) / no) * 100).toFixed(1)) : 0,
+        };
+      }),
+      sectorWise: (sectorWiseResult.rows as any[]).map(row => ({
+        sector: row.sector,
+        olb: parseFloat(row.olb) || 0,
+        percentage: totalOLB > 0 ? parseFloat(((parseFloat(row.olb) / totalOLB) * 100).toFixed(1)) : 0,
+      })),
+      loansClosing: (loansClosingResult.rows as any[]).reduce((acc, row) => {
+        acc[row.period] = parseInt(row.count) || 0;
+        return acc;
+      }, {} as Record<string, number>),
+      totalOLB,
+    };
+  }
+
   // ============== HR ANALYTICS ==============
 
   async getHRAnalytics() {

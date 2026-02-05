@@ -4060,6 +4060,18 @@ export async function registerRoutes(
     }
   });
 
+  // ============== ADMIN DASHBOARD ==============
+
+  app.get("/api/admin/dashboard-stats", isAuthenticated, async (req, res) => {
+    try {
+      const stats = await storage.getAdminDashboardStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching admin dashboard stats:", error);
+      res.status(500).json({ message: "Failed to fetch admin dashboard stats" });
+    }
+  });
+
   // ============== HR ANALYTICS ==============
 
   app.get("/api/hr/analytics", isAuthenticated, async (req, res) => {
