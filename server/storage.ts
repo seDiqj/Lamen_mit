@@ -38,6 +38,33 @@ import {
   leaveRequests,
   holidays,
   attendance,
+  salaryStructures,
+  allowanceTypes,
+  deductionTypes,
+  employeeSalaries,
+  employeeAllowances,
+  employeeDeductions,
+  payrollRuns,
+  payslips,
+  payslipDetails,
+  jobPostings,
+  applicants,
+  interviews,
+  performancePeriods,
+  performanceReviews,
+  performanceGoals,
+  competencies,
+  competencyRatings,
+  trainingPrograms,
+  trainingSessions,
+  trainingEnrollments,
+  skills,
+  employeeSkills,
+  certifications,
+  employeeCertifications,
+  benefitPlans,
+  employeeBenefitEnrollments,
+  benefitDependents,
   type Account,
   type InsertAccount,
   type FiscalPeriod,
@@ -3192,6 +3219,730 @@ export class DatabaseStorage implements IStorage {
       .where(eq(attendance.id, id))
       .returning();
     return record;
+  }
+
+  // ============== PAYROLL MODULE ==============
+
+  // Salary Structures
+  async getSalaryStructures() {
+    return db.select().from(salaryStructures).orderBy(asc(salaryStructures.name));
+  }
+
+  async getSalaryStructure(id: string) {
+    const [structure] = await db.select().from(salaryStructures).where(eq(salaryStructures.id, id));
+    return structure;
+  }
+
+  async createSalaryStructure(data: any) {
+    const [structure] = await db.insert(salaryStructures).values(data).returning();
+    return structure;
+  }
+
+  async updateSalaryStructure(id: string, data: any) {
+    const [structure] = await db.update(salaryStructures).set(data).where(eq(salaryStructures.id, id)).returning();
+    return structure;
+  }
+
+  async deleteSalaryStructure(id: string) {
+    await db.delete(salaryStructures).where(eq(salaryStructures.id, id));
+  }
+
+  // Allowance Types
+  async getAllowanceTypes() {
+    return db.select().from(allowanceTypes).orderBy(asc(allowanceTypes.name));
+  }
+
+  async createAllowanceType(data: any) {
+    const [type] = await db.insert(allowanceTypes).values(data).returning();
+    return type;
+  }
+
+  async updateAllowanceType(id: string, data: any) {
+    const [type] = await db.update(allowanceTypes).set(data).where(eq(allowanceTypes.id, id)).returning();
+    return type;
+  }
+
+  async deleteAllowanceType(id: string) {
+    await db.delete(allowanceTypes).where(eq(allowanceTypes.id, id));
+  }
+
+  // Deduction Types
+  async getDeductionTypes() {
+    return db.select().from(deductionTypes).orderBy(asc(deductionTypes.name));
+  }
+
+  async createDeductionType(data: any) {
+    const [type] = await db.insert(deductionTypes).values(data).returning();
+    return type;
+  }
+
+  async updateDeductionType(id: string, data: any) {
+    const [type] = await db.update(deductionTypes).set(data).where(eq(deductionTypes.id, id)).returning();
+    return type;
+  }
+
+  async deleteDeductionType(id: string) {
+    await db.delete(deductionTypes).where(eq(deductionTypes.id, id));
+  }
+
+  // Employee Salaries
+  async getEmployeeSalaries(employeeId?: string) {
+    if (employeeId) {
+      return db.select().from(employeeSalaries).where(eq(employeeSalaries.employeeId, employeeId));
+    }
+    return db.select().from(employeeSalaries);
+  }
+
+  async createEmployeeSalary(data: any) {
+    const [salary] = await db.insert(employeeSalaries).values(data).returning();
+    return salary;
+  }
+
+  async updateEmployeeSalary(id: string, data: any) {
+    const [salary] = await db.update(employeeSalaries).set(data).where(eq(employeeSalaries.id, id)).returning();
+    return salary;
+  }
+
+  // Employee Allowances
+  async getEmployeeAllowances(employeeId?: string) {
+    if (employeeId) {
+      return db.select().from(employeeAllowances).where(eq(employeeAllowances.employeeId, employeeId));
+    }
+    return db.select().from(employeeAllowances);
+  }
+
+  async createEmployeeAllowance(data: any) {
+    const [allowance] = await db.insert(employeeAllowances).values(data).returning();
+    return allowance;
+  }
+
+  async updateEmployeeAllowance(id: string, data: any) {
+    const [allowance] = await db.update(employeeAllowances).set(data).where(eq(employeeAllowances.id, id)).returning();
+    return allowance;
+  }
+
+  async deleteEmployeeAllowance(id: string) {
+    await db.delete(employeeAllowances).where(eq(employeeAllowances.id, id));
+  }
+
+  // Employee Deductions
+  async getEmployeeDeductions(employeeId?: string) {
+    if (employeeId) {
+      return db.select().from(employeeDeductions).where(eq(employeeDeductions.employeeId, employeeId));
+    }
+    return db.select().from(employeeDeductions);
+  }
+
+  async createEmployeeDeduction(data: any) {
+    const [deduction] = await db.insert(employeeDeductions).values(data).returning();
+    return deduction;
+  }
+
+  async updateEmployeeDeduction(id: string, data: any) {
+    const [deduction] = await db.update(employeeDeductions).set(data).where(eq(employeeDeductions.id, id)).returning();
+    return deduction;
+  }
+
+  async deleteEmployeeDeduction(id: string) {
+    await db.delete(employeeDeductions).where(eq(employeeDeductions.id, id));
+  }
+
+  // Payroll Runs
+  async getPayrollRuns() {
+    return db.select().from(payrollRuns).orderBy(desc(payrollRuns.createdAt));
+  }
+
+  async getPayrollRun(id: string) {
+    const [run] = await db.select().from(payrollRuns).where(eq(payrollRuns.id, id));
+    return run;
+  }
+
+  async createPayrollRun(data: any) {
+    const payrollNumber = `PR-${Date.now()}`;
+    const [run] = await db.insert(payrollRuns).values({ ...data, payrollNumber }).returning();
+    return run;
+  }
+
+  async updatePayrollRun(id: string, data: any) {
+    const [run] = await db.update(payrollRuns).set(data).where(eq(payrollRuns.id, id)).returning();
+    return run;
+  }
+
+  async deletePayrollRun(id: string) {
+    await db.delete(payslipDetails).where(
+      inArray(payslipDetails.payslipId, 
+        db.select({ id: payslips.id }).from(payslips).where(eq(payslips.payrollRunId, id))
+      )
+    );
+    await db.delete(payslips).where(eq(payslips.payrollRunId, id));
+    await db.delete(payrollRuns).where(eq(payrollRuns.id, id));
+  }
+
+  // Payslips
+  async getPayslips(payrollRunId?: string) {
+    let query;
+    if (payrollRunId) {
+      query = db.select().from(payslips).where(eq(payslips.payrollRunId, payrollRunId));
+    } else {
+      query = db.select().from(payslips);
+    }
+    const slips = await query;
+    return Promise.all(slips.map(async (slip) => {
+      const [employee] = await db.select().from(employees).where(eq(employees.id, slip.employeeId));
+      return { ...slip, employee };
+    }));
+  }
+
+  async getPayslip(id: string) {
+    const [slip] = await db.select().from(payslips).where(eq(payslips.id, id));
+    if (!slip) return null;
+    const [employee] = await db.select().from(employees).where(eq(employees.id, slip.employeeId));
+    const details = await db.select().from(payslipDetails).where(eq(payslipDetails.payslipId, id));
+    return { ...slip, employee, details };
+  }
+
+  async createPayslip(data: any) {
+    const [slip] = await db.insert(payslips).values(data).returning();
+    return slip;
+  }
+
+  async createPayslipDetail(data: any) {
+    const [detail] = await db.insert(payslipDetails).values(data).returning();
+    return detail;
+  }
+
+  // ============== RECRUITMENT MODULE ==============
+
+  // Job Postings
+  async getJobPostings() {
+    const jobs = await db.select().from(jobPostings).orderBy(desc(jobPostings.createdAt));
+    return Promise.all(jobs.map(async (job) => {
+      let department = null;
+      let position = null;
+      if (job.departmentId) {
+        const [dept] = await db.select().from(departments).where(eq(departments.id, job.departmentId));
+        department = dept;
+      }
+      if (job.positionId) {
+        const [pos] = await db.select().from(positions).where(eq(positions.id, job.positionId));
+        position = pos;
+      }
+      const applicantCount = await db.select({ count: count() }).from(applicants).where(eq(applicants.jobPostingId, job.id));
+      return { ...job, department, position, applicantCount: applicantCount[0]?.count || 0 };
+    }));
+  }
+
+  async getJobPosting(id: string) {
+    const [job] = await db.select().from(jobPostings).where(eq(jobPostings.id, id));
+    return job;
+  }
+
+  async createJobPosting(data: any) {
+    const [job] = await db.insert(jobPostings).values(data).returning();
+    return job;
+  }
+
+  async updateJobPosting(id: string, data: any) {
+    const [job] = await db.update(jobPostings).set(data).where(eq(jobPostings.id, id)).returning();
+    return job;
+  }
+
+  async deleteJobPosting(id: string) {
+    await db.delete(interviews).where(
+      inArray(interviews.applicantId, 
+        db.select({ id: applicants.id }).from(applicants).where(eq(applicants.jobPostingId, id))
+      )
+    );
+    await db.delete(applicants).where(eq(applicants.jobPostingId, id));
+    await db.delete(jobPostings).where(eq(jobPostings.id, id));
+  }
+
+  // Applicants
+  async getApplicants(jobPostingId?: string) {
+    let query;
+    if (jobPostingId) {
+      query = db.select().from(applicants).where(eq(applicants.jobPostingId, jobPostingId));
+    } else {
+      query = db.select().from(applicants);
+    }
+    const apps = await query.orderBy(desc(applicants.appliedAt));
+    return Promise.all(apps.map(async (app) => {
+      const [job] = await db.select().from(jobPostings).where(eq(jobPostings.id, app.jobPostingId));
+      return { ...app, jobPosting: job };
+    }));
+  }
+
+  async getApplicant(id: string) {
+    const [app] = await db.select().from(applicants).where(eq(applicants.id, id));
+    if (!app) return null;
+    const [job] = await db.select().from(jobPostings).where(eq(jobPostings.id, app.jobPostingId));
+    const interviewList = await db.select().from(interviews).where(eq(interviews.applicantId, id));
+    return { ...app, jobPosting: job, interviews: interviewList };
+  }
+
+  async createApplicant(data: any) {
+    const [app] = await db.insert(applicants).values(data).returning();
+    return app;
+  }
+
+  async updateApplicant(id: string, data: any) {
+    const [app] = await db.update(applicants).set(data).where(eq(applicants.id, id)).returning();
+    return app;
+  }
+
+  async deleteApplicant(id: string) {
+    await db.delete(interviews).where(eq(interviews.applicantId, id));
+    await db.delete(applicants).where(eq(applicants.id, id));
+  }
+
+  // Interviews
+  async getInterviews(applicantId?: string) {
+    let query;
+    if (applicantId) {
+      query = db.select().from(interviews).where(eq(interviews.applicantId, applicantId));
+    } else {
+      query = db.select().from(interviews);
+    }
+    const ints = await query.orderBy(desc(interviews.scheduledDate));
+    return Promise.all(ints.map(async (int) => {
+      const [app] = await db.select().from(applicants).where(eq(applicants.id, int.applicantId));
+      let interviewer = null;
+      if (int.interviewerId) {
+        const [emp] = await db.select().from(employees).where(eq(employees.id, int.interviewerId));
+        interviewer = emp;
+      }
+      return { ...int, applicant: app, interviewer };
+    }));
+  }
+
+  async createInterview(data: any) {
+    const [interview] = await db.insert(interviews).values(data).returning();
+    return interview;
+  }
+
+  async updateInterview(id: string, data: any) {
+    const [interview] = await db.update(interviews).set(data).where(eq(interviews.id, id)).returning();
+    return interview;
+  }
+
+  async deleteInterview(id: string) {
+    await db.delete(interviews).where(eq(interviews.id, id));
+  }
+
+  // ============== PERFORMANCE MODULE ==============
+
+  // Performance Periods
+  async getPerformancePeriods() {
+    return db.select().from(performancePeriods).orderBy(desc(performancePeriods.startDate));
+  }
+
+  async createPerformancePeriod(data: any) {
+    const [period] = await db.insert(performancePeriods).values(data).returning();
+    return period;
+  }
+
+  async updatePerformancePeriod(id: string, data: any) {
+    const [period] = await db.update(performancePeriods).set(data).where(eq(performancePeriods.id, id)).returning();
+    return period;
+  }
+
+  async deletePerformancePeriod(id: string) {
+    await db.delete(performancePeriods).where(eq(performancePeriods.id, id));
+  }
+
+  // Performance Reviews
+  async getPerformanceReviews(employeeId?: string, periodId?: string) {
+    let query = db.select().from(performanceReviews);
+    if (employeeId) {
+      query = query.where(eq(performanceReviews.employeeId, employeeId)) as any;
+    }
+    if (periodId) {
+      query = query.where(eq(performanceReviews.periodId, periodId)) as any;
+    }
+    const reviews = await query.orderBy(desc(performanceReviews.createdAt));
+    return Promise.all(reviews.map(async (review) => {
+      const [employee] = await db.select().from(employees).where(eq(employees.id, review.employeeId));
+      let reviewer = null;
+      if (review.reviewerId) {
+        const [rev] = await db.select().from(employees).where(eq(employees.id, review.reviewerId));
+        reviewer = rev;
+      }
+      let period = null;
+      if (review.periodId) {
+        const [per] = await db.select().from(performancePeriods).where(eq(performancePeriods.id, review.periodId));
+        period = per;
+      }
+      return { ...review, employee, reviewer, period };
+    }));
+  }
+
+  async getPerformanceReview(id: string) {
+    const [review] = await db.select().from(performanceReviews).where(eq(performanceReviews.id, id));
+    if (!review) return null;
+    const [employee] = await db.select().from(employees).where(eq(employees.id, review.employeeId));
+    const goals = await db.select().from(performanceGoals).where(eq(performanceGoals.reviewId, id));
+    const ratings = await db.select().from(competencyRatings).where(eq(competencyRatings.reviewId, id));
+    return { ...review, employee, goals, competencyRatings: ratings };
+  }
+
+  async createPerformanceReview(data: any) {
+    const [review] = await db.insert(performanceReviews).values(data).returning();
+    return review;
+  }
+
+  async updatePerformanceReview(id: string, data: any) {
+    const [review] = await db.update(performanceReviews).set(data).where(eq(performanceReviews.id, id)).returning();
+    return review;
+  }
+
+  async deletePerformanceReview(id: string) {
+    await db.delete(competencyRatings).where(eq(competencyRatings.reviewId, id));
+    await db.delete(performanceGoals).where(eq(performanceGoals.reviewId, id));
+    await db.delete(performanceReviews).where(eq(performanceReviews.id, id));
+  }
+
+  // Goals
+  async getPerformanceGoals(employeeId?: string, reviewId?: string) {
+    let query = db.select().from(performanceGoals);
+    if (employeeId) {
+      query = query.where(eq(performanceGoals.employeeId, employeeId)) as any;
+    }
+    if (reviewId) {
+      query = query.where(eq(performanceGoals.reviewId, reviewId)) as any;
+    }
+    return query.orderBy(desc(performanceGoals.createdAt));
+  }
+
+  async createPerformanceGoal(data: any) {
+    const [goal] = await db.insert(performanceGoals).values(data).returning();
+    return goal;
+  }
+
+  async updatePerformanceGoal(id: string, data: any) {
+    const [goal] = await db.update(performanceGoals).set(data).where(eq(performanceGoals.id, id)).returning();
+    return goal;
+  }
+
+  async deletePerformanceGoal(id: string) {
+    await db.delete(performanceGoals).where(eq(performanceGoals.id, id));
+  }
+
+  // Competencies
+  async getCompetencies() {
+    return db.select().from(competencies).orderBy(asc(competencies.name));
+  }
+
+  async createCompetency(data: any) {
+    const [comp] = await db.insert(competencies).values(data).returning();
+    return comp;
+  }
+
+  async updateCompetency(id: string, data: any) {
+    const [comp] = await db.update(competencies).set(data).where(eq(competencies.id, id)).returning();
+    return comp;
+  }
+
+  async deleteCompetency(id: string) {
+    await db.delete(competencies).where(eq(competencies.id, id));
+  }
+
+  // Competency Ratings
+  async createCompetencyRating(data: any) {
+    const [rating] = await db.insert(competencyRatings).values(data).returning();
+    return rating;
+  }
+
+  async updateCompetencyRating(id: string, data: any) {
+    const [rating] = await db.update(competencyRatings).set(data).where(eq(competencyRatings.id, id)).returning();
+    return rating;
+  }
+
+  // ============== TRAINING MODULE ==============
+
+  // Training Programs
+  async getTrainingPrograms() {
+    return db.select().from(trainingPrograms).orderBy(asc(trainingPrograms.title));
+  }
+
+  async getTrainingProgram(id: string) {
+    const [program] = await db.select().from(trainingPrograms).where(eq(trainingPrograms.id, id));
+    return program;
+  }
+
+  async createTrainingProgram(data: any) {
+    const [program] = await db.insert(trainingPrograms).values(data).returning();
+    return program;
+  }
+
+  async updateTrainingProgram(id: string, data: any) {
+    const [program] = await db.update(trainingPrograms).set(data).where(eq(trainingPrograms.id, id)).returning();
+    return program;
+  }
+
+  async deleteTrainingProgram(id: string) {
+    await db.delete(trainingPrograms).where(eq(trainingPrograms.id, id));
+  }
+
+  // Training Sessions
+  async getTrainingSessions(programId?: string) {
+    let query;
+    if (programId) {
+      query = db.select().from(trainingSessions).where(eq(trainingSessions.programId, programId));
+    } else {
+      query = db.select().from(trainingSessions);
+    }
+    const sessions = await query.orderBy(desc(trainingSessions.startDate));
+    return Promise.all(sessions.map(async (session) => {
+      const [program] = await db.select().from(trainingPrograms).where(eq(trainingPrograms.id, session.programId));
+      let trainer = null;
+      if (session.trainerId) {
+        const [emp] = await db.select().from(employees).where(eq(employees.id, session.trainerId));
+        trainer = emp;
+      }
+      const enrollmentCount = await db.select({ count: count() }).from(trainingEnrollments).where(eq(trainingEnrollments.sessionId, session.id));
+      return { ...session, program, trainer, enrollmentCount: enrollmentCount[0]?.count || 0 };
+    }));
+  }
+
+  async createTrainingSession(data: any) {
+    const [session] = await db.insert(trainingSessions).values(data).returning();
+    return session;
+  }
+
+  async updateTrainingSession(id: string, data: any) {
+    const [session] = await db.update(trainingSessions).set(data).where(eq(trainingSessions.id, id)).returning();
+    return session;
+  }
+
+  async deleteTrainingSession(id: string) {
+    await db.delete(trainingEnrollments).where(eq(trainingEnrollments.sessionId, id));
+    await db.delete(trainingSessions).where(eq(trainingSessions.id, id));
+  }
+
+  // Training Enrollments
+  async getTrainingEnrollments(sessionId?: string, employeeId?: string) {
+    let query = db.select().from(trainingEnrollments);
+    if (sessionId) {
+      query = query.where(eq(trainingEnrollments.sessionId, sessionId)) as any;
+    }
+    if (employeeId) {
+      query = query.where(eq(trainingEnrollments.employeeId, employeeId)) as any;
+    }
+    const enrollments = await query;
+    return Promise.all(enrollments.map(async (enr) => {
+      const [employee] = await db.select().from(employees).where(eq(employees.id, enr.employeeId));
+      const [session] = await db.select().from(trainingSessions).where(eq(trainingSessions.id, enr.sessionId));
+      return { ...enr, employee, session };
+    }));
+  }
+
+  async createTrainingEnrollment(data: any) {
+    const [enrollment] = await db.insert(trainingEnrollments).values(data).returning();
+    return enrollment;
+  }
+
+  async updateTrainingEnrollment(id: string, data: any) {
+    const [enrollment] = await db.update(trainingEnrollments).set(data).where(eq(trainingEnrollments.id, id)).returning();
+    return enrollment;
+  }
+
+  async deleteTrainingEnrollment(id: string) {
+    await db.delete(trainingEnrollments).where(eq(trainingEnrollments.id, id));
+  }
+
+  // Skills
+  async getSkills() {
+    return db.select().from(skills).orderBy(asc(skills.name));
+  }
+
+  async createSkill(data: any) {
+    const [skill] = await db.insert(skills).values(data).returning();
+    return skill;
+  }
+
+  async updateSkill(id: string, data: any) {
+    const [skill] = await db.update(skills).set(data).where(eq(skills.id, id)).returning();
+    return skill;
+  }
+
+  async deleteSkill(id: string) {
+    await db.delete(employeeSkills).where(eq(employeeSkills.skillId, id));
+    await db.delete(skills).where(eq(skills.id, id));
+  }
+
+  // Employee Skills
+  async getEmployeeSkills(employeeId: string) {
+    const empSkills = await db.select().from(employeeSkills).where(eq(employeeSkills.employeeId, employeeId));
+    return Promise.all(empSkills.map(async (es) => {
+      const [skill] = await db.select().from(skills).where(eq(skills.id, es.skillId));
+      return { ...es, skill };
+    }));
+  }
+
+  async createEmployeeSkill(data: any) {
+    const [empSkill] = await db.insert(employeeSkills).values(data).returning();
+    return empSkill;
+  }
+
+  async updateEmployeeSkill(id: string, data: any) {
+    const [empSkill] = await db.update(employeeSkills).set(data).where(eq(employeeSkills.id, id)).returning();
+    return empSkill;
+  }
+
+  async deleteEmployeeSkill(id: string) {
+    await db.delete(employeeSkills).where(eq(employeeSkills.id, id));
+  }
+
+  // Certifications
+  async getCertifications() {
+    return db.select().from(certifications).orderBy(asc(certifications.name));
+  }
+
+  async createCertification(data: any) {
+    const [cert] = await db.insert(certifications).values(data).returning();
+    return cert;
+  }
+
+  async updateCertification(id: string, data: any) {
+    const [cert] = await db.update(certifications).set(data).where(eq(certifications.id, id)).returning();
+    return cert;
+  }
+
+  async deleteCertification(id: string) {
+    await db.delete(employeeCertifications).where(eq(employeeCertifications.certificationId, id));
+    await db.delete(certifications).where(eq(certifications.id, id));
+  }
+
+  // Employee Certifications
+  async getEmployeeCertifications(employeeId: string) {
+    const empCerts = await db.select().from(employeeCertifications).where(eq(employeeCertifications.employeeId, employeeId));
+    return Promise.all(empCerts.map(async (ec) => {
+      const [cert] = await db.select().from(certifications).where(eq(certifications.id, ec.certificationId));
+      return { ...ec, certification: cert };
+    }));
+  }
+
+  async createEmployeeCertification(data: any) {
+    const [empCert] = await db.insert(employeeCertifications).values(data).returning();
+    return empCert;
+  }
+
+  async updateEmployeeCertification(id: string, data: any) {
+    const [empCert] = await db.update(employeeCertifications).set(data).where(eq(employeeCertifications.id, id)).returning();
+    return empCert;
+  }
+
+  async deleteEmployeeCertification(id: string) {
+    await db.delete(employeeCertifications).where(eq(employeeCertifications.id, id));
+  }
+
+  // ============== BENEFITS MODULE ==============
+
+  // Benefit Plans
+  async getBenefitPlans() {
+    return db.select().from(benefitPlans).orderBy(asc(benefitPlans.name));
+  }
+
+  async getBenefitPlan(id: string) {
+    const [plan] = await db.select().from(benefitPlans).where(eq(benefitPlans.id, id));
+    return plan;
+  }
+
+  async createBenefitPlan(data: any) {
+    const [plan] = await db.insert(benefitPlans).values(data).returning();
+    return plan;
+  }
+
+  async updateBenefitPlan(id: string, data: any) {
+    const [plan] = await db.update(benefitPlans).set(data).where(eq(benefitPlans.id, id)).returning();
+    return plan;
+  }
+
+  async deleteBenefitPlan(id: string) {
+    await db.delete(benefitPlans).where(eq(benefitPlans.id, id));
+  }
+
+  // Employee Benefit Enrollments
+  async getEmployeeBenefitEnrollments(employeeId?: string) {
+    let query;
+    if (employeeId) {
+      query = db.select().from(employeeBenefitEnrollments).where(eq(employeeBenefitEnrollments.employeeId, employeeId));
+    } else {
+      query = db.select().from(employeeBenefitEnrollments);
+    }
+    const enrollments = await query;
+    return Promise.all(enrollments.map(async (enr) => {
+      const [employee] = await db.select().from(employees).where(eq(employees.id, enr.employeeId));
+      const [plan] = await db.select().from(benefitPlans).where(eq(benefitPlans.id, enr.benefitPlanId));
+      const deps = await db.select().from(benefitDependents).where(eq(benefitDependents.enrollmentId, enr.id));
+      return { ...enr, employee, benefitPlan: plan, dependents: deps };
+    }));
+  }
+
+  async createEmployeeBenefitEnrollment(data: any) {
+    const [enrollment] = await db.insert(employeeBenefitEnrollments).values(data).returning();
+    return enrollment;
+  }
+
+  async updateEmployeeBenefitEnrollment(id: string, data: any) {
+    const [enrollment] = await db.update(employeeBenefitEnrollments).set(data).where(eq(employeeBenefitEnrollments.id, id)).returning();
+    return enrollment;
+  }
+
+  async deleteEmployeeBenefitEnrollment(id: string) {
+    await db.delete(benefitDependents).where(eq(benefitDependents.enrollmentId, id));
+    await db.delete(employeeBenefitEnrollments).where(eq(employeeBenefitEnrollments.id, id));
+  }
+
+  // Benefit Dependents
+  async createBenefitDependent(data: any) {
+    const [dependent] = await db.insert(benefitDependents).values(data).returning();
+    return dependent;
+  }
+
+  async updateBenefitDependent(id: string, data: any) {
+    const [dependent] = await db.update(benefitDependents).set(data).where(eq(benefitDependents.id, id)).returning();
+    return dependent;
+  }
+
+  async deleteBenefitDependent(id: string) {
+    await db.delete(benefitDependents).where(eq(benefitDependents.id, id));
+  }
+
+  // ============== HR ANALYTICS ==============
+
+  async getHRAnalytics() {
+    const totalEmployees = await db.select({ count: count() }).from(employees).where(eq(employees.employmentStatus, 'active'));
+    const totalDepartments = await db.select({ count: count() }).from(departments);
+    const totalPositions = await db.select({ count: count() }).from(positions);
+    const openJobs = await db.select({ count: count() }).from(jobPostings).where(eq(jobPostings.status, 'open'));
+    const pendingLeaves = await db.select({ count: count() }).from(leaveRequests).where(eq(leaveRequests.status, 'pending'));
+    const upcomingTrainings = await db.select({ count: count() }).from(trainingSessions).where(eq(trainingSessions.status, 'planned'));
+    const pendingReviews = await db.select({ count: count() }).from(performanceReviews).where(
+      or(eq(performanceReviews.status, 'draft'), eq(performanceReviews.status, 'self_review'))
+    );
+
+    const employeesByDept = await db.select({
+      departmentId: employees.departmentId,
+      count: count(),
+    }).from(employees).where(eq(employees.employmentStatus, 'active')).groupBy(employees.departmentId);
+
+    const deptNames = await Promise.all(employeesByDept.map(async (ed) => {
+      if (!ed.departmentId) return { department: 'Unassigned', count: ed.count };
+      const [dept] = await db.select().from(departments).where(eq(departments.id, ed.departmentId));
+      return { department: dept?.name || 'Unknown', count: ed.count };
+    }));
+
+    return {
+      totalEmployees: totalEmployees[0]?.count || 0,
+      totalDepartments: totalDepartments[0]?.count || 0,
+      totalPositions: totalPositions[0]?.count || 0,
+      openJobs: openJobs[0]?.count || 0,
+      pendingLeaves: pendingLeaves[0]?.count || 0,
+      upcomingTrainings: upcomingTrainings[0]?.count || 0,
+      pendingReviews: pendingReviews[0]?.count || 0,
+      employeesByDepartment: deptNames,
+    };
   }
 }
 
