@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 import LoginPage from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
+import AdminDashboardPage from "@/pages/admin-dashboard";
 import LoansPage from "@/pages/loans";
 import CustomersPage from "@/pages/customers";
 import PaymentsPage from "@/pages/payments";
@@ -110,6 +111,7 @@ function AppRoutes() {
     <AuthenticatedLayout>
       <Switch>
         <Route path="/" component={Dashboard} />
+        <Route path="/admin-dashboard" component={AdminDashboardPage} />
         <Route path="/loans" component={LoansPage} />
         <Route path="/loans/:id" component={LoanDetailsPage} />
         <Route path="/loan-application" component={LoanApplicationPage} />
