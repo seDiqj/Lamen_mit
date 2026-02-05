@@ -42,7 +42,6 @@ import {
   Target,
   GraduationCap,
   Heart,
-  LineChart,
 } from "lucide-react";
 import lamenLogo from "@assets/LamenLogo_1769936371528.jpeg";
 
@@ -110,7 +109,6 @@ const PAGE_URL_TO_NAME: Record<string, string> = {
   "/hr/performance": "hr-performance",
   "/hr/training": "hr-training",
   "/hr/benefits": "hr-benefits",
-  "/hr/analytics": "hr-analytics",
 };
 
 interface IconRailNavProps {
@@ -215,7 +213,6 @@ export function IconRailNav({ children }: IconRailNavProps) {
       bgColor: "from-teal-500 to-cyan-600",
       items: [
         { title: "HR Dashboard", url: "/hr/dashboard", icon: LayoutDashboard, iconColor: "text-emerald-500" },
-        { title: "HR Analytics", url: "/hr/analytics", icon: LineChart, iconColor: "text-blue-500" },
         { title: "Org Structure", url: "/hr/org-structure", icon: Network, iconColor: "text-indigo-500" },
         { title: "Employees", url: "/hr/employees", icon: Users, iconColor: "text-blue-500" },
         { title: "Add Employee", url: "/hr/employees/new", icon: UserPlus, iconColor: "text-green-500" },

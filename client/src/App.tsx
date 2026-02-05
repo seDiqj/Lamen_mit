@@ -54,7 +54,6 @@ import HRRecruitmentPage from "@/pages/hr/recruitment";
 import HRPerformancePage from "@/pages/hr/performance";
 import HRTrainingPage from "@/pages/hr/training";
 import HRBenefitsPage from "@/pages/hr/benefits";
-import HRAnalyticsPage from "@/pages/hr/analytics";
 import NotFound from "@/pages/not-found";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
@@ -154,7 +153,6 @@ function AppRoutes() {
         <Route path="/hr/performance" component={HRPerformancePage} />
         <Route path="/hr/training" component={HRTrainingPage} />
         <Route path="/hr/benefits" component={HRBenefitsPage} />
-        <Route path="/hr/analytics" component={HRAnalyticsPage} />
         <Route component={NotFound} />
       </Switch>
     </AuthenticatedLayout>

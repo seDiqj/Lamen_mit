@@ -1,7 +1,22 @@
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Building2, Calendar, ClipboardCheck, UserCheck, UserX, Clock, TrendingUp } from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { 
+  Users, 
+  Building2, 
+  Calendar, 
+  ClipboardCheck, 
+  UserCheck, 
+  UserX, 
+  Clock, 
+  TrendingUp,
+  Briefcase,
+  GraduationCap,
+  Target,
+  LineChart
+} from "lucide-react";
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from "recharts";
+
+const COLORS = ["#22c55e", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#f97316"];
 
 export default function HRDashboard() {
   const { data: employees = [] } = useQuery<any[]>({
@@ -18,6 +33,10 @@ export default function HRDashboard() {
 
   const { data: attendance = [] } = useQuery<any[]>({
     queryKey: ["/api/hr/attendance"],
+  });
+
+  const { data: analytics } = useQuery<any>({
+    queryKey: ["/api/hr/analytics"],
   });
 
   const activeEmployees = employees.filter((e: any) => e.employmentStatus === "active").length;
@@ -41,7 +60,15 @@ export default function HRDashboard() {
     { name: "Female", value: employees.filter((e: any) => e.gender === "female").length },
   ].filter(d => d.value > 0);
 
-  const COLORS = ["#16a34a", "#eab308", "#22c55e", "#84cc16", "#a3e635", "#4ade80"];
+  const employmentTypeData = employees.reduce((acc: any[], emp: any) => {
+    const existing = acc.find((a) => a.name === (emp.employmentType || "Unknown"));
+    if (existing) {
+      existing.value++;
+    } else {
+      acc.push({ name: emp.employmentType || "Unknown", value: 1 });
+    }
+    return acc;
+  }, []);
 
   const leaveStatusData = [
     { name: "Pending", count: pendingLeaves },
@@ -52,7 +79,13 @@ export default function HRDashboard() {
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-foreground">HR Dashboard</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <LineChart className="h-7 w-7 text-primary" />
+            HR Dashboard & Analytics
+          </h1>
+          <p className="text-muted-foreground">Workforce insights and key HR metrics</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -109,34 +142,71 @@ export default function HRDashboard() {
         </Card>
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Open Positions</CardTitle>
+            <Briefcase className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{analytics?.openJobs || 0}</div>
+            <p className="text-xs text-muted-foreground">Job openings</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Positions</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{analytics?.totalPositions || 0}</div>
+            <p className="text-xs text-muted-foreground">Defined positions</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Upcoming Trainings</CardTitle>
+            <GraduationCap className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{analytics?.upcomingTrainings || 0}</div>
+            <p className="text-xs text-muted-foreground">Planned sessions</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pending Reviews</CardTitle>
+            <Target className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{analytics?.pendingReviews || 0}</div>
+            <p className="text-xs text-muted-foreground">Performance reviews</p>
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Employees by Department</CardTitle>
+            <CardDescription>Distribution of employees across departments</CardDescription>
           </CardHeader>
           <CardContent>
             {departmentData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={250}>
-                <PieChart>
-                  <Pie
-                    data={departmentData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {departmentData.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={departmentData} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis type="number" />
+                  <YAxis dataKey="name" type="category" width={100} fontSize={12} />
                   <Tooltip />
-                </PieChart>
+                  <Bar dataKey="value" fill="#22c55e" radius={[0, 4, 4, 0]} />
+                </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-[250px] text-muted-foreground">
+              <div className="flex items-center justify-center h-[280px] text-muted-foreground">
                 No department data available
               </div>
             )}
@@ -145,11 +215,47 @@ export default function HRDashboard() {
 
         <Card>
           <CardHeader>
+            <CardTitle className="text-lg">Employment Types</CardTitle>
+            <CardDescription>Employee distribution by employment type</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {employmentTypeData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={280}>
+                <PieChart>
+                  <Pie
+                    data={employmentTypeData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    outerRadius={100}
+                    fill="#8884d8"
+                    dataKey="value"
+                    label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                  >
+                    {employmentTypeData.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[280px] text-muted-foreground">
+                No employment type data available
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
             <CardTitle className="text-lg">Gender Distribution</CardTitle>
+            <CardDescription>Employee distribution by gender</CardDescription>
           </CardHeader>
           <CardContent>
             {genderData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={250}>
+              <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
                   <Pie
                     data={genderData}
@@ -157,18 +263,19 @@ export default function HRDashboard() {
                     cy="50%"
                     labelLine={false}
                     label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                    outerRadius={80}
+                    outerRadius={100}
                     fill="#8884d8"
                     dataKey="value"
                   >
-                    <Cell fill="#16a34a" />
-                    <Cell fill="#eab308" />
+                    <Cell fill="#22c55e" />
+                    <Cell fill="#f59e0b" />
                   </Pie>
                   <Tooltip />
+                  <Legend />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-[250px] text-muted-foreground">
+              <div className="flex items-center justify-center h-[280px] text-muted-foreground">
                 No gender data available
               </div>
             )}
@@ -178,59 +285,64 @@ export default function HRDashboard() {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Leave Request Status</CardTitle>
+            <CardDescription>Leave requests by current status</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={250}>
+            <ResponsiveContainer width="100%" height={280}>
               <BarChart data={leaveStatusData}>
+                <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
                 <YAxis />
                 <Tooltip />
-                <Bar dataKey="count" fill="#16a34a" />
+                <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Quick Stats</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <UserCheck className="h-4 w-4 text-green-600" />
-                <span className="text-sm">Active Employees</span>
-              </div>
-              <span className="font-semibold">{activeEmployees}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <UserX className="h-4 w-4 text-red-600" />
-                <span className="text-sm">Inactive Employees</span>
-              </div>
-              <span className="font-semibold">{inactiveEmployees}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-yellow-600" />
-                <span className="text-sm">Total Leave Requests</span>
-              </div>
-              <span className="font-semibold">{leaveRequests.length}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-blue-600" />
-                <span className="text-sm">Attendance Rate</span>
-              </div>
-              <span className="font-semibold">
-                {todayAttendance.length > 0 
-                  ? `${((presentToday / todayAttendance.length) * 100).toFixed(0)}%`
-                  : "N/A"}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Quick Stats</CardTitle>
+          <CardDescription>Summary of key HR metrics</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-green-50 dark:bg-green-900/20">
+              <UserCheck className="h-5 w-5 text-green-600" />
+              <div>
+                <p className="text-sm text-muted-foreground">Active Employees</p>
+                <p className="text-lg font-semibold">{activeEmployees}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-red-50 dark:bg-red-900/20">
+              <UserX className="h-5 w-5 text-red-600" />
+              <div>
+                <p className="text-sm text-muted-foreground">Inactive Employees</p>
+                <p className="text-lg font-semibold">{inactiveEmployees}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-yellow-50 dark:bg-yellow-900/20">
+              <Calendar className="h-5 w-5 text-yellow-600" />
+              <div>
+                <p className="text-sm text-muted-foreground">Total Leave Requests</p>
+                <p className="text-lg font-semibold">{leaveRequests.length}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+              <TrendingUp className="h-5 w-5 text-blue-600" />
+              <div>
+                <p className="text-sm text-muted-foreground">Attendance Rate</p>
+                <p className="text-lg font-semibold">
+                  {todayAttendance.length > 0 
+                    ? `${((presentToday / todayAttendance.length) * 100).toFixed(0)}%`
+                    : "N/A"}
+                </p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
