@@ -38,6 +38,11 @@ import {
   Network,
   X,
   ChevronRight,
+  Banknote,
+  Target,
+  GraduationCap,
+  Heart,
+  LineChart,
 } from "lucide-react";
 import lamenLogo from "@assets/LamenLogo_1769936371528.jpeg";
 
@@ -100,6 +105,12 @@ const PAGE_URL_TO_NAME: Record<string, string> = {
   "/hr/leave-types": "hr-leave-types",
   "/hr/leave-requests": "hr-leave-requests",
   "/hr/holidays": "hr-holidays",
+  "/hr/payroll": "hr-payroll",
+  "/hr/recruitment": "hr-recruitment",
+  "/hr/performance": "hr-performance",
+  "/hr/training": "hr-training",
+  "/hr/benefits": "hr-benefits",
+  "/hr/analytics": "hr-analytics",
 };
 
 interface IconRailNavProps {
@@ -204,11 +215,17 @@ export function IconRailNav({ children }: IconRailNavProps) {
       bgColor: "from-teal-500 to-cyan-600",
       items: [
         { title: "HR Dashboard", url: "/hr/dashboard", icon: LayoutDashboard, iconColor: "text-emerald-500" },
+        { title: "HR Analytics", url: "/hr/analytics", icon: LineChart, iconColor: "text-blue-500" },
         { title: "Org Structure", url: "/hr/org-structure", icon: Network, iconColor: "text-indigo-500" },
         { title: "Employees", url: "/hr/employees", icon: Users, iconColor: "text-blue-500" },
         { title: "Add Employee", url: "/hr/employees/new", icon: UserPlus, iconColor: "text-green-500" },
         { title: "Departments", url: "/hr/departments", icon: Building2, iconColor: "text-violet-500" },
         { title: "Positions", url: "/hr/positions", icon: Briefcase, iconColor: "text-amber-500" },
+        { title: "Payroll", url: "/hr/payroll", icon: Banknote, iconColor: "text-green-600" },
+        { title: "Recruitment", url: "/hr/recruitment", icon: UserPlus, iconColor: "text-purple-500" },
+        { title: "Performance", url: "/hr/performance", icon: Target, iconColor: "text-orange-500" },
+        { title: "Training", url: "/hr/training", icon: GraduationCap, iconColor: "text-cyan-500" },
+        { title: "Benefits", url: "/hr/benefits", icon: Heart, iconColor: "text-red-500" },
         { title: "Attendance", url: "/hr/attendance", icon: CalendarCheck, iconColor: "text-teal-500" },
         { title: "Leave Types", url: "/hr/leave-types", icon: CalendarDays, iconColor: "text-pink-500" },
         { title: "Leave Requests", url: "/hr/leave-requests", icon: FileText, iconColor: "text-orange-500" },

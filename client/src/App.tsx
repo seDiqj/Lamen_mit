@@ -49,6 +49,12 @@ import HRAttendancePage from "@/pages/hr/attendance";
 import HRLeaveTypesPage from "@/pages/hr/leave-types";
 import HRLeaveRequestsPage from "@/pages/hr/leave-requests";
 import HRHolidaysPage from "@/pages/hr/holidays";
+import HRPayrollPage from "@/pages/hr/payroll";
+import HRRecruitmentPage from "@/pages/hr/recruitment";
+import HRPerformancePage from "@/pages/hr/performance";
+import HRTrainingPage from "@/pages/hr/training";
+import HRBenefitsPage from "@/pages/hr/benefits";
+import HRAnalyticsPage from "@/pages/hr/analytics";
 import NotFound from "@/pages/not-found";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
@@ -143,6 +149,12 @@ function AppRoutes() {
         <Route path="/hr/leave-types" component={HRLeaveTypesPage} />
         <Route path="/hr/leave-requests" component={HRLeaveRequestsPage} />
         <Route path="/hr/holidays" component={HRHolidaysPage} />
+        <Route path="/hr/payroll" component={HRPayrollPage} />
+        <Route path="/hr/recruitment" component={HRRecruitmentPage} />
+        <Route path="/hr/performance" component={HRPerformancePage} />
+        <Route path="/hr/training" component={HRTrainingPage} />
+        <Route path="/hr/benefits" component={HRBenefitsPage} />
+        <Route path="/hr/analytics" component={HRAnalyticsPage} />
         <Route component={NotFound} />
       </Switch>
     </AuthenticatedLayout>
