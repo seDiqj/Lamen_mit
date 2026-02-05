@@ -3973,19 +3973,6 @@ export class DatabaseStorage implements IStorage {
 
     const totalOLB = (sectorWiseResult.rows as any[]).reduce((sum, r) => sum + parseFloat(r.olb || 0), 0);
 
-    // Loans closing dates - count loans by expected end date
-    const loansClosingResult = await db.execute(sql`
-      SELECT 
-        TO_CHAR(l.end_date, 'Mon-YY') as period,
-        COUNT(*) as count
-      FROM loans l
-      WHERE l.status IN ('disbursed', 'active')
-        AND l.end_date >= CURRENT_DATE
-        AND l.end_date <= CURRENT_DATE + INTERVAL '3 months'
-      GROUP BY TO_CHAR(l.end_date, 'Mon-YY'), l.end_date
-      ORDER BY l.end_date
-    `);
-
     // Calculate caseload and productivity
     const activeCreditOfficerCount = creditOfficers.length || 1;
     const activeLoansCount = await db.select({ count: count() }).from(loans).where(
@@ -3993,14 +3980,8 @@ export class DatabaseStorage implements IStorage {
     );
     const caseload = activeLoansCount[0]?.count ? (Number(activeLoansCount[0].count) / activeCreditOfficerCount).toFixed(2) : 0;
 
-    // Productivity - disbursements this month per credit officer
-    const monthlyDisbursements = await db.execute(sql`
-      SELECT COUNT(*) as count
-      FROM loans l
-      WHERE l.status IN ('disbursed', 'active', 'completed')
-        AND l.disbursement_date >= DATE_TRUNC('month', CURRENT_DATE)
-    `);
-    const productivity = ((monthlyDisbursements.rows[0] as any)?.count || 0) / activeCreditOfficerCount;
+    // Productivity - total disbursed loans per credit officer
+    const productivity = (Number(disbursementStats?.disbursedCount) || 0) / activeCreditOfficerCount;
 
     return {
       hrStaff: {
@@ -4038,10 +4019,7 @@ export class DatabaseStorage implements IStorage {
         olb: parseFloat(row.olb) || 0,
         percentage: totalOLB > 0 ? parseFloat(((parseFloat(row.olb) / totalOLB) * 100).toFixed(1)) : 0,
       })),
-      loansClosing: (loansClosingResult.rows as any[]).reduce((acc, row) => {
-        acc[row.period] = parseInt(row.count) || 0;
-        return acc;
-      }, {} as Record<string, number>),
+      loansClosing: {} as Record<string, number>,
       totalOLB,
     };
   }
