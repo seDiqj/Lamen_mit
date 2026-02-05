@@ -3950,8 +3950,8 @@ export class DatabaseStorage implements IStorage {
         COALESCE(SUM(l.outstanding_portfolio::numeric), 0) as olb,
         COUNT(DISTINCT CASE WHEN c.gender = 'female' THEN l.id END) as female_no,
         COALESCE(SUM(CASE WHEN c.gender = 'female' THEN l.outstanding_portfolio::numeric ELSE 0 END), 0) as female_value,
-        COUNT(DISTINCT CASE WHEN l.days_in_arrears > 0 AND l.days_in_arrears <= 30 THEN l.id END) as par_1_30_no,
-        COUNT(DISTINCT CASE WHEN l.days_in_arrears > 30 THEN l.id END) as par_30_plus_no
+        0 as par_1_30_no,
+        0 as par_30_plus_no
       FROM loans l
       LEFT JOIN branches b ON l.branch_id = b.id
       LEFT JOIN customers c ON l.customer_id = c.id
@@ -3960,15 +3960,14 @@ export class DatabaseStorage implements IStorage {
       ORDER BY olb DESC
     `);
 
-    // Sector-wise OLB
+    // Sector-wise OLB - using sector column directly from loans table
     const sectorWiseResult = await db.execute(sql`
       SELECT 
-        COALESCE(s.name, 'Other') as sector,
+        COALESCE(l.sector, 'Other') as sector,
         COALESCE(SUM(l.outstanding_portfolio::numeric), 0) as olb
       FROM loans l
-      LEFT JOIN sectors s ON l.sector_id = s.id
       WHERE l.status IN ('disbursed', 'active')
-      GROUP BY s.name
+      GROUP BY l.sector
       ORDER BY olb DESC
     `);
 
