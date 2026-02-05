@@ -3942,22 +3942,27 @@ export class DatabaseStorage implements IStorage {
       disbursedCount: sql<number>`COUNT(*) FILTER (WHERE ${loans.status} IN ('disbursed', 'active', 'completed'))`,
     }).from(loans);
 
-    // Branch-wise OLB with female client data and PAR (calculated from installments)
+    // Branch-wise OLB with female client data and PAR (calculated from installments late_days)
     const branchWiseResult = await db.execute(sql`
+      WITH loan_max_late AS (
+        SELECT l.id as loan_id, COALESCE(MAX(i.late_days), 0) as max_late_days
+        FROM loans l
+        LEFT JOIN installments i ON i.loan_id = l.id
+        WHERE l.status IN ('disbursed', 'active')
+        GROUP BY l.id
+      )
       SELECT 
         COALESCE(b.name, 'Unknown') as branch,
         COUNT(DISTINCT l.id) as no,
         COALESCE(SUM(l.outstanding_portfolio::numeric), 0) as olb,
         COUNT(DISTINCT CASE WHEN c.gender = 'female' THEN l.id END) as female_no,
         COALESCE(SUM(CASE WHEN c.gender = 'female' THEN l.outstanding_portfolio::numeric ELSE 0 END), 0) as female_value,
-        COUNT(DISTINCT CASE WHEN i.due_date < CURRENT_DATE AND i.is_paid = false 
-          AND (CURRENT_DATE - i.due_date) BETWEEN 1 AND 30 THEN l.id END) as par_1_30_no,
-        COUNT(DISTINCT CASE WHEN i.due_date < CURRENT_DATE AND i.is_paid = false 
-          AND (CURRENT_DATE - i.due_date) > 30 THEN l.id END) as par_30_plus_no
+        COUNT(DISTINCT CASE WHEN lml.max_late_days BETWEEN 1 AND 30 THEN l.id END) as par_1_30_no,
+        COUNT(DISTINCT CASE WHEN lml.max_late_days > 30 THEN l.id END) as par_30_plus_no
       FROM loans l
       LEFT JOIN branches b ON l.branch_id = b.id
       LEFT JOIN customers c ON l.customer_id = c.id
-      LEFT JOIN installments i ON i.loan_id = l.id
+      LEFT JOIN loan_max_late lml ON lml.loan_id = l.id
       WHERE l.status IN ('disbursed', 'active')
       GROUP BY b.name
       ORDER BY olb DESC
