@@ -792,3 +792,524 @@ export type InsertHoliday = z.infer<typeof insertHolidaySchema>;
 export type Holiday = typeof holidays.$inferSelect;
 export type InsertAttendance = z.infer<typeof insertAttendanceSchema>;
 export type Attendance = typeof attendance.$inferSelect;
+
+// ============== PAYROLL MODULE ==============
+
+export const payrollStatusEnum = pgEnum("payroll_status", ["draft", "pending_approval", "approved", "paid", "cancelled"]);
+
+// Salary Structures
+export const salaryStructures = pgTable("salary_structures", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(),
+  code: varchar("code", { length: 50 }),
+  baseSalary: decimal("base_salary", { precision: 15, scale: 2 }).notNull(),
+  currency: varchar("currency", { length: 10 }).default("AFN"),
+  isActive: boolean("is_active").default(true),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Allowance Types
+export const allowanceTypes = pgTable("allowance_types", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(),
+  code: varchar("code", { length: 50 }),
+  isPercentage: boolean("is_percentage").default(false),
+  defaultValue: decimal("default_value", { precision: 15, scale: 2 }).default("0"),
+  isTaxable: boolean("is_taxable").default(true),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Deduction Types
+export const deductionTypes = pgTable("deduction_types", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(),
+  code: varchar("code", { length: 50 }),
+  isPercentage: boolean("is_percentage").default(false),
+  defaultValue: decimal("default_value", { precision: 15, scale: 2 }).default("0"),
+  isStatutory: boolean("is_statutory").default(false),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Employee Salary
+export const employeeSalaries = pgTable("employee_salaries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  employeeId: varchar("employee_id").references(() => employees.id).notNull(),
+  salaryStructureId: varchar("salary_structure_id").references(() => salaryStructures.id),
+  baseSalary: decimal("base_salary", { precision: 15, scale: 2 }).notNull(),
+  effectiveDate: date("effective_date").notNull(),
+  endDate: date("end_date"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Employee Allowances
+export const employeeAllowances = pgTable("employee_allowances", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  employeeId: varchar("employee_id").references(() => employees.id).notNull(),
+  allowanceTypeId: varchar("allowance_type_id").references(() => allowanceTypes.id).notNull(),
+  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
+  effectiveDate: date("effective_date").notNull(),
+  endDate: date("end_date"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Employee Deductions
+export const employeeDeductions = pgTable("employee_deductions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  employeeId: varchar("employee_id").references(() => employees.id).notNull(),
+  deductionTypeId: varchar("deduction_type_id").references(() => deductionTypes.id).notNull(),
+  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
+  effectiveDate: date("effective_date").notNull(),
+  endDate: date("end_date"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Payroll Runs
+export const payrollRuns = pgTable("payroll_runs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  payrollNumber: varchar("payroll_number", { length: 50 }).unique(),
+  periodStart: date("period_start").notNull(),
+  periodEnd: date("period_end").notNull(),
+  paymentDate: date("payment_date"),
+  status: payrollStatusEnum("status").default("draft"),
+  totalGrossSalary: decimal("total_gross_salary", { precision: 15, scale: 2 }).default("0"),
+  totalDeductions: decimal("total_deductions", { precision: 15, scale: 2 }).default("0"),
+  totalNetSalary: decimal("total_net_salary", { precision: 15, scale: 2 }).default("0"),
+  totalEmployees: integer("total_employees").default(0),
+  approvedBy: varchar("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  notes: text("notes"),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Payslips
+export const payslips = pgTable("payslips", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  payrollRunId: varchar("payroll_run_id").references(() => payrollRuns.id).notNull(),
+  employeeId: varchar("employee_id").references(() => employees.id).notNull(),
+  baseSalary: decimal("base_salary", { precision: 15, scale: 2 }).default("0"),
+  totalAllowances: decimal("total_allowances", { precision: 15, scale: 2 }).default("0"),
+  totalDeductions: decimal("total_deductions", { precision: 15, scale: 2 }).default("0"),
+  grossSalary: decimal("gross_salary", { precision: 15, scale: 2 }).default("0"),
+  netSalary: decimal("net_salary", { precision: 15, scale: 2 }).default("0"),
+  workingDays: integer("working_days"),
+  absentDays: integer("absent_days"),
+  overtimeHours: decimal("overtime_hours", { precision: 6, scale: 2 }),
+  overtimeAmount: decimal("overtime_amount", { precision: 15, scale: 2 }),
+  isPaid: boolean("is_paid").default(false),
+  paidAt: timestamp("paid_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Payslip Details (line items for allowances and deductions)
+export const payslipDetails = pgTable("payslip_details", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  payslipId: varchar("payslip_id").references(() => payslips.id).notNull(),
+  type: varchar("type", { length: 20 }).notNull(), // 'allowance' or 'deduction'
+  name: varchar("name", { length: 255 }).notNull(),
+  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ============== RECRUITMENT MODULE ==============
+
+export const jobStatusEnum = pgEnum("job_status", ["draft", "open", "closed", "on_hold", "filled"]);
+export const applicantStatusEnum = pgEnum("applicant_status", ["new", "screening", "interview", "offered", "hired", "rejected", "withdrawn"]);
+export const interviewStatusEnum = pgEnum("interview_status", ["scheduled", "completed", "cancelled", "no_show"]);
+
+// Job Postings
+export const jobPostings = pgTable("job_postings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: varchar("title", { length: 255 }).notNull(),
+  positionId: varchar("position_id").references(() => positions.id),
+  departmentId: varchar("department_id").references(() => departments.id),
+  location: varchar("location", { length: 255 }),
+  employmentType: varchar("employment_type", { length: 50 }), // full-time, part-time, contract
+  salaryMin: decimal("salary_min", { precision: 15, scale: 2 }),
+  salaryMax: decimal("salary_max", { precision: 15, scale: 2 }),
+  description: text("description"),
+  requirements: text("requirements"),
+  responsibilities: text("responsibilities"),
+  benefits: text("benefits"),
+  openings: integer("openings").default(1),
+  status: jobStatusEnum("status").default("draft"),
+  publishedAt: timestamp("published_at"),
+  closingDate: date("closing_date"),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Applicants
+export const applicants = pgTable("applicants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  jobPostingId: varchar("job_posting_id").references(() => jobPostings.id).notNull(),
+  firstName: varchar("first_name", { length: 255 }).notNull(),
+  lastName: varchar("last_name", { length: 255 }).notNull(),
+  email: varchar("email", { length: 255 }),
+  phone: varchar("phone", { length: 50 }),
+  resumeUrl: text("resume_url"),
+  coverLetterUrl: text("cover_letter_url"),
+  linkedinUrl: varchar("linkedin_url", { length: 500 }),
+  currentCompany: varchar("current_company", { length: 255 }),
+  currentPosition: varchar("current_position", { length: 255 }),
+  expectedSalary: decimal("expected_salary", { precision: 15, scale: 2 }),
+  yearsOfExperience: integer("years_of_experience"),
+  status: applicantStatusEnum("status").default("new"),
+  rating: integer("rating"), // 1-5 stars
+  notes: text("notes"),
+  source: varchar("source", { length: 100 }), // referral, job board, website, etc.
+  appliedAt: timestamp("applied_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Interviews
+export const interviews = pgTable("interviews", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  applicantId: varchar("applicant_id").references(() => applicants.id).notNull(),
+  interviewerId: varchar("interviewer_id").references(() => employees.id),
+  scheduledDate: timestamp("scheduled_date").notNull(),
+  duration: integer("duration"), // in minutes
+  interviewType: varchar("interview_type", { length: 100 }), // phone, video, in-person, technical
+  location: varchar("location", { length: 255 }),
+  status: interviewStatusEnum("status").default("scheduled"),
+  feedback: text("feedback"),
+  rating: integer("rating"), // 1-5 stars
+  recommendation: varchar("recommendation", { length: 50 }), // hire, no-hire, maybe
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ============== PERFORMANCE MODULE ==============
+
+export const reviewStatusEnum = pgEnum("review_status", ["draft", "self_review", "manager_review", "completed", "acknowledged"]);
+export const goalStatusEnum = pgEnum("goal_status", ["not_started", "in_progress", "completed", "deferred", "cancelled"]);
+
+// Performance Periods
+export const performancePeriods = pgTable("performance_periods", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Performance Reviews
+export const performanceReviews = pgTable("performance_reviews", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  employeeId: varchar("employee_id").references(() => employees.id).notNull(),
+  reviewerId: varchar("reviewer_id").references(() => employees.id),
+  periodId: varchar("period_id").references(() => performancePeriods.id),
+  status: reviewStatusEnum("status").default("draft"),
+  selfRating: integer("self_rating"), // 1-5
+  managerRating: integer("manager_rating"), // 1-5
+  overallRating: integer("overall_rating"), // 1-5
+  selfComments: text("self_comments"),
+  managerComments: text("manager_comments"),
+  strengths: text("strengths"),
+  areasOfImprovement: text("areas_of_improvement"),
+  goals: text("goals"),
+  employeeAcknowledgedAt: timestamp("employee_acknowledged_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Goals
+export const performanceGoals = pgTable("performance_goals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  employeeId: varchar("employee_id").references(() => employees.id).notNull(),
+  reviewId: varchar("review_id").references(() => performanceReviews.id),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  targetDate: date("target_date"),
+  weight: integer("weight").default(100), // percentage
+  status: goalStatusEnum("status").default("not_started"),
+  progress: integer("progress").default(0), // percentage complete
+  managerNotes: text("manager_notes"),
+  employeeNotes: text("employee_notes"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Competencies
+export const competencies = pgTable("competencies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(),
+  category: varchar("category", { length: 100 }),
+  description: text("description"),
+  isCore: boolean("is_core").default(false), // core vs role-specific
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Competency Ratings
+export const competencyRatings = pgTable("competency_ratings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  reviewId: varchar("review_id").references(() => performanceReviews.id).notNull(),
+  competencyId: varchar("competency_id").references(() => competencies.id).notNull(),
+  selfRating: integer("self_rating"),
+  managerRating: integer("manager_rating"),
+  comments: text("comments"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ============== TRAINING MODULE ==============
+
+export const trainingStatusEnum = pgEnum("training_status", ["planned", "in_progress", "completed", "cancelled"]);
+export const enrollmentStatusEnum = pgEnum("enrollment_status", ["enrolled", "in_progress", "completed", "failed", "dropped"]);
+
+// Training Programs
+export const trainingPrograms = pgTable("training_programs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: varchar("title", { length: 255 }).notNull(),
+  code: varchar("code", { length: 50 }),
+  description: text("description"),
+  category: varchar("category", { length: 100 }), // technical, soft skills, compliance, etc.
+  duration: integer("duration"), // in hours
+  isOnline: boolean("is_online").default(false),
+  provider: varchar("provider", { length: 255 }),
+  cost: decimal("cost", { precision: 15, scale: 2 }),
+  maxParticipants: integer("max_participants"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Training Sessions
+export const trainingSessions = pgTable("training_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  programId: varchar("program_id").references(() => trainingPrograms.id).notNull(),
+  sessionName: varchar("session_name", { length: 255 }),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date"),
+  location: varchar("location", { length: 255 }),
+  trainerId: varchar("trainer_id").references(() => employees.id),
+  externalTrainer: varchar("external_trainer", { length: 255 }),
+  status: trainingStatusEnum("status").default("planned"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Training Enrollments
+export const trainingEnrollments = pgTable("training_enrollments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").references(() => trainingSessions.id).notNull(),
+  employeeId: varchar("employee_id").references(() => employees.id).notNull(),
+  status: enrollmentStatusEnum("status").default("enrolled"),
+  completionDate: date("completion_date"),
+  score: integer("score"),
+  feedback: text("feedback"),
+  certificateUrl: text("certificate_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Skills
+export const skills = pgTable("skills", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(),
+  category: varchar("category", { length: 100 }),
+  description: text("description"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Employee Skills
+export const employeeSkills = pgTable("employee_skills", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  employeeId: varchar("employee_id").references(() => employees.id).notNull(),
+  skillId: varchar("skill_id").references(() => skills.id).notNull(),
+  proficiencyLevel: integer("proficiency_level"), // 1-5
+  yearsOfExperience: integer("years_of_experience"),
+  lastUsedDate: date("last_used_date"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Certifications
+export const certifications = pgTable("certifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(),
+  issuingOrganization: varchar("issuing_organization", { length: 255 }),
+  validityPeriodMonths: integer("validity_period_months"),
+  description: text("description"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Employee Certifications
+export const employeeCertifications = pgTable("employee_certifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  employeeId: varchar("employee_id").references(() => employees.id).notNull(),
+  certificationId: varchar("certification_id").references(() => certifications.id).notNull(),
+  issueDate: date("issue_date"),
+  expiryDate: date("expiry_date"),
+  credentialId: varchar("credential_id", { length: 100 }),
+  certificateUrl: text("certificate_url"),
+  status: varchar("status", { length: 50 }).default("active"), // active, expired, revoked
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ============== BENEFITS MODULE ==============
+
+export const benefitTypeEnum = pgEnum("benefit_type", ["health", "dental", "vision", "life", "retirement", "transportation", "housing", "food", "other"]);
+
+// Benefit Plans
+export const benefitPlans = pgTable("benefit_plans", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(),
+  code: varchar("code", { length: 50 }),
+  benefitType: benefitTypeEnum("benefit_type").notNull(),
+  description: text("description"),
+  provider: varchar("provider", { length: 255 }),
+  coverageDetails: text("coverage_details"),
+  employerContribution: decimal("employer_contribution", { precision: 15, scale: 2 }).default("0"),
+  employeeContribution: decimal("employee_contribution", { precision: 15, scale: 2 }).default("0"),
+  isPercentage: boolean("is_percentage").default(false),
+  isActive: boolean("is_active").default(true),
+  effectiveDate: date("effective_date"),
+  terminationDate: date("termination_date"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Employee Benefit Enrollments
+export const employeeBenefitEnrollments = pgTable("employee_benefit_enrollments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  employeeId: varchar("employee_id").references(() => employees.id).notNull(),
+  benefitPlanId: varchar("benefit_plan_id").references(() => benefitPlans.id).notNull(),
+  enrollmentDate: date("enrollment_date").notNull(),
+  terminationDate: date("termination_date"),
+  coverageLevel: varchar("coverage_level", { length: 50 }), // employee, employee+spouse, family
+  dependentCount: integer("dependent_count").default(0),
+  employerContribution: decimal("employer_contribution", { precision: 15, scale: 2 }).default("0"),
+  employeeContribution: decimal("employee_contribution", { precision: 15, scale: 2 }).default("0"),
+  isActive: boolean("is_active").default(true),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Dependents (for benefit coverage)
+export const benefitDependents = pgTable("benefit_dependents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  enrollmentId: varchar("enrollment_id").references(() => employeeBenefitEnrollments.id).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  relationship: varchar("relationship", { length: 100 }),
+  dateOfBirth: date("date_of_birth"),
+  nationalId: varchar("national_id", { length: 100 }),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ============== PAYROLL INSERT SCHEMAS ==============
+
+export const insertSalaryStructureSchema = createInsertSchema(salaryStructures).omit({ id: true, createdAt: true });
+export const insertAllowanceTypeSchema = createInsertSchema(allowanceTypes).omit({ id: true, createdAt: true });
+export const insertDeductionTypeSchema = createInsertSchema(deductionTypes).omit({ id: true, createdAt: true });
+export const insertEmployeeSalarySchema = createInsertSchema(employeeSalaries).omit({ id: true, createdAt: true });
+export const insertEmployeeAllowanceSchema = createInsertSchema(employeeAllowances).omit({ id: true, createdAt: true });
+export const insertEmployeeDeductionSchema = createInsertSchema(employeeDeductions).omit({ id: true, createdAt: true });
+export const insertPayrollRunSchema = createInsertSchema(payrollRuns).omit({ id: true, createdAt: true });
+export const insertPayslipSchema = createInsertSchema(payslips).omit({ id: true, createdAt: true });
+export const insertPayslipDetailSchema = createInsertSchema(payslipDetails).omit({ id: true, createdAt: true });
+
+// ============== RECRUITMENT INSERT SCHEMAS ==============
+
+export const insertJobPostingSchema = createInsertSchema(jobPostings).omit({ id: true, createdAt: true });
+export const insertApplicantSchema = createInsertSchema(applicants).omit({ id: true, createdAt: true, appliedAt: true });
+export const insertInterviewSchema = createInsertSchema(interviews).omit({ id: true, createdAt: true });
+
+// ============== PERFORMANCE INSERT SCHEMAS ==============
+
+export const insertPerformancePeriodSchema = createInsertSchema(performancePeriods).omit({ id: true, createdAt: true });
+export const insertPerformanceReviewSchema = createInsertSchema(performanceReviews).omit({ id: true, createdAt: true });
+export const insertPerformanceGoalSchema = createInsertSchema(performanceGoals).omit({ id: true, createdAt: true });
+export const insertCompetencySchema = createInsertSchema(competencies).omit({ id: true, createdAt: true });
+export const insertCompetencyRatingSchema = createInsertSchema(competencyRatings).omit({ id: true, createdAt: true });
+
+// ============== TRAINING INSERT SCHEMAS ==============
+
+export const insertTrainingProgramSchema = createInsertSchema(trainingPrograms).omit({ id: true, createdAt: true });
+export const insertTrainingSessionSchema = createInsertSchema(trainingSessions).omit({ id: true, createdAt: true });
+export const insertTrainingEnrollmentSchema = createInsertSchema(trainingEnrollments).omit({ id: true, createdAt: true });
+export const insertSkillSchema = createInsertSchema(skills).omit({ id: true, createdAt: true });
+export const insertEmployeeSkillSchema = createInsertSchema(employeeSkills).omit({ id: true, createdAt: true });
+export const insertCertificationSchema = createInsertSchema(certifications).omit({ id: true, createdAt: true });
+export const insertEmployeeCertificationSchema = createInsertSchema(employeeCertifications).omit({ id: true, createdAt: true });
+
+// ============== BENEFITS INSERT SCHEMAS ==============
+
+export const insertBenefitPlanSchema = createInsertSchema(benefitPlans).omit({ id: true, createdAt: true });
+export const insertEmployeeBenefitEnrollmentSchema = createInsertSchema(employeeBenefitEnrollments).omit({ id: true, createdAt: true });
+export const insertBenefitDependentSchema = createInsertSchema(benefitDependents).omit({ id: true, createdAt: true });
+
+// ============== PAYROLL TYPES ==============
+
+export type InsertSalaryStructure = z.infer<typeof insertSalaryStructureSchema>;
+export type SalaryStructure = typeof salaryStructures.$inferSelect;
+export type InsertAllowanceType = z.infer<typeof insertAllowanceTypeSchema>;
+export type AllowanceType = typeof allowanceTypes.$inferSelect;
+export type InsertDeductionType = z.infer<typeof insertDeductionTypeSchema>;
+export type DeductionType = typeof deductionTypes.$inferSelect;
+export type InsertEmployeeSalary = z.infer<typeof insertEmployeeSalarySchema>;
+export type EmployeeSalary = typeof employeeSalaries.$inferSelect;
+export type InsertEmployeeAllowance = z.infer<typeof insertEmployeeAllowanceSchema>;
+export type EmployeeAllowance = typeof employeeAllowances.$inferSelect;
+export type InsertEmployeeDeduction = z.infer<typeof insertEmployeeDeductionSchema>;
+export type EmployeeDeduction = typeof employeeDeductions.$inferSelect;
+export type InsertPayrollRun = z.infer<typeof insertPayrollRunSchema>;
+export type PayrollRun = typeof payrollRuns.$inferSelect;
+export type InsertPayslip = z.infer<typeof insertPayslipSchema>;
+export type Payslip = typeof payslips.$inferSelect;
+export type InsertPayslipDetail = z.infer<typeof insertPayslipDetailSchema>;
+export type PayslipDetail = typeof payslipDetails.$inferSelect;
+
+// ============== RECRUITMENT TYPES ==============
+
+export type InsertJobPosting = z.infer<typeof insertJobPostingSchema>;
+export type JobPosting = typeof jobPostings.$inferSelect;
+export type InsertApplicant = z.infer<typeof insertApplicantSchema>;
+export type Applicant = typeof applicants.$inferSelect;
+export type InsertInterview = z.infer<typeof insertInterviewSchema>;
+export type Interview = typeof interviews.$inferSelect;
+
+// ============== PERFORMANCE TYPES ==============
+
+export type InsertPerformancePeriod = z.infer<typeof insertPerformancePeriodSchema>;
+export type PerformancePeriod = typeof performancePeriods.$inferSelect;
+export type InsertPerformanceReview = z.infer<typeof insertPerformanceReviewSchema>;
+export type PerformanceReview = typeof performanceReviews.$inferSelect;
+export type InsertPerformanceGoal = z.infer<typeof insertPerformanceGoalSchema>;
+export type PerformanceGoal = typeof performanceGoals.$inferSelect;
+export type InsertCompetency = z.infer<typeof insertCompetencySchema>;
+export type Competency = typeof competencies.$inferSelect;
+export type InsertCompetencyRating = z.infer<typeof insertCompetencyRatingSchema>;
+export type CompetencyRating = typeof competencyRatings.$inferSelect;
+
+// ============== TRAINING TYPES ==============
+
+export type InsertTrainingProgram = z.infer<typeof insertTrainingProgramSchema>;
+export type TrainingProgram = typeof trainingPrograms.$inferSelect;
+export type InsertTrainingSession = z.infer<typeof insertTrainingSessionSchema>;
+export type TrainingSession = typeof trainingSessions.$inferSelect;
+export type InsertTrainingEnrollment = z.infer<typeof insertTrainingEnrollmentSchema>;
+export type TrainingEnrollment = typeof trainingEnrollments.$inferSelect;
+export type InsertSkill = z.infer<typeof insertSkillSchema>;
+export type Skill = typeof skills.$inferSelect;
+export type InsertEmployeeSkill = z.infer<typeof insertEmployeeSkillSchema>;
+export type EmployeeSkill = typeof employeeSkills.$inferSelect;
+export type InsertCertification = z.infer<typeof insertCertificationSchema>;
+export type Certification = typeof certifications.$inferSelect;
+export type InsertEmployeeCertification = z.infer<typeof insertEmployeeCertificationSchema>;
+export type EmployeeCertification = typeof employeeCertifications.$inferSelect;
+
+// ============== BENEFITS TYPES ==============
+
+export type InsertBenefitPlan = z.infer<typeof insertBenefitPlanSchema>;
+export type BenefitPlan = typeof benefitPlans.$inferSelect;
+export type InsertEmployeeBenefitEnrollment = z.infer<typeof insertEmployeeBenefitEnrollmentSchema>;
+export type EmployeeBenefitEnrollment = typeof employeeBenefitEnrollments.$inferSelect;
+export type InsertBenefitDependent = z.infer<typeof insertBenefitDependentSchema>;
+export type BenefitDependent = typeof benefitDependents.$inferSelect;
