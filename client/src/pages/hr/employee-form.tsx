@@ -145,6 +145,8 @@ type ReferenceForm = {
   address: string;
 };
 
+const AUTOSAVE_KEY = "employee_form_autosave";
+
 export default function EmployeeForm() {
   const [, setLocation] = useLocation();
   const [, params] = useRoute("/hr/employees/:id/edit");
@@ -153,6 +155,7 @@ export default function EmployeeForm() {
   
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(1);
+  const [hasRestoredData, setHasRestoredData] = useState(false);
   
   const [emergencyContacts, setEmergencyContacts] = useState<EmergencyContactForm[]>([]);
   const [languages, setLanguages] = useState<LanguageForm[]>([]);
@@ -219,6 +222,69 @@ export default function EmployeeForm() {
     enabled: isEditing,
   });
 
+  const saveToLocalStorage = () => {
+    if (isEditing) return;
+    const formData = form.getValues();
+    const dataToSave = {
+      formData,
+      emergencyContacts,
+      languages,
+      familyMembers,
+      references,
+      photoUrl,
+      currentStep,
+      savedAt: new Date().toISOString(),
+    };
+    try {
+      localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(dataToSave));
+    } catch (e) {
+      console.error("Failed to save form data:", e);
+    }
+  };
+
+  const clearLocalStorage = () => {
+    try {
+      localStorage.removeItem(AUTOSAVE_KEY);
+    } catch (e) {
+      console.error("Failed to clear saved data:", e);
+    }
+  };
+
+  useEffect(() => {
+    if (!isEditing && !hasRestoredData) {
+      try {
+        const saved = localStorage.getItem(AUTOSAVE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.formData) {
+            form.reset(parsed.formData);
+          }
+          if (parsed.emergencyContacts) setEmergencyContacts(parsed.emergencyContacts);
+          if (parsed.languages) setLanguages(parsed.languages);
+          if (parsed.familyMembers) setFamilyMembers(parsed.familyMembers);
+          if (parsed.references) setReferences(parsed.references);
+          if (parsed.photoUrl) setPhotoUrl(parsed.photoUrl);
+          if (parsed.currentStep) setCurrentStep(parsed.currentStep);
+          setHasRestoredData(true);
+          toast({
+            title: "Form data restored",
+            description: "Your previously entered data has been restored. You can continue from where you left off.",
+          });
+        }
+      } catch (e) {
+        console.error("Failed to restore form data:", e);
+      }
+    }
+  }, [isEditing, hasRestoredData, form, toast]);
+
+  useEffect(() => {
+    if (isEditing) return;
+    const interval = setInterval(() => {
+      saveToLocalStorage();
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [isEditing, emergencyContacts, languages, familyMembers, references, photoUrl, currentStep]);
+
   useEffect(() => {
     if (existingEmployee && isEditing) {
       form.reset({
@@ -259,6 +325,7 @@ export default function EmployeeForm() {
       return res.json();
     },
     onSuccess: () => {
+      clearLocalStorage();
       toast({ title: "Employee created successfully" });
       queryClient.invalidateQueries({ queryKey: ["/api/hr/employees"] });
       setLocation("/hr/employees");
@@ -302,6 +369,7 @@ export default function EmployeeForm() {
 
   const nextStep = () => {
     if (currentStep < WIZARD_STEPS.length) {
+      saveToLocalStorage();
       setCurrentStep(currentStep + 1);
     }
   };
@@ -487,7 +555,7 @@ export default function EmployeeForm() {
                   }
                   return age;
                 };
-                const age = calculateAge(field.value);
+                const age = calculateAge(field.value || "");
                 return (
                   <FormItem>
                     <FormLabel>Date of Birth</FormLabel>
@@ -1094,6 +1162,27 @@ export default function EmployeeForm() {
             <p className="text-xs text-muted-foreground">Step {currentStep} of {WIZARD_STEPS.length}</p>
           </div>
         </div>
+        {!isEditing && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              clearLocalStorage();
+              form.reset();
+              setEmergencyContacts([]);
+              setLanguages([]);
+              setFamilyMembers([]);
+              setReferences([]);
+              setPhotoUrl("");
+              setCurrentStep(1);
+              toast({ title: "Form cleared", description: "All saved data has been cleared." });
+            }}
+            data-testid="button-clear-draft"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Clear Draft
+          </Button>
+        )}
       </div>
 
       <div className="flex items-center justify-between mb-4">
