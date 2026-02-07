@@ -3,6 +3,7 @@ const STATIC_ASSETS = [
   "/mobile",
   "/manifest.json",
   "/logo.jpeg",
+  "/lamen-logo.png",
 ];
 
 self.addEventListener("install", (event) => {

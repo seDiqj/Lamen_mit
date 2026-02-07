@@ -1,5 +1,6 @@
 import { useLocation } from "wouter";
 import { Banknote, FileText, Calendar } from "lucide-react";
+import lamenLogo from "@assets/LamenLogoonly_1770454661674.png";
 
 const tabs = [
   { path: "/mobile/customers", label: "Active Financing", icon: Banknote },
@@ -12,6 +13,10 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex flex-col h-[100dvh] bg-background" data-testid="mobile-layout">
+      <header className="flex items-center gap-2 px-4 py-2 border-b bg-card sticky top-0 z-50" data-testid="mobile-header">
+        <img src={lamenLogo} alt="Lamen" className="h-8 w-8 rounded-full object-cover" data-testid="img-mobile-logo" />
+        <span className="font-semibold text-sm">Lamen Microfinance</span>
+      </header>
       <div className="flex-1 overflow-auto">
         {children}
       </div>

@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Loader2, Lock, User } from "lucide-react";
+import lamenLogo from "@assets/LamenLogoonly_1770454661674.png";
 
 export default function MobileLogin() {
   const [, navigate] = useLocation();
@@ -46,7 +47,7 @@ export default function MobileLogin() {
     <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-gradient-to-b from-primary/10 via-background to-background px-6">
       <div className="flex flex-col items-center mb-8">
         <div className="h-20 w-20 rounded-full overflow-hidden border-4 border-primary/20 shadow-lg mb-4">
-          <img src="/logo.jpeg" alt="Lamen" className="h-full w-full object-cover" />
+          <img src={lamenLogo} alt="Lamen" className="h-full w-full object-cover" />
         </div>
         <h1 className="text-xl font-bold" data-testid="text-app-title">Lamen Microfinance</h1>
         <p className="text-sm text-muted-foreground">Field Officer App</p>
