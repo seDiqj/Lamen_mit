@@ -95,7 +95,7 @@ export default function MobileRepayments() {
   });
 
   const { data: installmentsData, isLoading: installmentsLoading } = useQuery<{ installments: Installment[]; total: number }>({
-    queryKey: ["/api/installments", { page: 1, limit: 1000 }],
+    queryKey: ["/api/installments?page=1&limit=2000"],
   });
 
   const loans: Loan[] = loansData?.loans || [];

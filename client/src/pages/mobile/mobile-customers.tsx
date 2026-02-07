@@ -119,7 +119,7 @@ export default function MobileCustomers() {
   const loans = data?.loans || [];
 
   const { data: installmentsData } = useQuery<{ installments: InstallmentItem[]; total: number }>({
-    queryKey: ["/api/installments", { page: 1, limit: 2000 }],
+    queryKey: ["/api/installments?page=1&limit=2000"],
     enabled: loans.length > 0,
   });
   const allInstallments = installmentsData?.installments || [];
