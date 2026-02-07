@@ -487,6 +487,19 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/finance-officers/me", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ message: "Not authenticated" });
+      const officer = await storage.getOfficerByUserId(userId);
+      if (!officer) return res.json(null);
+      res.json(officer);
+    } catch (error) {
+      console.error("Error fetching my officer profile:", error);
+      res.status(500).json({ message: "Failed to fetch officer profile" });
+    }
+  });
+
   app.get("/api/finance-officers/active", isAuthenticated, async (req, res) => {
     try {
       const officers = await storage.getActiveOfficers();
@@ -922,10 +935,11 @@ export async function registerRoutes(
   // ===== LOANS =====
   app.get("/api/loans", isAuthenticated, async (req, res) => {
     try {
-      const { search, status, page, limit } = req.query;
+      const { search, status, financeOfficerId, page, limit } = req.query;
       const result = await storage.getLoans({
         search: search as string | undefined,
         status: status as string | undefined,
+        financeOfficerId: financeOfficerId as string | undefined,
         page: page ? parseInt(page as string) : 1,
         limit: limit ? parseInt(limit as string) : 10,
       });

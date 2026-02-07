@@ -146,6 +146,7 @@ export interface IStorage {
   // Finance Officers
   getOfficers(search?: string): Promise<(FinanceOfficer & { branchName?: string })[]>;
   getOfficer(id: string): Promise<FinanceOfficer | undefined>;
+  getOfficerByUserId(userId: string): Promise<FinanceOfficer | undefined>;
   createOfficer(data: InsertFinanceOfficer): Promise<FinanceOfficer>;
   updateOfficer(id: string, data: Partial<InsertFinanceOfficer>): Promise<FinanceOfficer>;
   getActiveOfficers(): Promise<(FinanceOfficer & { branchName?: string })[]>;
@@ -429,6 +430,11 @@ export class DatabaseStorage implements IStorage {
 
   async getOfficer(id: string): Promise<FinanceOfficer | undefined> {
     const [officer] = await db.select().from(financeOfficers).where(eq(financeOfficers.id, id));
+    return officer;
+  }
+
+  async getOfficerByUserId(userId: string): Promise<FinanceOfficer | undefined> {
+    const [officer] = await db.select().from(financeOfficers).where(eq(financeOfficers.userId, userId));
     return officer;
   }
 
@@ -869,9 +875,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Loans
-  async getLoans(filters: { search?: string; status?: string; page?: number; limit?: number }): Promise<{ loans: any[]; total: number }> {
-    const { search, status, page = 1, limit = 10 } = filters;
+  async getLoans(filters: { search?: string; status?: string; financeOfficerId?: string; page?: number; limit?: number }): Promise<{ loans: any[]; total: number }> {
+    const { search, status, financeOfficerId, page = 1, limit = 10 } = filters;
     const offset = (page - 1) * limit;
+
+    const whereConditions = and(
+      status && status !== "all" ? eq(loans.status, status as any) : undefined,
+      financeOfficerId ? eq(loans.financeOfficerId, financeOfficerId) : undefined,
+      search
+        ? or(
+            like(loans.applicationId, `%${search}%`),
+            like(customers.firstName, `%${search}%`),
+            like(customers.lastName, `%${search}%`)
+          )
+        : undefined
+    );
 
     const results = await db
       .select({
@@ -879,12 +897,18 @@ export class DatabaseStorage implements IStorage {
         applicationId: loans.applicationId,
         customerId: loans.customerId,
         branchId: loans.branchId,
+        financeOfficerId: loans.financeOfficerId,
         productName: loans.productName,
         productCode: loans.productCode,
+        sector: loans.sector,
         requestDate: loans.requestDate,
         requestedAmount: loans.requestAmount,
         principleAmount: loans.principleAmount,
         financingDurationMonths: loans.financingDurationMonths,
+        numberOfInstallments: loans.numberOfInstallments,
+        marginRate: loans.marginRate,
+        totalReceivable: loans.totalReceivable,
+        installmentAmount: loans.installmentAmount,
         status: loans.status,
         createdAt: loans.createdAt,
         fundingSourceId: loans.fundingSourceId,
@@ -894,25 +918,18 @@ export class DatabaseStorage implements IStorage {
       .from(loans)
       .leftJoin(customers, eq(loans.customerId, customers.id))
       .leftJoin(branches, eq(loans.branchId, branches.id))
-      .where(
-        and(
-          status && status !== "all" ? eq(loans.status, status as any) : undefined,
-          search
-            ? or(
-                like(loans.applicationId, `%${search}%`),
-                like(customers.firstName, `%${search}%`),
-                like(customers.lastName, `%${search}%`)
-              )
-            : undefined
-        )
-      )
+      .where(whereConditions)
       .orderBy(desc(loans.createdAt))
       .limit(limit)
       .offset(offset);
 
-    const [{ count: total }] = await db.select({ count: count() }).from(loans);
+    const countResult = await db
+      .select({ count: count() })
+      .from(loans)
+      .leftJoin(customers, eq(loans.customerId, customers.id))
+      .where(whereConditions);
 
-    return { loans: results, total: Number(total) };
+    return { loans: results, total: Number(countResult[0]?.count || 0) };
   }
 
   async getLoan(id: string): Promise<Loan | undefined> {

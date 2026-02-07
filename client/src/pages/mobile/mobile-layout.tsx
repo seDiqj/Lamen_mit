@@ -1,9 +1,9 @@
 import { useLocation } from "wouter";
-import { Users, FileText, Calendar } from "lucide-react";
+import { Banknote, FileText, Calendar } from "lucide-react";
 
 const tabs = [
-  { path: "/mobile/customers", label: "Customers", icon: Users },
-  { path: "/mobile/financing", label: "Financing", icon: FileText },
+  { path: "/mobile/customers", label: "Active Financing", icon: Banknote },
+  { path: "/mobile/financing", label: "New Application", icon: FileText },
   { path: "/mobile/repayments", label: "Repayments", icon: Calendar },
 ];
 
