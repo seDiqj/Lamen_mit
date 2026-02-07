@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Loader2, Lock, User } from "lucide-react";
-import lamenLogo from "@assets/LamenLogoonly_1770454661674.png";
+import lamenLogo from "@assets/LamenLogo_1769936371528.jpeg";
 
 export default function MobileLogin() {
   const [, navigate] = useLocation();

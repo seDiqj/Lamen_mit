@@ -1,6 +1,6 @@
 import { useLocation } from "wouter";
 import { Banknote, FileText, Calendar } from "lucide-react";
-import lamenLogo from "@assets/LamenLogoonly_1770454661674.png";
+import lamenLogo from "@assets/LamenLogo_1769936371528.jpeg";
 
 const tabs = [
   { path: "/mobile/customers", label: "Active Financing", icon: Banknote },

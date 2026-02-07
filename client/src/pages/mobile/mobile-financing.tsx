@@ -15,6 +15,7 @@ import {
   FileText, Send, Save, Loader2, ChevronLeft, ChevronRight, Wifi, WifiOff,
   User, DollarSign, Building2, Shield, Users, Check, Camera, Upload
 } from "lucide-react";
+import lamenLogo from "@assets/LamenLogo_1769936371528.jpeg";
 
 type Branch = { id: string; name: string };
 type Officer = { id: string; name: string };
@@ -293,7 +294,7 @@ export default function MobileFinancing() {
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <div className="h-7 w-7 rounded-full overflow-hidden border border-primary-foreground/30">
-              <img src="/logo.jpeg" alt="Lamen" className="h-full w-full object-cover" />
+              <img src={lamenLogo} alt="Lamen" className="h-full w-full object-cover" />
             </div>
             <div>
               <h1 className="text-sm font-bold leading-tight" data-testid="text-financing-title">New Financing Application</h1>

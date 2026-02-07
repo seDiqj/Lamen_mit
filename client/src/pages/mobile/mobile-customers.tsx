@@ -10,6 +10,7 @@ import { Search, FileText, ChevronRight, LogOut, Wifi, WifiOff, Banknote, Calend
 import { useAuth } from "@/hooks/use-auth";
 import { useNetworkStatus } from "@/hooks/use-network-status";
 import { useOfflineSync } from "@/hooks/use-offline-sync";
+import lamenLogo from "@assets/LamenLogo_1769936371528.jpeg";
 
 type FinanceOfficer = {
   id: string;
@@ -103,7 +104,7 @@ export default function MobileCustomers() {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-full overflow-hidden border border-primary-foreground/30">
-              <img src="/logo.jpeg" alt="Lamen" className="h-full w-full object-cover" />
+              <img src={lamenLogo} alt="Lamen" className="h-full w-full object-cover" />
             </div>
             <div>
               <h1 className="text-sm font-bold leading-tight" data-testid="text-header-title">Active Financing</h1>

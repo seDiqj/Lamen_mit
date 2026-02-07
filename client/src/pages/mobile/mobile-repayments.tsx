@@ -10,6 +10,7 @@ import {
   Calendar, ChevronLeft, ChevronDown, ChevronUp,
   Wifi, WifiOff, DollarSign, CheckCircle2, Clock, AlertCircle, FileText
 } from "lucide-react";
+import lamenLogo from "@assets/LamenLogo_1769936371528.jpeg";
 
 type Loan = {
   id: string;
@@ -104,7 +105,7 @@ export default function MobileRepayments() {
               </Button>
             )}
             <div className="h-8 w-8 rounded-full overflow-hidden border border-primary-foreground/30">
-              <img src="/logo.jpeg" alt="Lamen" className="h-full w-full object-cover" />
+              <img src={lamenLogo} alt="Lamen" className="h-full w-full object-cover" />
             </div>
             <div>
               <h1 className="text-sm font-bold leading-tight" data-testid="text-repayment-title">
