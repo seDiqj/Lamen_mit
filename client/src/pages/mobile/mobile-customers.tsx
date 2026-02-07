@@ -63,6 +63,12 @@ function formatAFN(amount?: string | number): string {
   return `AFN ${num.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
+function calcFinancing(loan: LoanItem) {
+  const principal = parseFloat(loan.principleAmount || loan.requestedAmount || "0");
+  const margin = parseFloat(loan.marginRate || "0");
+  return { principal, margin, financingAmount: principal + (principal * margin / 100) };
+}
+
 export default function MobileCustomers() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -207,10 +213,10 @@ export default function MobileCustomers() {
             </p>
           </div>
         ) : (
-          loans.map((loan) => (
+          loans.map((loan, index) => (
             <Card
               key={loan.id}
-              className="hover-elevate active-elevate-2 cursor-pointer"
+              className={`hover-elevate active-elevate-2 cursor-pointer ${index % 2 === 1 ? "bg-muted/40" : ""}`}
               onClick={() => navigate(`/mobile/repayments?loanId=${loan.id}`)}
               data-testid={`card-loan-${loan.id}`}
             >
@@ -229,20 +235,25 @@ export default function MobileCustomers() {
                       </Badge>
                     </div>
                     <p className="text-[11px] text-muted-foreground mt-0.5" data-testid={`text-app-id-${loan.id}`}>
-                      {loan.applicationId} {loan.productName && `\u00B7 ${loan.productName}`}
+                      {loan.applicationId} {loan.productName && `· ${loan.productName}`}
                     </p>
                     <div className="flex items-center justify-between gap-2 mt-1.5 flex-wrap">
                       <div className="flex items-center gap-1">
                         <Banknote className="h-3 w-3 text-muted-foreground" />
                         <span className="text-xs font-semibold text-foreground" data-testid={`text-amount-${loan.id}`}>
-                          {formatAFN(loan.principleAmount || loan.requestedAmount)}
+                          {formatAFN(calcFinancing(loan).principal)}
                         </span>
+                        {calcFinancing(loan).margin > 0 && (
+                          <span className="text-[10px] text-muted-foreground" data-testid={`text-margin-${loan.id}`}>
+                            + {calcFinancing(loan).margin}%
+                          </span>
+                        )}
+                        {calcFinancing(loan).margin > 0 && (
+                          <span className="text-[10px] font-semibold text-primary" data-testid={`text-financing-amount-${loan.id}`}>
+                            = {formatAFN(calcFinancing(loan).financingAmount)}
+                          </span>
+                        )}
                       </div>
-                      {loan.marginRate && (
-                        <span className="text-[10px] text-muted-foreground" data-testid={`text-margin-${loan.id}`}>
-                          Margin: {loan.marginRate}%
-                        </span>
-                      )}
                       {loan.requestDate && (
                         <div className="flex items-center gap-1">
                           <Calendar className="h-3 w-3 text-muted-foreground" />
