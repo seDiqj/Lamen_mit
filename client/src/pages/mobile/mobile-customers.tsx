@@ -33,11 +33,21 @@ type LoanItem = {
   requestedAmount?: string;
   principleAmount?: string;
   totalReceivable?: string;
+  totalCollection?: string;
+  outstandingPortfolio?: string;
   installmentAmount?: string;
   financingDurationMonths?: number;
   numberOfInstallments?: number;
   marginRate?: string;
   status: string;
+};
+
+type InstallmentItem = {
+  id: string;
+  loanId: string;
+  installmentNumber: number;
+  totalAmount?: string;
+  isPaid: boolean;
 };
 
 type LoansResponse = {
@@ -98,6 +108,22 @@ export default function MobileCustomers() {
   });
 
   const loans = data?.loans || [];
+
+  const { data: installmentsData } = useQuery<{ installments: InstallmentItem[]; total: number }>({
+    queryKey: ["/api/installments", { page: 1, limit: 2000 }],
+    enabled: loans.length > 0,
+  });
+  const allInstallments = installmentsData?.installments || [];
+
+  const getLoanRepayment = (loan: LoanItem) => {
+    const loanInstallments = allInstallments.filter((i) => i.loanId === loan.id);
+    const paidInstallments = loanInstallments.filter((i) => i.isPaid);
+    const totalRepaid = paidInstallments.reduce((sum, i) => sum + parseFloat(i.totalAmount || "0"), 0);
+    const { financingAmount } = calcFinancing(loan);
+    const totalTarget = parseFloat(loan.totalReceivable || "0") || financingAmount;
+    const progress = totalTarget > 0 ? Math.min((totalRepaid / totalTarget) * 100, 100) : 0;
+    return { totalRepaid, totalTarget, progress, paidCount: paidInstallments.length, totalCount: loanInstallments.length };
+  };
 
   const statusOptions = [
     { value: "disbursed", label: "Active" },
@@ -214,67 +240,90 @@ export default function MobileCustomers() {
             </p>
           </div>
         ) : (
-          loans.map((loan, index) => (
-            <Card
-              key={loan.id}
-              className={`hover-elevate active-elevate-2 cursor-pointer ${index % 2 === 1 ? "bg-muted/40" : ""}`}
-              onClick={() => navigate(`/mobile/repayments?loanId=${loan.id}`)}
-              data-testid={`card-loan-${loan.id}`}
-            >
-              <CardContent className="p-3">
-                <div className="flex items-start gap-3">
-                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <User className="h-5 w-5 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <p className="font-medium text-sm truncate" data-testid={`text-customer-name-${loan.id}`}>
-                        {loan.customerName}
-                      </p>
-                      <Badge className={`text-[10px] shrink-0 no-default-hover-elevate no-default-active-elevate ${statusColors[loan.status] || ""}`}>
-                        {loan.status}
-                      </Badge>
+          loans.map((loan, index) => {
+            const repayment = getLoanRepayment(loan);
+            return (
+              <Card
+                key={loan.id}
+                className={`hover-elevate active-elevate-2 cursor-pointer ${index % 2 === 1 ? "bg-muted/40" : ""}`}
+                onClick={() => navigate(`/mobile/repayments?loanId=${loan.id}`)}
+                data-testid={`card-loan-${loan.id}`}
+              >
+                <CardContent className="p-3">
+                  <div className="flex items-start gap-3">
+                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                      <User className="h-5 w-5 text-primary" />
                     </div>
-                    <p className="text-[11px] text-muted-foreground mt-0.5" data-testid={`text-app-id-${loan.id}`}>
-                      {loan.applicationId} {loan.productName && `· ${loan.productName}`}
-                    </p>
-                    <div className="flex items-center justify-between gap-2 mt-1.5 flex-wrap">
-                      <div className="flex items-center gap-1">
-                        <Banknote className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-xs font-semibold text-foreground" data-testid={`text-amount-${loan.id}`}>
-                          {formatAFN(calcFinancing(loan).principal)}
-                        </span>
-                        {calcFinancing(loan).margin > 0 && (
-                          <span className="text-[10px] text-muted-foreground" data-testid={`text-margin-${loan.id}`}>
-                            + {calcFinancing(loan).margin}%
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <p className="font-medium text-sm truncate" data-testid={`text-customer-name-${loan.id}`}>
+                          {loan.customerName}
+                        </p>
+                        <Badge className={`text-[10px] shrink-0 no-default-hover-elevate no-default-active-elevate ${statusColors[loan.status] || ""}`}>
+                          {loan.status}
+                        </Badge>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mt-0.5" data-testid={`text-app-id-${loan.id}`}>
+                        {loan.applicationId} {loan.productName && `· ${loan.productName}`}
+                      </p>
+                      <div className="flex items-center justify-between gap-2 mt-1.5 flex-wrap">
+                        <div className="flex items-center gap-1">
+                          <Banknote className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-xs font-semibold text-foreground" data-testid={`text-amount-${loan.id}`}>
+                            {formatAFN(calcFinancing(loan).principal)}
                           </span>
-                        )}
-                        {calcFinancing(loan).margin > 0 && (
-                          <span className="text-[10px] font-semibold text-primary" data-testid={`text-financing-amount-${loan.id}`}>
-                            = {formatAFN(calcFinancing(loan).financingAmount)}
-                          </span>
+                          {calcFinancing(loan).margin > 0 && (
+                            <span className="text-[10px] text-muted-foreground" data-testid={`text-margin-${loan.id}`}>
+                              + {calcFinancing(loan).margin}%
+                            </span>
+                          )}
+                          {calcFinancing(loan).margin > 0 && (
+                            <span className="text-[10px] font-semibold text-primary" data-testid={`text-financing-amount-${loan.id}`}>
+                              = {formatAFN(calcFinancing(loan).financingAmount)}
+                            </span>
+                          )}
+                        </div>
+                        {loan.requestDate && (
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3 text-muted-foreground" />
+                            <span className="text-[10px] text-muted-foreground">
+                              {new Date(loan.requestDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" })}
+                            </span>
+                          </div>
                         )}
                       </div>
-                      {loan.requestDate && (
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3 text-muted-foreground" />
+                      {loan.installmentAmount && (
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          Installment: {formatAFN(loan.installmentAmount)} x {loan.numberOfInstallments || "—"}
+                        </p>
+                      )}
+                      <div className="mt-2 pt-2 border-t border-border/50">
+                        <div className="flex items-center justify-between gap-2 mb-1">
                           <span className="text-[10px] text-muted-foreground">
-                            {new Date(loan.requestDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" })}
+                            Repaid: <span className="font-semibold text-primary" data-testid={`text-repaid-${loan.id}`}>{formatAFN(repayment.totalRepaid)}</span>
+                            <span className="text-muted-foreground"> / {formatAFN(repayment.totalTarget)}</span>
+                          </span>
+                          <span className="text-[10px] text-muted-foreground" data-testid={`text-installment-progress-${loan.id}`}>
+                            {repayment.paidCount}/{repayment.totalCount}
                           </span>
                         </div>
-                      )}
+                        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-300 ${
+                              repayment.progress >= 50 ? "bg-primary" : "bg-amber-500"
+                            }`}
+                            style={{ width: `${repayment.progress}%` }}
+                            data-testid={`progress-bar-${loan.id}`}
+                          />
+                        </div>
+                      </div>
                     </div>
-                    {loan.installmentAmount && (
-                      <p className="text-[10px] text-muted-foreground mt-1">
-                        Installment: {formatAFN(loan.installmentAmount)} x {loan.numberOfInstallments || "—"}
-                      </p>
-                    )}
+                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-3" />
                   </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-3" />
-                </div>
-              </CardContent>
-            </Card>
-          ))
+                </CardContent>
+              </Card>
+            );
+          })
         )}
       </div>
     </div>
