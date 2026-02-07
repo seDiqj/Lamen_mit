@@ -489,7 +489,7 @@ export async function registerRoutes(
 
   app.get("/api/finance-officers/me", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.id;
+      const userId = req.session?.userId;
       if (!userId) return res.status(401).json({ message: "Not authenticated" });
       const officer = await storage.getOfficerByUserId(userId);
       if (!officer) return res.json(null);
