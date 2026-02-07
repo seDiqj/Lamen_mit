@@ -1,4 +1,4 @@
-import * as XLSX from "xlsx";
+import { writeFileSync, mkdirSync } from "fs";
 
 const newLoans = [
   { applicationId: "1011100017", customerName: "Abdul Rahman Taib", branch: "Kabul", product: "Murabaha", principalAmount: 1500000, marginRate: 16, numberOfInstallments: 24, financingDuration: 24, gracePeriod: "", status: "risk_compliance_review", requestDate: "2026-01-11", sector: "Education", businessDescription: "" },
@@ -58,63 +58,40 @@ const headers = [
   "Disbursement Date (FILL THIS)",
 ];
 
-const rows = newLoans.map((l) => [
-  l.applicationId,
-  l.customerName,
-  l.branch,
-  l.product,
-  l.principalAmount,
-  l.marginRate,
-  l.numberOfInstallments,
-  l.financingDuration,
-  l.gracePeriod,
-  l.status,
-  l.requestDate,
-  l.sector,
-  l.businessDescription,
-  "",
-]);
+function escapeCsv(val: any): string {
+  const str = String(val ?? "");
+  if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
 
-const wb = XLSX.utils.book_new();
-const ws = XLSX.utils.aoa_to_sheet([
-  ["Lamen Microfinance Institution"],
-  ["New Loans - Disbursement Date Input Template"],
-  [`Generated: ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}`],
-  ["Instructions: Fill in the 'Disbursement Date' column (format: DD-MMM-YYYY, e.g. 25-Jan-2026) for each loan, then upload back through the system."],
-  [],
-  headers,
-  ...rows,
-]);
-
-ws["!cols"] = [
-  { wch: 16 },
-  { wch: 28 },
-  { wch: 12 },
-  { wch: 12 },
-  { wch: 20 },
-  { wch: 14 },
-  { wch: 22 },
-  { wch: 24 },
-  { wch: 20 },
-  { wch: 22 },
-  { wch: 14 },
-  { wch: 16 },
-  { wch: 22 },
-  { wch: 28 },
+const csvRows = [
+  headers.map(escapeCsv).join(","),
+  ...newLoans.map((l) =>
+    [
+      l.applicationId,
+      l.customerName,
+      l.branch,
+      l.product,
+      l.principalAmount,
+      l.marginRate,
+      l.numberOfInstallments,
+      l.financingDuration,
+      l.gracePeriod,
+      l.status,
+      l.requestDate,
+      l.sector,
+      l.businessDescription,
+      "",
+    ]
+      .map(escapeCsv)
+      .join(",")
+  ),
 ];
 
-ws["!merges"] = [
-  { s: { r: 0, c: 0 }, e: { r: 0, c: 13 } },
-  { s: { r: 1, c: 0 }, e: { r: 1, c: 13 } },
-  { s: { r: 2, c: 0 }, e: { r: 2, c: 13 } },
-  { s: { r: 3, c: 0 }, e: { r: 3, c: 13 } },
-];
-
-XLSX.utils.book_append_sheet(wb, ws, "New Loans");
-const outputPath = "exports/new-loans-disbursement-template.xlsx";
-
-import { mkdirSync } from "fs";
 mkdirSync("exports", { recursive: true });
-XLSX.writeFile(wb, outputPath);
-console.log(`Excel file exported to: ${outputPath}`);
+const outputPath = "exports/new-loans-disbursement-template.csv";
+writeFileSync(outputPath, "\uFEFF" + csvRows.join("\n"), "utf-8");
+console.log(`CSV file exported to: ${outputPath}`);
 console.log(`Total new loans: ${newLoans.length}`);
