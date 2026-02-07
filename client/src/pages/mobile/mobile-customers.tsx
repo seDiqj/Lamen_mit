@@ -66,7 +66,7 @@ function formatAFN(amount?: string | number): string {
 export default function MobileCustomers() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("active");
+  const [statusFilter, setStatusFilter] = useState("disbursed");
   const [, navigate] = useLocation();
   const { user, logout } = useAuth();
   const isOnline = useNetworkStatus();
@@ -81,18 +81,22 @@ export default function MobileCustomers() {
     queryKey: ["/api/finance-officers/me"],
   });
 
+  const loansUrl = myOfficer?.id
+    ? `/api/loans?financeOfficerId=${myOfficer.id}&status=${statusFilter}&search=${encodeURIComponent(debouncedSearch)}&page=1&limit=100`
+    : null;
+
   const { data, isLoading } = useQuery<LoansResponse>({
-    queryKey: ["/api/loans", { search: debouncedSearch, status: statusFilter, financeOfficerId: myOfficer?.id, page: 1, limit: 100 }],
-    enabled: !!myOfficer?.id,
+    queryKey: [loansUrl],
+    enabled: !!myOfficer?.id && !!loansUrl,
   });
 
   const loans = data?.loans || [];
 
   const statusOptions = [
-    { value: "active", label: "Active" },
+    { value: "disbursed", label: "Active" },
     { value: "pending", label: "Pending" },
     { value: "approved", label: "Approved" },
-    { value: "disbursed", label: "Disbursed" },
+    { value: "completed", label: "Completed" },
     { value: "all", label: "All" },
   ];
 
