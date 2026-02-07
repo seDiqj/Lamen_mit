@@ -65,8 +65,9 @@ function formatAFN(amount?: string | number): string {
 
 function calcFinancing(loan: LoanItem) {
   const principal = parseFloat(loan.principleAmount || loan.requestedAmount || "0");
-  const margin = parseFloat(loan.marginRate || "0");
-  return { principal, margin, financingAmount: principal + (principal * margin / 100) };
+  const rawMargin = parseFloat(loan.marginRate || "0");
+  const marginPercent = rawMargin > 0 && rawMargin < 1 ? rawMargin * 100 : rawMargin;
+  return { principal, margin: marginPercent, financingAmount: principal + (principal * marginPercent / 100) };
 }
 
 export default function MobileCustomers() {
