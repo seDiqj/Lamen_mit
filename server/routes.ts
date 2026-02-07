@@ -41,6 +41,18 @@ const upload = multer({
   },
 });
 
+const csvUpload = multer({
+  storage: fileStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (ext === ".csv") {
+      return cb(null, true);
+    }
+    cb(new Error("Only CSV files are allowed"));
+  },
+});
+
 declare module "express-session" {
   interface SessionData {
     userId?: string;
@@ -1416,11 +1428,18 @@ export async function registerRoutes(
       }
       
       const today = new Date();
-      const firstInstallmentDate = new Date(today);
-      firstInstallmentDate.setMonth(firstInstallmentDate.getMonth() + 1);
+      const dayOfMonth = today.getDate();
+      const duration = loan.financingDurationMonths || 12;
+
+      let firstInstallmentDate: Date;
+      if (dayOfMonth >= 25) {
+        firstInstallmentDate = new Date(today.getFullYear(), today.getMonth() + 2, 1);
+      } else {
+        firstInstallmentDate = new Date(today.getFullYear(), today.getMonth() + 1, dayOfMonth);
+      }
       
-      const maturityDate = new Date(today);
-      maturityDate.setMonth(maturityDate.getMonth() + (loan.financingDurationMonths || 12));
+      const maturityDate = new Date(firstInstallmentDate);
+      maturityDate.setMonth(maturityDate.getMonth() + duration - 1);
       
       await storage.disburseLoan(req.params.id, {
         disbursementDate: today.toISOString().split("T")[0],
@@ -1434,6 +1453,100 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error disbursing loan:", error);
       res.status(500).json({ message: "Failed to disburse loan" });
+    }
+  });
+
+  // ===== BULK DISBURSEMENT (CSV Upload) =====
+  function parseCSVLine(line: string): string[] {
+    const result: string[] = [];
+    let current = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inQuotes) {
+        if (ch === '"' && i + 1 < line.length && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else if (ch === '"') {
+          inQuotes = false;
+        } else {
+          current += ch;
+        }
+      } else {
+        if (ch === '"') {
+          inQuotes = true;
+        } else if (ch === ',') {
+          result.push(current.trim());
+          current = "";
+        } else {
+          current += ch;
+        }
+      }
+    }
+    result.push(current.trim());
+    return result;
+  }
+
+  app.post("/api/loans/bulk-disburse", isAuthenticated, requireRole("manager", "admin"), csvUpload.single("file"), async (req: any, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No CSV file uploaded" });
+      }
+
+      const csvContent = fs.readFileSync(req.file.path, "utf-8");
+      const lines = csvContent.split(/\r?\n/).filter((line: string) => line.trim());
+      
+      if (lines.length < 2) {
+        fs.unlinkSync(req.file.path);
+        return res.status(400).json({ message: "CSV file is empty or has no data rows" });
+      }
+
+      const headers = parseCSVLine(lines[0]).map((h: string) => h.toLowerCase());
+      const appIdIdx = headers.findIndex((h: string) => h.includes("application") && h.includes("id"));
+      const disbDateIdx = headers.findIndex((h: string) => h.includes("disbursement") && h.includes("date"));
+
+      if (appIdIdx === -1 || disbDateIdx === -1) {
+        fs.unlinkSync(req.file.path);
+        return res.status(400).json({ message: "CSV must have 'Application ID' and 'Disbursement Date' columns" });
+      }
+
+      const results: any[] = [];
+      const userId = req.user?.claims?.sub || "system";
+
+      for (let i = 1; i < lines.length; i++) {
+        const cols = parseCSVLine(lines[i]);
+        const applicationId = cols[appIdIdx];
+        const disbursementDate = cols[disbDateIdx];
+
+        if (!applicationId || !disbursementDate) {
+          results.push({ applicationId: applicationId || `Row ${i + 1}`, success: false, error: "Missing application ID or disbursement date" });
+          continue;
+        }
+
+        const dateMatch = disbursementDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (!dateMatch) {
+          results.push({ applicationId, success: false, error: `Invalid date format: ${disbursementDate}. Use YYYY-MM-DD` });
+          continue;
+        }
+
+        const result = await storage.bulkDisburseLoan(applicationId, disbursementDate, userId);
+        results.push(result);
+      }
+
+      fs.unlinkSync(req.file.path);
+
+      const successCount = results.filter(r => r.success).length;
+      const failCount = results.filter(r => !r.success).length;
+
+      res.json({
+        message: `Processed ${results.length} loans: ${successCount} succeeded, ${failCount} failed`,
+        successCount,
+        failCount,
+        results,
+      });
+    } catch (error: any) {
+      console.error("Error in bulk disbursement:", error);
+      res.status(500).json({ message: "Failed to process bulk disbursement: " + error.message });
     }
   });
 

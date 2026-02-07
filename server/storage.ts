@@ -219,6 +219,7 @@ export interface IStorage {
   updateLoan(id: string, data: Partial<InsertLoan>): Promise<Loan>;
   approveLoan(loanId: string, approvalData: InsertLoanApproval): Promise<void>;
   disburseLoan(loanId: string, disbursementData: InsertDisbursement): Promise<void>;
+  bulkDisburseLoan(loanApplicationId: string, disbursementDate: string, userId: string): Promise<{ success: boolean; applicationId: string; error?: string }>;
   
   // FAD Reviews
   createFadReview(data: InsertFadReview): Promise<FadReview>;
@@ -1015,34 +1016,115 @@ export class DatabaseStorage implements IStorage {
   async disburseLoan(loanId: string, disbursementData: InsertDisbursement): Promise<void> {
     await db.transaction(async (tx) => {
       await tx.insert(disbursements).values({ ...disbursementData, loanId });
-      await tx.update(loans).set({ status: "active", updatedAt: new Date() }).where(eq(loans.id, loanId));
+      await tx.update(loans).set({ status: "disbursed", updatedAt: new Date() }).where(eq(loans.id, loanId));
       
-      // Create installments
       const [loan] = await tx.select().from(loans).where(eq(loans.id, loanId));
-      if (loan && loan.numberOfInstallments && loan.installmentAmount) {
+      if (loan && loan.numberOfInstallments) {
         const numInstallments = loan.numberOfInstallments;
-        const installmentAmount = parseFloat(loan.installmentAmount);
-        const principlePerInstallment = parseFloat(loan.principleAmount || "0") / numInstallments;
-        const marginPerInstallment = parseFloat(loan.profit || "0") / numInstallments;
+        const gracePeriod = loan.gracePeriod || 0;
+        const principalTotal = parseFloat(loan.principleAmount || loan.requestAmount || "0");
+        const profitTotal = parseFloat(loan.profit || "0");
+
+        const principalInstallments = numInstallments - gracePeriod;
+        const principalPerInstallment = principalInstallments > 0 ? principalTotal / principalInstallments : 0;
+        const marginPerInstallment = numInstallments > 0 ? profitTotal / numInstallments : 0;
         
         const startDate = new Date(disbursementData.firstInstallmentDate || new Date());
         
         for (let i = 1; i <= numInstallments; i++) {
           const dueDate = new Date(startDate);
-          dueDate.setMonth(dueDate.getMonth() + i);
+          dueDate.setMonth(dueDate.getMonth() + (i - 1));
+
+          const isGracePeriod = i <= gracePeriod;
+          const instPrincipal = isGracePeriod ? 0 : principalPerInstallment;
+          const instMargin = marginPerInstallment;
+          const instTotal = instPrincipal + instMargin;
           
           await tx.insert(installments).values({
             loanId,
             installmentNumber: i,
             dueDate: dueDate.toISOString().split("T")[0],
-            principleAmount: principlePerInstallment.toFixed(2),
-            marginAmount: marginPerInstallment.toFixed(2),
-            totalAmount: installmentAmount.toFixed(2),
+            principleAmount: instPrincipal.toFixed(2),
+            marginAmount: instMargin.toFixed(2),
+            totalAmount: instTotal.toFixed(2),
             isPaid: false,
           });
         }
       }
     });
+  }
+
+  async bulkDisburseLoan(loanApplicationId: string, disbursementDate: string, userId: string): Promise<{ success: boolean; applicationId: string; error?: string }> {
+    try {
+      const [loan] = await db.select().from(loans).where(eq(loans.applicationId, loanApplicationId));
+      if (!loan) {
+        return { success: false, applicationId: loanApplicationId, error: "Loan not found" };
+      }
+
+      const existingDisbursement = await db.select().from(disbursements).where(eq(disbursements.loanId, loan.id));
+      if (existingDisbursement.length > 0) {
+        return { success: false, applicationId: loanApplicationId, error: "Already disbursed" };
+      }
+
+      const disbDate = new Date(disbursementDate);
+      const dayOfMonth = disbDate.getDate();
+
+      let firstInstDate: Date;
+      if (dayOfMonth >= 25) {
+        firstInstDate = new Date(disbDate.getFullYear(), disbDate.getMonth() + 2, 1);
+      } else {
+        firstInstDate = new Date(disbDate.getFullYear(), disbDate.getMonth() + 1, dayOfMonth);
+      }
+
+      const duration = loan.financingDurationMonths || 12;
+      const maturityDate = new Date(firstInstDate);
+      maturityDate.setMonth(maturityDate.getMonth() + duration - 1);
+
+      await db.transaction(async (tx) => {
+        await tx.insert(disbursements).values({
+          loanId: loan.id,
+          disbursementDate: disbursementDate,
+          firstInstallmentDate: firstInstDate.toISOString().split("T")[0],
+          maturityDate: maturityDate.toISOString().split("T")[0],
+          disbursedById: userId,
+        });
+
+        await tx.update(loans).set({ status: "disbursed", updatedAt: new Date() }).where(eq(loans.id, loan.id));
+
+        const numInstallments = loan.numberOfInstallments || duration;
+        const gracePeriod = loan.gracePeriod || 0;
+        const principalTotal = parseFloat(loan.principleAmount || loan.requestAmount || "0");
+        const profitTotal = parseFloat(loan.profit || "0");
+
+        const principalInstallments = numInstallments - gracePeriod;
+        const principalPerInstallment = principalInstallments > 0 ? principalTotal / principalInstallments : 0;
+        const marginPerInstallment = numInstallments > 0 ? profitTotal / numInstallments : 0;
+
+        for (let i = 1; i <= numInstallments; i++) {
+          const dueDate = new Date(firstInstDate);
+          dueDate.setMonth(dueDate.getMonth() + (i - 1));
+
+          const isGracePeriod = i <= gracePeriod;
+          const instPrincipal = isGracePeriod ? 0 : principalPerInstallment;
+          const instMargin = marginPerInstallment;
+          const instTotal = instPrincipal + instMargin;
+
+          await tx.insert(installments).values({
+            loanId: loan.id,
+            installmentNumber: i,
+            dueDate: dueDate.toISOString().split("T")[0],
+            principleAmount: instPrincipal.toFixed(2),
+            marginAmount: instMargin.toFixed(2),
+            totalAmount: instTotal.toFixed(2),
+            isPaid: false,
+          });
+        }
+      });
+
+      return { success: true, applicationId: loanApplicationId };
+    } catch (error: any) {
+      return { success: false, applicationId: loanApplicationId, error: error.message };
+    }
   }
 
   // FAD Reviews
