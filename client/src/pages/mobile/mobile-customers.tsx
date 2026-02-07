@@ -235,9 +235,14 @@ export default function MobileCustomers() {
                       <div className="flex items-center gap-1">
                         <Banknote className="h-3 w-3 text-muted-foreground" />
                         <span className="text-xs font-semibold text-foreground" data-testid={`text-amount-${loan.id}`}>
-                          {formatAFN(loan.requestedAmount)}
+                          {formatAFN(loan.principleAmount || loan.requestedAmount)}
                         </span>
                       </div>
+                      {loan.marginRate && (
+                        <span className="text-[10px] text-muted-foreground" data-testid={`text-margin-${loan.id}`}>
+                          Margin: {loan.marginRate}%
+                        </span>
+                      )}
                       {loan.requestDate && (
                         <div className="flex items-center gap-1">
                           <Calendar className="h-3 w-3 text-muted-foreground" />
