@@ -94,17 +94,26 @@ export default function MobileCustomers() {
     return () => clearTimeout(timer);
   }, [search]);
 
+  const { data: roleData, isLoading: roleLoading } = useQuery<{ role: string }>({
+    queryKey: ["/api/user/role"],
+  });
+  const userRole = roleData?.role || "user";
+  const isAdminOrManager = userRole === "admin" || userRole === "manager";
+
   const { data: myOfficer, isLoading: officerLoading } = useQuery<FinanceOfficer | null>({
     queryKey: ["/api/finance-officers/me"],
+    enabled: !isAdminOrManager,
   });
 
-  const loansUrl = myOfficer?.id
-    ? `/api/loans?financeOfficerId=${myOfficer.id}&status=${statusFilter}&search=${encodeURIComponent(debouncedSearch)}&page=1&limit=100`
-    : null;
+  const loansUrl = isAdminOrManager
+    ? `/api/loans?status=${statusFilter}&search=${encodeURIComponent(debouncedSearch)}&page=1&limit=200`
+    : myOfficer?.id
+      ? `/api/loans?financeOfficerId=${myOfficer.id}&status=${statusFilter}&search=${encodeURIComponent(debouncedSearch)}&page=1&limit=100`
+      : null;
 
   const { data, isLoading } = useQuery<LoansResponse>({
     queryKey: [loansUrl],
-    enabled: !!myOfficer?.id && !!loansUrl,
+    enabled: isAdminOrManager ? !roleLoading : (!!myOfficer?.id && !!loansUrl),
   });
 
   const loans = data?.loans || [];
@@ -207,7 +216,7 @@ export default function MobileCustomers() {
       )}
 
       <div className="flex-1 overflow-auto px-3 py-3 space-y-2">
-        {officerLoading || isLoading ? (
+        {roleLoading || officerLoading || isLoading ? (
           Array.from({ length: 5 }).map((_, i) => (
             <Card key={i}>
               <CardContent className="p-3">
@@ -223,7 +232,7 @@ export default function MobileCustomers() {
               </CardContent>
             </Card>
           ))
-        ) : !myOfficer ? (
+        ) : !isAdminOrManager && !myOfficer ? (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
             <AlertTriangle className="h-12 w-12 mb-3 opacity-30" />
             <p className="text-sm font-medium">No Officer Profile Found</p>

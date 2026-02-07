@@ -72,17 +72,26 @@ export default function MobileRepayments() {
   const isOnline = useNetworkStatus();
   const [expandedLoan, setExpandedLoan] = useState<string | null>(loanIdParam);
 
+  const { data: roleData, isLoading: roleLoading } = useQuery<{ role: string }>({
+    queryKey: ["/api/user/role"],
+  });
+  const userRole = roleData?.role || "user";
+  const isAdminOrManager = userRole === "admin" || userRole === "manager";
+
   const { data: myOfficer, isLoading: officerLoading } = useQuery<FinanceOfficer | null>({
     queryKey: ["/api/finance-officers/me"],
+    enabled: !isAdminOrManager,
   });
 
-  const loansUrl = myOfficer?.id
-    ? `/api/loans?financeOfficerId=${myOfficer.id}&status=disbursed&page=1&limit=200`
-    : null;
+  const loansUrl = isAdminOrManager
+    ? `/api/loans?status=disbursed&page=1&limit=200`
+    : myOfficer?.id
+      ? `/api/loans?financeOfficerId=${myOfficer.id}&status=disbursed&page=1&limit=200`
+      : null;
 
   const { data: loansData, isLoading: loansLoading } = useQuery<{ loans: any[]; total: number }>({
     queryKey: [loansUrl],
-    enabled: !!myOfficer?.id && !!loansUrl,
+    enabled: isAdminOrManager ? !roleLoading : (!!myOfficer?.id && !!loansUrl),
   });
 
   const { data: installmentsData, isLoading: installmentsLoading } = useQuery<{ installments: Installment[]; total: number }>({
@@ -130,7 +139,7 @@ export default function MobileRepayments() {
       </header>
 
       <div className="flex-1 overflow-auto px-3 py-3 space-y-3">
-        {officerLoading || loansLoading ? (
+        {roleLoading || officerLoading || loansLoading ? (
           Array.from({ length: 3 }).map((_, i) => (
             <Card key={i}>
               <CardContent className="p-3">
