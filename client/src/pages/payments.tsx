@@ -36,8 +36,13 @@ import {
   Banknote,
   User,
   TrendingUp,
+  FileSpreadsheet,
+  FileText,
 } from "lucide-react";
 import type { Installment } from "@shared/schema";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 type InstallmentWithDetails = Installment & {
   loanApplicationId?: string;
@@ -218,6 +223,140 @@ export default function PaymentsPage() {
       return { label: "Overdue", variant: "destructive" as const };
     }
     return { label: "Pending", variant: "warning" as const };
+  };
+
+  const buildSummaryRows = () => {
+    return filteredLoans.map((loan, idx) => {
+      const repayment = getLoanRepayment(loan);
+      const fc = calcFinancing(loan);
+      return {
+        no: idx + 1,
+        applicationId: loan.applicationId,
+        customerName: loan.customerName,
+        branch: loan.branchName || "-",
+        product: loan.productName || "-",
+        principal: fc.principal,
+        margin: fc.margin > 0 ? `${fc.margin}%` : "0%",
+        financingAmount: fc.financingAmount,
+        installmentAmount: parseFloat(loan.installmentAmount || "0"),
+        installments: loan.numberOfInstallments || 0,
+        totalRepaid: repayment.totalRepaid,
+        totalTarget: repayment.totalTarget,
+        outstanding: repayment.totalTarget - repayment.totalRepaid,
+        paidInstallments: `${repayment.paidCount}/${repayment.totalCount}`,
+        progress: `${repayment.progress.toFixed(1)}%`,
+        status: loan.status,
+      };
+    });
+  };
+
+  const exportToExcel = () => {
+    const rows = buildSummaryRows();
+    const wsData = [
+      ["Lamen Microfinance Institution"],
+      ["Financing Summary Report"],
+      [`Generated: ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}`],
+      [],
+      ["Total Portfolio:", totalPortfolio, "", "Total Repaid:", totalRepaidAll, "", "Outstanding:", totalOutstanding],
+      [],
+      ["No", "Application ID", "Customer Name", "Branch", "Product", "Principal (AFN)", "Margin", "Financing Amount (AFN)", "Installment (AFN)", "# Installments", "Total Repaid (AFN)", "Total Receivable (AFN)", "Outstanding (AFN)", "Paid Installments", "Progress", "Status"],
+      ...rows.map((r) => [
+        r.no, r.applicationId, r.customerName, r.branch, r.product,
+        r.principal, r.margin, r.financingAmount, r.installmentAmount,
+        r.installments, r.totalRepaid, r.totalTarget, r.outstanding,
+        r.paidInstallments, r.progress, r.status,
+      ]),
+      [],
+      ["", "", "", "", "Totals:",
+        rows.reduce((s, r) => s + r.principal, 0),
+        "",
+        rows.reduce((s, r) => s + r.financingAmount, 0),
+        rows.reduce((s, r) => s + r.installmentAmount, 0),
+        "",
+        rows.reduce((s, r) => s + r.totalRepaid, 0),
+        rows.reduce((s, r) => s + r.totalTarget, 0),
+        rows.reduce((s, r) => s + r.outstanding, 0),
+        "", "", "",
+      ],
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws["!cols"] = [
+      { wch: 5 }, { wch: 16 }, { wch: 22 }, { wch: 14 }, { wch: 14 },
+      { wch: 14 }, { wch: 8 }, { wch: 18 }, { wch: 14 }, { wch: 13 },
+      { wch: 16 }, { wch: 18 }, { wch: 16 }, { wch: 16 }, { wch: 10 }, { wch: 10 },
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Financing Summary");
+    XLSX.writeFile(wb, `Financing_Summary_Report_${new Date().toISOString().split("T")[0]}.xlsx`);
+
+    toast({ title: "Excel Exported", description: "Financing summary report exported to Excel." });
+  };
+
+  const exportToPDF = () => {
+    const rows = buildSummaryRows();
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+
+    doc.setFontSize(16);
+    doc.setTextColor(30, 100, 50);
+    doc.text("Lamen Microfinance Institution", 148, 14, { align: "center" });
+    doc.setFontSize(12);
+    doc.setTextColor(60, 60, 60);
+    doc.text("Financing Summary Report", 148, 21, { align: "center" });
+    doc.setFontSize(9);
+    doc.setTextColor(120, 120, 120);
+    doc.text(`Generated: ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}`, 148, 27, { align: "center" });
+
+    doc.setFontSize(9);
+    doc.setTextColor(40, 40, 40);
+    doc.text(`Total Portfolio: AFN ${totalPortfolio.toLocaleString()}`, 14, 34);
+    doc.text(`Total Repaid: AFN ${totalRepaidAll.toLocaleString()}`, 105, 34);
+    doc.text(`Outstanding: AFN ${totalOutstanding.toLocaleString()}`, 200, 34);
+
+    autoTable(doc, {
+      startY: 39,
+      head: [["No", "App ID", "Customer", "Branch", "Product", "Principal", "Margin", "Financing Amt", "Repaid", "Outstanding", "Paid", "Progress", "Status"]],
+      body: rows.map((r) => [
+        r.no,
+        r.applicationId,
+        r.customerName,
+        r.branch,
+        r.product,
+        `AFN ${r.principal.toLocaleString()}`,
+        r.margin,
+        `AFN ${r.financingAmount.toLocaleString()}`,
+        `AFN ${r.totalRepaid.toLocaleString()}`,
+        `AFN ${r.outstanding.toLocaleString()}`,
+        r.paidInstallments,
+        r.progress,
+        r.status,
+      ]),
+      foot: [[
+        "", "", "", "", "Totals:",
+        `AFN ${rows.reduce((s, r) => s + r.principal, 0).toLocaleString()}`,
+        "",
+        `AFN ${rows.reduce((s, r) => s + r.financingAmount, 0).toLocaleString()}`,
+        `AFN ${rows.reduce((s, r) => s + r.totalRepaid, 0).toLocaleString()}`,
+        `AFN ${rows.reduce((s, r) => s + r.outstanding, 0).toLocaleString()}`,
+        "", "", "",
+      ]],
+      styles: { fontSize: 7, cellPadding: 1.5 },
+      headStyles: { fillColor: [34, 120, 60], textColor: 255, fontStyle: "bold", fontSize: 7 },
+      footStyles: { fillColor: [240, 240, 240], textColor: [30, 30, 30], fontStyle: "bold", fontSize: 7 },
+      alternateRowStyles: { fillColor: [245, 250, 245] },
+      margin: { left: 8, right: 8 },
+    });
+
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(7);
+      doc.setTextColor(150, 150, 150);
+      doc.text(`Page ${i} of ${pageCount}`, 280, 200, { align: "right" });
+    }
+
+    doc.save(`Financing_Summary_Report_${new Date().toISOString().split("T")[0]}.pdf`);
+    toast({ title: "PDF Exported", description: "Financing summary report exported to PDF." });
   };
 
   return (
@@ -470,15 +609,37 @@ export default function PaymentsPage() {
               </Card>
             </div>
 
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by customer, application ID, or branch..."
-                className="pl-10"
-                value={summarySearch}
-                onChange={(e) => setSummarySearch(e.target.value)}
-                data-testid="input-search-summary"
-              />
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by customer, application ID, or branch..."
+                  className="pl-10"
+                  value={summarySearch}
+                  onChange={(e) => setSummarySearch(e.target.value)}
+                  data-testid="input-search-summary"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  className="bg-green-600 text-white border-green-700 hover:bg-green-700 no-default-hover-elevate"
+                  onClick={exportToExcel}
+                  disabled={filteredLoans.length === 0}
+                  data-testid="button-export-excel"
+                >
+                  <FileSpreadsheet className="mr-2 h-4 w-4" />
+                  Export Excel
+                </Button>
+                <Button
+                  className="bg-red-600 text-white border-red-700 hover:bg-red-700 no-default-hover-elevate"
+                  onClick={exportToPDF}
+                  disabled={filteredLoans.length === 0}
+                  data-testid="button-export-pdf"
+                >
+                  <FileText className="mr-2 h-4 w-4" />
+                  Export PDF
+                </Button>
+              </div>
             </div>
 
             <p className="text-sm text-muted-foreground">{filteredLoans.length} active financing records</p>
