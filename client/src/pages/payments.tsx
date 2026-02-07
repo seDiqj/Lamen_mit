@@ -172,6 +172,8 @@ export default function PaymentsPage() {
   const totalPortfolio = filteredLoans.reduce((sum, l) => sum + parseFloat(l.totalReceivable || "0"), 0);
   const totalRepaidAll = filteredLoans.reduce((sum, l) => sum + getLoanRepayment(l).totalRepaid, 0);
   const totalOutstanding = totalPortfolio - totalRepaidAll;
+  const totalDisbursed = filteredLoans.reduce((sum, l) => sum + calcFinancing(l).principal, 0);
+  const totalProfit = totalPortfolio - totalDisbursed;
 
   const markPaidMutation = useMutation({
     mutationFn: async (installmentId: string) => {
@@ -257,7 +259,7 @@ export default function PaymentsPage() {
       ["Financing Summary Report"],
       [`Generated: ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}`],
       [],
-      ["Total Portfolio:", totalPortfolio, "", "Total Repaid:", totalRepaidAll, "", "Outstanding:", totalOutstanding],
+      ["Total Portfolio:", totalPortfolio, "", "Total Disbursed:", totalDisbursed, "", "Total Repaid:", totalRepaidAll, "", "Outstanding:", totalOutstanding, "", "Total Profit:", totalProfit],
       [],
       ["No", "Application ID", "Customer Name", "Branch", "Product", "Principal (AFN)", "Margin", "Financing Amount (AFN)", "Installment (AFN)", "# Installments", "Total Repaid (AFN)", "Total Receivable (AFN)", "Outstanding (AFN)", "Paid Installments", "Progress", "Status"],
       ...rows.map((r) => [
@@ -307,11 +309,13 @@ export default function PaymentsPage() {
     doc.setTextColor(120, 120, 120);
     doc.text(`Generated: ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}`, 148, 27, { align: "center" });
 
-    doc.setFontSize(9);
+    doc.setFontSize(8);
     doc.setTextColor(40, 40, 40);
     doc.text(`Total Portfolio: AFN ${totalPortfolio.toLocaleString()}`, 14, 34);
-    doc.text(`Total Repaid: AFN ${totalRepaidAll.toLocaleString()}`, 105, 34);
-    doc.text(`Outstanding: AFN ${totalOutstanding.toLocaleString()}`, 200, 34);
+    doc.text(`Total Disbursed: AFN ${totalDisbursed.toLocaleString()}`, 72, 34);
+    doc.text(`Total Repaid: AFN ${totalRepaidAll.toLocaleString()}`, 135, 34);
+    doc.text(`Outstanding: AFN ${totalOutstanding.toLocaleString()}`, 195, 34);
+    doc.text(`Total Profit: AFN ${totalProfit.toLocaleString()}`, 250, 34);
 
     autoTable(doc, {
       startY: 39,
@@ -567,7 +571,7 @@ export default function PaymentsPage() {
 
         <TabsContent value="summary" className="mt-4">
           <div className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
               <Card>
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
@@ -577,6 +581,19 @@ export default function PaymentsPage() {
                     <div>
                       <p className="text-xs text-muted-foreground">Total Portfolio</p>
                       <p className="text-lg font-bold" data-testid="text-total-portfolio">{formatAFN(totalPortfolio)}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                      <DollarSign className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Total Disbursed</p>
+                      <p className="text-lg font-bold text-blue-700 dark:text-blue-400" data-testid="text-total-disbursed">{formatAFN(totalDisbursed)}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -603,6 +620,19 @@ export default function PaymentsPage() {
                     <div>
                       <p className="text-xs text-muted-foreground">Outstanding</p>
                       <p className="text-lg font-bold text-amber-700 dark:text-amber-400" data-testid="text-total-outstanding">{formatAFN(totalOutstanding)}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
+                      <TrendingUp className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Total Profit</p>
+                      <p className="text-lg font-bold text-purple-700 dark:text-purple-400" data-testid="text-total-profit">{formatAFN(totalProfit)}</p>
                     </div>
                   </div>
                 </CardContent>
