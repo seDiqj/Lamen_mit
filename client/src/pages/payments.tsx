@@ -575,12 +575,12 @@ export default function PaymentsPage() {
               <Card>
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                      <Banknote className="h-5 w-5 text-primary" />
+                    <div className="h-10 w-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                      <DollarSign className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">Total Portfolio</p>
-                      <p className="text-lg font-bold" data-testid="text-total-portfolio">{formatAFN(totalPortfolio)}</p>
+                      <p className="text-xs text-muted-foreground">Total Disbursed</p>
+                      <p className="text-lg font-bold text-blue-700 dark:text-blue-400" data-testid="text-total-disbursed">{formatAFN(totalDisbursed)}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -588,12 +588,25 @@ export default function PaymentsPage() {
               <Card>
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                      <DollarSign className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    <div className="h-10 w-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
+                      <TrendingUp className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">Total Disbursed</p>
-                      <p className="text-lg font-bold text-blue-700 dark:text-blue-400" data-testid="text-total-disbursed">{formatAFN(totalDisbursed)}</p>
+                      <p className="text-xs text-muted-foreground">Total Profit</p>
+                      <p className="text-lg font-bold text-purple-700 dark:text-purple-400" data-testid="text-total-profit">{formatAFN(totalProfit)}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                      <Banknote className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Total Portfolio</p>
+                      <p className="text-lg font-bold" data-testid="text-total-portfolio">{formatAFN(totalPortfolio)}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -620,19 +633,6 @@ export default function PaymentsPage() {
                     <div>
                       <p className="text-xs text-muted-foreground">Outstanding</p>
                       <p className="text-lg font-bold text-amber-700 dark:text-amber-400" data-testid="text-total-outstanding">{formatAFN(totalOutstanding)}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
-                      <TrendingUp className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Total Profit</p>
-                      <p className="text-lg font-bold text-purple-700 dark:text-purple-400" data-testid="text-total-profit">{formatAFN(totalProfit)}</p>
                     </div>
                   </div>
                 </CardContent>
