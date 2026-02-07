@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -55,6 +55,11 @@ import HRRecruitmentPage from "@/pages/hr/recruitment";
 import HRPerformancePage from "@/pages/hr/performance";
 import HRTrainingPage from "@/pages/hr/training";
 import HRBenefitsPage from "@/pages/hr/benefits";
+import MobileLogin from "@/pages/mobile/mobile-login";
+import MobileCustomers from "@/pages/mobile/mobile-customers";
+import MobileFinancing from "@/pages/mobile/mobile-financing";
+import MobileRepayments from "@/pages/mobile/mobile-repayments";
+import { MobileLayout } from "@/pages/mobile/mobile-layout";
 import NotFound from "@/pages/not-found";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
@@ -83,6 +88,7 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
 
 function AppRoutes() {
   const { user, isLoading } = useAuth();
+  const [location] = useLocation();
 
   if (isLoading) {
     return (
@@ -101,9 +107,28 @@ function AppRoutes() {
   if (!user) {
     return (
       <Switch>
+        <Route path="/mobile/login" component={MobileLogin} />
+        <Route path="/mobile/:rest*">
+          <MobileLogin />
+        </Route>
         <Route path="/login" component={LoginPage} />
         <Route component={LoginPage} />
       </Switch>
+    );
+  }
+
+  if (location.startsWith("/mobile")) {
+    return (
+      <MobileLayout>
+        <Switch>
+          <Route path="/mobile/customers" component={MobileCustomers} />
+          <Route path="/mobile/financing" component={MobileFinancing} />
+          <Route path="/mobile/repayments" component={MobileRepayments} />
+          <Route path="/mobile">
+            <MobileCustomers />
+          </Route>
+        </Switch>
+      </MobileLayout>
     );
   }
 
