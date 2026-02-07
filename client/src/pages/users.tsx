@@ -262,6 +262,15 @@ interface UserFormData {
   lastName: string;
   email: string;
   role: string;
+  financeOfficerId: string;
+}
+
+interface FinanceOfficerItem {
+  id: string;
+  name: string;
+  code?: string;
+  branchName?: string;
+  userId?: string;
 }
 
 export default function UsersPage() {
@@ -280,6 +289,7 @@ export default function UsersPage() {
     lastName: "",
     email: "",
     role: "user",
+    financeOfficerId: "",
   });
 
   const { data: users = [], isLoading } = useQuery<User[]>({
@@ -300,6 +310,7 @@ export default function UsersPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/finance-officers"] });
       toast({ title: "User created successfully" });
       setIsCreateOpen(false);
       resetForm();
@@ -316,6 +327,7 @@ export default function UsersPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/finance-officers"] });
       toast({ title: "User updated successfully" });
       setEditUser(null);
       resetForm();
@@ -383,6 +395,10 @@ export default function UsersPage() {
     updatePermissionMutation.mutate({ userId: permissionsUser.id, pageName, canAccess });
   };
 
+  const { data: financeOfficers = [] } = useQuery<FinanceOfficerItem[]>({
+    queryKey: ["/api/finance-officers"],
+  });
+
   const resetForm = () => {
     setFormData({
       username: "",
@@ -391,10 +407,12 @@ export default function UsersPage() {
       lastName: "",
       email: "",
       role: "user",
+      financeOfficerId: "",
     });
   };
 
-  const openEditDialog = (user: User) => {
+  const openEditDialog = async (user: User) => {
+    const linkedOfficer = financeOfficers.find((o) => o.userId === user.id);
     setFormData({
       username: user.username,
       password: "",
@@ -402,6 +420,7 @@ export default function UsersPage() {
       lastName: user.lastName,
       email: user.email || "",
       role: user.role || "user",
+      financeOfficerId: linkedOfficer?.id || "",
     });
     setEditUser(user);
   };
@@ -415,6 +434,7 @@ export default function UsersPage() {
         lastName: formData.lastName,
         email: formData.email,
         role: formData.role,
+        financeOfficerId: formData.role === "finance_officer" ? formData.financeOfficerId : "",
       };
       if (formData.password) {
         updateData.password = formData.password;
@@ -431,6 +451,8 @@ export default function UsersPage() {
         return "bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-700 dark:text-amber-400 border-amber-500/30";
       case "manager":
         return "bg-gradient-to-r from-blue-500/20 to-cyan-500/20 text-blue-700 dark:text-blue-400 border-blue-500/30";
+      case "finance_officer":
+        return "bg-gradient-to-r from-emerald-500/20 to-green-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/30";
       default:
         return "bg-gradient-to-r from-slate-500/20 to-gray-500/20 text-slate-700 dark:text-slate-400 border-slate-500/30";
     }
@@ -442,8 +464,19 @@ export default function UsersPage() {
         return <Crown className="h-3.5 w-3.5 mr-1" />;
       case "manager":
         return <UserCheck className="h-3.5 w-3.5 mr-1" />;
+      case "finance_officer":
+        return <Briefcase className="h-3.5 w-3.5 mr-1" />;
       default:
         return <Users className="h-3.5 w-3.5 mr-1" />;
+    }
+  };
+
+  const getRoleLabel = (role: string | null) => {
+    switch (role) {
+      case "admin": return "Admin";
+      case "manager": return "Manager";
+      case "finance_officer": return "Financing Officer";
+      default: return "User";
     }
   };
 
@@ -453,6 +486,8 @@ export default function UsersPage() {
         return "from-amber-500 to-orange-600";
       case "manager":
         return "from-blue-500 to-cyan-600";
+      case "finance_officer":
+        return "from-emerald-500 to-green-600";
       default:
         return "from-slate-500 to-gray-600";
     }
@@ -565,6 +600,12 @@ export default function UsersPage() {
                         Manager
                       </div>
                     </SelectItem>
+                    <SelectItem value="finance_officer">
+                      <div className="flex items-center gap-2">
+                        <Briefcase className="h-4 w-4 text-emerald-500" />
+                        Financing Officer
+                      </div>
+                    </SelectItem>
                     <SelectItem value="admin">
                       <div className="flex items-center gap-2">
                         <Crown className="h-4 w-4 text-amber-500" />
@@ -574,11 +615,33 @@ export default function UsersPage() {
                   </SelectContent>
                 </Select>
               </div>
+              {formData.role === "finance_officer" && (
+                <div className="space-y-2">
+                  <Label htmlFor="financeOfficerId">Link to Financing Officer *</Label>
+                  <Select value={formData.financeOfficerId} onValueChange={(value) => setFormData({ ...formData, financeOfficerId: value })}>
+                    <SelectTrigger data-testid="select-finance-officer">
+                      <SelectValue placeholder="Select financing officer..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {financeOfficers.map((officer) => (
+                        <SelectItem key={officer.id} value={officer.id}>
+                          <div className="flex items-center gap-2">
+                            <Briefcase className="h-4 w-4 text-emerald-500" />
+                            <span>{officer.name}</span>
+                            {officer.code && <span className="text-muted-foreground text-xs">({officer.code})</span>}
+                            {officer.branchName && <span className="text-muted-foreground text-xs">- {officer.branchName}</span>}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <DialogFooter className="pt-4">
                 <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={createMutation.isPending} data-testid="button-submit-create">
+                <Button type="submit" disabled={createMutation.isPending || (formData.role === "finance_officer" && !formData.financeOfficerId)} data-testid="button-submit-create">
                   {createMutation.isPending ? "Creating..." : "Create User"}
                 </Button>
               </DialogFooter>
@@ -654,7 +717,7 @@ export default function UsersPage() {
                       <TableCell>
                         <Badge variant="outline" className={`flex items-center w-fit ${getRoleBadgeStyle(user.role)}`}>
                           {getRoleIcon(user.role)}
-                          {user.role || "user"}
+                          {getRoleLabel(user.role)}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-muted-foreground">
@@ -784,6 +847,12 @@ export default function UsersPage() {
                       Manager
                     </div>
                   </SelectItem>
+                  <SelectItem value="finance_officer">
+                    <div className="flex items-center gap-2">
+                      <Briefcase className="h-4 w-4 text-emerald-500" />
+                      Financing Officer
+                    </div>
+                  </SelectItem>
                   <SelectItem value="admin">
                     <div className="flex items-center gap-2">
                       <Crown className="h-4 w-4 text-amber-500" />
@@ -793,11 +862,33 @@ export default function UsersPage() {
                 </SelectContent>
               </Select>
             </div>
+            {formData.role === "finance_officer" && (
+              <div className="space-y-2">
+                <Label htmlFor="edit-financeOfficerId">Link to Financing Officer *</Label>
+                <Select value={formData.financeOfficerId} onValueChange={(value) => setFormData({ ...formData, financeOfficerId: value })}>
+                  <SelectTrigger data-testid="select-edit-finance-officer">
+                    <SelectValue placeholder="Select financing officer..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {financeOfficers.map((officer) => (
+                      <SelectItem key={officer.id} value={officer.id}>
+                        <div className="flex items-center gap-2">
+                          <Briefcase className="h-4 w-4 text-emerald-500" />
+                          <span>{officer.name}</span>
+                          {officer.code && <span className="text-muted-foreground text-xs">({officer.code})</span>}
+                          {officer.branchName && <span className="text-muted-foreground text-xs">- {officer.branchName}</span>}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <DialogFooter className="pt-4">
               <Button type="button" variant="outline" onClick={() => setEditUser(null)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={updateMutation.isPending} data-testid="button-submit-edit">
+              <Button type="submit" disabled={updateMutation.isPending || (formData.role === "finance_officer" && !formData.financeOfficerId)} data-testid="button-submit-edit">
                 {updateMutation.isPending ? "Saving..." : "Save Changes"}
               </Button>
             </DialogFooter>

@@ -1879,7 +1879,7 @@ export async function registerRoutes(
   // Create user (admin only)
   app.post("/api/admin/users", isAuthenticated, requireRole("admin"), async (req: any, res) => {
     try {
-      const { username, password, firstName, lastName, email, role } = req.body;
+      const { username, password, firstName, lastName, email, role, financeOfficerId } = req.body;
       
       if (!username || !password || !firstName || !lastName) {
         return res.status(400).json({ message: "All required fields must be provided" });
@@ -1904,6 +1904,15 @@ export async function registerRoutes(
       });
 
       await storage.setUserRole({ userId: user.id, role: role || "user" });
+
+      if (role === "finance_officer" && financeOfficerId) {
+        const targetOfficer = await storage.getOfficer(financeOfficerId);
+        if (targetOfficer?.userId && targetOfficer.userId !== user.id) {
+          await storage.updateOfficer(financeOfficerId, { userId: null } as any);
+        }
+        await storage.updateOfficer(financeOfficerId, { userId: user.id } as any);
+      }
+
       await logActivity(req, "create_user", "user", user.id, `Created user: ${username}`);
 
       res.status(201).json({
@@ -1923,7 +1932,7 @@ export async function registerRoutes(
   // Update user (admin only)
   app.patch("/api/admin/users/:id", isAuthenticated, requireRole("admin"), async (req: any, res) => {
     try {
-      const { username, password, firstName, lastName, email, role } = req.body;
+      const { username, password, firstName, lastName, email, role, financeOfficerId } = req.body;
       const userId = req.params.id;
 
       const existingUser = await storage.getUserById(userId);
@@ -1956,6 +1965,23 @@ export async function registerRoutes(
 
       if (role) {
         await storage.updateUserRole(userId, role);
+      }
+
+      if (role === "finance_officer" && financeOfficerId) {
+        const previousOfficer = await storage.getOfficerByUserId(userId);
+        if (previousOfficer && previousOfficer.id !== financeOfficerId) {
+          await storage.updateOfficer(previousOfficer.id, { userId: null } as any);
+        }
+        const targetOfficer = await storage.getOfficer(financeOfficerId);
+        if (targetOfficer?.userId && targetOfficer.userId !== userId) {
+          await storage.updateOfficer(financeOfficerId, { userId: null } as any);
+        }
+        await storage.updateOfficer(financeOfficerId, { userId } as any);
+      } else if (role && role !== "finance_officer") {
+        const previousOfficer = await storage.getOfficerByUserId(userId);
+        if (previousOfficer) {
+          await storage.updateOfficer(previousOfficer.id, { userId: null } as any);
+        }
       }
 
       await logActivity(req, "update_user", "user", userId, `Updated user: ${username || existingUser.username}`);
