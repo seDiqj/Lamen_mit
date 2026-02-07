@@ -6,11 +6,17 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNetworkStatus } from "@/hooks/use-network-status";
+import { useAuth } from "@/hooks/use-auth";
 import {
   Calendar, ChevronLeft, ChevronDown, ChevronUp,
   Wifi, WifiOff, DollarSign, CheckCircle2, Clock, AlertCircle, FileText
 } from "lucide-react";
 import lamenLogo from "@assets/LamenLogo_1769936371528.jpeg";
+
+type FinanceOfficer = {
+  id: string;
+  name: string;
+};
 
 type Loan = {
   id: string;
@@ -62,30 +68,35 @@ export default function MobileRepayments() {
   const [, navigate] = useLocation();
   const searchStr = useSearch();
   const params = new URLSearchParams(searchStr);
-  const customerId = params.get("customerId");
+  const loanIdParam = params.get("loanId");
   const isOnline = useNetworkStatus();
-  const [expandedLoan, setExpandedLoan] = useState<string | null>(null);
+  const [expandedLoan, setExpandedLoan] = useState<string | null>(loanIdParam);
+
+  const { data: myOfficer, isLoading: officerLoading } = useQuery<FinanceOfficer | null>({
+    queryKey: ["/api/finance-officers/me"],
+  });
+
+  const loansUrl = myOfficer?.id
+    ? `/api/loans?financeOfficerId=${myOfficer.id}&status=disbursed&page=1&limit=200`
+    : null;
 
   const { data: loansData, isLoading: loansLoading } = useQuery<{ loans: any[]; total: number }>({
-    queryKey: ["/api/loans", { page: 1, limit: 200 }],
+    queryKey: [loansUrl],
+    enabled: !!myOfficer?.id && !!loansUrl,
   });
 
   const { data: installmentsData, isLoading: installmentsLoading } = useQuery<{ installments: Installment[]; total: number }>({
     queryKey: ["/api/installments", { page: 1, limit: 1000 }],
   });
 
-  const allLoans: Loan[] = loansData?.loans || [];
+  const loans: Loan[] = loansData?.loans || [];
   const allInstallments: Installment[] = installmentsData?.installments || [];
-
-  const loans = customerId
-    ? allLoans.filter((l: any) => l.customerId === customerId || l.customer_id === customerId)
-    : allLoans.filter((l) => ["active", "disbursed"].includes(l.status));
 
   const getInstallments = (loanId: string) =>
     allInstallments.filter((i) => i.loanId === loanId).sort((a, b) => a.installmentNumber - b.installmentNumber);
 
-  const customerName = customerId && loans.length > 0
-    ? `${(loans[0] as any).customerFirstName || (loans[0] as any).customer_first_name || ""} ${(loans[0] as any).customerLastName || (loans[0] as any).customer_last_name || ""}`.trim()
+  const customerName = loanIdParam && loans.length > 0
+    ? (loans.find((l) => l.id === loanIdParam) as any)?.customerName || null
     : null;
 
   return (
@@ -93,17 +104,15 @@ export default function MobileRepayments() {
       <header className="sticky top-0 z-10 bg-primary text-primary-foreground px-4 py-3 shadow-md">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            {customerId && (
-              <Button
-                size="icon"
-                variant="ghost"
-                className="text-primary-foreground hover:bg-primary-foreground/10 no-default-hover-elevate"
-                onClick={() => navigate("/mobile/customers")}
-                data-testid="button-back"
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </Button>
-            )}
+            <Button
+              size="icon"
+              variant="ghost"
+              className="text-primary-foreground no-default-hover-elevate"
+              onClick={() => navigate("/mobile/customers")}
+              data-testid="button-back"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
             <div className="h-8 w-8 rounded-full overflow-hidden border border-primary-foreground/30">
               <img src={lamenLogo} alt="Lamen" className="h-full w-full object-cover" />
             </div>
@@ -121,7 +130,7 @@ export default function MobileRepayments() {
       </header>
 
       <div className="flex-1 overflow-auto px-3 py-3 space-y-3">
-        {loansLoading ? (
+        {officerLoading || loansLoading ? (
           Array.from({ length: 3 }).map((_, i) => (
             <Card key={i}>
               <CardContent className="p-3">
@@ -133,11 +142,6 @@ export default function MobileRepayments() {
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
             <FileText className="h-12 w-12 mb-3 opacity-30" />
             <p className="text-sm font-medium">No financing records found</p>
-            {customerId && (
-              <Button variant="outline" className="mt-4" onClick={() => navigate("/mobile/customers")} data-testid="button-go-back">
-                <ChevronLeft className="h-4 w-4 mr-1" /> Back to Customers
-              </Button>
-            )}
           </div>
         ) : (
           loans.map((loan) => {
