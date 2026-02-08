@@ -1320,10 +1320,16 @@ export class DatabaseStorage implements IStorage {
     const [amounts] = await db
       .select({
         totalDisbursed: sql<number>`COALESCE(SUM(CASE WHEN ${loans.status} IN ('disbursed', 'active', 'completed') THEN ${loans.principleAmount}::numeric ELSE 0 END), 0)`,
-        totalCollection: sql<number>`COALESCE(SUM(${loans.totalCollection}::numeric), 0)`,
         outstandingPortfolio: sql<number>`COALESCE(SUM(${loans.outstandingPortfolio}::numeric), 0)`,
       })
       .from(loans);
+
+    const [collectedResult] = await db
+      .select({
+        totalCollected: sql<number>`COALESCE(SUM(${installments.totalAmount}::numeric), 0)`,
+      })
+      .from(installments)
+      .where(eq(installments.isPaid, true));
 
     const recentLoans = await db
       .select({
@@ -1351,21 +1357,24 @@ export class DatabaseStorage implements IStorage {
       .from(loans)
       .groupBy(loans.status);
 
-    // Get real monthly data from database based on disbursement date
-    const monthlyData = await db
-      .select({
-        month: sql<string>`TO_CHAR(${disbursements.disbursementDate}, 'Mon')`,
-        monthNum: sql<string>`TO_CHAR(${disbursements.disbursementDate}, 'MM')`,
-        disbursed: sql<number>`COALESCE(SUM(${loans.principleAmount}::numeric), 0)`,
-        collected: sql<number>`COALESCE(SUM(${loans.totalCollection}::numeric), 0)`,
-      })
-      .from(disbursements)
-      .leftJoin(loans, eq(disbursements.loanId, loans.id))
-      .where(sql`${disbursements.disbursementDate} IS NOT NULL`)
-      .groupBy(sql`TO_CHAR(${disbursements.disbursementDate}, 'Mon'), TO_CHAR(${disbursements.disbursementDate}, 'MM')`)
-      .orderBy(sql`TO_CHAR(${disbursements.disbursementDate}, 'MM')`);
+    const monthlyData = await db.execute(sql`
+      SELECT 
+        TO_CHAR(d.disbursement_date, 'Mon') as month,
+        TO_CHAR(d.disbursement_date, 'MM') as month_num,
+        COALESCE(SUM(l.principle_amount::numeric), 0) as disbursed,
+        COALESCE((
+          SELECT SUM(i.total_amount::numeric)
+          FROM installments i
+          WHERE i.loan_id = ANY(ARRAY_AGG(l.id)) AND i.is_paid = true
+        ), 0) as collected
+      FROM disbursements d
+      LEFT JOIN loans l ON d.loan_id = l.id
+      WHERE d.disbursement_date IS NOT NULL
+      GROUP BY TO_CHAR(d.disbursement_date, 'Mon'), TO_CHAR(d.disbursement_date, 'MM')
+      ORDER BY TO_CHAR(d.disbursement_date, 'MM')
+    `);
 
-    const monthlyTrends = monthlyData.map(m => ({
+    const monthlyTrends = (monthlyData.rows as any[]).map(m => ({
       month: m.month,
       disbursed: Number(m.disbursed),
       collected: Number(m.collected),
@@ -1377,7 +1386,7 @@ export class DatabaseStorage implements IStorage {
       pendingLoans: Number(loanCounts.pending),
       totalCustomers: Number(customerCount.count),
       totalDisbursed: Number(amounts.totalDisbursed),
-      totalCollected: Number(amounts.totalCollection),
+      totalCollected: Number(collectedResult.totalCollected),
       outstandingBalance: Number(amounts.outstandingPortfolio),
       overdueLoans: 0,
       loansByStatus: loansByStatus.map(s => ({ status: s.status || "pending", count: Number(s.count), requestedAmount: Number(s.requestedAmount) })),
@@ -1393,12 +1402,17 @@ export class DatabaseStorage implements IStorage {
         COUNT(DISTINCT l.id) as loan_count,
         COUNT(DISTINCT l.customer_id) as customer_count,
         COALESCE(SUM(COALESCE(l.principle_amount, l.request_amount)::numeric), 0) as total_disbursed,
-        COALESCE(SUM(l.total_collection::numeric), 0) as total_collected,
+        COALESCE((
+          SELECT SUM(i.total_amount::numeric)
+          FROM installments i
+          WHERE i.loan_id IN (SELECT l2.id FROM loans l2 WHERE l2.branch_id = b.id AND l2.status IN ('disbursed', 'active', 'completed'))
+          AND i.is_paid = true
+        ), 0) as total_collected,
         COALESCE(SUM(l.outstanding_portfolio::numeric), 0) as outstanding_balance
       FROM loans l
       LEFT JOIN branches b ON l.branch_id = b.id
       WHERE l.status IN ('disbursed', 'active', 'completed')
-      GROUP BY b.name
+      GROUP BY b.id, b.name
       ORDER BY total_disbursed DESC
     `);
 
