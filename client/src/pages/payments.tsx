@@ -865,7 +865,7 @@ export default function PaymentsPage() {
           <DialogHeader>
             <DialogTitle>Correct Repaid Amounts</DialogTitle>
             <DialogDescription>
-              This will update installment #8 for 54 loans to match the corrected repaid totals from the Excel data. This action cannot be undone.
+              This will update installment #8 for 45 loans to match the corrected repaid totals from the Excel data. This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-4">
@@ -874,7 +874,7 @@ export default function PaymentsPage() {
               <div className="text-sm">
                 <p className="font-medium text-yellow-800 dark:text-yellow-300">Warning</p>
                 <p className="text-yellow-700 dark:text-yellow-400 mt-1">
-                  This will modify installment amounts for 54 financing accounts. Make sure you want to proceed.
+                  This will modify installment amounts for 45 financing accounts. Make sure you want to proceed.
                 </p>
               </div>
             </div>
