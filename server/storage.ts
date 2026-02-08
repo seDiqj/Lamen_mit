@@ -1320,7 +1320,7 @@ export class DatabaseStorage implements IStorage {
     const [amounts] = await db
       .select({
         totalDisbursed: sql<number>`COALESCE(SUM(CASE WHEN ${loans.status} IN ('disbursed', 'active', 'completed') THEN ${loans.principleAmount}::numeric ELSE 0 END), 0)`,
-        outstandingPortfolio: sql<number>`COALESCE(SUM(${loans.outstandingPortfolio}::numeric), 0)`,
+        totalPortfolio: sql<number>`COALESCE(SUM(CASE WHEN ${loans.status} IN ('disbursed', 'active', 'completed') THEN ${loans.totalReceivable}::numeric ELSE 0 END), 0)`,
       })
       .from(loans);
 
@@ -1386,8 +1386,9 @@ export class DatabaseStorage implements IStorage {
       pendingLoans: Number(loanCounts.pending),
       totalCustomers: Number(customerCount.count),
       totalDisbursed: Number(amounts.totalDisbursed),
+      totalPortfolio: Number(amounts.totalPortfolio),
       totalCollected: Number(collectedResult.totalCollected),
-      outstandingBalance: Number(amounts.outstandingPortfolio),
+      outstandingBalance: Number(amounts.totalPortfolio) - Number(collectedResult.totalCollected),
       overdueLoans: 0,
       loansByStatus: loansByStatus.map(s => ({ status: s.status || "pending", count: Number(s.count), requestedAmount: Number(s.requestedAmount) })),
       monthlyTrends,
@@ -1408,7 +1409,7 @@ export class DatabaseStorage implements IStorage {
           WHERE i.loan_id IN (SELECT l2.id FROM loans l2 WHERE l2.branch_id = b.id AND l2.status IN ('disbursed', 'active', 'completed'))
           AND i.is_paid = true
         ), 0) as total_collected,
-        COALESCE(SUM(l.outstanding_portfolio::numeric), 0) as outstanding_balance
+        COALESCE(SUM(CASE WHEN l.total_receivable IS NOT NULL THEN l.total_receivable::numeric ELSE COALESCE(l.principle_amount, l.request_amount)::numeric END), 0) as total_portfolio
       FROM loans l
       LEFT JOIN branches b ON l.branch_id = b.id
       WHERE l.status IN ('disbursed', 'active', 'completed')
@@ -1416,14 +1417,18 @@ export class DatabaseStorage implements IStorage {
       ORDER BY total_disbursed DESC
     `);
 
-    return (result.rows as any[]).map(row => ({
-      branchName: row.branch_name || 'Unknown',
-      loanCount: parseInt(row.loan_count) || 0,
-      customerCount: parseInt(row.customer_count) || 0,
-      totalDisbursed: parseFloat(row.total_disbursed) || 0,
-      totalCollected: parseFloat(row.total_collected) || 0,
-      outstandingBalance: parseFloat(row.outstanding_balance) || 0,
-    }));
+    return (result.rows as any[]).map(row => {
+      const totalCollected = parseFloat(row.total_collected) || 0;
+      const totalPortfolio = parseFloat(row.total_portfolio) || 0;
+      return {
+        branchName: row.branch_name || 'Unknown',
+        loanCount: parseInt(row.loan_count) || 0,
+        customerCount: parseInt(row.customer_count) || 0,
+        totalDisbursed: parseFloat(row.total_disbursed) || 0,
+        totalCollected,
+        outstandingBalance: totalPortfolio - totalCollected,
+      };
+    });
   }
 
   // Reports

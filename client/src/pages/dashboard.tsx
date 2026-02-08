@@ -24,6 +24,7 @@ import {
   ArrowUpRight,
   PiggyBank,
   Wallet,
+  Briefcase,
   CalendarDays,
   Building2,
   X,
@@ -52,6 +53,7 @@ type DashboardStats = {
   pendingLoans: number;
   totalCustomers: number;
   totalDisbursed: number;
+  totalPortfolio: number;
   totalCollected: number;
   outstandingBalance: number;
   overdueLoans: number;
@@ -334,7 +336,7 @@ export default function Dashboard() {
         />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Total Disbursed"
           value={formatCurrency(stats?.totalDisbursed || 0)}
@@ -344,10 +346,16 @@ export default function Dashboard() {
           iconBg="bg-gradient-to-br from-teal-500 to-emerald-600"
         />
         <StatCard
+          title="Total Portfolio"
+          value={formatCurrency(stats?.totalPortfolio || 0)}
+          icon={Briefcase}
+          loading={isLoading}
+          gradient="bg-gradient-to-r from-purple-500 to-violet-500"
+          iconBg="bg-gradient-to-br from-purple-500 to-violet-600"
+        />
+        <StatCard
           title="Total Collected"
           value={formatCurrency(stats?.totalCollected || 0)}
-          change="+8.2% this month"
-          changeType="positive"
           icon={Wallet}
           loading={isLoading}
           gradient="bg-gradient-to-r from-green-500 to-lime-500"
