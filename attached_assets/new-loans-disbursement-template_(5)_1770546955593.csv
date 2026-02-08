@@ -1,0 +1,39 @@
+Application ID,Customer Name,Branch,Source of Fund,Product,Principal Amount (AFN),Margin Rate (%),Number of Installments,Financing Duration (Months),Grace Period (Months),Status,Request Date,Sector,Business Description,Disbursement Date (FILL THIS)
+1011100017,Abdul Rahman Taib,Kabul,Shareholder,Murabaha,1500000,16,24,24,0,risk_compliance_review,1/11/2026,Education,,15-Jan-26
+1021100206,Abdul Samad Rajakhel,Kunar,MISFA,Murabaha,300000,16,12,12,0,risk_compliance_review,11/12/2025,Services,Driver,19-Jan-26
+1031100090,Abdull Ghafar PAENDAKHIL,Nangarhar,Shareholder,Murabaha,14528,18,12,12,0,risk_compliance_review,8/20/2025,Trade,Grocery Store,26-Aug-25
+1021100194,Abdullah safi,Kunar,Shareholder,Murabaha,200000,16,18,18,0,risk_compliance_review,11/20/2025,Transport,Taxi,31-Dec-25
+1031100099,Arifullah Shinwari,Nangarhar,MISFA,Murabaha,10000,16,12,12,0,risk_compliance_review,1/13/2026,Trade,Grocery Store,1-Feb-26
+1021100200,Atiqullah Spinghar,Kunar,MISFA,Murabaha,50000,16,12,12,0,risk_compliance_review,11/25/2025,,,19-Jan-26
+1021100204,Attaurahman Safi,Kunar,MISFA,Murabaha,120000,16,15,15,0,risk_compliance_review,11/20/2025,Services,Driver,31-Jan-26
+1021100212,Bilal SAFI,Kunar,MISFA,Murabaha,70000,16,15,15,0,risk_compliance_review,12/26/2025,Trade,Grocery Store,31-Jan-26
+1031100096,Fayaz Momand,Nangarhar,Shareholder,Murabaha,90000,16,18,18,0,risk_compliance_review,12/23/2025,Trade,Cosmetics Store,7-Jan-26
+1021100211,Gulzaman SAFI,Kunar,MISFA,Murabaha,30000,16,12,12,0,risk_compliance_review,12/10/2025,Trade,Spare Parts,1-Feb-26
+1031100097,Hezbullah Niazi,Nangarhar,Shareholder,Murabaha,500000,16,20,20,0,risk_compliance_review,12/22/2025,Trade,General Store,7-Jan-26
+1021100197,Hijratullah Adil,Kunar,Shareholder,Murabaha,100000,16,15,15,0,committee_review,6/8/2025,Retail Shop,Cosmetics,7-Jan-26
+1011100020,Ibadullah Momand,Kabul,Shareholder,Murabaha,345600,9,21,24,3,risk_compliance_review,3/10/2025,Services,Driver,6-May-25
+1021100199,Imaduddin Azizi,Kunar,MISFA,Murabaha,100000,16,15,15,0,risk_compliance_review,1/8/2025,,,19-Jan-26
+1011100019,Khoda Dost Nazari,Kabul,Shareholder,Murabaha,30000,18,12,12,0,risk_compliance_review,7/20/2025,Trade,Grocery Store,25-Sep-25
+1031100091,Laiq ASHNA,Nangarhar,Shareholder,Murabaha,25370,18,12,12,0,risk_compliance_review,8/7/2025,Trade,Spare Parts,27-Aug-25
+1021100196,M.Hashim Khan SALARZAI,Kunar,MISFA,Murabaha,100000,16,15,15,0,risk_compliance_review,8/25/2025,Health,Pharmacy,19-Jan-26
+1021100209,Mahibullah Momand,Kunar,MISFA,Murabaha,95000,16,12,12,0,committee_review,8/5/2025,Trade,Grocery Store,31-Jan-26
+1011100018,Mohammad Hamayoon,Kabul,MISFA,Murabaha,40000,16,12,12,0,risk_compliance_review,1/27/2026,Trade,Grocery Store,29-Jan-26
+1021100202,Mohammad Khan Mamond,Kunar,Shareholder,Murabaha,250000,16,18,18,0,risk_compliance_review,8/10/2025,Trade,General Store,31-Dec-25
+1021100203,Muheebullah Haqyar,Kunar,Shareholder,Murabaha,70000,16,15,15,0,risk_compliance_review,2/11/2025,Trade,General Store,7-Jan-26
+1031100094,Muhibullah Salihi,Nangarhar,Shareholder,Murabaha,70000,16,16,16,0,risk_compliance_review,9/8/2025,Services,,7-Jan-26
+1021100208,Musharaf Mohammadi,Kunar,MISFA,Murabaha,400000,16,18,18,0,risk_compliance_review,12/8/2025,Trade,Carpet Seller,31-Jan-26
+1031100092,Mushtaq Ahmad Hamim,Nangarhar,MISFA,Murabaha,300000,16,18,18,0,committee_review,2/11/2025,Services,Driver,19-Jan-26
+1021100195,Najibullah SAFI,Kunar,MISFA,Murabaha,100000,16,15,15,0,risk_compliance_review,9/24/2025,Retail,Clothing Store,19-Jan-26
+1031100103,Nesar Ahmad MOMAND,Nangarhar,MISFA,Murabaha,150000,16,20,20,0,rejected,8/1/2026,Services,Driver,31-Jan-26
+1031100100,Parwiz,Nangarhar,MISFA,Murabaha,100000,16,12,12,0,risk_compliance_review,1/5/2026,Trade,Grocery Store,19-Jan-26
+1021100210,Said Gul Sahil,Kunar,MISFA,Murabaha,90000,16,15,15,0,risk_compliance_review,10/8/2025,Livestock,Farming,31-Jan-26
+1031100095,Samiullah Afghan,Nangarhar,MISFA,Murabaha,50000,16,12,12,0,risk_compliance_review,1/5/2026,Manufacturing,,19-Jan-26
+1031100093,Sangar khan Momand,Nangarhar,MISFA,Murabaha,100000,16,18,18,0,risk_compliance_review,1/5/2026,Healthcare,,19-Jan-26
+1021100201,Shafiullah Safi,Kunar,MISFA,Murabaha,210000,16,18,18,0,risk_compliance_review,8/6/2025,,,19-Jan-26
+1021100207,Shakirullah Safi,Kunar,MISFA,Murabaha,100000,16,12,12,0,risk_compliance_review,8/10/2025,Services,,19-Jan-26
+1021100213,shir Zaman SAFI,Kunar,MISFA,Murabaha,100000,16,12,12,0,committee_review,11/12/2025,Trade,Grocery Store,31-Jan-26
+1021100198,Siraj Udeen ALMAS,Kunar,Shareholder,Murabaha,100000,16,15,15,0,risk_compliance_review,8/6/2025,Education,,7-Jan-26
+1021100205,Sohail Arab,Kunar,MISFA,Murabaha,100000,16,15,15,0,risk_compliance_review,8/6/2025,Livestock,Farming,19-Jan-26
+1031100102,Zabehullah,Nangarhar,MISFA,Murabaha,40000,16,12,12,0,committee_review,8/19/2025,Trade,Grocery Store,19-Jan-26
+1031100101,Zabih Ullah ARAB,Nangarhar,MISFA,Murabaha,250000,16,16,16,0,risk_compliance_review,1/6/2026,Manufacturing,,31-Jan-26
+1031100098,Zainab Kashmiri,Nangarhar,MISFA,Murabaha,30000,16,12,12,0,risk_compliance_review,9/6/2025,Services,,31-Jan-26
