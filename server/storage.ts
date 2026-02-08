@@ -1099,26 +1099,43 @@ export class DatabaseStorage implements IStorage {
         const profitTotal = parseFloat(loan.profit || "0");
 
         const principalInstallments = numInstallments - gracePeriod;
-        const rawPrincipalPerInst = principalInstallments > 0 ? principalTotal / principalInstallments : 0;
-        const rawMarginPerInst = numInstallments > 0 ? profitTotal / numInstallments : 0;
+        const principalPerInst = principalInstallments > 0 ? principalTotal / principalInstallments : 0;
+        const marginPerInst = numInstallments > 0 ? profitTotal / numInstallments : 0;
 
-        const roundedPrincipalPerInst = Math.floor(rawPrincipalPerInst / 10) * 10;
-        const roundedMarginPerInst = Math.floor(rawMarginPerInst / 10) * 10;
+        const rawTotalPerInst = principalPerInst + marginPerInst;
+        const roundedTotalPerInst = Math.floor(rawTotalPerInst / 10) * 10;
+        const grandTotal = principalTotal + profitTotal;
+        const totalRemainder = grandTotal - (roundedTotalPerInst * numInstallments);
 
-        const principalRemainder = principalTotal - (roundedPrincipalPerInst * principalInstallments);
-        const marginRemainder = profitTotal - (roundedMarginPerInst * numInstallments);
+        const principalRatio = rawTotalPerInst > 0 ? principalPerInst / rawTotalPerInst : 0;
+        const marginRatio = rawTotalPerInst > 0 ? marginPerInst / rawTotalPerInst : 0;
+        const roundedPrincipal = Math.round(roundedTotalPerInst * principalRatio * 100) / 100;
+        const roundedMargin = Math.round((roundedTotalPerInst - roundedPrincipal) * 100) / 100;
 
         for (let i = 1; i <= numInstallments; i++) {
           const dueDate = new Date(firstInstDate);
           dueDate.setMonth(dueDate.getMonth() + (i - 1));
 
           const isGracePeriod = i <= gracePeriod;
-          const isFirstPrincipalInst = !isGracePeriod && (i === gracePeriod + 1);
           const isFirstInst = i === 1;
 
-          const instPrincipal = isGracePeriod ? 0 : (isFirstPrincipalInst ? roundedPrincipalPerInst + principalRemainder : roundedPrincipalPerInst);
-          const instMargin = isFirstInst ? roundedMarginPerInst + marginRemainder : roundedMarginPerInst;
-          const instTotal = instPrincipal + instMargin;
+          let instPrincipal: number;
+          let instMargin: number;
+          let instTotal: number;
+
+          if (isGracePeriod) {
+            instMargin = isFirstInst ? roundedMargin + totalRemainder : roundedMargin;
+            instPrincipal = 0;
+            instTotal = instMargin;
+          } else if (isFirstInst || (!isGracePeriod && i === gracePeriod + 1)) {
+            instTotal = roundedTotalPerInst + totalRemainder;
+            instPrincipal = Math.round((instTotal * principalRatio) * 100) / 100;
+            instMargin = Math.round((instTotal - instPrincipal) * 100) / 100;
+          } else {
+            instTotal = roundedTotalPerInst;
+            instPrincipal = roundedPrincipal;
+            instMargin = roundedMargin;
+          }
 
           await tx.insert(installments).values({
             loanId: loan.id,
