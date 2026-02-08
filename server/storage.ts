@@ -238,7 +238,7 @@ export interface IStorage {
   // Installments
   getInstallments(filters: { search?: string; page?: number; limit?: number }): Promise<{ installments: any[]; total: number }>;
   markInstallmentPaid(id: string): Promise<Installment>;
-  getCollectionInstallments(filters: { filter?: string; branch?: string; search?: string; page?: number; limit?: number }): Promise<{ installments: any[]; total: number; summary: any }>;
+  getCollectionInstallments(filters: { filter?: string; branch?: string; officer?: string; search?: string; page?: number; limit?: number }): Promise<{ installments: any[]; total: number; summary: any }>;
   recordPartialPayment(id: string, amount: number): Promise<Installment>;
   
   // Activity Logs
@@ -1300,8 +1300,8 @@ export class DatabaseStorage implements IStorage {
     return installment;
   }
 
-  async getCollectionInstallments(filters: { filter?: string; branch?: string; search?: string; page?: number; limit?: number }): Promise<{ installments: any[]; total: number; summary: any }> {
-    const { filter = "upcoming", branch, search, page = 1, limit = 20 } = filters;
+  async getCollectionInstallments(filters: { filter?: string; branch?: string; officer?: string; search?: string; page?: number; limit?: number }): Promise<{ installments: any[]; total: number; summary: any }> {
+    const { filter = "upcoming", branch, officer, search, page = 1, limit = 20 } = filters;
     const offset = (page - 1) * limit;
     const today = new Date().toISOString().split("T")[0];
     const threeDaysLater = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
@@ -1324,6 +1324,10 @@ export class DatabaseStorage implements IStorage {
       conditions.push(sql`${loans.branchId} = ${branch}`);
     }
 
+    if (officer && officer !== "all") {
+      conditions.push(sql`${loans.financeOfficerId} = ${officer}`);
+    }
+
     if (search) {
       conditions.push(sql`(
         CONCAT(${customers.firstName}, ' ', ${customers.lastName}) ILIKE ${'%' + search + '%'}
@@ -1333,6 +1337,17 @@ export class DatabaseStorage implements IStorage {
 
     const whereClause = conditions.length > 0
       ? sql.join(conditions, sql` AND `)
+      : sql`1=1`;
+
+    const summaryConditions: any[] = [];
+    if (branch && branch !== "all") {
+      summaryConditions.push(sql`${loans.branchId} = ${branch}`);
+    }
+    if (officer && officer !== "all") {
+      summaryConditions.push(sql`${loans.financeOfficerId} = ${officer}`);
+    }
+    const summaryWhere = summaryConditions.length > 0
+      ? sql.join(summaryConditions, sql` AND `)
       : sql`1=1`;
 
     const results = await db
@@ -1352,11 +1367,13 @@ export class DatabaseStorage implements IStorage {
         loanApplicationId: loans.applicationId,
         customerName: sql<string>`CONCAT(${customers.firstName}, ' ', ${customers.lastName})`,
         branchName: branches.name,
+        financeOfficerName: financeOfficers.name,
       })
       .from(installments)
       .leftJoin(loans, eq(installments.loanId, loans.id))
       .leftJoin(customers, eq(loans.customerId, customers.id))
       .leftJoin(branches, eq(loans.branchId, branches.id))
+      .leftJoin(financeOfficers, eq(loans.financeOfficerId, financeOfficers.id))
       .where(whereClause)
       .orderBy(asc(installments.dueDate))
       .limit(limit)
@@ -1368,6 +1385,7 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(loans, eq(installments.loanId, loans.id))
       .leftJoin(customers, eq(loans.customerId, customers.id))
       .leftJoin(branches, eq(loans.branchId, branches.id))
+      .leftJoin(financeOfficers, eq(loans.financeOfficerId, financeOfficers.id))
       .where(whereClause);
 
     const summaryResults = await db
@@ -1383,7 +1401,8 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(loans, eq(installments.loanId, loans.id))
       .leftJoin(customers, eq(loans.customerId, customers.id))
       .leftJoin(branches, eq(loans.branchId, branches.id))
-      .where(branch && branch !== "all" ? sql`${loans.branchId} = ${branch}` : sql`1=1`);
+      .leftJoin(financeOfficers, eq(loans.financeOfficerId, financeOfficers.id))
+      .where(summaryWhere);
 
     return {
       installments: results,

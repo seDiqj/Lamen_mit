@@ -68,6 +68,12 @@ type CollectionInstallment = {
   loanApplicationId: string;
   customerName: string;
   branchName: string;
+  financeOfficerName: string | null;
+};
+
+type FinanceOfficer = {
+  id: string;
+  name: string;
 };
 
 type CollectionSummary = {
@@ -123,6 +129,7 @@ export default function CollectionsPage() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("due_soon");
   const [branch, setBranch] = useState("all");
+  const [officer, setOfficer] = useState("all");
   const [page, setPage] = useState(1);
   const [selectedInstallment, setSelectedInstallment] = useState<CollectionInstallment | null>(null);
   const [showPayDialog, setShowPayDialog] = useState(false);
@@ -139,11 +146,12 @@ export default function CollectionsPage() {
     totalPages: number;
     summary: CollectionSummary;
   }>({
-    queryKey: ["/api/collections", filter, branch, search, page, limit],
+    queryKey: ["/api/collections", filter, branch, officer, search, page, limit],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.set("filter", filter);
       if (branch !== "all") params.set("branch", branch);
+      if (officer !== "all") params.set("officer", officer);
       if (search) params.set("search", search);
       params.set("page", String(page));
       params.set("limit", String(limit));
@@ -155,6 +163,10 @@ export default function CollectionsPage() {
 
   const { data: branchesData } = useQuery<{ branches: Branch[] }>({
     queryKey: ["/api/branches?limit=100"],
+  });
+
+  const { data: officersData } = useQuery<FinanceOfficer[]>({
+    queryKey: ["/api/finance-officers/active"],
   });
 
   const payMutation = useMutation({
@@ -212,6 +224,7 @@ export default function CollectionsPage() {
         "Financing ID": inst.loanApplicationId,
         "Customer": inst.customerName,
         "Branch": inst.branchName,
+        "Officer": inst.financeOfficerName || "-",
         "Inst. #": inst.installmentNumber,
         "Due Date": inst.dueDate,
         "Principal": parseFloat(inst.principleAmount || "0"),
@@ -244,6 +257,7 @@ export default function CollectionsPage() {
         inst.loanApplicationId,
         inst.customerName,
         inst.branchName || "-",
+        inst.financeOfficerName || "-",
         `#${inst.installmentNumber}`,
         inst.dueDate,
         formatCurrency(inst.totalAmount),
@@ -255,7 +269,7 @@ export default function CollectionsPage() {
     });
 
     autoTable(doc, {
-      head: [["Financing", "Customer", "Branch", "Inst.", "Due Date", "Total", "Paid", "Remaining", "Status", "PAR"]],
+      head: [["Financing", "Customer", "Branch", "Officer", "Inst.", "Due Date", "Total", "Paid", "Remaining", "Status", "PAR"]],
       body: rows,
       startY: 28,
       styles: { fontSize: 7 },
@@ -392,6 +406,17 @@ export default function CollectionsPage() {
                 ))}
               </SelectContent>
             </Select>
+            <Select value={officer} onValueChange={(v) => { setOfficer(v); setPage(1); }}>
+              <SelectTrigger className="w-[200px]" data-testid="select-officer">
+                <SelectValue placeholder="Financing Officer" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Officers</SelectItem>
+                {officersData?.map((o: FinanceOfficer) => (
+                  <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {isLoading ? (
@@ -412,6 +437,7 @@ export default function CollectionsPage() {
                     <TableHead>Financing</TableHead>
                     <TableHead>Customer</TableHead>
                     <TableHead>Branch</TableHead>
+                    <TableHead>Officer</TableHead>
                     <TableHead className="text-center">Inst. #</TableHead>
                     <TableHead>Due Date</TableHead>
                     <TableHead className="text-right">Total</TableHead>
@@ -448,6 +474,7 @@ export default function CollectionsPage() {
                           </div>
                         </TableCell>
                         <TableCell className="text-sm">{inst.branchName || "-"}</TableCell>
+                        <TableCell className="text-sm">{inst.financeOfficerName || "-"}</TableCell>
                         <TableCell className="text-center">
                           <Badge variant="outline" className="text-xs">#{inst.installmentNumber}</Badge>
                         </TableCell>
