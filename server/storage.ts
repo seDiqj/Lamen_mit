@@ -1099,16 +1099,25 @@ export class DatabaseStorage implements IStorage {
         const profitTotal = parseFloat(loan.profit || "0");
 
         const principalInstallments = numInstallments - gracePeriod;
-        const principalPerInstallment = principalInstallments > 0 ? principalTotal / principalInstallments : 0;
-        const marginPerInstallment = numInstallments > 0 ? profitTotal / numInstallments : 0;
+        const rawPrincipalPerInst = principalInstallments > 0 ? principalTotal / principalInstallments : 0;
+        const rawMarginPerInst = numInstallments > 0 ? profitTotal / numInstallments : 0;
+
+        const roundedPrincipalPerInst = Math.floor(rawPrincipalPerInst / 10) * 10;
+        const roundedMarginPerInst = Math.floor(rawMarginPerInst / 10) * 10;
+
+        const principalRemainder = principalTotal - (roundedPrincipalPerInst * principalInstallments);
+        const marginRemainder = profitTotal - (roundedMarginPerInst * numInstallments);
 
         for (let i = 1; i <= numInstallments; i++) {
           const dueDate = new Date(firstInstDate);
           dueDate.setMonth(dueDate.getMonth() + (i - 1));
 
           const isGracePeriod = i <= gracePeriod;
-          const instPrincipal = isGracePeriod ? 0 : principalPerInstallment;
-          const instMargin = marginPerInstallment;
+          const isFirstPrincipalInst = !isGracePeriod && (i === gracePeriod + 1);
+          const isFirstInst = i === 1;
+
+          const instPrincipal = isGracePeriod ? 0 : (isFirstPrincipalInst ? roundedPrincipalPerInst + principalRemainder : roundedPrincipalPerInst);
+          const instMargin = isFirstInst ? roundedMarginPerInst + marginRemainder : roundedMarginPerInst;
           const instTotal = instPrincipal + instMargin;
 
           await tx.insert(installments).values({
