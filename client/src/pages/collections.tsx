@@ -161,8 +161,8 @@ export default function CollectionsPage() {
     },
   });
 
-  const { data: branchesData } = useQuery<{ branches: Branch[] }>({
-    queryKey: ["/api/branches?limit=100"],
+  const { data: branchesData } = useQuery<Branch[]>({
+    queryKey: ["/api/branches"],
   });
 
   const { data: officersData } = useQuery<FinanceOfficer[]>({
@@ -401,7 +401,7 @@ export default function CollectionsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Branches</SelectItem>
-                {branchesData?.branches?.map((b: Branch) => (
+                {branchesData?.map((b: Branch) => (
                   <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
                 ))}
               </SelectContent>
