@@ -1457,6 +1457,29 @@ export async function registerRoutes(
   });
 
   // ===== BULK DISBURSEMENT (CSV Upload) =====
+  const monthMap: Record<string, string> = {
+    jan: "01", feb: "02", mar: "03", apr: "04", may: "05", jun: "06",
+    jul: "07", aug: "08", sep: "09", oct: "10", nov: "11", dec: "12",
+  };
+
+  function normalizeDateToISO(raw: string): string | null {
+    const trimmed = raw.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+    const ddMonYY = trimmed.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{2,4})$/);
+    if (ddMonYY) {
+      const day = ddMonYY[1].padStart(2, "0");
+      const mon = monthMap[ddMonYY[2].toLowerCase()];
+      let year = ddMonYY[3];
+      if (year.length === 2) year = (parseInt(year) > 50 ? "19" : "20") + year;
+      if (mon) return `${year}-${mon}-${day}`;
+    }
+    const mmddyyyy = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (mmddyyyy) {
+      return `${mmddyyyy[3]}-${mmddyyyy[1].padStart(2, "0")}-${mmddyyyy[2].padStart(2, "0")}`;
+    }
+    return null;
+  }
+
   function parseCSVLine(line: string): string[] {
     const result: string[] = [];
     let current = "";
@@ -1523,13 +1546,13 @@ export async function registerRoutes(
           continue;
         }
 
-        const dateMatch = disbursementDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-        if (!dateMatch) {
-          results.push({ applicationId, success: false, error: `Invalid date format: ${disbursementDate}. Use YYYY-MM-DD` });
+        const normalizedDate = normalizeDateToISO(disbursementDate);
+        if (!normalizedDate) {
+          results.push({ applicationId, success: false, error: `Invalid date format: ${disbursementDate}. Use YYYY-MM-DD, DD-Mon-YY, or MM/DD/YYYY` });
           continue;
         }
 
-        const result = await storage.bulkDisburseLoan(applicationId, disbursementDate, userId);
+        const result = await storage.bulkDisburseLoan(applicationId, normalizedDate, userId);
         results.push(result);
       }
 

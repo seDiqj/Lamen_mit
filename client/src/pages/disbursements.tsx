@@ -334,7 +334,7 @@ export default function DisbursementsPage() {
                   <h3 className="font-semibold text-sm">Instructions:</h3>
                   <ol className="list-decimal list-inside space-y-1 text-sm text-muted-foreground">
                     <li>Download the CSV template or prepare your own CSV file</li>
-                    <li>Fill in the <strong className="text-foreground">Application ID</strong> and <strong className="text-foreground">Disbursement Date</strong> columns (date format: YYYY-MM-DD)</li>
+                    <li>Fill in the <strong className="text-foreground">Application ID</strong> and <strong className="text-foreground">Disbursement Date</strong> columns (accepted formats: YYYY-MM-DD, DD-Mon-YY, or MM/DD/YYYY)</li>
                     <li>Upload the completed CSV file</li>
                     <li>The system will automatically:
                       <ul className="list-disc list-inside ml-4 mt-1 space-y-0.5">
