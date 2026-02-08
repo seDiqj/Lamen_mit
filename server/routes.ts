@@ -4237,6 +4237,87 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/admin/correct-repaid-amounts", isAuthenticated, requireRole("admin"), async (req: any, res) => {
+    try {
+      const corrections: [string, number][] = [
+        ['1011100012', 2000], ['1011100013', 4720], ['1021100173', 5410], ['1021100178', 36250],
+        ['1021100146', 4040], ['1021100139', 11539], ['1021100131', 4720], ['1021100136', 8070],
+        ['1021100174', 32433], ['1021100176', 16590], ['1021100142', 3580], ['1021100160', 10400],
+        ['1021100181', 9680], ['1021100177', 13540], ['1021100172', 4720], ['1021100175', 38680],
+        ['1021100129', 7920], ['1021100188', 7733], ['1021100189', 10960], ['1021100163', 12380],
+        ['1021100153', 9680], ['1021100186', 9680], ['1021100190', 16110], ['1021100157', 7740],
+        ['1021100120', 9920], ['1021100130', 6310], ['1021100170', 4470], ['1021100169', 16090],
+        ['1021100127', 6420], ['1021100138', 11805], ['1021100179', 38666], ['1021100147', 3770],
+        ['1021100145', 3590], ['1021100158', 4835], ['1021100135', 10830], ['1021100152', 13285],
+        ['1021100151', 9677], ['1021100171', 13920], ['1021100187', 38680], ['1021100137', 5420],
+        ['1021100144', 9680], ['1021100185', 23740], ['1021100161', 15480], ['1021100143', 8850],
+        ['1031100023', 19335], ['1031100001', 4360], ['1031100022', 7733], ['1031100014', 6050],
+        ['1031100009', 6765], ['1031100019', 11266], ['1031100012', 11600], ['1031100005', 7000],
+        ['1031100015', 6766], ['1031100017', 5800],
+      ];
+
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        let updated = 0;
+        let skipped = 0;
+        const results: { applicationId: string; status: string; newTotal?: number }[] = [];
+
+        for (const [appId, correctedTotal] of corrections) {
+          const loanRes = await client.query('SELECT id FROM loans WHERE application_id = $1', [appId]);
+          if (loanRes.rows.length === 0) {
+            skipped++;
+            results.push({ applicationId: appId, status: 'not_found' });
+            continue;
+          }
+          const loanId = loanRes.rows[0].id;
+
+          const inst8Check = await client.query(
+            'SELECT id FROM installments WHERE loan_id = $1 AND installment_number = 8',
+            [loanId]
+          );
+          if (inst8Check.rows.length === 0) {
+            skipped++;
+            results.push({ applicationId: appId, status: 'no_installment_8' });
+            continue;
+          }
+
+          const sumRes = await client.query(
+            `SELECT COALESCE(SUM(CAST(total_amount AS numeric)), 0) as sum_1_to_7
+             FROM installments WHERE loan_id = $1 AND installment_number < 8 AND is_paid = true`,
+            [loanId]
+          );
+          const sum1to7 = parseFloat(sumRes.rows[0].sum_1_to_7);
+          const newInst8Amount = correctedTotal - sum1to7;
+
+          await client.query(
+            'UPDATE installments SET total_amount = $1 WHERE loan_id = $2 AND installment_number = 8',
+            [String(newInst8Amount), loanId]
+          );
+          updated++;
+          results.push({ applicationId: appId, status: 'updated', newTotal: correctedTotal });
+        }
+
+        await client.query('COMMIT');
+        res.json({
+          message: `Repaid amounts corrected successfully`,
+          updated,
+          skipped,
+          total: corrections.length,
+          details: results,
+        });
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      } finally {
+        client.release();
+      }
+    } catch (error: any) {
+      console.error("Error correcting repaid amounts:", error);
+      res.status(500).json({ message: "Failed to correct repaid amounts", error: error.message });
+    }
+  });
+
   // Seed data on startup
   try {
     await storage.seedData();
