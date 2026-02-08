@@ -1,11 +1,11 @@
 import { useLocation } from "wouter";
-import { Banknote, FileText, Calendar } from "lucide-react";
+import { Banknote, FileText, ClipboardList } from "lucide-react";
 import lamenLogo from "@assets/LamenLogo_1769936371528.jpeg";
 
 const tabs = [
   { path: "/mobile/customers", label: "Active Financing", icon: Banknote },
   { path: "/mobile/financing", label: "New Application", icon: FileText },
-  { path: "/mobile/repayments", label: "Repayments", icon: Calendar },
+  { path: "/mobile/collections", label: "Collections", icon: ClipboardList },
 ];
 
 export function MobileLayout({ children }: { children: React.ReactNode }) {

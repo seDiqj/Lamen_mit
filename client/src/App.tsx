@@ -59,7 +59,7 @@ import CollectionsPage from "@/pages/collections";
 import MobileLogin from "@/pages/mobile/mobile-login";
 import MobileCustomers from "@/pages/mobile/mobile-customers";
 import MobileFinancing from "@/pages/mobile/mobile-financing";
-import MobileRepayments from "@/pages/mobile/mobile-repayments";
+import MobileCollections from "@/pages/mobile/mobile-collections";
 import { MobileLayout } from "@/pages/mobile/mobile-layout";
 import NotFound from "@/pages/not-found";
 
@@ -124,7 +124,7 @@ function AppRoutes() {
         <Switch>
           <Route path="/mobile/customers" component={MobileCustomers} />
           <Route path="/mobile/financing" component={MobileFinancing} />
-          <Route path="/mobile/repayments" component={MobileRepayments} />
+          <Route path="/mobile/collections" component={MobileCollections} />
           <Route path="/mobile">
             <MobileCustomers />
           </Route>
