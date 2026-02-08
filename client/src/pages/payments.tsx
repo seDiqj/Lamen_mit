@@ -62,6 +62,7 @@ type LoanItem = {
   requestDate?: string;
   requestedAmount?: string;
   principleAmount?: string;
+  profit?: string;
   totalReceivable?: string;
   totalCollection?: string;
   outstandingPortfolio?: string;
@@ -175,7 +176,7 @@ export default function PaymentsPage() {
   const totalRepaidAll = filteredLoans.reduce((sum, l) => sum + getLoanRepayment(l).totalRepaid, 0);
   const totalOutstanding = totalPortfolio - totalRepaidAll;
   const totalDisbursed = filteredLoans.reduce((sum, l) => sum + calcFinancing(l).principal, 0);
-  const totalProfit = totalPortfolio - totalDisbursed;
+  const totalProfit = filteredLoans.reduce((sum, l) => sum + parseFloat(l.profit || "0"), 0);
 
   const markPaidMutation = useMutation({
     mutationFn: async (installmentId: string) => {

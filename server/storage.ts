@@ -1091,12 +1091,25 @@ export class DatabaseStorage implements IStorage {
           disbursedById: userId,
         });
 
-        await tx.update(loans).set({ status: "disbursed", updatedAt: new Date() }).where(eq(loans.id, loan.id));
-
         const numInstallments = loan.numberOfInstallments || duration;
         const gracePeriod = loan.gracePeriod || 0;
         const principalTotal = parseFloat(loan.principleAmount || loan.requestAmount || "0");
-        const profitTotal = parseFloat(loan.profit || "0");
+        let profitTotal = parseFloat(loan.profit || "0");
+
+        if (profitTotal === 0 && principalTotal > 0) {
+          const marginRate = parseFloat(loan.marginRate || "0");
+          const rate = marginRate > 1 ? marginRate / 100 : marginRate;
+          profitTotal = principalTotal * rate;
+        }
+
+        const grandTotalReceivable = principalTotal + profitTotal;
+
+        await tx.update(loans).set({
+          status: "disbursed",
+          profit: profitTotal.toFixed(2),
+          totalReceivable: grandTotalReceivable.toFixed(2),
+          updatedAt: new Date(),
+        }).where(eq(loans.id, loan.id));
 
         const principalInstallments = numInstallments - gracePeriod;
         const principalPerInst = principalInstallments > 0 ? principalTotal / principalInstallments : 0;
