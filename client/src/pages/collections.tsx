@@ -277,11 +277,11 @@ export default function CollectionsPage() {
           <p className="text-sm text-muted-foreground">Manage upcoming payments and record collections</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <Button variant="outline" size="sm" onClick={exportToExcel} data-testid="button-export-excel">
+          <Button size="sm" onClick={exportToExcel} data-testid="button-export-excel" className="bg-green-600 text-white border-green-600 hover-elevate">
             <FileSpreadsheet className="h-4 w-4 mr-1" />
             Excel
           </Button>
-          <Button variant="outline" size="sm" onClick={exportToPDF} data-testid="button-export-pdf">
+          <Button size="sm" onClick={exportToPDF} data-testid="button-export-pdf" className="bg-red-600 text-white border-red-600 hover-elevate">
             <Download className="h-4 w-4 mr-1" />
             PDF
           </Button>
