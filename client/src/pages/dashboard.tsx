@@ -327,12 +327,12 @@ export default function Dashboard() {
           iconBg="bg-gradient-to-br from-violet-500 to-purple-600"
         />
         <StatCard
-          title="Outstanding Balance"
-          value={formatCurrency(stats?.outstandingBalance || 0)}
-          icon={TrendingUp}
+          title="Pending Financings"
+          value={stats?.pendingLoans?.toString() || "0"}
+          icon={Clock}
           loading={isLoading}
-          gradient="bg-gradient-to-r from-indigo-500 to-blue-500"
-          iconBg="bg-gradient-to-br from-indigo-500 to-blue-600"
+          gradient="bg-gradient-to-r from-amber-500 to-orange-500"
+          iconBg="bg-gradient-to-br from-amber-500 to-orange-600"
         />
       </div>
 
@@ -362,12 +362,12 @@ export default function Dashboard() {
           iconBg="bg-gradient-to-br from-green-500 to-lime-600"
         />
         <StatCard
-          title="Pending Financings"
-          value={stats?.pendingLoans?.toString() || "0"}
-          icon={Clock}
+          title="Outstanding Balance"
+          value={formatCurrency(stats?.outstandingBalance || 0)}
+          icon={TrendingUp}
           loading={isLoading}
-          gradient="bg-gradient-to-r from-amber-500 to-orange-500"
-          iconBg="bg-gradient-to-br from-amber-500 to-orange-600"
+          gradient="bg-gradient-to-r from-indigo-500 to-blue-500"
+          iconBg="bg-gradient-to-br from-indigo-500 to-blue-600"
         />
       </div>
 
