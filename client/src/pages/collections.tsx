@@ -336,8 +336,8 @@ export default function CollectionsPage() {
           <CardContent className="pt-4 pb-3">
             <div className="flex items-center justify-between gap-2">
               <div>
-                <p className="text-xs text-muted-foreground">Total Remaining</p>
-                <p className="text-lg font-bold" data-testid="text-total-remaining">{formatCurrency(summary?.totalRemaining)}</p>
+                <p className="text-xs text-muted-foreground">Total Due Amount</p>
+                <p className="text-lg font-bold" data-testid="text-total-due-amount">{formatCurrency(summary?.totalRemaining)}</p>
               </div>
               <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center shadow-lg">
                 <Banknote className="h-5 w-5 text-white" />
