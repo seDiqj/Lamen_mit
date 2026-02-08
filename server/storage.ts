@@ -238,6 +238,8 @@ export interface IStorage {
   // Installments
   getInstallments(filters: { search?: string; page?: number; limit?: number }): Promise<{ installments: any[]; total: number }>;
   markInstallmentPaid(id: string): Promise<Installment>;
+  getCollectionInstallments(filters: { filter?: string; branch?: string; search?: string; page?: number; limit?: number }): Promise<{ installments: any[]; total: number; summary: any }>;
+  recordPartialPayment(id: string, amount: number): Promise<Installment>;
   
   // Activity Logs
   getActivityLogs(filters: { search?: string; action?: string; page?: number; limit?: number }): Promise<{ logs: any[]; total: number }>;
@@ -1249,12 +1251,150 @@ export class DatabaseStorage implements IStorage {
       .update(installments)
       .set({
         isPaid: true,
+        paidAmount: sql`${installments.totalAmount}`,
         paymentDate: new Date().toISOString().split("T")[0],
-        lateDays: sql`GREATEST(0, EXTRACT(DAY FROM NOW() - ${installments.dueDate}))`,
+        lateDays: sql`GREATEST(0, EXTRACT(DAY FROM NOW()::date - ${installments.dueDate}::date))`,
+        installmentVariance: sql`GREATEST(0, EXTRACT(DAY FROM NOW()::date - ${installments.dueDate}::date))`,
       })
       .where(eq(installments.id, id))
       .returning();
     return installment;
+  }
+
+  async getCollectionInstallments(filters: { filter?: string; branch?: string; search?: string; page?: number; limit?: number }): Promise<{ installments: any[]; total: number; summary: any }> {
+    const { filter = "upcoming", branch, search, page = 1, limit = 20 } = filters;
+    const offset = (page - 1) * limit;
+    const today = new Date().toISOString().split("T")[0];
+    const threeDaysLater = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+
+    const conditions: any[] = [];
+
+    if (filter === "upcoming") {
+      conditions.push(sql`${installments.isPaid} = false AND ${installments.dueDate}::date <= ${threeDaysLater}::date AND ${installments.dueDate}::date >= ${today}::date`);
+    } else if (filter === "due_soon") {
+      conditions.push(sql`${installments.isPaid} = false AND (${installments.dueDate}::date <= ${threeDaysLater}::date OR ${installments.dueDate}::date < ${today}::date)`);
+    } else if (filter === "overdue") {
+      conditions.push(sql`${installments.isPaid} = false AND ${installments.dueDate}::date < ${today}::date`);
+    } else if (filter === "partial") {
+      conditions.push(sql`${installments.isPaid} = false AND COALESCE(${installments.paidAmount}, 0) > 0`);
+    } else if (filter === "all_unpaid") {
+      conditions.push(sql`${installments.isPaid} = false`);
+    }
+
+    if (branch && branch !== "all") {
+      conditions.push(sql`${loans.branchId} = ${branch}`);
+    }
+
+    if (search) {
+      conditions.push(sql`(
+        CONCAT(${customers.firstName}, ' ', ${customers.lastName}) ILIKE ${'%' + search + '%'}
+        OR ${loans.applicationId} ILIKE ${'%' + search + '%'}
+      )`);
+    }
+
+    const whereClause = conditions.length > 0
+      ? sql.join(conditions, sql` AND `)
+      : sql`1=1`;
+
+    const results = await db
+      .select({
+        id: installments.id,
+        loanId: installments.loanId,
+        installmentNumber: installments.installmentNumber,
+        dueDate: installments.dueDate,
+        principleAmount: installments.principleAmount,
+        marginAmount: installments.marginAmount,
+        totalAmount: installments.totalAmount,
+        paidAmount: installments.paidAmount,
+        installmentVariance: installments.installmentVariance,
+        paymentDate: installments.paymentDate,
+        lateDays: installments.lateDays,
+        isPaid: installments.isPaid,
+        loanApplicationId: loans.applicationId,
+        customerName: sql<string>`CONCAT(${customers.firstName}, ' ', ${customers.lastName})`,
+        branchName: branches.name,
+      })
+      .from(installments)
+      .leftJoin(loans, eq(installments.loanId, loans.id))
+      .leftJoin(customers, eq(loans.customerId, customers.id))
+      .leftJoin(branches, eq(loans.branchId, branches.id))
+      .where(whereClause)
+      .orderBy(asc(installments.dueDate))
+      .limit(limit)
+      .offset(offset);
+
+    const [{ count: total }] = await db
+      .select({ count: count() })
+      .from(installments)
+      .leftJoin(loans, eq(installments.loanId, loans.id))
+      .leftJoin(customers, eq(loans.customerId, customers.id))
+      .leftJoin(branches, eq(loans.branchId, branches.id))
+      .where(whereClause);
+
+    const summaryResults = await db
+      .select({
+        totalDue: sql<string>`COALESCE(SUM(CASE WHEN ${installments.isPaid} = false THEN ${installments.totalAmount}::numeric ELSE 0 END), 0)`,
+        totalCollected: sql<string>`COALESCE(SUM(CASE WHEN ${installments.isPaid} = false THEN COALESCE(${installments.paidAmount}::numeric, 0) ELSE 0 END), 0)`,
+        totalRemaining: sql<string>`COALESCE(SUM(CASE WHEN ${installments.isPaid} = false THEN (${installments.totalAmount}::numeric - COALESCE(${installments.paidAmount}::numeric, 0)) ELSE 0 END), 0)`,
+        overdueCount: sql<number>`COUNT(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate}::date < ${today}::date THEN 1 END)`,
+        upcomingCount: sql<number>`COUNT(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate}::date >= ${today}::date AND ${installments.dueDate}::date <= ${threeDaysLater}::date THEN 1 END)`,
+        partialCount: sql<number>`COUNT(CASE WHEN ${installments.isPaid} = false AND COALESCE(${installments.paidAmount}::numeric, 0) > 0 THEN 1 END)`,
+      })
+      .from(installments)
+      .leftJoin(loans, eq(installments.loanId, loans.id))
+      .leftJoin(customers, eq(loans.customerId, customers.id))
+      .leftJoin(branches, eq(loans.branchId, branches.id))
+      .where(branch && branch !== "all" ? sql`${loans.branchId} = ${branch}` : sql`1=1`);
+
+    return {
+      installments: results,
+      total: Number(total),
+      summary: summaryResults[0],
+    };
+  }
+
+  async recordPartialPayment(id: string, amount: number): Promise<Installment> {
+    const [existing] = await db
+      .select()
+      .from(installments)
+      .where(eq(installments.id, id));
+
+    if (!existing) {
+      throw new Error("Installment not found");
+    }
+
+    const currentPaid = parseFloat(existing.paidAmount || "0");
+    const totalDue = parseFloat(existing.totalAmount || "0");
+    const newPaidAmount = currentPaid + amount;
+    const today = new Date().toISOString().split("T")[0];
+
+    if (newPaidAmount > totalDue + 0.01) {
+      throw new Error("Payment amount exceeds remaining balance");
+    }
+
+    const isFullyPaid = Math.abs(newPaidAmount - totalDue) < 0.01;
+
+    const updateData: any = {
+      paidAmount: newPaidAmount.toFixed(2),
+    };
+
+    if (isFullyPaid) {
+      updateData.isPaid = true;
+      updateData.paymentDate = today;
+      const dueDate = existing.dueDate ? new Date(existing.dueDate) : new Date();
+      const payDate = new Date(today);
+      const diffDays = Math.max(0, Math.floor((payDate.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)));
+      updateData.lateDays = diffDays;
+      updateData.installmentVariance = diffDays.toString();
+    }
+
+    const [updated] = await db
+      .update(installments)
+      .set(updateData)
+      .where(eq(installments.id, id))
+      .returning();
+
+    return updated;
   }
 
   // Activity Logs

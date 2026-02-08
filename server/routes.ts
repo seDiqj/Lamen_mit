@@ -1809,6 +1809,44 @@ export async function registerRoutes(
     }
   });
 
+  // ===== COLLECTIONS =====
+  app.get("/api/collections", isAuthenticated, async (req, res) => {
+    try {
+      const { filter, branch, search, page, limit } = req.query;
+      const result = await storage.getCollectionInstallments({
+        filter: (filter as string) || "upcoming",
+        branch: branch as string | undefined,
+        search: search as string | undefined,
+        page: page ? parseInt(page as string) : 1,
+        limit: limit ? parseInt(limit as string) : 20,
+      });
+      res.json({
+        ...result,
+        page: page ? parseInt(page as string) : 1,
+        totalPages: Math.ceil(result.total / (limit ? parseInt(limit as string) : 20)),
+      });
+    } catch (error) {
+      console.error("Error fetching collections:", error);
+      res.status(500).json({ message: "Failed to fetch collections" });
+    }
+  });
+
+  app.patch("/api/collections/:id/pay", isAuthenticated, async (req: any, res) => {
+    try {
+      const schema = z.object({ amount: z.number().positive("Payment amount must be greater than 0") });
+      const parsed = schema.parse(req.body);
+      const installment = await storage.recordPartialPayment(req.params.id, parsed.amount);
+      const action = installment.isPaid ? "full_payment" : "partial_payment";
+      await logActivity(req, action, "installment", req.params.id,
+        `Recorded ${action === "full_payment" ? "full" : "partial"} payment of AFN ${parsed.amount.toLocaleString()} for installment #${installment.installmentNumber}`
+      );
+      res.json(installment);
+    } catch (error: any) {
+      console.error("Error recording collection payment:", error);
+      res.status(400).json({ message: error.message || "Failed to record payment" });
+    }
+  });
+
   // ===== ACTIVITY LOGS =====
   app.get("/api/activity", isAuthenticated, requireRole("admin"), async (req, res) => {
     try {

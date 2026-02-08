@@ -310,6 +310,7 @@ export const installments = pgTable("installments", {
   principleAmount: decimal("principle_amount", { precision: 15, scale: 2 }),
   marginAmount: decimal("margin_amount", { precision: 15, scale: 2 }),
   totalAmount: decimal("total_amount", { precision: 15, scale: 2 }),
+  paidAmount: decimal("paid_amount", { precision: 15, scale: 2 }).default("0"),
   installmentVariance: decimal("installment_variance", { precision: 15, scale: 2 }),
   paymentDate: date("payment_date"),
   lateDays: integer("late_days"),

@@ -55,6 +55,7 @@ import HRRecruitmentPage from "@/pages/hr/recruitment";
 import HRPerformancePage from "@/pages/hr/performance";
 import HRTrainingPage from "@/pages/hr/training";
 import HRBenefitsPage from "@/pages/hr/benefits";
+import CollectionsPage from "@/pages/collections";
 import MobileLogin from "@/pages/mobile/mobile-login";
 import MobileCustomers from "@/pages/mobile/mobile-customers";
 import MobileFinancing from "@/pages/mobile/mobile-financing";
@@ -142,6 +143,7 @@ function AppRoutes() {
         <Route path="/loan-application" component={LoanApplicationPage} />
         <Route path="/customers" component={CustomersPage} />
         <Route path="/payments" component={PaymentsPage} />
+        <Route path="/collections" component={CollectionsPage} />
         <Route path="/fad-review" component={FadReviewPage} />
         <Route path="/risk-compliance" component={RiskCompliancePage} />
         <Route path="/committee-voting" component={CommitteeVotingPage} />

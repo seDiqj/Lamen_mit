@@ -49,6 +49,7 @@ import {
   Briefcase,
   GraduationCap,
   Network,
+  Banknote,
 } from "lucide-react";
 import lamenLogo from "@assets/LamenLogo_1769936371528.jpeg";
 import {
@@ -88,6 +89,7 @@ const PAGE_URL_TO_NAME: Record<string, string> = {
   "/activity": "activity-logs",
   "/settings": "settings",
   "/payments": "payments",
+  "/collections": "collections",
   "/disbursements": "disbursements",
   "/branches": "branches",
   "/officers": "officers",
@@ -179,6 +181,7 @@ export function AppSidebar() {
         { title: "Committee Voting", url: "/committee-voting", icon: Vote, iconColor: "text-purple-500" },
         { title: "Disbursements", url: "/disbursements", icon: PiggyBank, iconColor: "text-pink-500" },
         { title: "Payments", url: "/payments", icon: CreditCard, iconColor: "text-cyan-500" },
+        { title: "Collections", url: "/collections", icon: Banknote, iconColor: "text-green-600" },
       ],
     },
     {
@@ -249,6 +252,7 @@ export function AppSidebar() {
         { title: "Customers", url: "/customers", icon: Users, iconColor: "text-violet-500" },
         { title: "Disbursements", url: "/disbursements", icon: PiggyBank, iconColor: "text-pink-500" },
         { title: "Payments", url: "/payments", icon: CreditCard, iconColor: "text-cyan-500" },
+        { title: "Collections", url: "/collections", icon: Banknote, iconColor: "text-green-600" },
       ],
     },
     {
@@ -322,6 +326,7 @@ export function AppSidebar() {
         { title: "Committee Voting", url: "/committee-voting", icon: Vote, iconColor: "text-purple-500" },
         { title: "Disbursements", url: "/disbursements", icon: PiggyBank, iconColor: "text-pink-500" },
         { title: "Payments", url: "/payments", icon: CreditCard, iconColor: "text-cyan-500" },
+        { title: "Collections", url: "/collections", icon: Banknote, iconColor: "text-green-600" },
       ],
     },
     {

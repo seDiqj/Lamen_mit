@@ -77,6 +77,7 @@ const PAGE_URL_TO_NAME: Record<string, string> = {
   "/activity": "activity-logs",
   "/settings": "settings",
   "/payments": "payments",
+  "/collections": "collections",
   "/disbursements": "disbursements",
   "/branches": "branches",
   "/officers": "officers",
@@ -189,6 +190,7 @@ export function IconRailNav({ children }: IconRailNavProps) {
         { title: "Committee Voting", url: "/committee-voting", icon: Vote, iconColor: "text-purple-500" },
         { title: "Disbursements", url: "/disbursements", icon: PiggyBank, iconColor: "text-pink-500" },
         { title: "Payments", url: "/payments", icon: CreditCard, iconColor: "text-cyan-500" },
+        { title: "Collections", url: "/collections", icon: Banknote, iconColor: "text-green-600" },
       ],
     },
     {
