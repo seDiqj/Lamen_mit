@@ -1573,6 +1573,20 @@ export async function registerRoutes(
     }
   });
 
+  // ===== BULK SOURCE OF FUND UPDATE =====
+  app.post("/api/admin/update-source-of-fund", isAuthenticated, requireRole("admin"), async (req: any, res) => {
+    try {
+      const { applicationIds, sourceOfFund } = req.body;
+      if (!applicationIds || !Array.isArray(applicationIds) || !sourceOfFund) {
+        return res.status(400).json({ message: "applicationIds (array) and sourceOfFund (string) are required" });
+      }
+      const result = await db.execute(sql`UPDATE loans SET source_of_fund = ${sourceOfFund} WHERE application_id = ANY(${applicationIds})`);
+      res.json({ message: `Updated source of fund to '${sourceOfFund}' for ${applicationIds.length} applications`, count: applicationIds.length });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // ===== FAD REVIEW =====
   app.post("/api/fad-reviews", isAuthenticated, requireRole("fad", "manager", "admin"), async (req: any, res) => {
     try {
