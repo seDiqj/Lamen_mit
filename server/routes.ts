@@ -1840,7 +1840,8 @@ export async function registerRoutes(
       res.json({ message: "Loan disbursed successfully", installmentsCreated: result.installmentsCreated });
     } catch (error) {
       console.error("Error disbursing loan:", error);
-      res.status(500).json({ message: "Failed to disburse loan" });
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ message: "Failed to disburse loan. " + errorMessage });
     }
   });
 
