@@ -197,7 +197,7 @@ export default function CommitteeVotingPage() {
     setComments("");
   };
 
-  const isCfo = (user as any)?.claims?.role === "cfo";
+  const isCfo = (user as any)?.role === "cfo";
 
   const handleVote = (vote: "approved" | "rejected") => {
     if (!selectedLoanId) return;
@@ -705,7 +705,7 @@ export default function CommitteeVotingPage() {
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-sm text-muted-foreground">Your Role</div>
-                <div className="text-lg font-bold capitalize">{user?.claims?.role || "Member"}</div>
+                <div className="text-lg font-bold capitalize">{(user as any)?.role || "Member"}</div>
               </div>
               <Vote className="h-8 w-8 text-purple-500" />
             </div>

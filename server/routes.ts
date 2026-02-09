@@ -213,12 +213,15 @@ export async function registerRoutes(
       return res.status(401).json({ message: "User not found" });
     }
 
+    const userRole = await storage.getUserRole(req.session.userId);
+
     res.json({
       id: user.id,
       username: user.username,
       firstName: user.firstName,
       lastName: user.lastName,
       email: user.email,
+      role: userRole?.role || null,
     });
   });
 
