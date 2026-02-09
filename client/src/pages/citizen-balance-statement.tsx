@@ -358,80 +358,94 @@ export default function CitizenBalanceStatementPage() {
       doc.text("Schedule", 14, tableStartY);
       doc.text("Actual Payment", 160, tableStartY);
 
-      const scheduleBody = ls.schedule.map((s) => [
-        s.no,
-        formatDate(s.installmentDate),
-        formatNumber(s.principleAmount),
-        formatNumber(s.marginAmount),
-        formatNumber(s.totalAmount),
-      ]);
-      scheduleBody.push([
-        "" as any, "Total =",
+      const rowCount = Math.max(ls.schedule.length, ls.actualPayments.length);
+      const combinedBody: any[][] = [];
+      for (let i = 0; i < rowCount; i++) {
+        const s = ls.schedule[i];
+        const a = ls.actualPayments[i];
+        combinedBody.push([
+          s ? s.no : "",
+          s ? formatDate(s.installmentDate) : "",
+          s ? formatNumber(s.principleAmount) : "",
+          s ? formatNumber(s.marginAmount) : "",
+          s ? formatNumber(s.totalAmount) : "",
+          "",
+          a ? a.no : "",
+          a ? (a.paymentDate ? formatDate(a.paymentDate) : "") : "",
+          a ? (a.principleAmount > 0 ? formatNumber(a.principleAmount) : "") : "",
+          a ? (a.marginAmount > 0 ? formatNumber(a.marginAmount) : "") : "",
+          a ? (a.totalAmount > 0 ? formatNumber(a.totalAmount) : "") : "",
+          a ? (a.arears > 0 ? a.arears.toString() : "") : "",
+        ]);
+      }
+      combinedBody.push([
+        "", "Total =",
         formatNumber(ls.scheduleTotals.principleAmount),
         formatNumber(ls.scheduleTotals.marginAmount),
         formatNumber(ls.scheduleTotals.totalAmount),
-      ]);
-
-      const scheduleTotalRowIdx = scheduleBody.length - 1;
-      autoTable(doc, {
-        startY: tableStartY + 2,
-        head: [["No.", "Installment Date", "Principle", "Margin", "Total"]],
-        body: scheduleBody,
-        margin: { left: 14 },
-        tableWidth: 130,
-        styles: { fontSize: 7, cellPadding: 1.5, lineWidth: 0.3, lineColor: [60, 120, 80] },
-        headStyles: { fillColor: [60, 120, 80], textColor: 255, fontStyle: "bold" },
-        footStyles: { fillColor: [200, 230, 210], fontStyle: "bold" },
-        didParseCell: (data: any) => {
-          if (data.section === "body" && data.row.index === scheduleTotalRowIdx) {
-            data.cell.styles.fontStyle = "bold";
-            data.cell.styles.fillColor = [200, 230, 210];
-          }
-        },
-      });
-
-      const actualBody = ls.actualPayments.map((a) => [
-        a.no,
-        a.paymentDate ? formatDate(a.paymentDate) : "",
-        a.principleAmount > 0 ? formatNumber(a.principleAmount) : "",
-        a.marginAmount > 0 ? formatNumber(a.marginAmount) : "",
-        a.totalAmount > 0 ? formatNumber(a.totalAmount) : "",
-        a.arears > 0 ? a.arears.toString() : "",
-      ]);
-      actualBody.push([
-        "" as any, "Total =",
+        "",
+        "", "Total =",
         formatNumber(ls.actualTotals.principleAmount),
         formatNumber(ls.actualTotals.marginAmount),
         formatNumber(ls.actualTotals.totalAmount),
         ls.actualTotals.arears > 0 ? ls.actualTotals.arears.toString() : "",
       ]);
-      actualBody.push([
-        "" as any, "Outstanding",
+      combinedBody.push([
+        "", "", "", "", "",
+        "",
+        "", "Outstanding",
         formatNumber(ls.outstanding.principleAmount),
         formatNumber(ls.outstanding.marginAmount),
         formatNumber(ls.outstanding.totalAmount),
         "",
       ]);
 
-      const actualTotalRowIdx = actualBody.length - 2;
-      const actualOutstandingRowIdx = actualBody.length - 1;
+      const totalRowIdx = combinedBody.length - 2;
+      const outstandingRowIdx = combinedBody.length - 1;
+
       autoTable(doc, {
         startY: tableStartY + 2,
-        head: [["No.", "Payment Date", "Principle", "Margin", "Total", "PAR Days"]],
-        body: actualBody,
-        margin: { left: 152 },
-        tableWidth: 135,
-        styles: { fontSize: 7, cellPadding: 1.5, lineWidth: 0.3, lineColor: [60, 120, 80] },
+        head: [["No.", "Installment Date", "Principle", "Margin", "Total", " ", "No.", "Payment Date", "Principle", "Margin", "Total", "PAR Days"]],
+        body: combinedBody,
+        margin: { left: 14, right: 10 },
+        styles: { fontSize: 7, cellPadding: 1.2, lineWidth: 0.3, lineColor: [60, 120, 80] },
         headStyles: { fillColor: [60, 120, 80], textColor: 255, fontStyle: "bold" },
-        footStyles: { fillColor: [200, 230, 210], fontStyle: "bold" },
+        columnStyles: {
+          0: { cellWidth: 10 },
+          1: { cellWidth: 28 },
+          2: { cellWidth: 22 },
+          3: { cellWidth: 18 },
+          4: { cellWidth: 20 },
+          5: { cellWidth: 4, fillColor: [255, 255, 255], lineWidth: 0 },
+          6: { cellWidth: 10 },
+          7: { cellWidth: 28 },
+          8: { cellWidth: 22 },
+          9: { cellWidth: 18 },
+          10: { cellWidth: 20 },
+          11: { cellWidth: 20 },
+        },
         didParseCell: (data: any) => {
-          if (data.section === "body" && data.row.index === actualTotalRowIdx) {
-            data.cell.styles.fontStyle = "bold";
-            data.cell.styles.fillColor = [200, 230, 210];
+          if (data.column.index === 5) {
+            data.cell.styles.fillColor = [255, 255, 255];
+            data.cell.styles.lineWidth = 0;
+            data.cell.styles.lineColor = [255, 255, 255];
           }
-          if (data.section === "body" && data.row.index === actualOutstandingRowIdx) {
+          if (data.section === "body" && data.row.index === totalRowIdx) {
             data.cell.styles.fontStyle = "bold";
-            data.cell.styles.fillColor = [255, 243, 205];
+            data.cell.styles.fillColor = data.column.index === 5 ? [255, 255, 255] : [200, 230, 210];
+          }
+          if (data.section === "body" && data.row.index === outstandingRowIdx) {
+            if (data.column.index >= 6) {
+              data.cell.styles.fontStyle = "bold";
+              data.cell.styles.fillColor = [255, 243, 205];
+            } else {
+              data.cell.styles.fillColor = data.column.index === 5 ? [255, 255, 255] : [255, 255, 255];
+              data.cell.styles.lineWidth = data.column.index === 5 ? 0 : 0.3;
+              if (data.column.index < 5) {
+                data.cell.styles.lineColor = [255, 255, 255];
+                data.cell.styles.lineWidth = 0;
+              }
+            }
           }
         },
       });
