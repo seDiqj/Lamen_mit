@@ -4933,19 +4933,43 @@ export async function registerRoutes(
           totalAmount: parseFloat(inst.totalAmount || "0"),
         }));
 
-        const actualPayments = installmentsList.map((inst: any, idx: number) => ({
-          no: inst.installmentNumber || (idx + 1),
-          paymentDate: inst.paymentDate || null,
-          principleAmount: inst.isPaid || parseFloat(inst.paidAmount || "0") > 0
-            ? parseFloat(inst.principleAmount || "0") * (Math.min(parseFloat(inst.paidAmount || "0"), parseFloat(inst.totalAmount || "0")) / parseFloat(inst.totalAmount || "1"))
-            : 0,
-          marginAmount: inst.isPaid || parseFloat(inst.paidAmount || "0") > 0
-            ? parseFloat(inst.marginAmount || "0") * (Math.min(parseFloat(inst.paidAmount || "0"), parseFloat(inst.totalAmount || "0")) / parseFloat(inst.totalAmount || "1"))
-            : 0,
-          totalAmount: parseFloat(inst.paidAmount || "0"),
-          isPaid: inst.isPaid,
-          arears: Math.max(0, parseFloat(inst.totalAmount || "0") - parseFloat(inst.paidAmount || "0")),
-        }));
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const actualPayments = installmentsList.map((inst: any, idx: number) => {
+          const dueDate = inst.dueDate ? new Date(inst.dueDate) : null;
+          const paymentDate = inst.paymentDate ? new Date(inst.paymentDate) : null;
+          const paidAmount = parseFloat(inst.paidAmount || "0");
+          const totalAmount = parseFloat(inst.totalAmount || "0");
+          const isFullyPaid = inst.isPaid || paidAmount >= totalAmount;
+
+          let parDays = 0;
+          if (dueDate) {
+            dueDate.setHours(0, 0, 0, 0);
+            if (isFullyPaid && paymentDate) {
+              paymentDate.setHours(0, 0, 0, 0);
+              if (paymentDate > dueDate) {
+                parDays = Math.floor((paymentDate.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+              }
+            } else if (!isFullyPaid && dueDate < today) {
+              parDays = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+            }
+          }
+
+          return {
+            no: inst.installmentNumber || (idx + 1),
+            paymentDate: inst.paymentDate || null,
+            principleAmount: inst.isPaid || paidAmount > 0
+              ? parseFloat(inst.principleAmount || "0") * (Math.min(paidAmount, totalAmount) / (totalAmount || 1))
+              : 0,
+            marginAmount: inst.isPaid || paidAmount > 0
+              ? parseFloat(inst.marginAmount || "0") * (Math.min(paidAmount, totalAmount) / (totalAmount || 1))
+              : 0,
+            totalAmount: paidAmount,
+            isPaid: inst.isPaid,
+            arears: parDays,
+          };
+        });
 
         const scheduleTotalPrinciple = schedule.reduce((s: number, r: any) => s + r.principleAmount, 0);
         const scheduleTotalMargin = schedule.reduce((s: number, r: any) => s + r.marginAmount, 0);
@@ -4954,7 +4978,7 @@ export async function registerRoutes(
         const actualTotalPrinciple = actualPayments.reduce((s: number, r: any) => s + r.principleAmount, 0);
         const actualTotalMargin = actualPayments.reduce((s: number, r: any) => s + r.marginAmount, 0);
         const actualTotalAmount = actualPayments.reduce((s: number, r: any) => s + r.totalAmount, 0);
-        const totalArears = actualPayments.reduce((s: number, r: any) => s + r.arears, 0);
+        const totalArears = actualPayments.reduce((max: number, r: any) => Math.max(max, r.arears), 0);
 
         loanStatements.push({
           loan: {

@@ -201,7 +201,7 @@ export default function CitizenBalanceStatementPage() {
         ["Branch Manager", ls.branchManager, "", "", "", "Financing Status", ls.loan.status],
         [],
         ["Schedule", "", "", "", "", "Actual Payment", "", "", "", "", ""],
-        ["No.", "Installment Date", "Principle", "Margin", "Total", "No.", "Payment Date", "Principle", "Margin", "Total", "Arears"],
+        ["No.", "Installment Date", "Principle", "Margin", "Total", "No.", "Payment Date", "Principle", "Margin", "Total", "PAR Days"],
       ];
 
       const maxRows = Math.max(ls.schedule.length, ls.actualPayments.length);
@@ -225,7 +225,7 @@ export default function CitizenBalanceStatementPage() {
 
       wsData.push([
         "", "Total =", formatNumber(ls.scheduleTotals.principleAmount), formatNumber(ls.scheduleTotals.marginAmount), formatNumber(ls.scheduleTotals.totalAmount),
-        "", "Total =", formatNumber(ls.actualTotals.principleAmount), formatNumber(ls.actualTotals.marginAmount), formatNumber(ls.actualTotals.totalAmount), formatNumber(ls.actualTotals.arears),
+        "", "Total =", formatNumber(ls.actualTotals.principleAmount), formatNumber(ls.actualTotals.marginAmount), formatNumber(ls.actualTotals.totalAmount), ls.actualTotals.arears > 0 ? ls.actualTotals.arears : "",
       ]);
       wsData.push([
         "", "", "", "", "",
@@ -367,14 +367,14 @@ export default function CitizenBalanceStatementPage() {
         a.principleAmount > 0 ? formatNumber(a.principleAmount) : "",
         a.marginAmount > 0 ? formatNumber(a.marginAmount) : "",
         a.totalAmount > 0 ? formatNumber(a.totalAmount) : "",
-        a.arears > 0 ? formatNumber(a.arears) : "",
+        a.arears > 0 ? a.arears.toString() : "",
       ]);
       actualBody.push([
         "" as any, "Total =",
         formatNumber(ls.actualTotals.principleAmount),
         formatNumber(ls.actualTotals.marginAmount),
         formatNumber(ls.actualTotals.totalAmount),
-        formatNumber(ls.actualTotals.arears),
+        ls.actualTotals.arears > 0 ? ls.actualTotals.arears.toString() : "",
       ]);
       actualBody.push([
         "" as any, "Outstanding",
@@ -386,7 +386,7 @@ export default function CitizenBalanceStatementPage() {
 
       autoTable(doc, {
         startY: tableStartY + 2,
-        head: [["No.", "Payment Date", "Principle", "Margin", "Total", "Arears"]],
+        head: [["No.", "Payment Date", "Principle", "Margin", "Total", "PAR Days"]],
         body: actualBody,
         margin: { left: 152 },
         tableWidth: 135,
@@ -780,7 +780,7 @@ export default function CitizenBalanceStatementPage() {
                                 <th className="px-2 py-1.5 text-right font-medium border border-green-600">Principle</th>
                                 <th className="px-2 py-1.5 text-right font-medium border border-green-600">Margin</th>
                                 <th className="px-2 py-1.5 text-right font-medium border border-green-600">Total</th>
-                                <th className="px-2 py-1.5 text-right font-medium border border-green-600">Arears</th>
+                                <th className="px-2 py-1.5 text-right font-medium border border-green-600">PAR Days</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -791,7 +791,7 @@ export default function CitizenBalanceStatementPage() {
                                   <td className="px-2 py-1 border border-border text-right">{a.principleAmount > 0 ? formatNumber(a.principleAmount) : ""}</td>
                                   <td className="px-2 py-1 border border-border text-right">{a.marginAmount > 0 ? formatNumber(a.marginAmount) : ""}</td>
                                   <td className="px-2 py-1 border border-border text-right">{a.totalAmount > 0 ? formatNumber(a.totalAmount) : ""}</td>
-                                  <td className="px-2 py-1 border border-border text-right">{a.arears > 0 ? formatNumber(a.arears) : ""}</td>
+                                  <td className="px-2 py-1 border border-border text-right">{a.arears > 0 ? a.arears : ""}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -801,7 +801,7 @@ export default function CitizenBalanceStatementPage() {
                                 <td className="px-2 py-1.5 border border-border text-right">{formatNumber(ls.actualTotals.principleAmount)}</td>
                                 <td className="px-2 py-1.5 border border-border text-right">{formatNumber(ls.actualTotals.marginAmount)}</td>
                                 <td className="px-2 py-1.5 border border-border text-right">{formatNumber(ls.actualTotals.totalAmount)}</td>
-                                <td className="px-2 py-1.5 border border-border text-right">{formatNumber(ls.actualTotals.arears)}</td>
+                                <td className="px-2 py-1.5 border border-border text-right">{ls.actualTotals.arears > 0 ? ls.actualTotals.arears : ""}</td>
                               </tr>
                               <tr className="bg-yellow-100 dark:bg-yellow-900/30 font-semibold">
                                 <td className="px-2 py-1.5 border border-border" colSpan={2}>Outstanding</td>
