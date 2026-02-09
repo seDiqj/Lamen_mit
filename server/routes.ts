@@ -1600,6 +1600,10 @@ export async function registerRoutes(
       const guarantors = await storage.getGuarantorsByLoanId(loan.id);
       const financialGuarantor = guarantors.find(g => g.guarantorType === "financial");
       const familyGuarantor = guarantors.find(g => g.guarantorType === "family");
+
+      const fadReview = await storage.getFadReviewByLoanId(loan.id);
+      const riskComplianceReview = await storage.getRiskComplianceReviewByLoanId(loan.id);
+      const committeeVotes = await storage.getCommitteeVotesByLoanId(loan.id);
       
       res.json({
         loan,
@@ -1609,6 +1613,9 @@ export async function registerRoutes(
         collateral,
         financialGuarantor,
         familyGuarantor,
+        fadReview,
+        riskComplianceReview,
+        committeeVotes,
       });
     } catch (error) {
       console.error("Error fetching loan application:", error);

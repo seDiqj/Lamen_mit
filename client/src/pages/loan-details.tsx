@@ -15,7 +15,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { 
   User, FileText, Building2, Shield, Users, UserCheck, 
-  ChevronLeft, ChevronRight, Save, ArrowLeft, Loader2, Check, Eye, Edit2
+  ChevronLeft, ChevronRight, Save, ArrowLeft, Loader2, Check, Eye, Edit2,
+  XCircle, AlertTriangle, CheckCircle2, Clock
 } from "lucide-react";
 import type { Branch, FinanceOfficer, FundingSource } from "@shared/schema";
 import { cn } from "@/lib/utils";
@@ -283,6 +284,129 @@ export default function LoanDetailsPage() {
           )}
         </Button>
       </div>
+
+      {loanData?.loan?.status === "rejected" && (
+        <Card className="border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-950/30 overflow-hidden">
+          <div className="h-1 bg-red-500" />
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <XCircle className="h-6 w-6 text-red-500 mt-0.5 shrink-0" />
+              <div className="flex-1 space-y-3">
+                <div>
+                  <h3 className="font-semibold text-red-700 dark:text-red-400 text-base">Application Rejected</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    This financing application has been rejected. See the review details below.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {(() => {
+                    const fadReview = loanData?.fadReview;
+                    const rcReview = loanData?.riskComplianceReview;
+                    const committeeVotes = loanData?.committeeVotes || [];
+                    const rejectedVotes = committeeVotes.filter((v: any) => v.vote === "rejected");
+                    
+                    const fadStatus = fadReview?.status || "pending";
+                    const rcStatus = rcReview?.status || "pending";
+                    const hasCommitteeRejection = rejectedVotes.length > 0;
+                    
+                    return (
+                      <>
+                        <div className={cn(
+                          "p-3 rounded-md border",
+                          fadStatus === "rejected" ? "bg-red-100 dark:bg-red-950/50 border-red-300 dark:border-red-700" :
+                          fadStatus === "approved" ? "bg-green-50 dark:bg-green-950/30 border-green-300 dark:border-green-700" :
+                          "bg-muted/50 border-border"
+                        )}>
+                          <div className="flex items-center gap-2 mb-1.5">
+                            {fadStatus === "rejected" ? <XCircle className="h-4 w-4 text-red-500" /> :
+                             fadStatus === "approved" ? <CheckCircle2 className="h-4 w-4 text-green-500" /> :
+                             <Clock className="h-4 w-4 text-muted-foreground" />}
+                            <span className="font-semibold text-sm">FAD Review</span>
+                            <Badge variant={fadStatus === "rejected" ? "destructive" : fadStatus === "approved" ? "default" : "secondary"} className="ml-auto text-xs">
+                              {fadStatus}
+                            </Badge>
+                          </div>
+                          {fadReview?.reviewerName && (
+                            <p className="text-xs text-muted-foreground">By: {fadReview.reviewerName}</p>
+                          )}
+                          {fadReview?.comments && (
+                            <p className="text-sm mt-1.5 italic">{fadReview.comments}</p>
+                          )}
+                          {fadReview?.reviewedAt && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {new Date(fadReview.reviewedAt).toLocaleDateString()}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className={cn(
+                          "p-3 rounded-md border",
+                          rcStatus === "rejected" ? "bg-red-100 dark:bg-red-950/50 border-red-300 dark:border-red-700" :
+                          rcStatus === "approved" ? "bg-green-50 dark:bg-green-950/30 border-green-300 dark:border-green-700" :
+                          "bg-muted/50 border-border"
+                        )}>
+                          <div className="flex items-center gap-2 mb-1.5">
+                            {rcStatus === "rejected" ? <XCircle className="h-4 w-4 text-red-500" /> :
+                             rcStatus === "approved" ? <CheckCircle2 className="h-4 w-4 text-green-500" /> :
+                             <Clock className="h-4 w-4 text-muted-foreground" />}
+                            <span className="font-semibold text-sm">Risk Compliance</span>
+                            <Badge variant={rcStatus === "rejected" ? "destructive" : rcStatus === "approved" ? "default" : "secondary"} className="ml-auto text-xs">
+                              {rcStatus}
+                            </Badge>
+                          </div>
+                          {rcReview?.reviewerName && (
+                            <p className="text-xs text-muted-foreground">By: {rcReview.reviewerName}</p>
+                          )}
+                          {rcReview?.comments && (
+                            <p className="text-sm mt-1.5 italic">{rcReview.comments}</p>
+                          )}
+                          {rcReview?.reviewedAt && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {new Date(rcReview.reviewedAt).toLocaleDateString()}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className={cn(
+                          "p-3 rounded-md border",
+                          hasCommitteeRejection ? "bg-red-100 dark:bg-red-950/50 border-red-300 dark:border-red-700" :
+                          committeeVotes.length > 0 ? "bg-green-50 dark:bg-green-950/30 border-green-300 dark:border-green-700" :
+                          "bg-muted/50 border-border"
+                        )}>
+                          <div className="flex items-center gap-2 mb-1.5">
+                            {hasCommitteeRejection ? <XCircle className="h-4 w-4 text-red-500" /> :
+                             committeeVotes.length > 0 ? <CheckCircle2 className="h-4 w-4 text-green-500" /> :
+                             <Clock className="h-4 w-4 text-muted-foreground" />}
+                            <span className="font-semibold text-sm">Committee</span>
+                            <Badge variant={hasCommitteeRejection ? "destructive" : committeeVotes.length > 0 ? "default" : "secondary"} className="ml-auto text-xs">
+                              {committeeVotes.length === 0 ? "pending" : hasCommitteeRejection ? "rejected" : "voted"}
+                            </Badge>
+                          </div>
+                          {committeeVotes.length > 0 && (
+                            <div className="space-y-1 mt-1.5">
+                              {committeeVotes.map((v: any, i: number) => (
+                                <div key={i} className="text-xs flex items-center gap-1.5">
+                                  {v.vote === "rejected" ? <XCircle className="h-3 w-3 text-red-500" /> :
+                                   v.vote === "approved" ? <CheckCircle2 className="h-3 w-3 text-green-500" /> :
+                                   <Clock className="h-3 w-3 text-muted-foreground" />}
+                                  <span className="font-medium">{v.voterName || v.voterRole}</span>
+                                  <span className="text-muted-foreground">- {v.vote}</span>
+                                  {v.comments && <span className="italic text-muted-foreground ml-1">"{v.comments}"</span>}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="flex items-center justify-between mb-8">
         {steps.map((step, index) => (
