@@ -118,7 +118,7 @@ const steps = [
   { id: 6, title: "Vote", icon: Vote, color: "from-purple-500 to-indigo-600" },
 ];
 
-const COMMITTEE_ROLES = ["cfo", "coo", "ceo", "sharia"];
+const COMMITTEE_ROLES = ["cfo", "coo", "ceo"];
 const REQUIRED_APPROVALS = 3;
 
 export default function CommitteeVotingPage() {
@@ -250,7 +250,6 @@ export default function CommitteeVotingPage() {
       cfo: "CFO",
       coo: "COO",
       ceo: "CEO",
-      sharia: "Sharia Advisor",
     };
     return labels[role] || role.toUpperCase();
   };

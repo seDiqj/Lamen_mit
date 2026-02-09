@@ -2096,7 +2096,7 @@ export async function registerRoutes(
   });
 
   // ===== COMMITTEE VOTING =====
-  app.get("/api/committee/pending-loans", isAuthenticated, requireRole("cfo", "coo", "ceo", "sharia", "manager", "admin"), async (req: any, res) => {
+  app.get("/api/committee/pending-loans", isAuthenticated, requireRole("cfo", "coo", "ceo", "manager", "admin"), async (req: any, res) => {
     try {
       // Get loans in committee_review status (passed FAD, awaiting committee)
       const loans = await storage.getLoansWithDetails({ status: "committee_review" });
@@ -2127,7 +2127,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/committee/vote", isAuthenticated, requireRole("cfo", "coo", "ceo", "sharia", "manager", "admin"), async (req: any, res) => {
+  app.post("/api/committee/vote", isAuthenticated, requireRole("cfo", "coo", "ceo", "manager", "admin"), async (req: any, res) => {
     try {
       const { loanId, vote, comments, fundingSourceId } = req.body;
       
@@ -2180,7 +2180,7 @@ export async function registerRoutes(
       const approvedVotes = allVotes.filter((v: any) => v.vote === "approved").length;
       const rejectedVotes = allVotes.filter((v: any) => v.vote === "rejected").length;
       const REQUIRED_APPROVALS = 3;
-      const COMMITTEE_SIZE = 4;
+      const COMMITTEE_SIZE = 3;
 
       if (approvedVotes >= REQUIRED_APPROVALS) {
         await storage.updateLoan(loanId, { status: "approved" });
