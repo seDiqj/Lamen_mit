@@ -829,11 +829,14 @@ export default function LoanApplicationPage() {
 
                 {(() => {
                   const reqAmount = Number(form.watch("requestAmount")) || 0;
-                  const margin = Number(form.watch("marginRate")) || 0;
+                  const principleAmt = Number(form.watch("principleAmount")) || 0;
+                  const loanAmount = reqAmount > 0 ? reqAmount : principleAmt;
+                  let margin = Number(form.watch("marginRate")) || 0;
+                  if (margin > 0 && margin < 1) margin = margin * 100;
                   const installments = Number(form.watch("numberOfInstallments")) || 0;
-                  if (reqAmount > 0 && margin > 0 && installments > 0) {
-                    const totalMargin = (reqAmount * (margin / 100) / 12) * installments;
-                    const totalRepayment = reqAmount + totalMargin;
+                  if (loanAmount > 0 && margin > 0 && installments > 0) {
+                    const totalMargin = (loanAmount * (margin / 100) / 12) * installments;
+                    const totalRepayment = loanAmount + totalMargin;
                     const monthlyInstallment = totalRepayment / installments;
                     return (
                       <div className="mt-3 p-3 rounded-md bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
