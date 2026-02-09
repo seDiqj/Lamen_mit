@@ -133,12 +133,14 @@ export default function InstallmentManagementPage() {
     setApplyCalculated(false);
   };
 
+  const getRowKey = (inst: InstallmentRow) => inst.id || `new_${inst.installmentNumber}`;
+
   const handleApplyCalculated = () => {
     if (!scheduleData) return;
     const newEdited: Record<string, { principal: string; margin: string }> = {};
     for (const inst of scheduleData.installments) {
-      if (!inst.isPaid && inst.id) {
-        newEdited[inst.id] = {
+      if (!inst.isPaid) {
+        newEdited[getRowKey(inst)] = {
           principal: inst.calculatedPrincipal.toFixed(2),
           margin: inst.calculatedMargin.toFixed(2),
         };
@@ -161,13 +163,29 @@ export default function InstallmentManagementPage() {
   };
 
   const handleSave = () => {
+    if (!scheduleData) return;
     const updates = Object.entries(editedRows)
       .filter(([_, v]) => v.principal || v.margin)
-      .map(([id, v]) => ({
-        id,
-        principleAmount: v.principal,
-        marginAmount: v.margin,
-      }));
+      .map(([key, v]) => {
+        const isNew = key.startsWith("new_");
+        if (isNew) {
+          const instNum = parseInt(key.replace("new_", ""));
+          const inst = scheduleData.installments.find((i) => i.installmentNumber === instNum);
+          return {
+            id: null,
+            loanId: scheduleData.loan.id,
+            installmentNumber: instNum,
+            dueDate: inst?.dueDate || null,
+            principleAmount: v.principal,
+            marginAmount: v.margin,
+          };
+        }
+        return {
+          id: key,
+          principleAmount: v.principal,
+          marginAmount: v.margin,
+        };
+      });
 
     if (updates.length === 0) {
       toast({ title: "No Changes", description: "No installments were modified.", variant: "destructive" });
@@ -178,21 +196,24 @@ export default function InstallmentManagementPage() {
   };
 
   const getDisplayPrincipal = (inst: InstallmentRow) => {
-    if (inst.id && editedRows[inst.id]) return editedRows[inst.id].principal;
+    const key = getRowKey(inst);
+    if (editedRows[key]) return editedRows[key].principal;
     if (inst.currentPrincipal !== null) return inst.currentPrincipal.toFixed(2);
     return "";
   };
 
   const getDisplayMargin = (inst: InstallmentRow) => {
-    if (inst.id && editedRows[inst.id]) return editedRows[inst.id].margin;
+    const key = getRowKey(inst);
+    if (editedRows[key]) return editedRows[key].margin;
     if (inst.currentMargin !== null) return inst.currentMargin.toFixed(2);
     return "";
   };
 
   const getDisplayTotal = (inst: InstallmentRow) => {
-    if (inst.id && editedRows[inst.id]) {
-      const p = parseFloat(editedRows[inst.id].principal || "0");
-      const m = parseFloat(editedRows[inst.id].margin || "0");
+    const key = getRowKey(inst);
+    if (editedRows[key]) {
+      const p = parseFloat(editedRows[key].principal || "0");
+      const m = parseFloat(editedRows[key].margin || "0");
       return (p + m).toFixed(2);
     }
     if (inst.currentTotal !== null) return inst.currentTotal.toFixed(2);
@@ -361,15 +382,16 @@ export default function InstallmentManagementPage() {
                   </thead>
                   <tbody>
                     {scheduleData.installments.map((inst, idx) => {
-                      const isEditable = !inst.isPaid && !!inst.id;
+                      const rowKey = getRowKey(inst);
+                      const isEditable = !inst.isPaid;
                       const displayPrincipal = getDisplayPrincipal(inst);
                       const displayMargin = getDisplayMargin(inst);
                       const displayTotal = getDisplayTotal(inst);
-                      const isModified = inst.id ? !!editedRows[inst.id] : false;
+                      const isModified = !!editedRows[rowKey];
 
                       return (
                         <tr
-                          key={inst.id || idx}
+                          key={rowKey}
                           className={`border-b ${inst.isPaid ? "bg-green-50/50 dark:bg-green-950/20" : inst.hasNullAmounts ? "bg-amber-50/50 dark:bg-amber-950/20" : ""} ${isModified ? "bg-blue-50/50 dark:bg-blue-950/20" : ""}`}
                           data-testid={`row-installment-${inst.installmentNumber}`}
                         >
@@ -386,7 +408,7 @@ export default function InstallmentManagementPage() {
                                 step="0.01"
                                 className="w-28 px-2 py-1 text-right border rounded-md bg-background text-sm"
                                 value={displayPrincipal}
-                                onChange={(e) => handleRowChange(inst.id!, "principal", e.target.value)}
+                                onChange={(e) => handleRowChange(rowKey, "principal", e.target.value)}
                                 placeholder="0.00"
                                 data-testid={`input-principal-${inst.installmentNumber}`}
                               />
@@ -403,7 +425,7 @@ export default function InstallmentManagementPage() {
                                 step="0.01"
                                 className="w-28 px-2 py-1 text-right border rounded-md bg-background text-sm"
                                 value={displayMargin}
-                                onChange={(e) => handleRowChange(inst.id!, "margin", e.target.value)}
+                                onChange={(e) => handleRowChange(rowKey, "margin", e.target.value)}
                                 placeholder="0.00"
                                 data-testid={`input-margin-${inst.installmentNumber}`}
                               />

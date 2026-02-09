@@ -1112,22 +1112,8 @@ export async function registerRoutes(
             dueDate = firstDate.toISOString().split("T")[0];
           }
 
-          const created = await storage.createInstallment({
-            loanId,
-            installmentNumber: calc.installmentNumber,
-            dueDate,
-            principleAmount: null,
-            marginAmount: null,
-            totalAmount: null,
-            paidAmount: "0",
-            installmentVariance: null,
-            paymentDate: null,
-            lateDays: null,
-            isPaid: false,
-          });
-
           mergedInstallments.push({
-            id: created.id,
+            id: null,
             installmentNumber: calc.installmentNumber,
             dueDate,
             currentPrincipal: null,
@@ -1195,10 +1181,35 @@ export async function registerRoutes(
 
       const results = [];
       let updatedCount = 0;
+      let createdCount = 0;
       let skippedCount = 0;
 
       for (const update of updates) {
-        const { id, principleAmount, marginAmount } = update;
+        const { id, loanId, installmentNumber, dueDate, principleAmount, marginAmount } = update;
+
+        const principal = parseFloat(principleAmount || "0");
+        const margin = parseFloat(marginAmount || "0");
+        const total = Math.round((principal + margin) * 100) / 100;
+
+        if (!id && loanId && installmentNumber) {
+          const created = await storage.createInstallment({
+            loanId,
+            installmentNumber,
+            dueDate: dueDate || null,
+            principleAmount: principal.toFixed(2),
+            marginAmount: margin.toFixed(2),
+            totalAmount: total.toFixed(2),
+            paidAmount: "0",
+            installmentVariance: null,
+            paymentDate: null,
+            lateDays: null,
+            isPaid: false,
+          });
+          createdCount++;
+          results.push({ id: created.id, status: "created" });
+          continue;
+        }
+
         if (!id) { skippedCount++; continue; }
 
         const existing = await storage.getInstallmentById(id);
@@ -1210,10 +1221,6 @@ export async function registerRoutes(
           continue;
         }
 
-        const principal = parseFloat(principleAmount || "0");
-        const margin = parseFloat(marginAmount || "0");
-        const total = Math.round((principal + margin) * 100) / 100;
-
         await storage.updateInstallmentAmounts(id, {
           principleAmount: principal.toFixed(2),
           marginAmount: margin.toFixed(2),
@@ -1224,7 +1231,7 @@ export async function registerRoutes(
         results.push({ id, status: "updated" });
       }
 
-      res.json({ message: `Updated ${updatedCount} installments, skipped ${skippedCount}`, updatedCount, skippedCount, results });
+      res.json({ message: `Updated ${updatedCount}, created ${createdCount}, skipped ${skippedCount}`, updatedCount, createdCount, skippedCount, results });
     } catch (error: any) {
       console.error("Error bulk updating installments:", error);
       res.status(500).json({ message: "Failed to update installments", error: error.message });
