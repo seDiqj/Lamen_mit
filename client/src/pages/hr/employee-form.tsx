@@ -478,6 +478,15 @@ export default function EmployeeForm() {
               </div>
             </div>
             
+            {isEditing && existingEmployee?.employeeCode && (
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-primary/5 border border-primary/20">
+                <Badge variant="outline" className="text-sm font-mono px-3 py-1" data-testid="text-employee-code">
+                  {existingEmployee.employeeCode}
+                </Badge>
+                <span className="text-sm text-muted-foreground">Employee Code (auto-generated)</span>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <FormField
               control={form.control}

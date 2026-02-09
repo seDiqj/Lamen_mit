@@ -3334,39 +3334,72 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createEmployee(data: any) {
-    const employeeCount = await db.select({ count: count() }).from(employees);
-    const nextNumber = (employeeCount[0]?.count || 0) + 1;
-    const employeeCode = `EMP${String(nextNumber).padStart(5, '0')}`;
-    
-    const [employee] = await db.insert(employees).values({
-      employeeCode,
-      firstName: data.firstName,
-      lastName: data.lastName,
-      fatherName: data.fatherName,
-      gender: data.gender,
-      dateOfBirth: data.dateOfBirth,
-      maritalStatus: data.maritalStatus,
-      nationalId: data.nationalId,
-      nationalIdPlaceOfIssue: data.nationalIdPlaceOfIssue,
-      phoneNumber: data.phoneNumber,
-      secondPhoneNumber: data.secondPhoneNumber,
-      email: data.email || null,
-      permanentAddress: data.permanentAddress,
-      currentAddress: data.currentAddress,
-      positionId: data.positionId || null,
-      departmentId: data.departmentId || null,
-      branchId: data.branchId || null,
-      dutyStation: data.dutyStation,
-      hireDate: data.hireDate,
-      employmentStatus: data.employmentStatus || 'active',
-      educationLevel: data.educationLevel,
-      educationDetails: data.educationDetails,
-      totalExperienceYears: data.totalExperienceYears || 0,
-      jobRelatedExperienceYears: data.jobRelatedExperienceYears || 0,
-      otherExperienceYears: data.otherExperienceYears || 0,
-      photoUrl: data.photoUrl || null,
-    }).returning();
-    return employee;
+    let branchShortCode = "HQ";
+    if (data.branchId) {
+      const [br] = await db.select().from(branches).where(eq(branches.id, data.branchId));
+      if (br?.shortName) {
+        branchShortCode = br.shortName;
+      } else if (br?.code) {
+        branchShortCode = br.code;
+      }
+    }
+    branchShortCode = branchShortCode.replace(/[^A-Za-z0-9]/g, '').toUpperCase() || "HQ";
+    const prefix = `LMI-${branchShortCode}-`;
+
+    let employeeCode = "";
+    let retries = 3;
+    while (retries > 0) {
+      const existingCodes = await db.select({ code: employees.employeeCode }).from(employees)
+        .where(sql`${employees.employeeCode} LIKE ${prefix + '%'}`);
+      let maxNum = 0;
+      for (const row of existingCodes) {
+        const match = row.code?.match(/(\d+)$/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (num > maxNum) maxNum = num;
+        }
+      }
+      employeeCode = `${prefix}${String(maxNum + 1).padStart(4, '0')}`;
+      try {
+        const [employee] = await db.insert(employees).values({
+          employeeCode,
+          firstName: data.firstName,
+          lastName: data.lastName,
+          fatherName: data.fatherName,
+          gender: data.gender,
+          dateOfBirth: data.dateOfBirth,
+          maritalStatus: data.maritalStatus,
+          nationalId: data.nationalId,
+          nationalIdPlaceOfIssue: data.nationalIdPlaceOfIssue,
+          phoneNumber: data.phoneNumber,
+          secondPhoneNumber: data.secondPhoneNumber,
+          email: data.email || null,
+          permanentAddress: data.permanentAddress,
+          currentAddress: data.currentAddress,
+          positionId: data.positionId || null,
+          departmentId: data.departmentId || null,
+          branchId: data.branchId || null,
+          dutyStation: data.dutyStation,
+          hireDate: data.hireDate,
+          employmentStatus: data.employmentStatus || 'active',
+          educationLevel: data.educationLevel,
+          educationDetails: data.educationDetails,
+          totalExperienceYears: data.totalExperienceYears || 0,
+          jobRelatedExperienceYears: data.jobRelatedExperienceYears || 0,
+          otherExperienceYears: data.otherExperienceYears || 0,
+          photoUrl: data.photoUrl || null,
+        }).returning();
+        return employee;
+      } catch (err: any) {
+        if (err?.message?.includes('unique') || err?.message?.includes('duplicate')) {
+          retries--;
+          if (retries === 0) throw err;
+          continue;
+        }
+        throw err;
+      }
+    }
+    throw new Error("Failed to generate unique employee code after retries");
   }
 
   async updateEmployee(id: string, data: any) {
