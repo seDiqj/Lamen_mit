@@ -100,7 +100,13 @@ export default function CitizenBalanceStatementPage() {
   const { toast } = useToast();
 
   const { data: customers, isLoading: customersLoading } = useQuery<any[]>({
-    queryKey: ["/api/customers"],
+    queryKey: ["/api/customers", { limit: 9999 }],
+    queryFn: async () => {
+      const res = await fetch("/api/customers?limit=9999");
+      if (!res.ok) throw new Error("Failed to fetch customers");
+      const data = await res.json();
+      return data.customers || data;
+    },
   });
 
   const { data: statementData, isLoading: statementLoading, refetch } = useQuery<StatementData>({
@@ -339,14 +345,19 @@ export default function CitizenBalanceStatementPage() {
     toast({ title: "PDF Exported", description: "Citizen Balance Statement exported to PDF." });
   };
 
-  const customerList = Array.isArray(customers) ? customers : (customers as any)?.customers || [];
+  const customerList = Array.isArray(customers) ? customers : [];
 
   const [searchTerm, setSearchTerm] = useState("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const getCustomerLabel = (c: any) =>
-    `${c.firstName} ${c.lastName}${c.fatherName ? ` - ${c.fatherName}` : ""} (${c.customerNo || "N/A"})`;
+  const getCustomerLabel = (c: any) => {
+    const first = c.firstName || "";
+    const last = c.lastName || "";
+    const fullName = `${first} ${last}`.trim();
+    const father = c.fatherName ? ` - ${c.fatherName}` : "";
+    return `${fullName}${father} (${c.customerNo || "N/A"})`;
+  };
 
   const filteredCustomers = useMemo(() => {
     if (!searchTerm.trim()) return customerList;
