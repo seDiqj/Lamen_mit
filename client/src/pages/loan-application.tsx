@@ -833,11 +833,12 @@ export default function LoanApplicationPage() {
                   const loanAmount = reqAmount > 0 ? reqAmount : principleAmt;
                   let margin = Number(form.watch("marginRate")) || 0;
                   if (margin > 0 && margin < 1) margin = margin * 100;
+                  const durationMonths = Number(form.watch("financingDurationMonths")) || 0;
                   const installments = Number(form.watch("numberOfInstallments")) || 0;
-                  if (loanAmount > 0 && margin > 0 && installments > 0) {
-                    const totalMargin = (loanAmount * (margin / 100) / 12) * installments;
+                  if (loanAmount > 0 && margin > 0 && durationMonths > 0) {
+                    const totalMargin = (loanAmount * (margin / 100) / 12) * durationMonths;
                     const totalRepayment = loanAmount + totalMargin;
-                    const monthlyInstallment = totalRepayment / installments;
+                    const monthlyInstallment = installments > 0 ? totalRepayment / installments : totalRepayment / durationMonths;
                     return (
                       <div className="mt-3 p-3 rounded-md bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
                         <h4 className="text-xs font-semibold text-green-800 dark:text-green-300 mb-2">Financing Summary</h4>
@@ -862,7 +863,7 @@ export default function LoanApplicationPage() {
                           </div>
                         </div>
                         <p className="text-[10px] text-muted-foreground mt-1">
-                          Formula: (Request Amount x Margin% / 12) x Installments
+                          Formula: (Loan Amount x Margin% / 12) x Duration(months)
                         </p>
                       </div>
                     );
