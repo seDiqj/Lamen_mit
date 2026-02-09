@@ -206,9 +206,11 @@ export default function CitizenBalanceStatementPage() {
         ["Branch", ls.branch?.name || "", "", "", "", "Principle Amount", formatNumber(ls.loan.principleAmount)],
         ["Financing Type", ls.loan.productName, "", "", "", "Margin Rate", `${ls.loan.marginRate}%`],
         ["Financing No./ Cycle", ls.loan.applicationId, "/", ls.loan.financingCycle, "", "Disbursement Date", ls.disbursement?.disbursementDate ? formatDateDMY(ls.disbursement.disbursementDate) : ""],
-        ["Client Name", statementData.customer.name, "", "", "", "Province", ls.province],
-        ["Finance Officer", ls.officer?.name || "", "", "", "", "District", ls.district],
-        ["Branch Manager", ls.branchManager, "", "", "", "Financing Status", ls.loan.status],
+        ["Client Name", statementData.customer.name, "", "", "", "No. of Installments", ls.loan.numberOfInstallments],
+        ["Finance Officer", ls.officer?.name || "", "", "", "", "Grace Period", `${ls.loan.gracePeriod} months`],
+        ["Branch Manager", ls.branchManager, "", "", "", "Province", ls.province],
+        ["", "", "", "", "", "District", ls.district],
+        ["", "", "", "", "", "Financing Status", ls.loan.status],
         [],
         ["Schedule", "", "", "", "", "Actual Payment", "", "", "", "", ""],
         ["No.", "Installment Date", "Principle", "Margin", "Total", "No.", "Payment Date", "Principle", "Margin", "Total", "PAR Days"],
@@ -325,21 +327,31 @@ export default function CitizenBalanceStatementPage() {
       doc.text(ls.disbursement?.disbursementDate ? formatDateDMY(ls.disbursement.disbursementDate) : "", 220, infoY + 10);
 
       doc.setFont("helvetica", "bold");
-      doc.text("Province:", 180, infoY + 15);
+      doc.text("No. of Installments:", 180, infoY + 15);
       doc.setFont("helvetica", "normal");
-      doc.text(ls.province, 220, infoY + 15);
+      doc.text(`${ls.loan.numberOfInstallments}`, 220, infoY + 15);
 
       doc.setFont("helvetica", "bold");
-      doc.text("District:", 180, infoY + 20);
+      doc.text("Grace Period:", 180, infoY + 20);
       doc.setFont("helvetica", "normal");
-      doc.text(ls.district, 220, infoY + 20);
+      doc.text(`${ls.loan.gracePeriod} months`, 220, infoY + 20);
 
       doc.setFont("helvetica", "bold");
-      doc.text("Financing Status:", 180, infoY + 25);
+      doc.text("Province:", 180, infoY + 25);
       doc.setFont("helvetica", "normal");
-      doc.text(ls.loan.status, 220, infoY + 25);
+      doc.text(ls.province, 220, infoY + 25);
 
-      const tableStartY = infoY + 32;
+      doc.setFont("helvetica", "bold");
+      doc.text("District:", 180, infoY + 30);
+      doc.setFont("helvetica", "normal");
+      doc.text(ls.district, 220, infoY + 30);
+
+      doc.setFont("helvetica", "bold");
+      doc.text("Financing Status:", 180, infoY + 35);
+      doc.setFont("helvetica", "normal");
+      doc.text(ls.loan.status, 220, infoY + 35);
+
+      const tableStartY = infoY + 42;
 
       doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
@@ -741,6 +753,14 @@ export default function CitizenBalanceStatementPage() {
                         <div className="flex gap-2">
                           <span className="font-semibold text-muted-foreground w-36">Disbursement Date</span>
                           <span className="font-medium">{ls.disbursement?.disbursementDate ? formatDateDMY(ls.disbursement.disbursementDate) : ""}</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <span className="font-semibold text-muted-foreground w-36">No. of Installments</span>
+                          <span className="font-medium">{ls.loan.numberOfInstallments}</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <span className="font-semibold text-muted-foreground w-36">Grace Period</span>
+                          <span className="font-medium">{ls.loan.gracePeriod} months</span>
                         </div>
                         <div className="flex gap-2">
                           <span className="font-semibold text-muted-foreground w-36">Province</span>
