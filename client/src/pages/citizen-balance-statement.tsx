@@ -340,11 +340,12 @@ export default function CitizenBalanceStatementPage() {
       doc.text("Actual Payment", 160, tableStartY);
 
       const paidPayments = ls.actualPayments.filter(a => a.totalAmount > 0 || (a.paymentDate && a.paymentDate !== ""));
-      const rowCount = Math.max(ls.schedule.length, paidPayments.length);
+      const paidPaymentCount = paidPayments.length;
+      const rowCount = ls.schedule.length;
       const combinedBody: any[][] = [];
       for (let i = 0; i < rowCount; i++) {
         const s = ls.schedule[i];
-        const a = paidPayments[i];
+        const a = i < paidPaymentCount ? paidPayments[i] : null;
         combinedBody.push([
           s ? s.no : "",
           s ? formatDate(s.installmentDate) : "",
@@ -412,21 +413,29 @@ export default function CitizenBalanceStatementPage() {
             data.cell.styles.lineWidth = 0;
             data.cell.styles.lineColor = [255, 255, 255];
           }
+          if (data.section === "body" && data.row.index < rowCount && data.row.index >= paidPaymentCount && data.column.index >= 6) {
+            data.cell.styles.fillColor = [255, 255, 255];
+            data.cell.styles.lineWidth = 0;
+            data.cell.styles.lineColor = [255, 255, 255];
+          }
           if (data.section === "body" && data.row.index === totalRowIdx) {
             data.cell.styles.fontStyle = "bold";
-            data.cell.styles.fillColor = data.column.index === 5 ? [255, 255, 255] : [200, 230, 210];
+            if (data.column.index === 5) {
+              data.cell.styles.fillColor = [255, 255, 255];
+            } else if (data.column.index < 5) {
+              data.cell.styles.fillColor = [200, 230, 210];
+            } else {
+              data.cell.styles.fillColor = [200, 230, 210];
+            }
           }
           if (data.section === "body" && data.row.index === outstandingRowIdx) {
             if (data.column.index >= 6) {
               data.cell.styles.fontStyle = "bold";
               data.cell.styles.fillColor = [255, 243, 205];
             } else {
-              data.cell.styles.fillColor = data.column.index === 5 ? [255, 255, 255] : [255, 255, 255];
-              data.cell.styles.lineWidth = data.column.index === 5 ? 0 : 0.3;
-              if (data.column.index < 5) {
-                data.cell.styles.lineColor = [255, 255, 255];
-                data.cell.styles.lineWidth = 0;
-              }
+              data.cell.styles.fillColor = [255, 255, 255];
+              data.cell.styles.lineWidth = 0;
+              data.cell.styles.lineColor = [255, 255, 255];
             }
           }
         },
