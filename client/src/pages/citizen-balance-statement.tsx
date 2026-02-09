@@ -360,6 +360,7 @@ export default function CitizenBalanceStatementPage() {
         formatNumber(ls.scheduleTotals.totalAmount),
       ]);
 
+      const scheduleTotalRowIdx = scheduleBody.length - 1;
       autoTable(doc, {
         startY: tableStartY + 2,
         head: [["No.", "Installment Date", "Principle", "Margin", "Total"]],
@@ -369,6 +370,12 @@ export default function CitizenBalanceStatementPage() {
         styles: { fontSize: 7, cellPadding: 1.5, lineWidth: 0.3, lineColor: [60, 120, 80] },
         headStyles: { fillColor: [60, 120, 80], textColor: 255, fontStyle: "bold" },
         footStyles: { fillColor: [200, 230, 210], fontStyle: "bold" },
+        didParseCell: (data: any) => {
+          if (data.section === "body" && data.row.index === scheduleTotalRowIdx) {
+            data.cell.styles.fontStyle = "bold";
+            data.cell.styles.fillColor = [200, 230, 210];
+          }
+        },
       });
 
       const actualBody = ls.actualPayments.map((a) => [
@@ -394,6 +401,8 @@ export default function CitizenBalanceStatementPage() {
         "",
       ]);
 
+      const actualTotalRowIdx = actualBody.length - 2;
+      const actualOutstandingRowIdx = actualBody.length - 1;
       autoTable(doc, {
         startY: tableStartY + 2,
         head: [["No.", "Payment Date", "Principle", "Margin", "Total", "PAR Days"]],
@@ -403,6 +412,16 @@ export default function CitizenBalanceStatementPage() {
         styles: { fontSize: 7, cellPadding: 1.5, lineWidth: 0.3, lineColor: [60, 120, 80] },
         headStyles: { fillColor: [60, 120, 80], textColor: 255, fontStyle: "bold" },
         footStyles: { fillColor: [200, 230, 210], fontStyle: "bold" },
+        didParseCell: (data: any) => {
+          if (data.section === "body" && data.row.index === actualTotalRowIdx) {
+            data.cell.styles.fontStyle = "bold";
+            data.cell.styles.fillColor = [200, 230, 210];
+          }
+          if (data.section === "body" && data.row.index === actualOutstandingRowIdx) {
+            data.cell.styles.fontStyle = "bold";
+            data.cell.styles.fillColor = [255, 243, 205];
+          }
+        },
       });
     });
 
