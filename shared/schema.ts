@@ -327,6 +327,16 @@ export const parCategories = pgTable("par_categories", {
   provisionPercent: decimal("provision_percent", { precision: 5, scale: 2 }).notNull(),
 });
 
+// Lookup Roles - manages available roles for user assignment
+export const lookupRoles = pgTable("lookup_roles", {
+  id: serial("id").primaryKey(),
+  value: varchar("value", { length: 100 }).notNull().unique(),
+  label: varchar("label", { length: 255 }).notNull(),
+  description: text("description"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Activity Logs
 export const activityLogs = pgTable("activity_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -363,6 +373,9 @@ export const insertDisbursementSchema = createInsertSchema(disbursements).omit({
 export const insertInstallmentSchema = createInsertSchema(installments).omit({ id: true, createdAt: true });
 export const insertActivityLogSchema = createInsertSchema(activityLogs).omit({ id: true, createdAt: true });
 export const insertParCategorySchema = createInsertSchema(parCategories).omit({ id: true });
+export const insertLookupRoleSchema = createInsertSchema(lookupRoles).omit({ id: true, createdAt: true });
+export type InsertLookupRole = z.infer<typeof insertLookupRoleSchema>;
+export type LookupRole = typeof lookupRoles.$inferSelect;
 
 // Types
 export type InsertUserRole = z.infer<typeof insertUserRoleSchema>;

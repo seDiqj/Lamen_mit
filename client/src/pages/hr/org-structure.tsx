@@ -103,7 +103,7 @@ function TreeNode({
             </div>
           )}
           <div className="font-semibold text-sm">{position.title}</div>
-          {posEmployees.length > 0 && (
+          {posEmployees.length > 0 ? (
             <div className="mt-2 pt-2 border-t space-y-1">
               {posEmployees.slice(0, 3).map(emp => (
                 <div key={emp.id} className="text-xs text-muted-foreground">
@@ -113,6 +113,12 @@ function TreeNode({
               {posEmployees.length > 3 && (
                 <div className="text-xs text-muted-foreground">+{posEmployees.length - 3} more</div>
               )}
+            </div>
+          ) : (
+            <div className="mt-2 pt-2 border-t">
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30" data-testid={`badge-vacant-${position.id}`}>
+                Vacant
+              </Badge>
             </div>
           )}
           {childPositions.length > 0 && (
@@ -522,7 +528,11 @@ function DepartmentNode({
             ))}
           </div>
         ) : (
-          <p className="text-xs text-muted-foreground mb-3">No employees assigned</p>
+          <div className="mb-3">
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30">
+                Vacant
+              </Badge>
+            </div>
         )}
         {children.map(child => renderPositionTree(child, level + 1))}
       </div>
@@ -601,9 +611,11 @@ export default function OrgStructurePage() {
     queryKey: ["/api/hr/positions"],
   });
 
-  const { data: employees = [], isLoading: loadingEmployees } = useQuery<Employee[]>({
+  const { data: allEmployees = [], isLoading: loadingEmployees } = useQuery<Employee[]>({
     queryKey: ["/api/hr/employees"],
   });
+
+  const employees = useMemo(() => allEmployees.filter(e => e.employmentStatus === "active"), [allEmployees]);
 
   const isLoading = loadingDepts || loadingPositions || loadingEmployees;
 
@@ -621,7 +633,7 @@ export default function OrgStructurePage() {
           </Badge>
           <Badge variant="outline" className="text-sm">
             <Users className="h-4 w-4 mr-1" />
-            {employees.length} Employees
+            {employees.length} Active Employees
           </Badge>
         </div>
       </div>
