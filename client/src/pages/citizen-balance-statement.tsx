@@ -213,10 +213,11 @@ export default function CitizenBalanceStatementPage() {
         ["No.", "Installment Date", "Principle", "Margin", "Total", "No.", "Payment Date", "Principle", "Margin", "Total", "PAR Days"],
       ];
 
-      const maxRows = Math.max(ls.schedule.length, ls.actualPayments.length);
+      const paidPaymentsExcel = ls.actualPayments.filter(a => a.totalAmount > 0 || (a.paymentDate && a.paymentDate !== ""));
+      const maxRows = Math.max(ls.schedule.length, paidPaymentsExcel.length);
       for (let i = 0; i < maxRows; i++) {
         const s = ls.schedule[i];
-        const a = ls.actualPayments[i];
+        const a = paidPaymentsExcel[i];
         wsData.push([
           s ? s.no : "",
           s ? formatDate(s.installmentDate) : "",
@@ -338,11 +339,12 @@ export default function CitizenBalanceStatementPage() {
       doc.text("Schedule", 14, tableStartY);
       doc.text("Actual Payment", 160, tableStartY);
 
-      const rowCount = Math.max(ls.schedule.length, ls.actualPayments.length);
+      const paidPayments = ls.actualPayments.filter(a => a.totalAmount > 0 || (a.paymentDate && a.paymentDate !== ""));
+      const rowCount = Math.max(ls.schedule.length, paidPayments.length);
       const combinedBody: any[][] = [];
       for (let i = 0; i < rowCount; i++) {
         const s = ls.schedule[i];
-        const a = ls.actualPayments[i];
+        const a = paidPayments[i];
         combinedBody.push([
           s ? s.no : "",
           s ? formatDate(s.installmentDate) : "",
@@ -829,7 +831,7 @@ export default function CitizenBalanceStatementPage() {
                               </tr>
                             </thead>
                             <tbody>
-                              {ls.actualPayments.map((a, idx) => (
+                              {ls.actualPayments.filter(a => a.totalAmount > 0 || (a.paymentDate && a.paymentDate !== "")).map((a, idx) => (
                                 <tr key={idx} className={idx % 2 === 0 ? "bg-background" : "bg-muted/30"}>
                                   <td className="px-2 py-1 border border-border text-center">{a.no}</td>
                                   <td className="px-2 py-1 border border-border">{a.paymentDate ? formatDate(a.paymentDate) : ""}</td>
