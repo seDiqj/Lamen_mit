@@ -1,7 +1,8 @@
 import { useState, useRef, useMemo, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   FileSpreadsheet,
@@ -11,8 +12,11 @@ import {
   Search,
   ChevronDown,
   X,
+  RefreshCw,
+  Wrench,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -47,6 +51,9 @@ type LoanStatement = {
     principleAmount: number;
     profit: number;
     totalReceivable: number;
+    requestAmount: number;
+    numberOfInstallments: number;
+    gracePeriod: number;
   };
   branch: { name: string; shortName?: string } | null;
   officer: { name: string } | null;
@@ -96,6 +103,8 @@ const formatDateTime = () => {
 export default function CitizenBalanceStatementPage() {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
   const [showReport, setShowReport] = useState(false);
+  const [showCleanup, setShowCleanup] = useState(false);
+  const [cleanupEdits, setCleanupEdits] = useState<Record<string, { requestAmount: string; principleAmount: string; marginRate: string; gracePeriod: string }>>({});
   const reportRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -118,6 +127,39 @@ export default function CitizenBalanceStatementPage() {
     queryKey: ["/api/auth/user"],
   });
 
+  const regenerateMutation = useMutation({
+    mutationFn: async ({ loanId, data }: { loanId: string; data: any }) => {
+      const res = await apiRequest("POST", `/api/loans/${loanId}/update-and-regenerate`, data);
+      return res.json();
+    },
+    onSuccess: (result) => {
+      toast({ title: "Installments Regenerated", description: result.message });
+      queryClient.invalidateQueries({ queryKey: ["/api/reports/citizen-balance-statement", selectedCustomerId] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to regenerate", variant: "destructive" });
+    },
+  });
+
+  useEffect(() => {
+    if (statementData?.loanStatements) {
+      const edits: Record<string, { requestAmount: string; principleAmount: string; marginRate: string; gracePeriod: string }> = {};
+      statementData.loanStatements.forEach((ls) => {
+        if (!cleanupEdits[ls.loan.id]) {
+          edits[ls.loan.id] = {
+            requestAmount: ls.loan.requestAmount.toString(),
+            principleAmount: ls.loan.principleAmount.toString(),
+            marginRate: ls.loan.marginRate.toString(),
+            gracePeriod: ls.loan.gracePeriod.toString(),
+          };
+        }
+      });
+      if (Object.keys(edits).length > 0) {
+        setCleanupEdits((prev) => ({ ...prev, ...edits }));
+      }
+    }
+  }, [statementData]);
+
   const handleView = () => {
     if (!selectedCustomerId) {
       toast({ title: "Select Customer", description: "Please select a customer first.", variant: "destructive" });
@@ -125,6 +167,19 @@ export default function CitizenBalanceStatementPage() {
     }
     setShowReport(true);
     refetch();
+  };
+
+  const handleGenerate = (loanId: string) => {
+    const edit = cleanupEdits[loanId];
+    if (!edit) return;
+    regenerateMutation.mutate({ loanId, data: edit });
+  };
+
+  const updateCleanupField = (loanId: string, field: string, value: string) => {
+    setCleanupEdits((prev) => ({
+      ...prev,
+      [loanId]: { ...prev[loanId], [field]: value },
+    }));
   };
 
   const exportToExcel = () => {
@@ -498,6 +553,91 @@ export default function CitizenBalanceStatementPage() {
           </CardContent>
         </Card>
       )}
+
+      {showReport && statementData && statementData.loanStatements.length > 0 && (
+        <div className="flex justify-end">
+          <Button
+            variant={showCleanup ? "default" : "outline"}
+            onClick={() => setShowCleanup(!showCleanup)}
+            data-testid="button-toggle-cleanup"
+          >
+            <Wrench className="h-4 w-4 mr-2" />
+            {showCleanup ? "Hide Data Cleanup" : "Data Cleanup"}
+          </Button>
+        </div>
+      )}
+
+      {showCleanup && showReport && statementData && statementData.loanStatements.map((ls, lsIdx) => {
+        const edit = cleanupEdits[ls.loan.id];
+        if (!edit) return null;
+        const editedPrincipal = parseFloat(edit.principleAmount) || 0;
+        const editedMargin = parseFloat(edit.marginRate) || 0;
+        const editedRate = editedMargin > 1 ? editedMargin / 100 : editedMargin;
+        const previewFinancingAmount = editedPrincipal + (editedPrincipal * editedRate);
+        return (
+          <Card key={`cleanup-${ls.loan.id}`}>
+            <CardContent className="p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <h3 className="text-sm font-bold text-green-700 dark:text-green-400" data-testid={`text-cleanup-title-${lsIdx}`}>
+                  Data Cleanup - {ls.loan.applicationId} (Cycle {ls.loan.financingCycle})
+                </h3>
+                <span className="text-xs text-muted-foreground">
+                  Installments: {ls.loan.numberOfInstallments} | Preview Financing Amount: {formatNumber(previewFinancingAmount)} AFN
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Request Amount</label>
+                  <Input
+                    type="number"
+                    value={edit.requestAmount}
+                    onChange={(e) => updateCleanupField(ls.loan.id, "requestAmount", e.target.value)}
+                    data-testid={`input-cleanup-request-${lsIdx}`}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Principle Amount</label>
+                  <Input
+                    type="number"
+                    value={edit.principleAmount}
+                    onChange={(e) => updateCleanupField(ls.loan.id, "principleAmount", e.target.value)}
+                    data-testid={`input-cleanup-principle-${lsIdx}`}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Margin Rate</label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={edit.marginRate}
+                    onChange={(e) => updateCleanupField(ls.loan.id, "marginRate", e.target.value)}
+                    data-testid={`input-cleanup-margin-${lsIdx}`}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Grace Period</label>
+                  <Input
+                    type="number"
+                    value={edit.gracePeriod}
+                    onChange={(e) => updateCleanupField(ls.loan.id, "gracePeriod", e.target.value)}
+                    data-testid={`input-cleanup-grace-${lsIdx}`}
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end mt-3">
+                <Button
+                  onClick={() => handleGenerate(ls.loan.id)}
+                  disabled={regenerateMutation.isPending}
+                  data-testid={`button-generate-${lsIdx}`}
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${regenerateMutation.isPending ? "animate-spin" : ""}`} />
+                  Generate
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })}
 
       {showReport && statementData && statementData.loanStatements.map((ls, lsIdx) => {
         const { date: nowDate, time: nowTime } = formatDateTime();

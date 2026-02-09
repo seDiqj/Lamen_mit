@@ -268,19 +268,7 @@ export default function InstallmentManagementPage() {
             Review and update installment amounts for disbursed financings
           </p>
         </div>
-        <Button
-          onClick={() => generateAllMutation.mutate()}
-          disabled={generateAllMutation.isPending}
-          variant="outline"
-          data-testid="button-generate-all-installments"
-        >
-          {generateAllMutation.isPending ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <RefreshCw className="mr-2 h-4 w-4" />
-          )}
-          {generateAllMutation.isPending ? "Generating..." : "Generate All Installments"}
-        </Button>
+{/* Generate All Installments button hidden - use Data Cleanup in Citizen Balance Statement page instead */}
       </div>
 
       <Card>

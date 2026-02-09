@@ -4777,6 +4777,127 @@ export async function registerRoutes(
     }
   });
 
+  // Update loan fields and regenerate installments (data cleanup)
+  app.post("/api/loans/:loanId/update-and-regenerate", isAuthenticated, requireRole("manager", "admin"), async (req: any, res) => {
+    try {
+      const { loanId } = req.params;
+      const { requestAmount, principleAmount, marginRate, gracePeriod } = req.body;
+
+      const loan = await storage.getLoan(loanId);
+      if (!loan) return res.status(404).json({ message: "Loan not found" });
+
+      const parsedPrincipal = parseFloat(principleAmount);
+      const parsedMarginRate = parseFloat(marginRate);
+      const parsedGracePeriod = parseInt(gracePeriod);
+      const parsedRequestAmount = parseFloat(requestAmount);
+
+      const updatedPrincipal = !isNaN(parsedPrincipal) && parsedPrincipal >= 0 ? parsedPrincipal : parseFloat(loan.principleAmount || "0");
+      const updatedMarginRate = !isNaN(parsedMarginRate) && parsedMarginRate >= 0 ? parsedMarginRate : parseFloat(loan.marginRate || "0");
+      const updatedGracePeriod = !isNaN(parsedGracePeriod) && parsedGracePeriod >= 0 ? parsedGracePeriod : (loan.gracePeriod || 0);
+      const updatedRequestAmount = !isNaN(parsedRequestAmount) && parsedRequestAmount >= 0 ? parsedRequestAmount : parseFloat(loan.requestAmount || "0");
+      const numInstallments = loan.numberOfInstallments || 12;
+
+      const rate = updatedMarginRate > 1 ? updatedMarginRate / 100 : updatedMarginRate;
+      const profitTotal = updatedPrincipal * rate;
+      const grandTotal = updatedPrincipal + profitTotal;
+
+      await db.update(loans).set({
+        requestAmount: updatedRequestAmount.toFixed(2),
+        principleAmount: updatedPrincipal.toFixed(2),
+        marginRate: updatedMarginRate.toString(),
+        gracePeriod: updatedGracePeriod,
+        profit: profitTotal.toFixed(2),
+        totalReceivable: grandTotal.toFixed(2),
+        updatedAt: new Date(),
+      }).where(eq(loans.id, loanId));
+
+      const existingInstallments = await storage.getInstallmentsByLoan(loanId);
+      const disbursement = await storage.getDisbursementByLoan(loanId);
+
+      const principalInstallments = numInstallments - updatedGracePeriod;
+      const principalPerInst = principalInstallments > 0 ? updatedPrincipal / principalInstallments : 0;
+      const marginPerInst = numInstallments > 0 ? profitTotal / numInstallments : 0;
+
+      const roundedPrincipalPerInst = Math.round(principalPerInst * 100) / 100;
+      const roundedMarginPerInst = Math.round(marginPerInst * 100) / 100;
+      const principalRemainder = Math.round((updatedPrincipal - (roundedPrincipalPerInst * principalInstallments)) * 100) / 100;
+      const marginRemainder = Math.round((profitTotal - (roundedMarginPerInst * numInstallments)) * 100) / 100;
+
+      let created = 0;
+      let updated = 0;
+
+      for (let i = 1; i <= numInstallments; i++) {
+        const isGrace = i <= updatedGracePeriod;
+        const isFirstPrincipal = updatedGracePeriod > 0 ? (i === updatedGracePeriod + 1) : (i === 1);
+
+        let instPrincipal: number, instMargin: number, instTotal: number;
+        if (isGrace) {
+          instPrincipal = 0;
+          instMargin = (i === 1) ? roundedMarginPerInst + marginRemainder : roundedMarginPerInst;
+          instTotal = instMargin;
+        } else if (isFirstPrincipal) {
+          instPrincipal = roundedPrincipalPerInst + principalRemainder;
+          instMargin = (updatedGracePeriod === 0 && i === 1) ? roundedMarginPerInst + marginRemainder : roundedMarginPerInst;
+          instTotal = instPrincipal + instMargin;
+        } else {
+          instPrincipal = roundedPrincipalPerInst;
+          instMargin = roundedMarginPerInst;
+          instTotal = instPrincipal + instMargin;
+        }
+
+        let dueDate: string | null = null;
+        if (disbursement?.firstInstallmentDate) {
+          const firstDate = new Date(disbursement.firstInstallmentDate);
+          firstDate.setMonth(firstDate.getMonth() + (i - 1));
+          dueDate = firstDate.toISOString().split("T")[0];
+        }
+
+        const existingInst = existingInstallments.find((inst: any) => inst.installmentNumber === i);
+        if (existingInst) {
+          await storage.updateInstallmentAmounts(existingInst.id, {
+            principleAmount: instPrincipal.toFixed(2),
+            marginAmount: instMargin.toFixed(2),
+            totalAmount: instTotal.toFixed(2),
+          });
+          updated++;
+        } else {
+          await storage.createInstallment({
+            loanId,
+            installmentNumber: i,
+            dueDate,
+            principleAmount: instPrincipal.toFixed(2),
+            marginAmount: instMargin.toFixed(2),
+            totalAmount: instTotal.toFixed(2),
+            paidAmount: "0",
+            installmentVariance: null,
+            paymentDate: null,
+            lateDays: null,
+            isPaid: false,
+          });
+          created++;
+        }
+      }
+
+      await storage.createActivityLog({
+        userId: req.user?.id || "system",
+        action: "loan_data_cleanup",
+        entity: "loan",
+        entityId: loanId,
+        details: `Updated loan fields and regenerated ${created + updated} installments (created: ${created}, updated: ${updated})`,
+        ipAddress: req.ip || "",
+      });
+
+      res.json({
+        message: `Loan updated and ${created + updated} installments processed (created: ${created}, updated: ${updated}).`,
+        created,
+        updated,
+      });
+    } catch (error: any) {
+      console.error("Error in update-and-regenerate:", error);
+      res.status(500).json({ message: "Failed to update loan", error: error.message });
+    }
+  });
+
   // Citizen Balance Statement Report
   app.get("/api/reports/citizen-balance-statement/:customerId", isAuthenticated, async (req, res) => {
     try {
@@ -4847,6 +4968,9 @@ export async function registerRoutes(
             principleAmount: parseFloat(loan.principleAmount as string || "0"),
             profit: parseFloat(loan.profit as string || "0"),
             totalReceivable: parseFloat(loan.totalReceivable as string || "0"),
+            requestAmount: parseFloat(loan.requestAmount as string || "0"),
+            numberOfInstallments: loan.numberOfInstallments || 12,
+            gracePeriod: loan.gracePeriod || 0,
           },
           branch: branch ? { name: branch.name, shortName: branch.shortName } : null,
           officer: officer ? { name: officer.name } : null,
