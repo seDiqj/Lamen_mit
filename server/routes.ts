@@ -1035,6 +1035,202 @@ export async function registerRoutes(
     }
   });
 
+  // GET /api/loans/disbursed - Get all disbursed loans for installment management
+  app.get("/api/loans/disbursed", isAuthenticated, async (req, res) => {
+    try {
+      const search = req.query.search as string | undefined;
+      const branchId = req.query.branchId as string | undefined;
+      const results = await storage.getDisbursedLoans({ search, branchId });
+      res.json(results);
+    } catch (error: any) {
+      res.status(500).json({ message: "Failed to fetch disbursed loans", error: error.message });
+    }
+  });
+
+  // GET /api/loans/:id/installment-schedule - Calculate schedule and return installments
+  app.get("/api/loans/:id/installment-schedule", isAuthenticated, async (req: any, res) => {
+    try {
+      const loanId = req.params.id;
+      const loan = await storage.getLoan(loanId);
+      if (!loan) return res.status(404).json({ message: "Loan not found" });
+
+      const customer = loan.customerId ? await storage.getCustomer(loan.customerId) : null;
+      const branch = loan.branchId ? await storage.getBranch(loan.branchId) : null;
+      const disbursement = await storage.getDisbursementByLoan(loanId);
+      const existingInstallments = await storage.getInstallmentsByLoan(loanId);
+
+      const principalAmount = parseFloat(loan.principleAmount || "0");
+      const marginRate = parseFloat(loan.marginRate || "0");
+      const numInstallments = loan.numberOfInstallments || existingInstallments.length || 12;
+
+      const principalPerInstallment = principalAmount > 0 ? principalAmount / numInstallments : 0;
+
+      const calculatedSchedule = [];
+      let remainingPrincipal = principalAmount;
+      const monthlyRate = marginRate > 1 ? marginRate / 100 / 12 : marginRate / 12;
+
+      for (let i = 1; i <= numInstallments; i++) {
+        const marginForInstallment = remainingPrincipal * monthlyRate;
+        const totalForInstallment = principalPerInstallment + marginForInstallment;
+        remainingPrincipal -= principalPerInstallment;
+
+        calculatedSchedule.push({
+          installmentNumber: i,
+          calculatedPrincipal: Math.round(principalPerInstallment * 100) / 100,
+          calculatedMargin: Math.round(marginForInstallment * 100) / 100,
+          calculatedTotal: Math.round(totalForInstallment * 100) / 100,
+        });
+      }
+
+      const mergedInstallments = existingInstallments.map((inst: any) => {
+        const calc = calculatedSchedule.find((c: any) => c.installmentNumber === inst.installmentNumber);
+        return {
+          id: inst.id,
+          installmentNumber: inst.installmentNumber,
+          dueDate: inst.dueDate,
+          currentPrincipal: inst.principleAmount ? parseFloat(inst.principleAmount) : null,
+          currentMargin: inst.marginAmount ? parseFloat(inst.marginAmount) : null,
+          currentTotal: inst.totalAmount ? parseFloat(inst.totalAmount) : null,
+          calculatedPrincipal: calc?.calculatedPrincipal || 0,
+          calculatedMargin: calc?.calculatedMargin || 0,
+          calculatedTotal: calc?.calculatedTotal || 0,
+          paidAmount: parseFloat(inst.paidAmount || "0"),
+          isPaid: inst.isPaid || false,
+          paymentDate: inst.paymentDate,
+          lateDays: inst.lateDays,
+          hasNullAmounts: inst.principleAmount === null || inst.marginAmount === null,
+        };
+      });
+
+      for (const calc of calculatedSchedule) {
+        const exists = existingInstallments.find((inst: any) => inst.installmentNumber === calc.installmentNumber);
+        if (!exists) {
+          let dueDate: string | null = null;
+          if (disbursement?.firstInstallmentDate) {
+            const firstDate = new Date(disbursement.firstInstallmentDate);
+            firstDate.setMonth(firstDate.getMonth() + (calc.installmentNumber - 1));
+            dueDate = firstDate.toISOString().split("T")[0];
+          }
+
+          const created = await storage.createInstallment({
+            loanId,
+            installmentNumber: calc.installmentNumber,
+            dueDate,
+            principleAmount: null,
+            marginAmount: null,
+            totalAmount: null,
+            paidAmount: "0",
+            installmentVariance: null,
+            paymentDate: null,
+            lateDays: null,
+            isPaid: false,
+          });
+
+          mergedInstallments.push({
+            id: created.id,
+            installmentNumber: calc.installmentNumber,
+            dueDate,
+            currentPrincipal: null,
+            currentMargin: null,
+            currentTotal: null,
+            calculatedPrincipal: calc.calculatedPrincipal,
+            calculatedMargin: calc.calculatedMargin,
+            calculatedTotal: calc.calculatedTotal,
+            paidAmount: 0,
+            isPaid: false,
+            paymentDate: null,
+            lateDays: null,
+            hasNullAmounts: true,
+          });
+        }
+      }
+
+      mergedInstallments.sort((a: any, b: any) => a.installmentNumber - b.installmentNumber);
+
+      const totalNullCount = mergedInstallments.filter((i: any) => i.hasNullAmounts).length;
+      const totalPaidCount = mergedInstallments.filter((i: any) => i.isPaid).length;
+
+      res.json({
+        loan: {
+          id: loan.id,
+          applicationId: loan.applicationId,
+          principalAmount,
+          marginRate,
+          numberOfInstallments: numInstallments,
+          status: loan.status,
+          productName: loan.productName,
+        },
+        customer: customer ? {
+          id: customer.id,
+          name: `${customer.firstName || ""} ${customer.lastName || ""}`.trim(),
+          customerNo: customer.customerNo,
+        } : null,
+        branch: branch ? { id: branch.id, name: branch.name } : null,
+        disbursement: disbursement ? {
+          disbursementDate: disbursement.disbursementDate,
+          firstInstallmentDate: disbursement.firstInstallmentDate,
+          maturityDate: disbursement.maturityDate,
+        } : null,
+        installments: mergedInstallments,
+        summary: {
+          totalInstallments: mergedInstallments.length,
+          nullAmountCount: totalNullCount,
+          paidCount: totalPaidCount,
+          unpaidCount: mergedInstallments.length - totalPaidCount,
+        },
+      });
+    } catch (error: any) {
+      console.error("Error calculating installment schedule:", error);
+      res.status(500).json({ message: "Failed to calculate schedule", error: error.message });
+    }
+  });
+
+  // PATCH /api/installments/bulk-update - Update principle/margin for unpaid installments
+  app.patch("/api/installments/bulk-update", isAuthenticated, async (req: any, res) => {
+    try {
+      const { updates } = req.body;
+      if (!Array.isArray(updates) || updates.length === 0) {
+        return res.status(400).json({ message: "No updates provided" });
+      }
+
+      const results = [];
+      let updatedCount = 0;
+      let skippedCount = 0;
+
+      for (const update of updates) {
+        const { id, principleAmount, marginAmount } = update;
+        if (!id) { skippedCount++; continue; }
+
+        const existing = await storage.getInstallmentById(id);
+        if (!existing) { skippedCount++; continue; }
+
+        if (existing.isPaid) {
+          skippedCount++;
+          results.push({ id, status: "skipped", reason: "already paid" });
+          continue;
+        }
+
+        const principal = parseFloat(principleAmount || "0");
+        const margin = parseFloat(marginAmount || "0");
+        const total = Math.round((principal + margin) * 100) / 100;
+
+        await storage.updateInstallmentAmounts(id, {
+          principleAmount: principal.toFixed(2),
+          marginAmount: margin.toFixed(2),
+          totalAmount: total.toFixed(2),
+        });
+
+        updatedCount++;
+        results.push({ id, status: "updated" });
+      }
+
+      res.json({ message: `Updated ${updatedCount} installments, skipped ${skippedCount}`, updatedCount, skippedCount, results });
+    } catch (error: any) {
+      console.error("Error bulk updating installments:", error);
+      res.status(500).json({ message: "Failed to update installments", error: error.message });
+    }
+  });
+
   app.get("/api/loans/:id", isAuthenticated, async (req, res) => {
     try {
       const loan = await storage.getLoan(req.params.id);
@@ -4558,215 +4754,6 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Error fetching citizen balance statement:", error);
       res.status(500).json({ message: "Failed to fetch balance statement", error: error.message });
-    }
-  });
-
-  // ============ INSTALLMENT SCHEDULE MANAGEMENT ============
-
-  // GET /api/loans/disbursed - Get all disbursed loans for installment management
-  app.get("/api/loans/disbursed", async (req: Request, res: Response) => {
-    try {
-      if (!req.isAuthenticated() || !req.user) return res.status(401).json({ message: "Unauthorized" });
-      const search = req.query.search as string | undefined;
-      const branchId = req.query.branchId as string | undefined;
-      const results = await storage.getDisbursedLoans({ search, branchId });
-      res.json(results);
-    } catch (error: any) {
-      res.status(500).json({ message: "Failed to fetch disbursed loans", error: error.message });
-    }
-  });
-
-  // GET /api/loans/:id/installment-schedule - Calculate schedule and return installments
-  app.get("/api/loans/:id/installment-schedule", async (req: Request, res: Response) => {
-    try {
-      if (!req.isAuthenticated() || !req.user) return res.status(401).json({ message: "Unauthorized" });
-
-      const loanId = req.params.id;
-      const loan = await storage.getLoan(loanId);
-      if (!loan) return res.status(404).json({ message: "Loan not found" });
-
-      const customer = loan.customerId ? await storage.getCustomer(loan.customerId) : null;
-      const branch = loan.branchId ? await storage.getBranch(loan.branchId) : null;
-      const disbursement = await storage.getDisbursementByLoan(loanId);
-      const existingInstallments = await storage.getInstallmentsByLoan(loanId);
-
-      const principalAmount = parseFloat(loan.principleAmount || "0");
-      const marginRate = parseFloat(loan.marginRate || "0");
-      const numInstallments = loan.numberOfInstallments || existingInstallments.length || 12;
-
-      // Calculate equal principal installments
-      const principalPerInstallment = principalAmount > 0 ? principalAmount / numInstallments : 0;
-
-      // Margin calculation: declining balance method
-      // Each installment's margin = remaining principal * (marginRate / 12)
-      const calculatedSchedule = [];
-      let remainingPrincipal = principalAmount;
-      const monthlyRate = marginRate > 1 ? marginRate / 100 / 12 : marginRate / 12;
-
-      for (let i = 1; i <= numInstallments; i++) {
-        const marginForInstallment = remainingPrincipal * monthlyRate;
-        const totalForInstallment = principalPerInstallment + marginForInstallment;
-        remainingPrincipal -= principalPerInstallment;
-
-        calculatedSchedule.push({
-          installmentNumber: i,
-          calculatedPrincipal: Math.round(principalPerInstallment * 100) / 100,
-          calculatedMargin: Math.round(marginForInstallment * 100) / 100,
-          calculatedTotal: Math.round(totalForInstallment * 100) / 100,
-        });
-      }
-
-      // Merge existing installments with calculated values
-      const mergedInstallments = existingInstallments.map((inst: any) => {
-        const calc = calculatedSchedule.find((c: any) => c.installmentNumber === inst.installmentNumber);
-        return {
-          id: inst.id,
-          installmentNumber: inst.installmentNumber,
-          dueDate: inst.dueDate,
-          currentPrincipal: inst.principleAmount ? parseFloat(inst.principleAmount) : null,
-          currentMargin: inst.marginAmount ? parseFloat(inst.marginAmount) : null,
-          currentTotal: inst.totalAmount ? parseFloat(inst.totalAmount) : null,
-          calculatedPrincipal: calc?.calculatedPrincipal || 0,
-          calculatedMargin: calc?.calculatedMargin || 0,
-          calculatedTotal: calc?.calculatedTotal || 0,
-          paidAmount: parseFloat(inst.paidAmount || "0"),
-          isPaid: inst.isPaid || false,
-          paymentDate: inst.paymentDate,
-          lateDays: inst.lateDays,
-          hasNullAmounts: inst.principleAmount === null || inst.marginAmount === null,
-        };
-      });
-
-      // Create missing installment rows in DB so they get IDs and can be saved
-      for (const calc of calculatedSchedule) {
-        const exists = existingInstallments.find((inst: any) => inst.installmentNumber === calc.installmentNumber);
-        if (!exists) {
-          // Compute dueDate based on first installment date + monthly offset
-          let dueDate: string | null = null;
-          if (disbursement?.firstInstallmentDate) {
-            const firstDate = new Date(disbursement.firstInstallmentDate);
-            firstDate.setMonth(firstDate.getMonth() + (calc.installmentNumber - 1));
-            dueDate = firstDate.toISOString().split("T")[0];
-          }
-
-          const created = await storage.createInstallment({
-            loanId,
-            installmentNumber: calc.installmentNumber,
-            dueDate,
-            principleAmount: null,
-            marginAmount: null,
-            totalAmount: null,
-            paidAmount: "0",
-            installmentVariance: null,
-            paymentDate: null,
-            lateDays: null,
-            isPaid: false,
-          });
-
-          mergedInstallments.push({
-            id: created.id,
-            installmentNumber: calc.installmentNumber,
-            dueDate,
-            currentPrincipal: null,
-            currentMargin: null,
-            currentTotal: null,
-            calculatedPrincipal: calc.calculatedPrincipal,
-            calculatedMargin: calc.calculatedMargin,
-            calculatedTotal: calc.calculatedTotal,
-            paidAmount: 0,
-            isPaid: false,
-            paymentDate: null,
-            lateDays: null,
-            hasNullAmounts: true,
-          });
-        }
-      }
-
-      mergedInstallments.sort((a: any, b: any) => a.installmentNumber - b.installmentNumber);
-
-      const totalNullCount = mergedInstallments.filter((i: any) => i.hasNullAmounts).length;
-      const totalPaidCount = mergedInstallments.filter((i: any) => i.isPaid).length;
-
-      res.json({
-        loan: {
-          id: loan.id,
-          applicationId: loan.applicationId,
-          principalAmount: principalAmount,
-          marginRate: marginRate,
-          numberOfInstallments: numInstallments,
-          status: loan.status,
-          productName: loan.productName,
-        },
-        customer: customer ? {
-          id: customer.id,
-          name: `${customer.firstName || ""} ${customer.lastName || ""}`.trim(),
-          customerNo: customer.customerNo,
-        } : null,
-        branch: branch ? { id: branch.id, name: branch.name } : null,
-        disbursement: disbursement ? {
-          disbursementDate: disbursement.disbursementDate,
-          firstInstallmentDate: disbursement.firstInstallmentDate,
-          maturityDate: disbursement.maturityDate,
-        } : null,
-        installments: mergedInstallments,
-        summary: {
-          totalInstallments: mergedInstallments.length,
-          nullAmountCount: totalNullCount,
-          paidCount: totalPaidCount,
-          unpaidCount: mergedInstallments.length - totalPaidCount,
-        },
-      });
-    } catch (error: any) {
-      console.error("Error calculating installment schedule:", error);
-      res.status(500).json({ message: "Failed to calculate schedule", error: error.message });
-    }
-  });
-
-  // PATCH /api/installments/bulk-update - Update principle/margin for unpaid installments
-  app.patch("/api/installments/bulk-update", async (req: Request, res: Response) => {
-    try {
-      if (!req.isAuthenticated() || !req.user) return res.status(401).json({ message: "Unauthorized" });
-
-      const { updates } = req.body;
-      if (!Array.isArray(updates) || updates.length === 0) {
-        return res.status(400).json({ message: "No updates provided" });
-      }
-
-      const results = [];
-      let updatedCount = 0;
-      let skippedCount = 0;
-
-      for (const update of updates) {
-        const { id, principleAmount, marginAmount } = update;
-        if (!id) { skippedCount++; continue; }
-
-        const existing = await storage.getInstallmentById(id);
-        if (!existing) { skippedCount++; continue; }
-
-        if (existing.isPaid) {
-          skippedCount++;
-          results.push({ id, status: "skipped", reason: "already paid" });
-          continue;
-        }
-
-        const principal = parseFloat(principleAmount || "0");
-        const margin = parseFloat(marginAmount || "0");
-        const total = Math.round((principal + margin) * 100) / 100;
-
-        await storage.updateInstallmentAmounts(id, {
-          principleAmount: principal.toFixed(2),
-          marginAmount: margin.toFixed(2),
-          totalAmount: total.toFixed(2),
-        });
-
-        updatedCount++;
-        results.push({ id, status: "updated" });
-      }
-
-      res.json({ message: `Updated ${updatedCount} installments, skipped ${skippedCount}`, updatedCount, skippedCount, results });
-    } catch (error: any) {
-      console.error("Error bulk updating installments:", error);
-      res.status(500).json({ message: "Failed to update installments", error: error.message });
     }
   });
 
