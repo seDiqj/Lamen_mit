@@ -4444,6 +4444,123 @@ export async function registerRoutes(
     }
   });
 
+  // Citizen Balance Statement Report
+  app.get("/api/reports/citizen-balance-statement/:customerId", isAuthenticated, async (req, res) => {
+    try {
+      const { customerId } = req.params;
+      const customer = await storage.getCustomer(customerId);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      const allLoans = await storage.getLoansByCustomer(customerId);
+      const customerBusiness = await storage.getCustomerBusinessByCustomerId(customerId);
+      const loanStatements = [];
+
+      for (const loan of allLoans) {
+        const branch = loan.branchId ? await storage.getBranch(loan.branchId) : null;
+        const officer = loan.financeOfficerId ? await storage.getFinanceOfficer(loan.financeOfficerId) : null;
+        const disbursement = await storage.getDisbursementByLoan(loan.id);
+        const installmentsList = await storage.getInstallmentsByLoan(loan.id);
+
+        let branchManager = "";
+        if (branch) {
+          const branchOfficers = await storage.getFinanceOfficersByBranch(branch.id);
+          if (branchOfficers.length > 0) {
+            branchManager = branchOfficers[0]?.name || "";
+          }
+        }
+
+        const schedule = installmentsList.map((inst: any, idx: number) => ({
+          no: inst.installmentNumber || (idx + 1),
+          installmentDate: inst.dueDate,
+          principleAmount: parseFloat(inst.principleAmount || "0"),
+          marginAmount: parseFloat(inst.marginAmount || "0"),
+          totalAmount: parseFloat(inst.totalAmount || "0"),
+        }));
+
+        const actualPayments = installmentsList.map((inst: any, idx: number) => ({
+          no: inst.installmentNumber || (idx + 1),
+          paymentDate: inst.paymentDate || null,
+          principleAmount: inst.isPaid || parseFloat(inst.paidAmount || "0") > 0
+            ? parseFloat(inst.principleAmount || "0") * (Math.min(parseFloat(inst.paidAmount || "0"), parseFloat(inst.totalAmount || "0")) / parseFloat(inst.totalAmount || "1"))
+            : 0,
+          marginAmount: inst.isPaid || parseFloat(inst.paidAmount || "0") > 0
+            ? parseFloat(inst.marginAmount || "0") * (Math.min(parseFloat(inst.paidAmount || "0"), parseFloat(inst.totalAmount || "0")) / parseFloat(inst.totalAmount || "1"))
+            : 0,
+          totalAmount: parseFloat(inst.paidAmount || "0"),
+          isPaid: inst.isPaid,
+          arears: Math.max(0, parseFloat(inst.totalAmount || "0") - parseFloat(inst.paidAmount || "0")),
+        }));
+
+        const scheduleTotalPrinciple = schedule.reduce((s: number, r: any) => s + r.principleAmount, 0);
+        const scheduleTotalMargin = schedule.reduce((s: number, r: any) => s + r.marginAmount, 0);
+        const scheduleTotalAmount = schedule.reduce((s: number, r: any) => s + r.totalAmount, 0);
+
+        const actualTotalPrinciple = actualPayments.reduce((s: number, r: any) => s + r.principleAmount, 0);
+        const actualTotalMargin = actualPayments.reduce((s: number, r: any) => s + r.marginAmount, 0);
+        const actualTotalAmount = actualPayments.reduce((s: number, r: any) => s + r.totalAmount, 0);
+        const totalArears = actualPayments.reduce((s: number, r: any) => s + r.arears, 0);
+
+        loanStatements.push({
+          loan: {
+            id: loan.id,
+            applicationId: loan.applicationId,
+            productName: loan.productName || "Murabeha",
+            financingCycle: loan.financingCycle || 1,
+            financingAmount: parseFloat(loan.requestAmount as string || "0"),
+            marginRate: parseFloat(loan.marginRate as string || "0"),
+            status: loan.status,
+            principleAmount: parseFloat(loan.principleAmount as string || "0"),
+            profit: parseFloat(loan.profit as string || "0"),
+            totalReceivable: parseFloat(loan.totalReceivable as string || "0"),
+          },
+          branch: branch ? { name: branch.name, shortName: branch.shortName } : null,
+          officer: officer ? { name: officer.name } : null,
+          branchManager,
+          disbursement: disbursement ? {
+            disbursementDate: disbursement.disbursementDate,
+            firstInstallmentDate: disbursement.firstInstallmentDate,
+            maturityDate: disbursement.maturityDate,
+          } : null,
+          province: customerBusiness?.province || customer.district || "",
+          district: customerBusiness?.district || customer.district || "",
+          schedule,
+          actualPayments,
+          scheduleTotals: {
+            principleAmount: scheduleTotalPrinciple,
+            marginAmount: scheduleTotalMargin,
+            totalAmount: scheduleTotalAmount,
+          },
+          actualTotals: {
+            principleAmount: actualTotalPrinciple,
+            marginAmount: actualTotalMargin,
+            totalAmount: actualTotalAmount,
+            arears: totalArears,
+          },
+          outstanding: {
+            principleAmount: scheduleTotalPrinciple - actualTotalPrinciple,
+            marginAmount: scheduleTotalMargin - actualTotalMargin,
+            totalAmount: scheduleTotalAmount - actualTotalAmount,
+          },
+        });
+      }
+
+      res.json({
+        customer: {
+          id: customer.id,
+          customerNo: customer.customerNo,
+          name: `${customer.firstName || ""} ${customer.lastName || ""}`.trim(),
+          fatherName: customer.fatherName || "",
+        },
+        loanStatements,
+      });
+    } catch (error: any) {
+      console.error("Error fetching citizen balance statement:", error);
+      res.status(500).json({ message: "Failed to fetch balance statement", error: error.message });
+    }
+  });
+
   // Seed data on startup
   try {
     await storage.seedData();

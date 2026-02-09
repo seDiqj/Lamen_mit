@@ -42,6 +42,7 @@ import {
   Target,
   GraduationCap,
   Heart,
+  ClipboardCheck,
 } from "lucide-react";
 import lamenLogo from "@assets/LamenLogo_1769936371528.jpeg";
 
@@ -73,6 +74,7 @@ const PAGE_URL_TO_NAME: Record<string, string> = {
   "/loans": "loans",
   "/loan-application": "loan-application",
   "/reports": "reports",
+  "/citizen-balance-statement": "citizen-balance-statement",
   "/par-report": "par-report",
   "/activity": "activity-logs",
   "/settings": "settings",
@@ -256,6 +258,7 @@ export function IconRailNav({ children }: IconRailNavProps) {
       bgColor: "from-orange-500 to-red-500",
       items: [
         { title: "Analytics", url: "/reports", icon: BarChart3, iconColor: "text-amber-500" },
+        { title: "Balance Statement", url: "/citizen-balance-statement", icon: ClipboardCheck, iconColor: "text-green-500" },
         { title: "PAR Report", url: "/par-report", icon: AlertTriangle, iconColor: "text-red-500" },
         { title: "Activity Log", url: "/activity", icon: Activity, iconColor: "text-lime-500" },
       ],

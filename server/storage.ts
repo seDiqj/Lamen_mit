@@ -250,6 +250,13 @@ export interface IStorage {
   markInstallmentPaid(id: string): Promise<Installment>;
   getCollectionInstallments(filters: { filter?: string; branch?: string; officer?: string; search?: string; page?: number; limit?: number }): Promise<{ installments: any[]; total: number; summary: any }>;
   recordPartialPayment(id: string, amount: number): Promise<Installment>;
+
+  // Citizen Balance Statement helpers
+  getLoansByCustomer(customerId: string): Promise<any[]>;
+  getDisbursementByLoan(loanId: string): Promise<any>;
+  getInstallmentsByLoan(loanId: string): Promise<any[]>;
+  getFinanceOfficersByBranch(branchId: string): Promise<any[]>;
+  getFinanceOfficer(id: string): Promise<any>;
   
   // Activity Logs
   getActivityLogs(filters: { search?: string; action?: string; page?: number; limit?: number }): Promise<{ logs: any[]; total: number }>;
@@ -1317,6 +1324,28 @@ export class DatabaseStorage implements IStorage {
     const [{ count: total }] = await db.select({ count: count() }).from(installments);
 
     return { installments: results, total: Number(total) };
+  }
+
+  async getLoansByCustomer(customerId: string): Promise<any[]> {
+    return db.select().from(loans).where(eq(loans.customerId, customerId)).orderBy(loans.createdAt);
+  }
+
+  async getDisbursementByLoan(loanId: string): Promise<any> {
+    const [result] = await db.select().from(disbursements).where(eq(disbursements.loanId, loanId));
+    return result || null;
+  }
+
+  async getInstallmentsByLoan(loanId: string): Promise<any[]> {
+    return db.select().from(installments).where(eq(installments.loanId, loanId)).orderBy(installments.installmentNumber);
+  }
+
+  async getFinanceOfficersByBranch(branchId: string): Promise<any[]> {
+    return db.select().from(financeOfficers).where(eq(financeOfficers.branchId, branchId));
+  }
+
+  async getFinanceOfficer(id: string): Promise<any> {
+    const [result] = await db.select().from(financeOfficers).where(eq(financeOfficers.id, id));
+    return result || null;
   }
 
   async markInstallmentPaid(id: string): Promise<Installment> {
