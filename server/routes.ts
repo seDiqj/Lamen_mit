@@ -1773,7 +1773,7 @@ export async function registerRoutes(
       const maturityDate = new Date(firstInstallmentDate);
       maturityDate.setMonth(maturityDate.getMonth() + duration - 1);
       
-      await storage.disburseLoan(req.params.id, {
+      const result = await storage.disburseLoan(req.params.id, {
         disbursementDate: today.toISOString().split("T")[0],
         firstInstallmentDate: firstInstallmentDate.toISOString().split("T")[0],
         maturityDate: maturityDate.toISOString().split("T")[0],
@@ -1781,7 +1781,7 @@ export async function registerRoutes(
       });
       
       await logActivity(req, "disburse_loan", "loan", req.params.id, `Disbursed loan: ${loan.applicationId}`);
-      res.json({ message: "Loan disbursed successfully" });
+      res.json({ message: "Loan disbursed successfully", installmentsCreated: result.installmentsCreated });
     } catch (error) {
       console.error("Error disbursing loan:", error);
       res.status(500).json({ message: "Failed to disburse loan" });
