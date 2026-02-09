@@ -1071,6 +1071,7 @@ export class DatabaseStorage implements IStorage {
       if (!loan) throw new Error("Loan not found");
 
       const numInstallments = loan.numberOfInstallments || loan.financingDurationMonths || 12;
+      const durationMonths = loan.financingDurationMonths || numInstallments;
       const gracePeriod = loan.gracePeriod || 0;
       const principalTotal = parseFloat(loan.principleAmount || loan.requestAmount || "0");
       let profitTotal = parseFloat(loan.profit || "0");
@@ -1078,7 +1079,7 @@ export class DatabaseStorage implements IStorage {
       if (profitTotal === 0 && principalTotal > 0) {
         const marginRate = parseFloat(loan.marginRate || "0");
         const rate = marginRate > 1 ? marginRate / 100 : marginRate;
-        profitTotal = principalTotal * rate;
+        profitTotal = (principalTotal * rate / 12) * durationMonths;
       }
 
       const grandTotal = principalTotal + profitTotal;
@@ -1174,6 +1175,7 @@ export class DatabaseStorage implements IStorage {
         });
 
         const numInstallments = loan.numberOfInstallments || duration;
+        const durationMonths = loan.financingDurationMonths || duration;
         const gracePeriod = loan.gracePeriod || 0;
         const principalTotal = parseFloat(loan.principleAmount || loan.requestAmount || "0");
         let profitTotal = parseFloat(loan.profit || "0");
@@ -1181,7 +1183,7 @@ export class DatabaseStorage implements IStorage {
         if (profitTotal === 0 && principalTotal > 0) {
           const marginRate = parseFloat(loan.marginRate || "0");
           const rate = marginRate > 1 ? marginRate / 100 : marginRate;
-          profitTotal = principalTotal * rate;
+          profitTotal = (principalTotal * rate / 12) * durationMonths;
         }
 
         const grandTotalReceivable = principalTotal + profitTotal;

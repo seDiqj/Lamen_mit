@@ -1260,10 +1260,11 @@ export async function registerRoutes(
         const numInstallments = loan.numberOfInstallments || existingInstallments.length || 12;
         const gracePeriod = loan.gracePeriod || 0;
 
+        const durationMonths = loan.financingDurationMonths || numInstallments;
         let profitTotal = parseFloat(loan.profit || "0");
         if (profitTotal === 0 && principalAmount > 0) {
           const rate = marginRate > 1 ? marginRate / 100 : marginRate;
-          profitTotal = principalAmount * rate;
+          profitTotal = (principalAmount * rate / 12) * durationMonths;
         }
         const grandTotal = principalAmount + profitTotal;
 
