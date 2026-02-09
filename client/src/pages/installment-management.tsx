@@ -14,6 +14,8 @@ import {
   Lock,
   AlertTriangle,
   CheckCircle2,
+  RefreshCw,
+  Loader2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -93,6 +95,23 @@ export default function InstallmentManagementPage() {
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message || "Failed to save", variant: "destructive" });
+    },
+  });
+
+  const generateAllMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/installments/generate-all");
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({ title: "Generation Complete", description: data.message });
+      queryClient.invalidateQueries({ queryKey: ["/api/loans/disbursed"] });
+      if (selectedLoanId) {
+        queryClient.invalidateQueries({ queryKey: ["/api/loans", selectedLoanId, "installment-schedule"] });
+      }
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to generate installments", variant: "destructive" });
     },
   });
 
@@ -249,6 +268,19 @@ export default function InstallmentManagementPage() {
             Review and update installment amounts for disbursed financings
           </p>
         </div>
+        <Button
+          onClick={() => generateAllMutation.mutate()}
+          disabled={generateAllMutation.isPending}
+          variant="outline"
+          data-testid="button-generate-all-installments"
+        >
+          {generateAllMutation.isPending ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <RefreshCw className="mr-2 h-4 w-4" />
+          )}
+          {generateAllMutation.isPending ? "Generating..." : "Generate All Installments"}
+        </Button>
       </div>
 
       <Card>

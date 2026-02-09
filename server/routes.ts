@@ -1242,6 +1242,84 @@ export async function registerRoutes(
     }
   });
 
+  // POST /api/installments/generate-all - Generate missing installments for all disbursed loans
+  app.post("/api/installments/generate-all", isAuthenticated, async (req: any, res) => {
+    try {
+      const allLoans = await db.select().from(loans).where(eq(loans.status, "disbursed"));
+      let totalCreated = 0;
+      let totalSkipped = 0;
+      const loanResults: any[] = [];
+
+      for (const loan of allLoans) {
+        const existingInstallments = await storage.getInstallmentsByLoan(loan.id);
+        const disbursement = await storage.getDisbursementByLoan(loan.id);
+
+        const principalAmount = parseFloat(loan.principleAmount || "0");
+        const marginRate = parseFloat(loan.marginRate || "0");
+        const numInstallments = loan.numberOfInstallments || existingInstallments.length || 12;
+
+        const principalPerInstallment = principalAmount > 0 ? principalAmount / numInstallments : 0;
+        let remainingPrincipal = principalAmount;
+        const monthlyRate = marginRate > 1 ? marginRate / 100 / 12 : marginRate / 12;
+
+        let createdForLoan = 0;
+        let skippedForLoan = 0;
+
+        for (let i = 1; i <= numInstallments; i++) {
+          const existingInst = existingInstallments.find((inst: any) => inst.installmentNumber === i);
+          if (existingInst) {
+            remainingPrincipal -= principalPerInstallment;
+            skippedForLoan++;
+            continue;
+          }
+
+          const marginForInstallment = remainingPrincipal * monthlyRate;
+          const totalForInstallment = principalPerInstallment + marginForInstallment;
+          remainingPrincipal -= principalPerInstallment;
+
+          let dueDate: string | null = null;
+          if (disbursement?.firstInstallmentDate) {
+            const firstDate = new Date(disbursement.firstInstallmentDate);
+            firstDate.setMonth(firstDate.getMonth() + (i - 1));
+            dueDate = firstDate.toISOString().split("T")[0];
+          }
+
+          await storage.createInstallment({
+            loanId: loan.id,
+            installmentNumber: i,
+            dueDate,
+            principleAmount: (Math.round(principalPerInstallment * 100) / 100).toFixed(2),
+            marginAmount: (Math.round(marginForInstallment * 100) / 100).toFixed(2),
+            totalAmount: (Math.round(totalForInstallment * 100) / 100).toFixed(2),
+            paidAmount: "0",
+            installmentVariance: null,
+            paymentDate: null,
+            lateDays: null,
+            isPaid: false,
+          });
+          createdForLoan++;
+        }
+
+        totalCreated += createdForLoan;
+        totalSkipped += skippedForLoan;
+        if (createdForLoan > 0) {
+          loanResults.push({ applicationId: loan.applicationId, loanId: loan.id, created: createdForLoan, existing: skippedForLoan });
+        }
+      }
+
+      res.json({
+        message: `Generated installments for ${allLoans.length} loans. Created ${totalCreated}, skipped ${totalSkipped} existing.`,
+        totalLoans: allLoans.length,
+        totalCreated,
+        totalSkipped,
+        loanResults,
+      });
+    } catch (error: any) {
+      console.error("Error generating all installments:", error);
+      res.status(500).json({ message: "Failed to generate installments", error: error.message });
+    }
+  });
+
   app.get("/api/loans/:id", isAuthenticated, async (req, res) => {
     try {
       const loan = await storage.getLoan(req.params.id);
