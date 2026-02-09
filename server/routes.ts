@@ -4942,20 +4942,20 @@ export async function registerRoutes(
           const totalAmount = parseFloat(inst.totalAmount || "0");
           const isFullyPaid = inst.isPaid || paidAmount >= totalAmount;
 
+          const hasPaid = paidAmount > 0;
+
           let parDays = 0;
-          if (dueDate) {
+          if (hasPaid && dueDate) {
             dueDate.setHours(0, 0, 0, 0);
-            if (isFullyPaid && paymentDate) {
+            if (paymentDate) {
               paymentDate.setHours(0, 0, 0, 0);
               if (paymentDate > dueDate) {
                 parDays = Math.floor((paymentDate.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
               }
-            } else if (!isFullyPaid && dueDate < today) {
+            } else if (dueDate < today) {
               parDays = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
             }
           }
-
-          const hasPaid = paidAmount > 0;
 
           return {
             no: inst.installmentNumber || (idx + 1),
