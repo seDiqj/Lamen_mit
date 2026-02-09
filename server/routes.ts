@@ -4940,9 +4940,11 @@ export async function registerRoutes(
           const paymentDate = inst.paymentDate ? new Date(inst.paymentDate) : null;
           const paidAmount = parseFloat(inst.paidAmount || "0");
           const totalAmount = parseFloat(inst.totalAmount || "0");
-          const isFullyPaid = inst.isPaid || paidAmount >= totalAmount;
+          const principleAmt = parseFloat(inst.principleAmount || "0");
+          const marginAmt = parseFloat(inst.marginAmount || "0");
 
-          const hasPaid = paidAmount > 0;
+          const hasPaid = paidAmount > 0 || (inst.isPaid && paymentDate);
+          const effectivePaidAmount = paidAmount > 0 ? paidAmount : (hasPaid ? totalAmount : 0);
 
           let parDays = 0;
           if (hasPaid && dueDate) {
@@ -4957,16 +4959,14 @@ export async function registerRoutes(
             }
           }
 
+          const paymentRatio = totalAmount > 0 ? Math.min(effectivePaidAmount, totalAmount) / totalAmount : 0;
+
           return {
             no: inst.installmentNumber || (idx + 1),
             paymentDate: hasPaid ? (inst.paymentDate || null) : null,
-            principleAmount: hasPaid
-              ? parseFloat(inst.principleAmount || "0") * (Math.min(paidAmount, totalAmount) / (totalAmount || 1))
-              : 0,
-            marginAmount: hasPaid
-              ? parseFloat(inst.marginAmount || "0") * (Math.min(paidAmount, totalAmount) / (totalAmount || 1))
-              : 0,
-            totalAmount: paidAmount,
+            principleAmount: hasPaid ? principleAmt * paymentRatio : 0,
+            marginAmount: hasPaid ? marginAmt * paymentRatio : 0,
+            totalAmount: effectivePaidAmount,
             isPaid: inst.isPaid,
             arears: parDays,
           };
