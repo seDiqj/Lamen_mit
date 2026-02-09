@@ -4955,7 +4955,7 @@ export async function registerRoutes(
             }
           }
 
-          const hasPaid = inst.isPaid || paidAmount > 0;
+          const hasPaid = paidAmount > 0;
 
           return {
             no: inst.installmentNumber || (idx + 1),
