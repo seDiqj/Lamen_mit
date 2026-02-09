@@ -1,20 +1,16 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   FileSpreadsheet,
   FileText,
   Eye,
   Printer,
+  Search,
+  ChevronDown,
+  X,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from "xlsx";
@@ -345,6 +341,35 @@ export default function CitizenBalanceStatementPage() {
 
   const customerList = Array.isArray(customers) ? customers : (customers as any)?.customers || [];
 
+  const [searchTerm, setSearchTerm] = useState("");
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const getCustomerLabel = (c: any) =>
+    `${c.firstName} ${c.lastName}${c.fatherName ? ` - ${c.fatherName}` : ""} (${c.customerNo || "N/A"})`;
+
+  const filteredCustomers = useMemo(() => {
+    if (!searchTerm.trim()) return customerList;
+    const lower = searchTerm.toLowerCase();
+    return customerList.filter((c: any) => getCustomerLabel(c).toLowerCase().includes(lower));
+  }, [customerList, searchTerm]);
+
+  const selectedCustomerLabel = useMemo(() => {
+    if (!selectedCustomerId) return "";
+    const found = customerList.find((c: any) => c.id === selectedCustomerId);
+    return found ? getCustomerLabel(found) : "";
+  }, [selectedCustomerId, customerList]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -361,24 +386,70 @@ export default function CitizenBalanceStatementPage() {
       <Card>
         <CardContent className="p-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4">
-            <div className="flex-1 min-w-[250px]">
+            <div className="flex-1 min-w-[250px] relative" ref={dropdownRef}>
               <label className="text-sm font-medium mb-2 block">Select Customer</label>
-              <Select value={selectedCustomerId} onValueChange={(v) => { setSelectedCustomerId(v); setShowReport(false); }}>
-                <SelectTrigger data-testid="select-customer">
-                  <SelectValue placeholder="Choose a customer..." />
-                </SelectTrigger>
-                <SelectContent>
+              <div
+                className="flex items-center border rounded-md bg-background cursor-pointer"
+                onClick={() => setDropdownOpen(!dropdownOpen)}
+                data-testid="select-customer"
+              >
+                <Search className="ml-3 h-4 w-4 text-muted-foreground shrink-0" />
+                <input
+                  type="text"
+                  className="flex-1 px-3 py-2 text-sm bg-transparent outline-none placeholder:text-muted-foreground"
+                  placeholder={selectedCustomerId ? selectedCustomerLabel : "Search customer..."}
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setDropdownOpen(true);
+                  }}
+                  onFocus={() => setDropdownOpen(true)}
+                  onClick={(e) => e.stopPropagation()}
+                  data-testid="input-search-customer"
+                />
+                {selectedCustomerId && !searchTerm && (
+                  <button
+                    className="mr-1 p-1 rounded-sm hover-elevate"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedCustomerId("");
+                      setSearchTerm("");
+                      setShowReport(false);
+                    }}
+                    data-testid="button-clear-customer"
+                  >
+                    <X className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                )}
+                <ChevronDown className="mr-3 h-4 w-4 text-muted-foreground shrink-0" />
+              </div>
+              {dropdownOpen && (
+                <div className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-md border bg-popover shadow-md">
                   {customersLoading ? (
-                    <SelectItem value="loading" disabled>Loading...</SelectItem>
+                    <div className="p-3 text-sm text-muted-foreground">Loading...</div>
+                  ) : filteredCustomers.length === 0 ? (
+                    <div className="p-3 text-sm text-muted-foreground">No customers found</div>
                   ) : (
-                    customerList.map((c: any) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.firstName} {c.lastName} {c.fatherName ? `- ${c.fatherName}` : ""} ({c.customerNo || "N/A"})
-                      </SelectItem>
+                    filteredCustomers.map((c: any) => (
+                      <div
+                        key={c.id}
+                        className={`px-3 py-2 text-sm cursor-pointer hover-elevate ${
+                          c.id === selectedCustomerId ? "bg-primary text-primary-foreground" : ""
+                        }`}
+                        onClick={() => {
+                          setSelectedCustomerId(c.id);
+                          setSearchTerm("");
+                          setDropdownOpen(false);
+                          setShowReport(false);
+                        }}
+                        data-testid={`option-customer-${c.id}`}
+                      >
+                        {getCustomerLabel(c)}
+                      </div>
                     ))
                   )}
-                </SelectContent>
-              </Select>
+                </div>
+              )}
             </div>
             <Button onClick={handleView} className="bg-blue-600 text-white" data-testid="button-view-statement">
               <Eye className="mr-2 h-4 w-4" />
