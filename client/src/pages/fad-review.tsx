@@ -182,6 +182,15 @@ export default function FadReviewPage() {
   const { data: branches = [] } = useQuery<Branch[]>({ queryKey: ["/api/branches"] });
   const { data: financeOfficers = [] } = useQuery<FinanceOfficer[]>({ queryKey: ["/api/finance-officers"] });
   const { data: pendingLoansData, isLoading } = useQuery<{ loans: LoanWithDetails[]; total: number }>({
+    queryKey: ["/api/loans", "data_quality_review"],
+    queryFn: async () => {
+      const res = await fetch("/api/loans?status=data_quality_review&limit=100");
+      if (!res.ok) throw new Error("Failed to fetch loans");
+      return res.json();
+    },
+  });
+
+  const { data: newLoansData } = useQuery<{ loans: LoanWithDetails[]; total: number }>({
     queryKey: ["/api/loans", "pending"],
     queryFn: async () => {
       const res = await fetch("/api/loans?status=pending&limit=100");
@@ -190,7 +199,7 @@ export default function FadReviewPage() {
     },
   });
 
-  const pendingLoans = pendingLoansData?.loans || [];
+  const pendingLoans = [...(pendingLoansData?.loans || []), ...(newLoansData?.loans || [])];
 
   const { data: reviewedLoansData } = useQuery<{ loans: LoanWithDetails[]; total: number }>({
     queryKey: ["/api/loans", "committee_review"],
@@ -321,7 +330,7 @@ export default function FadReviewPage() {
         title: "Review Submitted",
         description: variables.status === "approved" 
           ? "Financing application has been forwarded for Risk Compliance review."
-          : "Financing application has been rejected.",
+          : "Financing application has been sent back to Finance Officer with comments.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/loans"] });
       setSelectedLoanId(null);

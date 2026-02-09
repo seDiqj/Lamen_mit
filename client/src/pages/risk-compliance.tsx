@@ -120,7 +120,7 @@ export default function RiskCompliancePage() {
         title: variables.status === "approved" ? "Approved" : "Rejected",
         description: variables.status === "approved" 
           ? "Application passed to Committee for voting." 
-          : "Application has been rejected.",
+          : "Application has been sent back to FAD with comments.",
       });
       setSelectedLoanId(null);
       setCurrentStep(1);
