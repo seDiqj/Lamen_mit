@@ -4801,15 +4801,14 @@ export async function registerRoutes(
       const profitTotal = updatedPrincipal * rate;
       const grandTotal = updatedPrincipal + profitTotal;
 
-      await db.update(loans).set({
+      await storage.updateLoan(loanId, {
         requestAmount: updatedRequestAmount.toFixed(2),
         principleAmount: updatedPrincipal.toFixed(2),
         marginRate: updatedMarginRate.toString(),
         gracePeriod: updatedGracePeriod,
         profit: profitTotal.toFixed(2),
         totalReceivable: grandTotal.toFixed(2),
-        updatedAt: new Date(),
-      }).where(eq(loans.id, loanId));
+      });
 
       const existingInstallments = await storage.getInstallmentsByLoan(loanId);
       const disbursement = await storage.getDisbursementByLoan(loanId);
