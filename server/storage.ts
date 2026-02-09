@@ -260,7 +260,7 @@ export interface IStorage {
 
   // Installment management
   getInstallmentById(id: string): Promise<any>;
-  updateInstallmentAmounts(id: string, data: { principleAmount: string; marginAmount: string; totalAmount: string }): Promise<any>;
+  updateInstallmentAmounts(id: string, data: { principleAmount: string; marginAmount: string; totalAmount: string; isPaid?: boolean; paymentDate?: string | null; paidAmount?: string }): Promise<any>;
   createInstallment(data: any): Promise<any>;
   getDisbursedLoans(filters?: { search?: string; branchId?: string }): Promise<any[]>;
   
@@ -1364,14 +1364,19 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  async updateInstallmentAmounts(id: string, data: { principleAmount: string; marginAmount: string; totalAmount: string }): Promise<any> {
+  async updateInstallmentAmounts(id: string, data: { principleAmount: string; marginAmount: string; totalAmount: string; isPaid?: boolean; paymentDate?: string | null; paidAmount?: string }): Promise<any> {
+    const setData: any = {
+      principleAmount: data.principleAmount,
+      marginAmount: data.marginAmount,
+      totalAmount: data.totalAmount,
+    };
+    if (data.isPaid !== undefined) setData.isPaid = data.isPaid;
+    if (data.paymentDate !== undefined) setData.paymentDate = data.paymentDate;
+    if (data.paidAmount !== undefined) setData.paidAmount = data.paidAmount;
+
     const [result] = await db
       .update(installments)
-      .set({
-        principleAmount: data.principleAmount,
-        marginAmount: data.marginAmount,
-        totalAmount: data.totalAmount,
-      })
+      .set(setData)
       .where(eq(installments.id, id))
       .returning();
     return result;

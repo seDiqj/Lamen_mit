@@ -1185,7 +1185,7 @@ export async function registerRoutes(
       let skippedCount = 0;
 
       for (const update of updates) {
-        const { id, loanId, installmentNumber, dueDate, principleAmount, marginAmount } = update;
+        const { id, loanId, installmentNumber, dueDate, principleAmount, marginAmount, isPaid } = update;
 
         const principal = parseFloat(principleAmount || "0");
         const margin = parseFloat(marginAmount || "0");
@@ -1203,7 +1203,7 @@ export async function registerRoutes(
             installmentVariance: null,
             paymentDate: null,
             lateDays: null,
-            isPaid: false,
+            isPaid: isPaid === true,
           });
           createdCount++;
           results.push({ id: created.id, status: "created" });
@@ -1215,17 +1215,21 @@ export async function registerRoutes(
         const existing = await storage.getInstallmentById(id);
         if (!existing) { skippedCount++; continue; }
 
-        if (existing.isPaid) {
-          skippedCount++;
-          results.push({ id, status: "skipped", reason: "already paid" });
-          continue;
-        }
-
-        await storage.updateInstallmentAmounts(id, {
+        const updateData: any = {
           principleAmount: principal.toFixed(2),
           marginAmount: margin.toFixed(2),
           totalAmount: total.toFixed(2),
-        });
+        };
+
+        if (isPaid !== undefined) {
+          updateData.isPaid = isPaid;
+          updateData.paymentDate = isPaid ? new Date().toISOString().split("T")[0] : null;
+          if (!isPaid) {
+            updateData.paidAmount = "0";
+          }
+        }
+
+        await storage.updateInstallmentAmounts(id, updateData);
 
         updatedCount++;
         results.push({ id, status: "updated" });

@@ -69,7 +69,7 @@ export default function InstallmentManagementPage() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [showSchedule, setShowSchedule] = useState(false);
-  const [editedRows, setEditedRows] = useState<Record<string, { principal: string; margin: string }>>({});
+  const [editedRows, setEditedRows] = useState<Record<string, { principal: string; margin: string; isPaid?: boolean }>>({});
   const [applyCalculated, setApplyCalculated] = useState(false);
 
   const { data: disbursedLoans, isLoading: loansLoading } = useQuery<any[]>({
@@ -157,7 +157,21 @@ export default function InstallmentManagementPage() {
       [id]: {
         principal: prev[id]?.principal || "",
         margin: prev[id]?.margin || "",
+        isPaid: prev[id]?.isPaid,
         [field]: value,
+      },
+    }));
+  };
+
+  const handleTogglePaid = (inst: InstallmentRow) => {
+    const key = getRowKey(inst);
+    const currentlyPaid = editedRows[key]?.isPaid !== undefined ? editedRows[key].isPaid : inst.isPaid;
+    setEditedRows((prev) => ({
+      ...prev,
+      [key]: {
+        principal: prev[key]?.principal || (inst.currentPrincipal !== null ? inst.currentPrincipal.toFixed(2) : ""),
+        margin: prev[key]?.margin || (inst.currentMargin !== null ? inst.currentMargin.toFixed(2) : ""),
+        isPaid: !currentlyPaid,
       },
     }));
   };
@@ -165,7 +179,7 @@ export default function InstallmentManagementPage() {
   const handleSave = () => {
     if (!scheduleData) return;
     const updates = Object.entries(editedRows)
-      .filter(([_, v]) => v.principal || v.margin)
+      .filter(([_, v]) => v.principal || v.margin || v.isPaid !== undefined)
       .map(([key, v]) => {
         const isNew = key.startsWith("new_");
         if (isNew) {
@@ -178,12 +192,14 @@ export default function InstallmentManagementPage() {
             dueDate: inst?.dueDate || null,
             principleAmount: v.principal,
             marginAmount: v.margin,
+            isPaid: v.isPaid,
           };
         }
         return {
           id: key,
           principleAmount: v.principal,
           marginAmount: v.margin,
+          isPaid: v.isPaid,
         };
       });
 
@@ -441,26 +457,50 @@ export default function InstallmentManagementPage() {
                             {formatAFN(inst.paidAmount)}
                           </td>
                           <td className="px-4 py-2 text-center">
-                            {inst.isPaid ? (
-                              <Badge variant="default" className="bg-green-600 text-white">
-                                <Lock className="mr-1 h-3 w-3" />
-                                Paid
-                              </Badge>
-                            ) : inst.hasNullAmounts ? (
-                              <Badge variant="outline" className="border-amber-500 text-amber-700">
-                                <AlertTriangle className="mr-1 h-3 w-3" />
-                                Missing
-                              </Badge>
-                            ) : isModified ? (
-                              <Badge variant="outline" className="border-blue-500 text-blue-700">
-                                Modified
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline">
-                                <CheckCircle2 className="mr-1 h-3 w-3" />
-                                Set
-                              </Badge>
-                            )}
+                            {(() => {
+                              const effectivePaid = editedRows[rowKey]?.isPaid !== undefined ? editedRows[rowKey].isPaid : inst.isPaid;
+                              const paidChanged = editedRows[rowKey]?.isPaid !== undefined && editedRows[rowKey].isPaid !== inst.isPaid;
+                              if (effectivePaid) {
+                                return (
+                                  <Badge
+                                    variant="default"
+                                    className={`cursor-pointer ${paidChanged ? "bg-green-500 ring-2 ring-blue-400" : "bg-green-600"} text-white`}
+                                    onClick={() => handleTogglePaid(inst)}
+                                    data-testid={`badge-paid-${inst.installmentNumber}`}
+                                  >
+                                    <Lock className="mr-1 h-3 w-3" />
+                                    Paid
+                                  </Badge>
+                                );
+                              }
+                              return (
+                                <Badge
+                                  variant="outline"
+                                  className={`cursor-pointer ${paidChanged ? "border-red-400 text-red-600 ring-2 ring-blue-400" : inst.hasNullAmounts ? "border-amber-500 text-amber-700" : isModified ? "border-blue-500 text-blue-700" : ""}`}
+                                  onClick={() => handleTogglePaid(inst)}
+                                  data-testid={`badge-unpaid-${inst.installmentNumber}`}
+                                >
+                                  {paidChanged ? (
+                                    <>
+                                      <AlertTriangle className="mr-1 h-3 w-3" />
+                                      Unpaid
+                                    </>
+                                  ) : inst.hasNullAmounts ? (
+                                    <>
+                                      <AlertTriangle className="mr-1 h-3 w-3" />
+                                      Missing
+                                    </>
+                                  ) : isModified ? (
+                                    "Modified"
+                                  ) : (
+                                    <>
+                                      <CheckCircle2 className="mr-1 h-3 w-3" />
+                                      Set
+                                    </>
+                                  )}
+                                </Badge>
+                              );
+                            })()}
                           </td>
                         </tr>
                       );
