@@ -257,6 +257,12 @@ export interface IStorage {
   getInstallmentsByLoan(loanId: string): Promise<any[]>;
   getFinanceOfficersByBranch(branchId: string): Promise<any[]>;
   getFinanceOfficer(id: string): Promise<any>;
+
+  // Installment management
+  getInstallmentById(id: string): Promise<any>;
+  updateInstallmentAmounts(id: string, data: { principleAmount: string; marginAmount: string; totalAmount: string }): Promise<any>;
+  createInstallment(data: any): Promise<any>;
+  getDisbursedLoans(filters?: { search?: string; branchId?: string }): Promise<any[]>;
   
   // Activity Logs
   getActivityLogs(filters: { search?: string; action?: string; page?: number; limit?: number }): Promise<{ logs: any[]; total: number }>;
@@ -1346,6 +1352,65 @@ export class DatabaseStorage implements IStorage {
   async getFinanceOfficer(id: string): Promise<any> {
     const [result] = await db.select().from(financeOfficers).where(eq(financeOfficers.id, id));
     return result || null;
+  }
+
+  async getInstallmentById(id: string): Promise<any> {
+    const [result] = await db.select().from(installments).where(eq(installments.id, id));
+    return result || null;
+  }
+
+  async createInstallment(data: any): Promise<any> {
+    const [result] = await db.insert(installments).values(data).returning();
+    return result;
+  }
+
+  async updateInstallmentAmounts(id: string, data: { principleAmount: string; marginAmount: string; totalAmount: string }): Promise<any> {
+    const [result] = await db
+      .update(installments)
+      .set({
+        principleAmount: data.principleAmount,
+        marginAmount: data.marginAmount,
+        totalAmount: data.totalAmount,
+      })
+      .where(eq(installments.id, id))
+      .returning();
+    return result;
+  }
+
+  async getDisbursedLoans(filters?: { search?: string; branchId?: string }): Promise<any[]> {
+    let query = db
+      .select({
+        loan: loans,
+        customer: customers,
+        branch: branches,
+      })
+      .from(loans)
+      .leftJoin(customers, eq(loans.customerId, customers.id))
+      .leftJoin(branches, eq(loans.branchId, branches.id))
+      .where(eq(loans.status, "disbursed"));
+
+    const results = await query.orderBy(loans.createdAt);
+    
+    let filtered = results;
+    if (filters?.search) {
+      const s = filters.search.toLowerCase();
+      filtered = results.filter((r: any) => {
+        const customerName = `${r.customer?.firstName || ""} ${r.customer?.lastName || ""}`.toLowerCase();
+        const appId = (r.loan.applicationId || "").toLowerCase();
+        const customerNo = (r.customer?.customerNo || "").toLowerCase();
+        return customerName.includes(s) || appId.includes(s) || customerNo.includes(s);
+      });
+    }
+    if (filters?.branchId) {
+      filtered = filtered.filter((r: any) => r.loan.branchId === filters.branchId);
+    }
+
+    return filtered.map((r: any) => ({
+      ...r.loan,
+      customerName: `${r.customer?.firstName || ""} ${r.customer?.lastName || ""}`.trim(),
+      customerNo: r.customer?.customerNo || "",
+      branchName: r.branch?.name || "",
+    }));
   }
 
   async markInstallmentPaid(id: string): Promise<Installment> {
