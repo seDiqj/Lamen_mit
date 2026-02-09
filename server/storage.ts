@@ -1064,7 +1064,9 @@ export class DatabaseStorage implements IStorage {
 
   async disburseLoan(loanId: string, disbursementData: InsertDisbursement): Promise<{ installmentsCreated: number }> {
     let installmentsCreated = 0;
+    console.log("disburseLoan called with:", { loanId, disbursementData });
     await db.transaction(async (tx) => {
+      console.log("Inserting disbursement record...");
       await tx.insert(disbursements).values({ ...disbursementData, loanId });
 
       const [loan] = await tx.select().from(loans).where(eq(loans.id, loanId));

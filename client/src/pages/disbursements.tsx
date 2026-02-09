@@ -97,10 +97,10 @@ export default function DisbursementsPage() {
       setShowDisburseDialog(false);
       setSelectedLoan(null);
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
-        description: "Failed to disburse loan. Please try again.",
+        description: error.message || "Failed to disburse loan. Please try again.",
         variant: "destructive",
       });
     },
