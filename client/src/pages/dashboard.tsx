@@ -55,6 +55,8 @@ type DashboardStats = {
   totalDisbursed: number;
   totalPortfolio: number;
   totalCollected: number;
+  principalCollected: number;
+  marginCollected: number;
   outstandingBalance: number;
   overdueLoans: number;
   loansByStatus: { status: string; count: number; requestedAmount: number }[];
@@ -140,6 +142,11 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; border: string; 
   },
 };
 
+type StatCardBreakdown = {
+  label: string;
+  value: string;
+};
+
 type StatCardProps = {
   title: string;
   value: string;
@@ -149,6 +156,7 @@ type StatCardProps = {
   loading?: boolean;
   gradient: string;
   iconBg: string;
+  breakdown?: StatCardBreakdown[];
 };
 
 function StatCard({
@@ -160,7 +168,11 @@ function StatCard({
   loading,
   gradient,
   iconBg,
+  breakdown,
 }: StatCardProps) {
+  const [expanded, setExpanded] = useState(false);
+  const isClickable = breakdown && breakdown.length > 0;
+
   if (loading) {
     return (
       <Card className="overflow-hidden">
@@ -178,7 +190,11 @@ function StatCard({
   }
 
   return (
-    <Card className="overflow-hidden border-0 shadow-lg">
+    <Card
+      className={`overflow-hidden border-0 shadow-lg ${isClickable ? "cursor-pointer" : ""}`}
+      onClick={isClickable ? () => setExpanded(!expanded) : undefined}
+      data-testid={`card-stat-${title.toLowerCase().replace(/\s+/g, '-')}`}
+    >
       <div className={`h-1 ${gradient}`} />
       <CardContent className="p-5">
         <div className="flex items-center justify-between gap-4">
@@ -202,6 +218,21 @@ function StatCard({
             <Icon className="h-7 w-7 text-white" />
           </div>
         </div>
+        {isClickable && expanded && (
+          <div className="mt-3 pt-3 border-t border-dashed space-y-1.5">
+            {breakdown.map((item, idx) => (
+              <div key={idx} className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">{item.label}</span>
+                <span className="font-semibold" data-testid={`text-breakdown-${item.label.toLowerCase().replace(/\s+/g, '-')}`}>{item.value}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        {isClickable && (
+          <p className="text-[10px] text-muted-foreground mt-2 text-center">
+            {expanded ? "Click to collapse" : "Click for details"}
+          </p>
+        )}
       </CardContent>
     </Card>
   );
@@ -360,6 +391,10 @@ export default function Dashboard() {
           loading={isLoading}
           gradient="bg-gradient-to-r from-green-500 to-lime-500"
           iconBg="bg-gradient-to-br from-green-500 to-lime-600"
+          breakdown={[
+            { label: "Principal Amount", value: formatCurrency(stats?.principalCollected || 0) },
+            { label: "Profit (Margin)", value: formatCurrency(stats?.marginCollected || 0) },
+          ]}
         />
         <StatCard
           title="Outstanding Balance"

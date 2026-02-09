@@ -78,6 +78,8 @@ type SummaryInstallment = {
   loanId: string;
   installmentNumber: number;
   totalAmount?: string;
+  principleAmount?: string;
+  marginAmount?: string;
   isPaid: boolean;
 };
 
@@ -112,6 +114,7 @@ export default function PaymentsPage() {
   const [showPayDialog, setShowPayDialog] = useState(false);
   const [showCorrectDialog, setShowCorrectDialog] = useState(false);
   const [activeTab, setActiveTab] = useState("list");
+  const [repaidExpanded, setRepaidExpanded] = useState(false);
   const limit = 10;
 
   const queryClient = useQueryClient();
@@ -177,6 +180,10 @@ export default function PaymentsPage() {
   const totalOutstanding = totalPortfolio - totalRepaidAll;
   const totalDisbursed = filteredLoans.reduce((sum, l) => sum + calcFinancing(l).principal, 0);
   const totalProfit = filteredLoans.reduce((sum, l) => sum + parseFloat(l.profit || "0"), 0);
+
+  const paidInstallmentsAll = allInstallments.filter((i) => i.isPaid);
+  const totalPrincipalRepaid = paidInstallmentsAll.reduce((sum, i) => sum + parseFloat(i.principleAmount || "0"), 0);
+  const totalMarginRepaid = paidInstallmentsAll.reduce((sum, i) => sum + parseFloat(i.marginAmount || "0"), 0);
 
   const markPaidMutation = useMutation({
     mutationFn: async (installmentId: string) => {
@@ -650,7 +657,11 @@ export default function PaymentsPage() {
                   </div>
                 </CardContent>
               </Card>
-              <Card>
+              <Card
+                className="cursor-pointer"
+                onClick={() => setRepaidExpanded(!repaidExpanded)}
+                data-testid="card-total-repaid"
+              >
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-xl bg-green-500/10 flex items-center justify-center">
@@ -661,6 +672,21 @@ export default function PaymentsPage() {
                       <p className="text-lg font-bold text-green-700 dark:text-green-400" data-testid="text-total-repaid">{formatAFN(totalRepaidAll)}</p>
                     </div>
                   </div>
+                  {repaidExpanded && (
+                    <div className="mt-3 pt-3 border-t border-dashed space-y-1.5">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Principal Amount</span>
+                        <span className="font-semibold" data-testid="text-repaid-principal">{formatAFN(totalPrincipalRepaid)}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Profit (Margin)</span>
+                        <span className="font-semibold" data-testid="text-repaid-margin">{formatAFN(totalMarginRepaid)}</span>
+                      </div>
+                    </div>
+                  )}
+                  <p className="text-[10px] text-muted-foreground mt-2 text-center">
+                    {repaidExpanded ? "Click to collapse" : "Click for details"}
+                  </p>
                 </CardContent>
               </Card>
               <Card>

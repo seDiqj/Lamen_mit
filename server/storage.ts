@@ -1525,6 +1525,8 @@ export class DatabaseStorage implements IStorage {
     const [collectedResult] = await db
       .select({
         totalCollected: sql<number>`COALESCE(SUM(${installments.totalAmount}::numeric), 0)`,
+        principalCollected: sql<number>`COALESCE(SUM(${installments.principleAmount}::numeric), 0)`,
+        marginCollected: sql<number>`COALESCE(SUM(${installments.marginAmount}::numeric), 0)`,
       })
       .from(installments)
       .where(eq(installments.isPaid, true));
@@ -1586,6 +1588,8 @@ export class DatabaseStorage implements IStorage {
       totalDisbursed: Number(amounts.totalDisbursed),
       totalPortfolio: Number(amounts.totalPortfolio),
       totalCollected: Number(collectedResult.totalCollected),
+      principalCollected: Number(collectedResult.principalCollected),
+      marginCollected: Number(collectedResult.marginCollected),
       outstandingBalance: Number(amounts.totalPortfolio) - Number(collectedResult.totalCollected),
       overdueLoans: 0,
       loansByStatus: loansByStatus.map(s => ({ status: s.status || "pending", count: Number(s.count), requestedAmount: Number(s.requestedAmount) })),
