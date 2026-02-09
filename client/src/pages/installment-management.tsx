@@ -346,14 +346,15 @@ export default function InstallmentManagementPage() {
                   {scheduleData.customer?.name || "Unknown"} — {scheduleData.loan.applicationId}
                 </CardTitle>
                 <p className="text-sm text-muted-foreground mt-1">
+                  {scheduleData.loan.productName && <span className="font-medium">{scheduleData.loan.productName} | </span>}
                   Principal: {formatAFN(scheduleData.loan.principalAmount)} AFN | Margin Rate: {scheduleData.loan.marginRate > 1 ? scheduleData.loan.marginRate : (scheduleData.loan.marginRate * 100).toFixed(0)}% | {scheduleData.loan.numberOfInstallments} installments
                 </p>
               </div>
               <div className="flex gap-2 flex-wrap">
-                {scheduleData.summary.nullAmountCount > 0 && (
+                {scheduleData.summary.unpaidCount > 0 && (
                   <Button onClick={handleApplyCalculated} variant="outline" className="border-amber-500 text-amber-700" data-testid="button-apply-calculated">
                     <Calculator className="mr-2 h-4 w-4" />
-                    Apply Calculated Values ({scheduleData.summary.nullAmountCount})
+                    Apply Calculated Values ({scheduleData.summary.unpaidCount})
                   </Button>
                 )}
                 {hasChanges && (
