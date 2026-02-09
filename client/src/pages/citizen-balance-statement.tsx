@@ -193,7 +193,7 @@ export default function CitizenBalanceStatementPage() {
         ["Citizen Balance Statement", "", "", "", "", "", "Date", nowDate],
         ["", "", "", "", "", "", "Time", nowTime],
         [],
-        ["Branch", ls.branch?.name || "", "", "", "", "Financing Amount", formatNumber(ls.loan.financingAmount)],
+        ["Branch", ls.branch?.name || "", "", "", "", "Principle Amount", formatNumber(ls.loan.principleAmount)],
         ["Financing Type", ls.loan.productName, "", "", "", "Margin Rate", `${ls.loan.marginRate}%`],
         ["Financing No./ Cycle", ls.loan.applicationId, "/", ls.loan.financingCycle, "", "Disbursement Date", ls.disbursement?.disbursementDate ? formatDate(ls.disbursement.disbursementDate) : ""],
         ["Client Name", statementData.customer.name, "", "", "", "Province", ls.province],
@@ -300,9 +300,9 @@ export default function CitizenBalanceStatementPage() {
       doc.text(ls.branchManager, 42, infoY + 25);
 
       doc.setFont("helvetica", "bold");
-      doc.text("Financing Amount:", 180, infoY);
+      doc.text("Principle Amount:", 180, infoY);
       doc.setFont("helvetica", "normal");
-      doc.text(formatNumber(ls.loan.financingAmount), 220, infoY);
+      doc.text(formatNumber(ls.loan.principleAmount), 220, infoY);
 
       doc.setFont("helvetica", "bold");
       doc.text("Margin Rate:", 180, infoY + 5);
@@ -702,8 +702,8 @@ export default function CitizenBalanceStatementPage() {
                       </div>
                       <div className="space-y-1.5 text-sm">
                         <div className="flex gap-2">
-                          <span className="font-semibold text-muted-foreground w-36">Financing Amount</span>
-                          <span className="font-medium" data-testid={`text-financing-amount-${lsIdx}`}>{formatNumber(ls.loan.financingAmount)}</span>
+                          <span className="font-semibold text-muted-foreground w-36">Principle Amount</span>
+                          <span className="font-medium" data-testid={`text-financing-amount-${lsIdx}`}>{formatNumber(ls.loan.principleAmount)}</span>
                         </div>
                         <div className="flex gap-2">
                           <span className="font-semibold text-muted-foreground w-36">Margin Rate</span>
