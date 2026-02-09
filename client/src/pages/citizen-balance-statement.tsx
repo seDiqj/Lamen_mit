@@ -366,7 +366,7 @@ export default function CitizenBalanceStatementPage() {
         body: scheduleBody,
         margin: { left: 14 },
         tableWidth: 130,
-        styles: { fontSize: 7, cellPadding: 1.5 },
+        styles: { fontSize: 7, cellPadding: 1.5, lineWidth: 0.3, lineColor: [60, 120, 80] },
         headStyles: { fillColor: [60, 120, 80], textColor: 255, fontStyle: "bold" },
         footStyles: { fillColor: [200, 230, 210], fontStyle: "bold" },
       });
@@ -400,7 +400,7 @@ export default function CitizenBalanceStatementPage() {
         body: actualBody,
         margin: { left: 152 },
         tableWidth: 135,
-        styles: { fontSize: 7, cellPadding: 1.5 },
+        styles: { fontSize: 7, cellPadding: 1.5, lineWidth: 0.3, lineColor: [60, 120, 80] },
         headStyles: { fillColor: [60, 120, 80], textColor: 255, fontStyle: "bold" },
         footStyles: { fillColor: [200, 230, 210], fontStyle: "bold" },
       });
