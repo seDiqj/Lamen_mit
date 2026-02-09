@@ -92,6 +92,16 @@ const formatDate = (dateStr: string | null) => {
   return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
 };
 
+const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const formatDateDMY = (dateStr: string | null) => {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  const day = d.getDate();
+  const mon = monthNames[d.getMonth()];
+  const year = d.getFullYear();
+  return `${day}/${mon}/${year}`;
+};
+
 const formatDateTime = () => {
   const now = new Date();
   return {
@@ -195,7 +205,7 @@ export default function CitizenBalanceStatementPage() {
         [],
         ["Branch", ls.branch?.name || "", "", "", "", "Principle Amount", formatNumber(ls.loan.principleAmount)],
         ["Financing Type", ls.loan.productName, "", "", "", "Margin Rate", `${ls.loan.marginRate}%`],
-        ["Financing No./ Cycle", ls.loan.applicationId, "/", ls.loan.financingCycle, "", "Disbursement Date", ls.disbursement?.disbursementDate ? formatDate(ls.disbursement.disbursementDate) : ""],
+        ["Financing No./ Cycle", ls.loan.applicationId, "/", ls.loan.financingCycle, "", "Disbursement Date", ls.disbursement?.disbursementDate ? formatDateDMY(ls.disbursement.disbursementDate) : ""],
         ["Client Name", statementData.customer.name, "", "", "", "Province", ls.province],
         ["Finance Officer", ls.officer?.name || "", "", "", "", "District", ls.district],
         ["Branch Manager", ls.branchManager, "", "", "", "Financing Status", ls.loan.status],
@@ -312,7 +322,7 @@ export default function CitizenBalanceStatementPage() {
       doc.setFont("helvetica", "bold");
       doc.text("Disbursement Date:", 180, infoY + 10);
       doc.setFont("helvetica", "normal");
-      doc.text(ls.disbursement?.disbursementDate ? formatDate(ls.disbursement.disbursementDate) : "", 220, infoY + 10);
+      doc.text(ls.disbursement?.disbursementDate ? formatDateDMY(ls.disbursement.disbursementDate) : "", 220, infoY + 10);
 
       doc.setFont("helvetica", "bold");
       doc.text("Province:", 180, infoY + 15);
@@ -711,7 +721,7 @@ export default function CitizenBalanceStatementPage() {
                         </div>
                         <div className="flex gap-2">
                           <span className="font-semibold text-muted-foreground w-36">Disbursement Date</span>
-                          <span className="font-medium">{ls.disbursement?.disbursementDate ? formatDate(ls.disbursement.disbursementDate) : ""}</span>
+                          <span className="font-medium">{ls.disbursement?.disbursementDate ? formatDateDMY(ls.disbursement.disbursementDate) : ""}</span>
                         </div>
                         <div className="flex gap-2">
                           <span className="font-semibold text-muted-foreground w-36">Province</span>
@@ -736,7 +746,7 @@ export default function CitizenBalanceStatementPage() {
                       <div>
                         <h3 className="text-sm font-bold mb-2 text-green-700 dark:text-green-400">Schedule</h3>
                         <div className="overflow-x-auto">
-                          <table className="w-full text-sm border-collapse" data-testid={`table-schedule-${lsIdx}`}>
+                          <table className="w-full text-sm border-collapse border border-green-700" data-testid={`table-schedule-${lsIdx}`}>
                             <thead>
                               <tr className="bg-green-700 dark:bg-green-800 text-white">
                                 <th className="px-2 py-1.5 text-left font-medium border border-green-600">No.</th>
@@ -772,7 +782,7 @@ export default function CitizenBalanceStatementPage() {
                       <div>
                         <h3 className="text-sm font-bold mb-2 text-green-700 dark:text-green-400">Actual Payment</h3>
                         <div className="overflow-x-auto">
-                          <table className="w-full text-sm border-collapse" data-testid={`table-actual-payment-${lsIdx}`}>
+                          <table className="w-full text-sm border-collapse border border-green-700" data-testid={`table-actual-payment-${lsIdx}`}>
                             <thead>
                               <tr className="bg-green-700 dark:bg-green-800 text-white">
                                 <th className="px-2 py-1.5 text-left font-medium border border-green-600">No.</th>
