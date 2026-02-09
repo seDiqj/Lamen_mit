@@ -1781,7 +1781,7 @@ export async function registerRoutes(
         financingDurationMonths: loan.financingDurationMonths,
         gracePeriod: loan.gracePeriod,
         committeeDiscussion: req.body.notes,
-        approvedById: req.user.claims.sub,
+        approvedById: req.session.userId || (req.user?.claims?.sub) || "unknown",
       });
       
       await logActivity(req, "approve_loan", "loan", req.params.id, `Approved loan: ${loan.applicationId}`);
@@ -1833,7 +1833,7 @@ export async function registerRoutes(
         disbursementDate: today.toISOString().split("T")[0],
         firstInstallmentDate: firstInstallmentDate.toISOString().split("T")[0],
         maturityDate: maturityDate.toISOString().split("T")[0],
-        disbursedById: req.user.claims.sub,
+        disbursedById: req.session.userId || (req.user?.claims?.sub) || "unknown",
       });
       
       await logActivity(req, "disburse_loan", "loan", req.params.id, `Disbursed loan: ${loan.applicationId}`);
@@ -2191,7 +2191,7 @@ export async function registerRoutes(
           approvedDate: new Date().toISOString().split("T")[0],
           financingDurationMonths: approvedLoan?.financingDurationMonths || 12,
           gracePeriod: approvedLoan?.gracePeriod || 0,
-          approvedById: req.user.claims.sub,
+          approvedById: req.session.userId || (req.user?.claims?.sub) || "unknown",
           committeeDiscussion: comments || `Committee approved with ${approvedVotes} votes`,
         });
         await logActivity(req, "committee_approve", "loan", loanId, `Committee approved with ${approvedVotes} votes`);
