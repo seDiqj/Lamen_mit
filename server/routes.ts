@@ -4841,7 +4841,7 @@ export async function registerRoutes(
             applicationId: loan.applicationId,
             productName: loan.productName || "Murabeha",
             financingCycle: loan.financingCycle || 1,
-            financingAmount: parseFloat(loan.principleAmount as string || loan.requestAmount as string || "0") * parseFloat(loan.marginRate as string || "0"),
+            financingAmount: parseFloat(loan.principleAmount as string || loan.requestAmount as string || "0") + (parseFloat(loan.principleAmount as string || loan.requestAmount as string || "0") * parseFloat(loan.marginRate as string || "0")),
             marginRate: parseFloat(loan.marginRate as string || "0"),
             status: loan.status,
             principleAmount: parseFloat(loan.principleAmount as string || "0"),
