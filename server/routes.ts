@@ -1310,9 +1310,12 @@ export async function registerRoutes(
           const existingInst = existingInstallments.find((inst: any) => inst.installmentNumber === i);
           if (existingInst) {
             const existPrincipal = parseFloat(existingInst.principleAmount || "0");
-            const existMargin = parseFloat(existingInst.marginAmount || "0");
             const existTotal = parseFloat(existingInst.totalAmount || "0");
-            if (existPrincipal === 0 || existMargin === 0 || existTotal === 0 || !existingInst.principleAmount || !existingInst.totalAmount) {
+            const needsUpdate = !existingInst.principleAmount || !existingInst.totalAmount
+              || existPrincipal <= 0 || existTotal <= 0
+              || Math.abs(existPrincipal - instPrincipal) > 0.01
+              || Math.abs(existTotal - instTotal) > 0.01;
+            if (needsUpdate) {
               await storage.updateInstallmentAmounts(existingInst.id, {
                 principleAmount: instPrincipal.toFixed(2),
                 marginAmount: instMargin.toFixed(2),
