@@ -1995,13 +1995,12 @@ export async function registerRoutes(
         reviewedAt: new Date(),
       });
 
-      // Update loan status based on review outcome
       if (status === "approved") {
         await storage.updateLoan(loanId, { status: "risk_compliance_review" });
         await logActivity(req, "fad_approve", "loan", loanId, `FAD approved - forwarded to Risk Compliance review`);
       } else {
-        await storage.updateLoan(loanId, { status: "rejected" });
-        await logActivity(req, "fad_reject", "loan", loanId, `FAD rejected - ${comments}`);
+        await storage.updateLoan(loanId, { status: "pending" });
+        await logActivity(req, "fad_reject", "loan", loanId, `FAD rejected - sent back to Finance Officer - ${comments}`);
       }
 
       res.json(review);
@@ -2074,8 +2073,8 @@ export async function registerRoutes(
         await storage.updateLoan(loanId, { status: "committee_review" });
         await logActivity(req, "risk_compliance_approve", "loan", loanId, `Risk Compliance approved - forwarded to Committee review`);
       } else {
-        await storage.updateLoan(loanId, { status: "rejected" });
-        await logActivity(req, "risk_compliance_reject", "loan", loanId, `Risk Compliance rejected - ${comments}`);
+        await storage.updateLoan(loanId, { status: "data_quality_review" });
+        await logActivity(req, "risk_compliance_reject", "loan", loanId, `Risk Compliance rejected - sent back to FAD - ${comments}`);
       }
 
       res.json(review);
@@ -2186,8 +2185,8 @@ export async function registerRoutes(
         await storage.updateLoan(loanId, { status: "approved" });
         await logActivity(req, "committee_approve", "loan", loanId, `Committee approved with ${approvedVotes} votes`);
       } else if (rejectedVotes > (COMMITTEE_SIZE - REQUIRED_APPROVALS)) {
-        await storage.updateLoan(loanId, { status: "rejected" });
-        await logActivity(req, "committee_reject", "loan", loanId, `Committee rejected with ${rejectedVotes} votes`);
+        await storage.updateLoan(loanId, { status: "risk_compliance_review" });
+        await logActivity(req, "committee_reject", "loan", loanId, `Committee rejected with ${rejectedVotes} votes - sent back to Risk Compliance`);
       }
 
       res.json(voteRecord);
