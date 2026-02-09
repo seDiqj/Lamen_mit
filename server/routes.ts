@@ -1247,6 +1247,7 @@ export async function registerRoutes(
     try {
       const allLoans = await storage.getDisbursedLoans();
       let totalCreated = 0;
+      let totalUpdated = 0;
       let totalSkipped = 0;
       const loanResults: any[] = [];
 
@@ -1254,28 +1255,50 @@ export async function registerRoutes(
         const existingInstallments = await storage.getInstallmentsByLoan(loan.id);
         const disbursement = await storage.getDisbursementByLoan(loan.id);
 
-        const principalAmount = parseFloat(loan.principleAmount || "0");
+        const principalAmount = parseFloat(loan.principleAmount || loan.requestAmount || "0");
         const marginRate = parseFloat(loan.marginRate || "0");
         const numInstallments = loan.numberOfInstallments || existingInstallments.length || 12;
+        const gracePeriod = loan.gracePeriod || 0;
 
-        const principalPerInstallment = principalAmount > 0 ? principalAmount / numInstallments : 0;
-        let remainingPrincipal = principalAmount;
-        const monthlyRate = marginRate > 1 ? marginRate / 100 / 12 : marginRate / 12;
+        let profitTotal = parseFloat(loan.profit || "0");
+        if (profitTotal === 0 && principalAmount > 0) {
+          const rate = marginRate > 1 ? marginRate / 100 : marginRate;
+          profitTotal = principalAmount * rate;
+        }
+        const grandTotal = principalAmount + profitTotal;
+
+        const principalInstallments = numInstallments - gracePeriod;
+        const principalPerInst = principalInstallments > 0 ? principalAmount / principalInstallments : 0;
+        const marginPerInst = numInstallments > 0 ? profitTotal / numInstallments : 0;
+        const rawTotalPerInst = principalPerInst + marginPerInst;
+        const roundedTotalPerInst = Math.floor(rawTotalPerInst / 10) * 10;
+        const totalRemainder = grandTotal - (roundedTotalPerInst * numInstallments);
+        const principalRatio = rawTotalPerInst > 0 ? principalPerInst / rawTotalPerInst : 0;
+        const roundedPrincipal = Math.round(roundedTotalPerInst * principalRatio * 100) / 100;
+        const roundedMargin = Math.round((roundedTotalPerInst - roundedPrincipal) * 100) / 100;
 
         let createdForLoan = 0;
+        let updatedForLoan = 0;
         let skippedForLoan = 0;
 
         for (let i = 1; i <= numInstallments; i++) {
-          const existingInst = existingInstallments.find((inst: any) => inst.installmentNumber === i);
-          if (existingInst) {
-            remainingPrincipal -= principalPerInstallment;
-            skippedForLoan++;
-            continue;
-          }
+          const isGracePeriod = i <= gracePeriod;
+          const isFirstInst = i === 1;
 
-          const marginForInstallment = remainingPrincipal * monthlyRate;
-          const totalForInstallment = principalPerInstallment + marginForInstallment;
-          remainingPrincipal -= principalPerInstallment;
+          let instPrincipal: number, instMargin: number, instTotal: number;
+          if (isGracePeriod) {
+            instMargin = isFirstInst ? roundedMargin + totalRemainder : roundedMargin;
+            instPrincipal = 0;
+            instTotal = instMargin;
+          } else if (isFirstInst || (!isGracePeriod && i === gracePeriod + 1)) {
+            instTotal = roundedTotalPerInst + totalRemainder;
+            instPrincipal = Math.round((instTotal * principalRatio) * 100) / 100;
+            instMargin = Math.round((instTotal - instPrincipal) * 100) / 100;
+          } else {
+            instTotal = roundedTotalPerInst;
+            instPrincipal = roundedPrincipal;
+            instMargin = roundedMargin;
+          }
 
           let dueDate: string | null = null;
           if (disbursement?.firstInstallmentDate) {
@@ -1284,13 +1307,31 @@ export async function registerRoutes(
             dueDate = firstDate.toISOString().split("T")[0];
           }
 
+          const existingInst = existingInstallments.find((inst: any) => inst.installmentNumber === i);
+          if (existingInst) {
+            const existPrincipal = parseFloat(existingInst.principleAmount || "0");
+            const existMargin = parseFloat(existingInst.marginAmount || "0");
+            const existTotal = parseFloat(existingInst.totalAmount || "0");
+            if (existPrincipal === 0 || existMargin === 0 || existTotal === 0 || !existingInst.principleAmount || !existingInst.totalAmount) {
+              await storage.updateInstallmentAmounts(existingInst.id, {
+                principleAmount: instPrincipal.toFixed(2),
+                marginAmount: instMargin.toFixed(2),
+                totalAmount: instTotal.toFixed(2),
+              });
+              updatedForLoan++;
+            } else {
+              skippedForLoan++;
+            }
+            continue;
+          }
+
           await storage.createInstallment({
             loanId: loan.id,
             installmentNumber: i,
             dueDate,
-            principleAmount: (Math.round(principalPerInstallment * 100) / 100).toFixed(2),
-            marginAmount: (Math.round(marginForInstallment * 100) / 100).toFixed(2),
-            totalAmount: (Math.round(totalForInstallment * 100) / 100).toFixed(2),
+            principleAmount: instPrincipal.toFixed(2),
+            marginAmount: instMargin.toFixed(2),
+            totalAmount: instTotal.toFixed(2),
             paidAmount: "0",
             installmentVariance: null,
             paymentDate: null,
@@ -1301,16 +1342,18 @@ export async function registerRoutes(
         }
 
         totalCreated += createdForLoan;
+        totalUpdated += updatedForLoan;
         totalSkipped += skippedForLoan;
-        if (createdForLoan > 0) {
-          loanResults.push({ applicationId: loan.applicationId, loanId: loan.id, created: createdForLoan, existing: skippedForLoan });
+        if (createdForLoan > 0 || updatedForLoan > 0) {
+          loanResults.push({ applicationId: loan.applicationId, loanId: loan.id, created: createdForLoan, updated: updatedForLoan, existing: skippedForLoan });
         }
       }
 
       res.json({
-        message: `Generated installments for ${allLoans.length} loans. Created ${totalCreated}, skipped ${totalSkipped} existing.`,
+        message: `Processed ${allLoans.length} loans. Created ${totalCreated}, updated ${totalUpdated} (had zero/null amounts), skipped ${totalSkipped} existing.`,
         totalLoans: allLoans.length,
         totalCreated,
+        totalUpdated,
         totalSkipped,
         loanResults,
       });
