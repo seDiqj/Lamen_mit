@@ -4955,13 +4955,15 @@ export async function registerRoutes(
             }
           }
 
+          const hasPaid = inst.isPaid || paidAmount > 0;
+
           return {
             no: inst.installmentNumber || (idx + 1),
-            paymentDate: inst.paymentDate || null,
-            principleAmount: inst.isPaid || paidAmount > 0
+            paymentDate: hasPaid ? (inst.paymentDate || null) : null,
+            principleAmount: hasPaid
               ? parseFloat(inst.principleAmount || "0") * (Math.min(paidAmount, totalAmount) / (totalAmount || 1))
               : 0,
-            marginAmount: inst.isPaid || paidAmount > 0
+            marginAmount: hasPaid
               ? parseFloat(inst.marginAmount || "0") * (Math.min(paidAmount, totalAmount) / (totalAmount || 1))
               : 0,
             totalAmount: paidAmount,
