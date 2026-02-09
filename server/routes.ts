@@ -1245,7 +1245,7 @@ export async function registerRoutes(
   // POST /api/installments/generate-all - Generate missing installments for all disbursed loans
   app.post("/api/installments/generate-all", isAuthenticated, async (req: any, res) => {
     try {
-      const allLoans = await db.select().from(loans).where(eq(loans.status, "disbursed"));
+      const allLoans = await storage.getDisbursedLoans();
       let totalCreated = 0;
       let totalSkipped = 0;
       const loanResults: any[] = [];
