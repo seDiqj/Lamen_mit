@@ -1742,7 +1742,7 @@ export async function registerRoutes(
 
   app.post("/api/committee/vote", isAuthenticated, requireRole("cfo", "coo", "ceo", "sharia", "manager", "admin"), async (req: any, res) => {
     try {
-      const { loanId, vote, comments } = req.body;
+      const { loanId, vote, comments, fundingSourceId } = req.body;
       
       const loan = await storage.getLoan(loanId);
       if (!loan) {
@@ -1779,6 +1779,11 @@ export async function registerRoutes(
           comments,
           votedAt: new Date(),
         });
+      }
+
+      if (fundingSourceId && userRole.role === "cfo") {
+        await storage.updateLoan(loanId, { fundingSourceId });
+        await logActivity(req, "set_funding_source", "loan", loanId, `CFO set funding source: ${fundingSourceId}`);
       }
 
       await logActivity(req, "committee_vote", "loan", loanId, `Committee vote: ${vote} by ${userRole.role}`);

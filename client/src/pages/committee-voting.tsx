@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -40,6 +41,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { formatCurrency, cn } from "@/lib/utils";
+import type { FundingSource } from "@shared/schema";
 
 type LoanWithDetails = {
   id: string;
@@ -126,6 +128,7 @@ export default function CommitteeVotingPage() {
   const [selectedLoanId, setSelectedLoanId] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(1);
   const [comments, setComments] = useState("");
+  const [selectedFundingSourceId, setSelectedFundingSourceId] = useState("");
 
   const { data: pendingLoans, isLoading } = useQuery<LoanApprovalInfo[]>({
     queryKey: ["/api/committee/pending-loans"],
@@ -134,6 +137,10 @@ export default function CommitteeVotingPage() {
       if (!res.ok) throw new Error("Failed to fetch loans");
       return res.json();
     },
+  });
+
+  const { data: fundingSources = [] } = useQuery<FundingSource[]>({
+    queryKey: ["/api/funding-sources"],
   });
 
   const selectedLoanInfo = pendingLoans?.find((l) => l.loan.id === selectedLoanId);
@@ -159,7 +166,7 @@ export default function CommitteeVotingPage() {
   });
 
   const submitVoteMutation = useMutation({
-    mutationFn: async (data: { loanId: string; vote: string; comments: string }) => {
+    mutationFn: async (data: { loanId: string; vote: string; comments: string; fundingSourceId?: string }) => {
       const res = await apiRequest("POST", "/api/committee/vote", data);
       return res.json();
     },
@@ -173,6 +180,7 @@ export default function CommitteeVotingPage() {
       setSelectedLoanId(null);
       setCurrentStep(1);
       setComments("");
+      setSelectedFundingSourceId("");
     },
     onError: (error: Error) => {
       toast({
@@ -189,13 +197,19 @@ export default function CommitteeVotingPage() {
     setComments("");
   };
 
+  const isCfo = (user as any)?.claims?.role === "cfo";
+
   const handleVote = (vote: "approved" | "rejected") => {
     if (!selectedLoanId) return;
-    submitVoteMutation.mutate({
+    const payload: { loanId: string; vote: string; comments: string; fundingSourceId?: string } = {
       loanId: selectedLoanId,
       vote,
       comments,
-    });
+    };
+    if (isCfo && selectedFundingSourceId) {
+      payload.fundingSourceId = selectedFundingSourceId;
+    }
+    submitVoteMutation.mutate(payload);
   };
 
   const goToStep = (stepId: number) => setCurrentStep(stepId);
@@ -543,6 +557,28 @@ export default function CommitteeVotingPage() {
 
                 {!hasVoted && (
                   <div className="space-y-4">
+                    {isCfo && (
+                      <div className="p-4 bg-amber-50 dark:bg-amber-950 rounded-lg space-y-3">
+                        <h4 className="font-semibold text-amber-700 dark:text-amber-300 flex items-center gap-2">
+                          <FileText className="h-4 w-4" />
+                          Funding Source Selection (CFO)
+                        </h4>
+                        <p className="text-xs text-muted-foreground">As the CFO, please select the funding source for this financing application.</p>
+                        <div className="max-w-sm">
+                          <Label htmlFor="funding-source">Funding Source</Label>
+                          <Select value={selectedFundingSourceId} onValueChange={setSelectedFundingSourceId}>
+                            <SelectTrigger data-testid="select-funding-source">
+                              <SelectValue placeholder="Select funding source" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {fundingSources.map((fs) => (
+                                <SelectItem key={fs.id} value={fs.id}>{fs.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    )}
                     <div className="space-y-2">
                       <Label htmlFor="comments">Your Comments</Label>
                       <Textarea

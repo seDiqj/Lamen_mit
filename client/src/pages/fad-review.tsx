@@ -48,7 +48,7 @@ import {
   ArrowLeft
 } from "lucide-react";
 import { format } from "date-fns";
-import type { Branch, FinanceOfficer, FundingSource } from "@shared/schema";
+import type { Branch, FinanceOfficer } from "@shared/schema";
 import { cn } from "@/lib/utils";
 
 type LoanWithDetails = {
@@ -181,8 +181,6 @@ export default function FadReviewPage() {
 
   const { data: branches = [] } = useQuery<Branch[]>({ queryKey: ["/api/branches"] });
   const { data: financeOfficers = [] } = useQuery<FinanceOfficer[]>({ queryKey: ["/api/finance-officers"] });
-  const { data: fundingSources = [] } = useQuery<FundingSource[]>({ queryKey: ["/api/funding-sources"] });
-
   const { data: pendingLoansData, isLoading } = useQuery<{ loans: LoanWithDetails[]; total: number }>({
     queryKey: ["/api/loans", "pending"],
     queryFn: async () => {
@@ -575,13 +573,6 @@ export default function FadReviewPage() {
                         }} value={field.value}>
                           <FormControl><SelectTrigger data-testid="select-product"><SelectValue placeholder="Select product" /></SelectTrigger></FormControl>
                           <SelectContent>{loanProducts.map(p => <SelectItem key={p.code} value={p.name}>{p.name}</SelectItem>)}</SelectContent>
-                        </Select><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={form.control} name="fundingSourceId" render={({ field }) => (
-                      <FormItem><FormLabel>Funding Source</FormLabel>
-                        <Select disabled={!isEditing} onValueChange={field.onChange} value={field.value}>
-                          <FormControl><SelectTrigger data-testid="select-funding"><SelectValue placeholder="Select source" /></SelectTrigger></FormControl>
-                          <SelectContent>{fundingSources.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}</SelectContent>
                         </Select><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="requestAmount" render={({ field }) => (
