@@ -203,14 +203,11 @@ export default function CitizenBalanceStatementPage() {
         ["Citizen Balance Statement", "", "", "", "", "", "Date", nowDate],
         ["", "", "", "", "", "", "Time", nowTime],
         [],
-        ["Branch", ls.branch?.name || "", "", "", "", "Principle Amount", formatNumber(ls.loan.principleAmount)],
-        ["Financing Type", ls.loan.productName, "", "", "", "Margin Rate", `${ls.loan.marginRate}%`],
-        ["Financing No./ Cycle", ls.loan.applicationId, "/", ls.loan.financingCycle, "", "Disbursement Date", ls.disbursement?.disbursementDate ? formatDateDMY(ls.disbursement.disbursementDate) : ""],
-        ["Client Name", statementData.customer.name, "", "", "", "No. of Installments", ls.loan.numberOfInstallments],
-        ["Finance Officer", ls.officer?.name || "", "", "", "", "Grace Period", `${ls.loan.gracePeriod} months`],
-        ["Branch Manager", ls.branchManager, "", "", "", "Province", ls.province],
-        ["", "", "", "", "", "District", ls.district],
-        ["", "", "", "", "", "Financing Status", ls.loan.status],
+        ["Branch", ls.branch?.name || "", "", "Principle Amount", formatNumber(ls.loan.principleAmount), "", "Province", ls.province],
+        ["Financing Type", ls.loan.productName, "", "Margin Rate", `${ls.loan.marginRate}%`, "", "District", ls.district],
+        ["Financing No./ Cycle", `${ls.loan.applicationId} / ${ls.loan.financingCycle}`, "", "Disbursement Date", ls.disbursement?.disbursementDate ? formatDateDMY(ls.disbursement.disbursementDate) : "", "", "Branch Manager", ls.branchManager],
+        ["Client Name", statementData.customer.name, "", "No. of Installments", ls.loan.numberOfInstallments, "", "Financing Status", ls.loan.status],
+        ["Finance Officer", ls.officer?.name || "", "", "Grace Period", `${ls.loan.gracePeriod} months`, "", "", ""],
         [],
         ["Schedule", "", "", "", "", "Actual Payment", "", "", "", "", ""],
         ["No.", "Installment Date", "Principle", "Margin", "Total", "No.", "Payment Date", "Principle", "Margin", "Total", "PAR Days"],
@@ -281,77 +278,60 @@ export default function CitizenBalanceStatementPage() {
       const infoY = 26;
       doc.setFontSize(8);
       doc.setTextColor(40, 40, 40);
-      doc.setFont("helvetica", "bold");
-      doc.text("Branch:", 14, infoY);
-      doc.setFont("helvetica", "normal");
-      doc.text(ls.branch?.name || "", 42, infoY);
 
-      doc.setFont("helvetica", "bold");
-      doc.text("Financing Type:", 14, infoY + 5);
-      doc.setFont("helvetica", "normal");
-      doc.text(ls.loan.productName, 42, infoY + 5);
+      const col1X = 14;
+      const col1V = 42;
+      const col2X = 105;
+      const col2V = 140;
+      const col3X = 195;
+      const col3V = 232;
+      const lineH = 4.5;
 
-      doc.setFont("helvetica", "bold");
-      doc.text("Financing No./ Cycle:", 14, infoY + 10);
-      doc.setFont("helvetica", "normal");
-      doc.text(`${ls.loan.applicationId}  /  ${ls.loan.financingCycle}`, 50, infoY + 10);
+      const infoFields: [string, string, number, number][] = [
+        ["Branch:", ls.branch?.name || "", col1X, col1V],
+        ["Financing Type:", ls.loan.productName, col1X, col1V],
+        ["Financing No./ Cycle:", `${ls.loan.applicationId} / ${ls.loan.financingCycle}`, col1X, col1V],
+        ["Client Name:", statementData.customer.name, col1X, col1V],
+        ["Finance Officer:", ls.officer?.name || "", col1X, col1V],
+      ];
+      const infoFields2: [string, string, number, number][] = [
+        ["Principle Amount:", formatNumber(ls.loan.principleAmount), col2X, col2V],
+        ["Margin Rate:", `${ls.loan.marginRate}%`, col2X, col2V],
+        ["Disbursement Date:", ls.disbursement?.disbursementDate ? formatDateDMY(ls.disbursement.disbursementDate) : "", col2X, col2V],
+        ["No. of Installments:", `${ls.loan.numberOfInstallments}`, col2X, col2V],
+        ["Grace Period:", `${ls.loan.gracePeriod} months`, col2X, col2V],
+      ];
+      const infoFields3: [string, string, number, number][] = [
+        ["Province:", ls.province, col3X, col3V],
+        ["District:", ls.district, col3X, col3V],
+        ["Branch Manager:", ls.branchManager, col3X, col3V],
+        ["Financing Status:", ls.loan.status, col3X, col3V],
+      ];
 
-      doc.setFont("helvetica", "bold");
-      doc.text("Client Name:", 14, infoY + 15);
-      doc.setFont("helvetica", "normal");
-      doc.text(statementData.customer.name, 42, infoY + 15);
+      const maxRows = Math.max(infoFields.length, infoFields2.length, infoFields3.length);
+      for (let i = 0; i < maxRows; i++) {
+        const y = infoY + i * lineH;
+        if (i < infoFields.length) {
+          doc.setFont("helvetica", "bold");
+          doc.text(infoFields[i][0], infoFields[i][2], y);
+          doc.setFont("helvetica", "normal");
+          doc.text(infoFields[i][1], infoFields[i][3], y);
+        }
+        if (i < infoFields2.length) {
+          doc.setFont("helvetica", "bold");
+          doc.text(infoFields2[i][0], infoFields2[i][2], y);
+          doc.setFont("helvetica", "normal");
+          doc.text(infoFields2[i][1], infoFields2[i][3], y);
+        }
+        if (i < infoFields3.length) {
+          doc.setFont("helvetica", "bold");
+          doc.text(infoFields3[i][0], infoFields3[i][2], y);
+          doc.setFont("helvetica", "normal");
+          doc.text(infoFields3[i][1], infoFields3[i][3], y);
+        }
+      }
 
-      doc.setFont("helvetica", "bold");
-      doc.text("Finance Officer:", 14, infoY + 20);
-      doc.setFont("helvetica", "normal");
-      doc.text(ls.officer?.name || "", 42, infoY + 20);
-
-      doc.setFont("helvetica", "bold");
-      doc.text("Branch Manager:", 14, infoY + 25);
-      doc.setFont("helvetica", "normal");
-      doc.text(ls.branchManager, 42, infoY + 25);
-
-      doc.setFont("helvetica", "bold");
-      doc.text("Principle Amount:", 180, infoY);
-      doc.setFont("helvetica", "normal");
-      doc.text(formatNumber(ls.loan.principleAmount), 220, infoY);
-
-      doc.setFont("helvetica", "bold");
-      doc.text("Margin Rate:", 180, infoY + 5);
-      doc.setFont("helvetica", "normal");
-      doc.text(`${ls.loan.marginRate}%`, 220, infoY + 5);
-
-      doc.setFont("helvetica", "bold");
-      doc.text("Disbursement Date:", 180, infoY + 10);
-      doc.setFont("helvetica", "normal");
-      doc.text(ls.disbursement?.disbursementDate ? formatDateDMY(ls.disbursement.disbursementDate) : "", 220, infoY + 10);
-
-      doc.setFont("helvetica", "bold");
-      doc.text("No. of Installments:", 180, infoY + 15);
-      doc.setFont("helvetica", "normal");
-      doc.text(`${ls.loan.numberOfInstallments}`, 220, infoY + 15);
-
-      doc.setFont("helvetica", "bold");
-      doc.text("Grace Period:", 180, infoY + 20);
-      doc.setFont("helvetica", "normal");
-      doc.text(`${ls.loan.gracePeriod} months`, 220, infoY + 20);
-
-      doc.setFont("helvetica", "bold");
-      doc.text("Province:", 180, infoY + 25);
-      doc.setFont("helvetica", "normal");
-      doc.text(ls.province, 220, infoY + 25);
-
-      doc.setFont("helvetica", "bold");
-      doc.text("District:", 180, infoY + 30);
-      doc.setFont("helvetica", "normal");
-      doc.text(ls.district, 220, infoY + 30);
-
-      doc.setFont("helvetica", "bold");
-      doc.text("Financing Status:", 180, infoY + 35);
-      doc.setFont("helvetica", "normal");
-      doc.text(ls.loan.status, 220, infoY + 35);
-
-      const tableStartY = infoY + 42;
+      const tableStartY = infoY + maxRows * lineH + 4;
 
       doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
@@ -728,64 +708,66 @@ export default function CitizenBalanceStatementPage() {
                   </div>
 
                   <div className="p-3 sm:p-4 border-b border-border">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="space-y-1.5 text-sm">
                         <div className="flex gap-2">
-                          <span className="font-semibold text-muted-foreground w-36">Branch</span>
+                          <span className="font-semibold text-muted-foreground w-32 shrink-0">Branch</span>
                           <span className="font-medium" data-testid={`text-branch-${lsIdx}`}>{ls.branch?.name || ""}</span>
                         </div>
                         <div className="flex gap-2">
-                          <span className="font-semibold text-muted-foreground w-36">Financing Type</span>
+                          <span className="font-semibold text-muted-foreground w-32 shrink-0">Financing Type</span>
                           <span className="font-medium">{ls.loan.productName}</span>
                         </div>
                         <div className="flex gap-2">
-                          <span className="font-semibold text-muted-foreground w-36">Financing No./ Cycle</span>
+                          <span className="font-semibold text-muted-foreground w-32 shrink-0">Financing No./ Cycle</span>
                           <span className="font-medium" data-testid={`text-app-id-${lsIdx}`}>{ls.loan.applicationId} / {ls.loan.financingCycle}</span>
                         </div>
                         <div className="flex gap-2">
-                          <span className="font-semibold text-muted-foreground w-36">Client Name</span>
+                          <span className="font-semibold text-muted-foreground w-32 shrink-0">Client Name</span>
                           <span className="font-medium" data-testid={`text-client-name-${lsIdx}`}>{statementData.customer.name}</span>
                         </div>
                         <div className="flex gap-2">
-                          <span className="font-semibold text-muted-foreground w-36">Finance Officer</span>
+                          <span className="font-semibold text-muted-foreground w-32 shrink-0">Finance Officer</span>
                           <span className="font-medium">{ls.officer?.name || ""}</span>
-                        </div>
-                        <div className="flex gap-2">
-                          <span className="font-semibold text-muted-foreground w-36">Branch Manager</span>
-                          <span className="font-medium">{ls.branchManager}</span>
                         </div>
                       </div>
                       <div className="space-y-1.5 text-sm">
                         <div className="flex gap-2">
-                          <span className="font-semibold text-muted-foreground w-36">Principle Amount</span>
+                          <span className="font-semibold text-muted-foreground w-32 shrink-0">Principle Amount</span>
                           <span className="font-medium" data-testid={`text-financing-amount-${lsIdx}`}>{formatNumber(ls.loan.principleAmount)}</span>
                         </div>
                         <div className="flex gap-2">
-                          <span className="font-semibold text-muted-foreground w-36">Margin Rate</span>
+                          <span className="font-semibold text-muted-foreground w-32 shrink-0">Margin Rate</span>
                           <span className="font-medium">{ls.loan.marginRate}%</span>
                         </div>
                         <div className="flex gap-2">
-                          <span className="font-semibold text-muted-foreground w-36">Disbursement Date</span>
+                          <span className="font-semibold text-muted-foreground w-32 shrink-0">Disbursement Date</span>
                           <span className="font-medium">{ls.disbursement?.disbursementDate ? formatDateDMY(ls.disbursement.disbursementDate) : ""}</span>
                         </div>
                         <div className="flex gap-2">
-                          <span className="font-semibold text-muted-foreground w-36">No. of Installments</span>
+                          <span className="font-semibold text-muted-foreground w-32 shrink-0">No. of Installments</span>
                           <span className="font-medium">{ls.loan.numberOfInstallments}</span>
                         </div>
                         <div className="flex gap-2">
-                          <span className="font-semibold text-muted-foreground w-36">Grace Period</span>
+                          <span className="font-semibold text-muted-foreground w-32 shrink-0">Grace Period</span>
                           <span className="font-medium">{ls.loan.gracePeriod} months</span>
                         </div>
+                      </div>
+                      <div className="space-y-1.5 text-sm">
                         <div className="flex gap-2">
-                          <span className="font-semibold text-muted-foreground w-36">Province</span>
+                          <span className="font-semibold text-muted-foreground w-32 shrink-0">Province</span>
                           <span className="font-medium">{ls.province}</span>
                         </div>
                         <div className="flex gap-2">
-                          <span className="font-semibold text-muted-foreground w-36">District</span>
+                          <span className="font-semibold text-muted-foreground w-32 shrink-0">District</span>
                           <span className="font-medium">{ls.district}</span>
                         </div>
                         <div className="flex gap-2">
-                          <span className="font-semibold text-muted-foreground w-36">Financing Status</span>
+                          <span className="font-semibold text-muted-foreground w-32 shrink-0">Branch Manager</span>
+                          <span className="font-medium">{ls.branchManager}</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <span className="font-semibold text-muted-foreground w-32 shrink-0">Financing Status</span>
                           <span className={`font-medium ${ls.loan.status === "active" || ls.loan.status === "disbursed" ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}`}>
                             {ls.loan.status ? ls.loan.status.charAt(0).toUpperCase() + ls.loan.status.slice(1) : ""}
                           </span>
