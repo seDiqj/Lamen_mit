@@ -341,50 +341,33 @@ export default function CitizenBalanceStatementPage() {
 
       const paidPayments = ls.actualPayments.filter(a => a.totalAmount > 0 || (a.paymentDate && a.paymentDate !== ""));
       const paidPaymentCount = paidPayments.length;
+      const paymentTotalRowIdx = paidPaymentCount;
+      const paymentOutstandingRowIdx = paidPaymentCount + 1;
       const rowCount = ls.schedule.length;
+      const scheduleTotalRowIdx = rowCount;
       const combinedBody: any[][] = [];
-      for (let i = 0; i < rowCount; i++) {
-        const s = ls.schedule[i];
+      for (let i = 0; i < Math.max(rowCount + 1, paidPaymentCount + 2); i++) {
+        const s = i < rowCount ? ls.schedule[i] : null;
         const a = i < paidPaymentCount ? paidPayments[i] : null;
+        const isScheduleTotal = (i === rowCount);
+        const isPaymentTotal = (i === paymentTotalRowIdx);
+        const isPaymentOutstanding = (i === paymentOutstandingRowIdx);
+
         combinedBody.push([
-          s ? s.no : "",
-          s ? formatDate(s.installmentDate) : "",
-          s ? formatNumber(s.principleAmount) : "",
-          s ? formatNumber(s.marginAmount) : "",
-          s ? formatNumber(s.totalAmount) : "",
+          isScheduleTotal ? "" : (s ? s.no : ""),
+          isScheduleTotal ? "Total =" : (s ? formatDate(s.installmentDate) : ""),
+          isScheduleTotal ? formatNumber(ls.scheduleTotals.principleAmount) : (s ? formatNumber(s.principleAmount) : ""),
+          isScheduleTotal ? formatNumber(ls.scheduleTotals.marginAmount) : (s ? formatNumber(s.marginAmount) : ""),
+          isScheduleTotal ? formatNumber(ls.scheduleTotals.totalAmount) : (s ? formatNumber(s.totalAmount) : ""),
           "",
-          a ? a.no : "",
-          a ? (a.paymentDate ? formatDate(a.paymentDate) : "") : "",
-          a ? (a.principleAmount > 0 ? formatNumber(a.principleAmount) : "") : "",
-          a ? (a.marginAmount > 0 ? formatNumber(a.marginAmount) : "") : "",
-          a ? (a.totalAmount > 0 ? formatNumber(a.totalAmount) : "") : "",
-          a ? (a.arears > 0 ? a.arears.toString() : "") : "",
+          isPaymentTotal ? "" : (isPaymentOutstanding ? "" : (a ? a.no : "")),
+          isPaymentTotal ? "Total =" : (isPaymentOutstanding ? "Outstanding" : (a ? (a.paymentDate ? formatDate(a.paymentDate) : "") : "")),
+          isPaymentTotal ? formatNumber(ls.actualTotals.principleAmount) : (isPaymentOutstanding ? formatNumber(ls.outstanding.principleAmount) : (a ? (a.principleAmount > 0 ? formatNumber(a.principleAmount) : "") : "")),
+          isPaymentTotal ? formatNumber(ls.actualTotals.marginAmount) : (isPaymentOutstanding ? formatNumber(ls.outstanding.marginAmount) : (a ? (a.marginAmount > 0 ? formatNumber(a.marginAmount) : "") : "")),
+          isPaymentTotal ? formatNumber(ls.actualTotals.totalAmount) : (isPaymentOutstanding ? formatNumber(ls.outstanding.totalAmount) : (a ? (a.totalAmount > 0 ? formatNumber(a.totalAmount) : "") : "")),
+          isPaymentTotal ? (ls.actualTotals.arears > 0 ? ls.actualTotals.arears.toString() : "") : (isPaymentOutstanding ? "" : (a ? (a.arears > 0 ? a.arears.toString() : "") : "")),
         ]);
       }
-      combinedBody.push([
-        "", "Total =",
-        formatNumber(ls.scheduleTotals.principleAmount),
-        formatNumber(ls.scheduleTotals.marginAmount),
-        formatNumber(ls.scheduleTotals.totalAmount),
-        "",
-        "", "Total =",
-        formatNumber(ls.actualTotals.principleAmount),
-        formatNumber(ls.actualTotals.marginAmount),
-        formatNumber(ls.actualTotals.totalAmount),
-        ls.actualTotals.arears > 0 ? ls.actualTotals.arears.toString() : "",
-      ]);
-      combinedBody.push([
-        "", "", "", "", "",
-        "",
-        "", "Outstanding",
-        formatNumber(ls.outstanding.principleAmount),
-        formatNumber(ls.outstanding.marginAmount),
-        formatNumber(ls.outstanding.totalAmount),
-        "",
-      ]);
-
-      const totalRowIdx = combinedBody.length - 2;
-      const outstandingRowIdx = combinedBody.length - 1;
 
       autoTable(doc, {
         startY: tableStartY + 2,
@@ -408,35 +391,36 @@ export default function CitizenBalanceStatementPage() {
           11: { cellWidth: 20 },
         },
         didParseCell: (data: any) => {
-          if (data.column.index === 5) {
+          const ri = data.row.index;
+          const ci = data.column.index;
+          if (ci === 5) {
             data.cell.styles.fillColor = [255, 255, 255];
             data.cell.styles.lineWidth = 0;
             data.cell.styles.lineColor = [255, 255, 255];
           }
-          if (data.section === "body" && data.row.index < rowCount && data.row.index >= paidPaymentCount && data.column.index >= 6) {
+          const noPaymentData = ri >= paidPaymentCount && ri !== paymentTotalRowIdx && ri !== paymentOutstandingRowIdx;
+          if (data.section === "body" && noPaymentData && ci >= 6) {
             data.cell.styles.fillColor = [255, 255, 255];
             data.cell.styles.lineWidth = 0;
             data.cell.styles.lineColor = [255, 255, 255];
           }
-          if (data.section === "body" && data.row.index === totalRowIdx) {
+          const noScheduleData = ri >= rowCount && ri !== scheduleTotalRowIdx;
+          if (data.section === "body" && noScheduleData && ci < 5) {
+            data.cell.styles.fillColor = [255, 255, 255];
+            data.cell.styles.lineWidth = 0;
+            data.cell.styles.lineColor = [255, 255, 255];
+          }
+          if (data.section === "body" && ri === scheduleTotalRowIdx && ci < 5) {
             data.cell.styles.fontStyle = "bold";
-            if (data.column.index === 5) {
-              data.cell.styles.fillColor = [255, 255, 255];
-            } else if (data.column.index < 5) {
-              data.cell.styles.fillColor = [200, 230, 210];
-            } else {
-              data.cell.styles.fillColor = [200, 230, 210];
-            }
+            data.cell.styles.fillColor = [200, 230, 210];
           }
-          if (data.section === "body" && data.row.index === outstandingRowIdx) {
-            if (data.column.index >= 6) {
-              data.cell.styles.fontStyle = "bold";
-              data.cell.styles.fillColor = [255, 243, 205];
-            } else {
-              data.cell.styles.fillColor = [255, 255, 255];
-              data.cell.styles.lineWidth = 0;
-              data.cell.styles.lineColor = [255, 255, 255];
-            }
+          if (data.section === "body" && ri === paymentTotalRowIdx && ci >= 6) {
+            data.cell.styles.fontStyle = "bold";
+            data.cell.styles.fillColor = [200, 230, 210];
+          }
+          if (data.section === "body" && ri === paymentOutstandingRowIdx && ci >= 6) {
+            data.cell.styles.fontStyle = "bold";
+            data.cell.styles.fillColor = [255, 243, 205];
           }
         },
       });
