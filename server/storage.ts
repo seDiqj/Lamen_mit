@@ -1093,12 +1093,11 @@ export class DatabaseStorage implements IStorage {
       const principalInstallments = numInstallments - gracePeriod;
       const principalPerInst = principalInstallments > 0 ? principalTotal / principalInstallments : 0;
       const marginPerInst = numInstallments > 0 ? profitTotal / numInstallments : 0;
-      const rawTotalPerInst = principalPerInst + marginPerInst;
-      const roundedTotalPerInst = Math.floor(rawTotalPerInst / 10) * 10;
-      const totalRemainder = grandTotal - (roundedTotalPerInst * numInstallments);
-      const principalRatio = rawTotalPerInst > 0 ? principalPerInst / rawTotalPerInst : 0;
-      const roundedPrincipal = Math.round(roundedTotalPerInst * principalRatio * 100) / 100;
-      const roundedMargin = Math.round((roundedTotalPerInst - roundedPrincipal) * 100) / 100;
+
+      const roundedPrincipalPerInst = Math.round(principalPerInst * 100) / 100;
+      const roundedMarginPerInst = Math.round(marginPerInst * 100) / 100;
+      const principalRemainder = Math.round((principalTotal - (roundedPrincipalPerInst * principalInstallments)) * 100) / 100;
+      const marginRemainder = Math.round((profitTotal - (roundedMarginPerInst * numInstallments)) * 100) / 100;
 
       const startDate = new Date(disbursementData.firstInstallmentDate || new Date());
 
@@ -1107,21 +1106,21 @@ export class DatabaseStorage implements IStorage {
         dueDate.setMonth(dueDate.getMonth() + (i - 1));
 
         const isGracePeriod = i <= gracePeriod;
-        const isFirstInst = i === 1;
+        const isFirstPrincipalInst = gracePeriod > 0 ? (i === gracePeriod + 1) : (i === 1);
 
         let instPrincipal: number, instMargin: number, instTotal: number;
         if (isGracePeriod) {
-          instMargin = isFirstInst ? roundedMargin + totalRemainder : roundedMargin;
           instPrincipal = 0;
+          instMargin = (i === 1) ? roundedMarginPerInst + marginRemainder : roundedMarginPerInst;
           instTotal = instMargin;
-        } else if (isFirstInst || (!isGracePeriod && i === gracePeriod + 1)) {
-          instTotal = roundedTotalPerInst + totalRemainder;
-          instPrincipal = Math.round((instTotal * principalRatio) * 100) / 100;
-          instMargin = Math.round((instTotal - instPrincipal) * 100) / 100;
+        } else if (isFirstPrincipalInst) {
+          instPrincipal = roundedPrincipalPerInst + principalRemainder;
+          instMargin = (gracePeriod === 0 && i === 1) ? roundedMarginPerInst + marginRemainder : roundedMarginPerInst;
+          instTotal = instPrincipal + instMargin;
         } else {
-          instTotal = roundedTotalPerInst;
-          instPrincipal = roundedPrincipal;
-          instMargin = roundedMargin;
+          instPrincipal = roundedPrincipalPerInst;
+          instMargin = roundedMarginPerInst;
+          instTotal = instPrincipal + instMargin;
         }
 
         await tx.insert(installments).values({
@@ -1198,39 +1197,31 @@ export class DatabaseStorage implements IStorage {
         const principalPerInst = principalInstallments > 0 ? principalTotal / principalInstallments : 0;
         const marginPerInst = numInstallments > 0 ? profitTotal / numInstallments : 0;
 
-        const rawTotalPerInst = principalPerInst + marginPerInst;
-        const roundedTotalPerInst = Math.floor(rawTotalPerInst / 10) * 10;
-        const grandTotal = principalTotal + profitTotal;
-        const totalRemainder = grandTotal - (roundedTotalPerInst * numInstallments);
-
-        const principalRatio = rawTotalPerInst > 0 ? principalPerInst / rawTotalPerInst : 0;
-        const marginRatio = rawTotalPerInst > 0 ? marginPerInst / rawTotalPerInst : 0;
-        const roundedPrincipal = Math.round(roundedTotalPerInst * principalRatio * 100) / 100;
-        const roundedMargin = Math.round((roundedTotalPerInst - roundedPrincipal) * 100) / 100;
+        const roundedPrincipalPerInst = Math.round(principalPerInst * 100) / 100;
+        const roundedMarginPerInst = Math.round(marginPerInst * 100) / 100;
+        const principalRemainder = Math.round((principalTotal - (roundedPrincipalPerInst * principalInstallments)) * 100) / 100;
+        const marginRemainder = Math.round((profitTotal - (roundedMarginPerInst * numInstallments)) * 100) / 100;
 
         for (let i = 1; i <= numInstallments; i++) {
           const dueDate = new Date(firstInstDate);
           dueDate.setMonth(dueDate.getMonth() + (i - 1));
 
           const isGracePeriod = i <= gracePeriod;
-          const isFirstInst = i === 1;
+          const isFirstPrincipalInst = gracePeriod > 0 ? (i === gracePeriod + 1) : (i === 1);
 
-          let instPrincipal: number;
-          let instMargin: number;
-          let instTotal: number;
-
+          let instPrincipal: number, instMargin: number, instTotal: number;
           if (isGracePeriod) {
-            instMargin = isFirstInst ? roundedMargin + totalRemainder : roundedMargin;
             instPrincipal = 0;
+            instMargin = (i === 1) ? roundedMarginPerInst + marginRemainder : roundedMarginPerInst;
             instTotal = instMargin;
-          } else if (isFirstInst || (!isGracePeriod && i === gracePeriod + 1)) {
-            instTotal = roundedTotalPerInst + totalRemainder;
-            instPrincipal = Math.round((instTotal * principalRatio) * 100) / 100;
-            instMargin = Math.round((instTotal - instPrincipal) * 100) / 100;
+          } else if (isFirstPrincipalInst) {
+            instPrincipal = roundedPrincipalPerInst + principalRemainder;
+            instMargin = (gracePeriod === 0 && i === 1) ? roundedMarginPerInst + marginRemainder : roundedMarginPerInst;
+            instTotal = instPrincipal + instMargin;
           } else {
-            instTotal = roundedTotalPerInst;
-            instPrincipal = roundedPrincipal;
-            instMargin = roundedMargin;
+            instPrincipal = roundedPrincipalPerInst;
+            instMargin = roundedMarginPerInst;
+            instTotal = instPrincipal + instMargin;
           }
 
           await tx.insert(installments).values({
