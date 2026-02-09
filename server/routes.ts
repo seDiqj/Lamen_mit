@@ -2183,7 +2183,16 @@ export async function registerRoutes(
       const COMMITTEE_SIZE = 3;
 
       if (approvedVotes >= REQUIRED_APPROVALS) {
-        await storage.updateLoan(loanId, { status: "approved" });
+        const approvedLoan = await storage.getLoan(loanId);
+        await storage.approveLoan(loanId, {
+          loanId,
+          approvedAmount: approvedLoan?.requestAmount || approvedLoan?.principleAmount || "0",
+          approvedDate: new Date().toISOString().split("T")[0],
+          financingDurationMonths: approvedLoan?.financingDurationMonths || 12,
+          gracePeriod: approvedLoan?.gracePeriod || 0,
+          approvedById: req.user.claims.sub,
+          committeeDiscussion: comments || `Committee approved with ${approvedVotes} votes`,
+        });
         await logActivity(req, "committee_approve", "loan", loanId, `Committee approved with ${approvedVotes} votes`);
       } else if (rejectedVotes > (COMMITTEE_SIZE - REQUIRED_APPROVALS)) {
         await storage.updateLoan(loanId, { status: "risk_compliance_review" });
