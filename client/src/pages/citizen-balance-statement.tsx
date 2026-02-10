@@ -7,6 +7,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
   FileSpreadsheet,
   FileText,
   Eye,
@@ -20,6 +28,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Loader2,
+  CreditCard,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -103,6 +112,7 @@ type InstallmentRow = {
   isPaid: boolean;
   paymentDate: string | null;
   lateDays: number | null;
+  installmentVariance: number | null;
   hasNullAmounts: boolean;
 };
 
@@ -169,7 +179,10 @@ export default function CitizenBalanceStatementPage() {
   const [activeTab, setActiveTab] = useState("statement");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
   const [showReport, setShowReport] = useState(false);
-  const [cleanupEdits, setCleanupEdits] = useState<Record<string, { requestAmount: string; principleAmount: string; marginRate: string; gracePeriod: string; financingDurationMonths: string; numberOfInstallments: string }>>({});
+  const [cleanupEdits, setCleanupEdits] = useState<Record<string, { requestAmount: string; principleAmount: string; marginRate: string; gracePeriod: string; financingDurationMonths: string; numberOfInstallments: string; disbursementDate: string }>>({});
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [paymentDialogInst, setPaymentDialogInst] = useState<InstallmentRow | null>(null);
+  const [paymentForm, setPaymentForm] = useState({ paidAmount: "", paymentDate: "", isPaid: true });
   const reportRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -264,6 +277,47 @@ export default function CitizenBalanceStatementPage() {
     },
   });
 
+  const paymentUpdateMutation = useMutation({
+    mutationFn: async ({ instId, data }: { instId: string; data: any }) => {
+      const res = await apiRequest("PATCH", `/api/installments/${instId}/payment`, data);
+      return res.json();
+    },
+    onSuccess: (result) => {
+      toast({ title: "Payment Updated", description: `${result.message} | Variance: ${formatAFN(parseFloat(result.variance))} AFN${result.lateDays !== null ? ` | PAR Days: ${result.lateDays}` : ""}` });
+      setPaymentDialogOpen(false);
+      setPaymentDialogInst(null);
+      setPaymentForm({ paidAmount: "", paymentDate: "", isPaid: true });
+      queryClient.invalidateQueries({ queryKey: ["/api/loans", instSelectedLoanId, "installment-schedule"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reports/citizen-balance-statement", selectedCustomerId] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to update payment", variant: "destructive" });
+    },
+  });
+
+  const openPaymentDialog = (inst: InstallmentRow) => {
+    setPaymentDialogInst(inst);
+    setPaymentForm({
+      paidAmount: inst.paidAmount > 0 ? inst.paidAmount.toFixed(2) : "",
+      paymentDate: inst.paymentDate || "",
+      isPaid: inst.isPaid,
+    });
+    setPaymentDialogOpen(true);
+  };
+
+  const handlePaymentSubmit = () => {
+    if (!paymentDialogInst?.id) return;
+    const paidAmt = parseFloat(paymentForm.paidAmount || "0");
+    paymentUpdateMutation.mutate({
+      instId: paymentDialogInst.id,
+      data: {
+        paidAmount: paidAmt.toFixed(2),
+        paymentDate: paymentForm.paymentDate || null,
+        isPaid: paymentForm.isPaid,
+      },
+    });
+  };
+
   const instLoanList = Array.isArray(disbursedLoans) ? disbursedLoans : [];
 
   const getInstLoanLabel = (l: any) =>
@@ -304,6 +358,7 @@ export default function CitizenBalanceStatementPage() {
             gracePeriod: instScheduleData.loan.gracePeriod.toString(),
             financingDurationMonths: instScheduleData.loan.financingDurationMonths.toString(),
             numberOfInstallments: instScheduleData.loan.numberOfInstallments.toString(),
+            disbursementDate: instScheduleData.disbursement?.disbursementDate || "",
           },
         }));
       }
@@ -431,7 +486,7 @@ export default function CitizenBalanceStatementPage() {
 
   useEffect(() => {
     if (statementData?.loanStatements) {
-      const edits: Record<string, { requestAmount: string; principleAmount: string; marginRate: string; gracePeriod: string; financingDurationMonths: string; numberOfInstallments: string }> = {};
+      const edits: Record<string, { requestAmount: string; principleAmount: string; marginRate: string; gracePeriod: string; financingDurationMonths: string; numberOfInstallments: string; disbursementDate: string }> = {};
       statementData.loanStatements.forEach((ls) => {
         if (!cleanupEdits[ls.loan.id]) {
           edits[ls.loan.id] = {
@@ -441,6 +496,7 @@ export default function CitizenBalanceStatementPage() {
             gracePeriod: ls.loan.gracePeriod.toString(),
             financingDurationMonths: ls.loan.financingDurationMonths.toString(),
             numberOfInstallments: ls.loan.numberOfInstallments.toString(),
+            disbursementDate: ls.disbursement?.disbursementDate || "",
           };
         }
       });
@@ -469,6 +525,7 @@ export default function CitizenBalanceStatementPage() {
       gracePeriod: edit.gracePeriod,
       financingDurationMonths: edit.financingDurationMonths,
       numberOfInstallments: edit.numberOfInstallments,
+      disbursementDate: edit.disbursementDate || null,
     }});
   };
 
@@ -1157,7 +1214,21 @@ export default function CitizenBalanceStatementPage() {
                       Preview Financing Amount: {formatNumber(previewFinancingAmount)} AFN
                     </span>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground mb-1 block">Disbursement Date</label>
+                      <Input
+                        type="date"
+                        value={edit.disbursementDate}
+                        onChange={(e) => updateCleanupField(loanId, "disbursementDate", e.target.value)}
+                        data-testid="input-cleanup-disbursement-date"
+                      />
+                      {edit.disbursementDate && (
+                        <span className={`text-[10px] mt-0.5 block ${new Date(edit.disbursementDate) >= new Date("2026-01-17") ? "text-blue-600" : "text-amber-600"}`}>
+                          {new Date(edit.disbursementDate) >= new Date("2026-01-17") ? "New Formula" : "Old Formula"}
+                        </span>
+                      )}
+                    </div>
                     <div>
                       <label className="text-xs font-medium text-muted-foreground mb-1 block">Request Amount</label>
                       <Input
@@ -1308,7 +1379,10 @@ export default function CitizenBalanceStatementPage() {
                           <th className="px-4 py-3 text-right font-medium">Margin Amount</th>
                           <th className="px-4 py-3 text-right font-medium">Total</th>
                           <th className="px-4 py-3 text-right font-medium">Paid</th>
+                          <th className="px-4 py-3 text-right font-medium">Variance</th>
+                          <th className="px-4 py-3 text-right font-medium">PAR Days</th>
                           <th className="px-4 py-3 text-center font-medium">Status</th>
+                          <th className="px-4 py-3 text-center font-medium">Action</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1370,6 +1444,20 @@ export default function CitizenBalanceStatementPage() {
                               <td className="px-4 py-2 text-right">
                                 {formatAFN(inst.paidAmount)}
                               </td>
+                              <td className="px-4 py-2 text-right">
+                                {inst.installmentVariance !== null ? (
+                                  <span className={inst.installmentVariance < 0 ? "text-red-600" : inst.installmentVariance > 0 ? "text-green-600" : ""}>
+                                    {formatAFN(inst.installmentVariance)}
+                                  </span>
+                                ) : "—"}
+                              </td>
+                              <td className="px-4 py-2 text-right">
+                                {inst.lateDays !== null && inst.lateDays !== undefined ? (
+                                  <span className={inst.lateDays > 0 ? "text-red-600 font-medium" : "text-green-600"}>
+                                    {inst.lateDays}
+                                  </span>
+                                ) : "—"}
+                              </td>
                               <td className="px-4 py-2 text-center">
                                 {(() => {
                                   const effectivePaid = editedRows[rowKey]?.isPaid !== undefined ? editedRows[rowKey].isPaid : inst.isPaid;
@@ -1416,6 +1504,19 @@ export default function CitizenBalanceStatementPage() {
                                   );
                                 })()}
                               </td>
+                              <td className="px-4 py-2 text-center">
+                                {inst.id && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => openPaymentDialog(inst)}
+                                    data-testid={`inst-button-payment-${inst.installmentNumber}`}
+                                  >
+                                    <CreditCard className="h-3 w-3 mr-1" />
+                                    Payment
+                                  </Button>
+                                )}
+                              </td>
                             </tr>
                           );
                         })}
@@ -1457,6 +1558,9 @@ export default function CitizenBalanceStatementPage() {
                             {formatAFN(instScheduleData.installments.reduce((s, i) => s + i.paidAmount, 0))}
                           </td>
                           <td className="px-4 py-3"></td>
+                          <td className="px-4 py-3"></td>
+                          <td className="px-4 py-3"></td>
+                          <td className="px-4 py-3"></td>
                         </tr>
                       </tfoot>
                     </table>
@@ -1467,6 +1571,108 @@ export default function CitizenBalanceStatementPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle data-testid="dialog-title-payment">
+              Update Payment - Installment #{paymentDialogInst?.installmentNumber}
+            </DialogTitle>
+          </DialogHeader>
+          {paymentDialogInst && (() => {
+            const totalDue = paymentDialogInst.currentTotal || 0;
+            const paidAmt = parseFloat(paymentForm.paidAmount || "0");
+            const variance = paidAmt - totalDue;
+            let parDays: number | null = null;
+            if (paymentForm.paymentDate && paymentDialogInst.dueDate) {
+              const payDate = new Date(paymentForm.paymentDate);
+              const dueDate = new Date(paymentDialogInst.dueDate);
+              const diffTime = payDate.getTime() - dueDate.getTime();
+              parDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+              if (parDays < 0) parDays = 0;
+            }
+            return (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Due Date:</span>
+                    <span className="ml-2 font-medium">{paymentDialogInst.dueDate || "N/A"}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Total Due:</span>
+                    <span className="ml-2 font-medium">{formatAFN(totalDue)} AFN</span>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="paymentPaidAmount">Paid Amount (AFN)</Label>
+                  <Input
+                    id="paymentPaidAmount"
+                    type="number"
+                    step="0.01"
+                    value={paymentForm.paidAmount}
+                    onChange={(e) => setPaymentForm((prev) => ({ ...prev, paidAmount: e.target.value }))}
+                    data-testid="input-payment-paid-amount"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="paymentDate">Payment Date</Label>
+                  <Input
+                    id="paymentDate"
+                    type="date"
+                    value={paymentForm.paymentDate}
+                    onChange={(e) => setPaymentForm((prev) => ({ ...prev, paymentDate: e.target.value }))}
+                    data-testid="input-payment-date"
+                  />
+                </div>
+                <div className="flex items-center gap-3">
+                  <Label htmlFor="paymentIsPaid">Mark as Paid</Label>
+                  <button
+                    id="paymentIsPaid"
+                    type="button"
+                    onClick={() => setPaymentForm((prev) => ({ ...prev, isPaid: !prev.isPaid }))}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${paymentForm.isPaid ? "bg-green-600" : "bg-muted-foreground/30"}`}
+                    data-testid="toggle-payment-is-paid"
+                  >
+                    <span className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${paymentForm.isPaid ? "translate-x-6" : "translate-x-1"}`} />
+                  </button>
+                  <span className="text-sm font-medium">{paymentForm.isPaid ? "Paid" : "Unpaid"}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 p-3 rounded-md bg-muted/50">
+                  <div>
+                    <span className="text-xs text-muted-foreground block">Variance</span>
+                    <span className={`text-lg font-bold ${variance < 0 ? "text-red-600" : variance > 0 ? "text-green-600" : ""}`} data-testid="text-payment-variance">
+                      {formatAFN(variance)} AFN
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground block">PAR Days</span>
+                    <span className={`text-lg font-bold ${parDays !== null && parDays > 0 ? "text-red-600" : "text-green-600"}`} data-testid="text-payment-par">
+                      {parDays !== null ? parDays : "—"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPaymentDialogOpen(false)} data-testid="button-payment-cancel">
+              Cancel
+            </Button>
+            <Button
+              onClick={handlePaymentSubmit}
+              disabled={paymentUpdateMutation.isPending || !paymentForm.paidAmount}
+              className="bg-green-600 text-white"
+              data-testid="button-payment-submit"
+            >
+              {paymentUpdateMutation.isPending ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Updating...</>
+              ) : (
+                <><Save className="h-4 w-4 mr-2" />Update Payment</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

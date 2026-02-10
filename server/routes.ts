@@ -1122,6 +1122,7 @@ export async function registerRoutes(
           isPaid: inst.isPaid || false,
           paymentDate: inst.paymentDate,
           lateDays: inst.lateDays,
+          installmentVariance: inst.installmentVariance ? parseFloat(inst.installmentVariance) : null,
           hasNullAmounts: inst.principleAmount === null || inst.marginAmount === null,
         };
       });
@@ -1150,6 +1151,7 @@ export async function registerRoutes(
             isPaid: false,
             paymentDate: null,
             lateDays: null,
+            installmentVariance: null,
             hasNullAmounts: true,
           });
         }
@@ -4826,7 +4828,7 @@ export async function registerRoutes(
   app.post("/api/loans/:loanId/update-and-regenerate", isAuthenticated, requireRole("manager", "admin"), async (req: any, res) => {
     try {
       const { loanId } = req.params;
-      const { requestAmount, principleAmount, marginRate, gracePeriod, financingDurationMonths, numberOfInstallments } = req.body;
+      const { requestAmount, principleAmount, marginRate, gracePeriod, financingDurationMonths, numberOfInstallments, disbursementDate } = req.body;
 
       const loan = await storage.getLoan(loanId);
       if (!loan) return res.status(404).json({ message: "Loan not found" });
@@ -4846,6 +4848,17 @@ export async function registerRoutes(
       const numInstallments = !isNaN(parsedNumInstallments) && parsedNumInstallments > 0 ? parsedNumInstallments : durationMonths;
 
       const rate = updatedMarginRate > 1 ? updatedMarginRate / 100 : updatedMarginRate;
+
+      const cutoffDate = new Date("2026-01-17");
+      const disbursement = await storage.getDisbursementByLoan(loanId);
+      let effectiveDisbDate: Date | null = null;
+      if (disbursementDate) {
+        effectiveDisbDate = new Date(disbursementDate);
+      } else if (disbursement?.disbursementDate) {
+        effectiveDisbDate = new Date(disbursement.disbursementDate);
+      }
+      const useNewFormula = effectiveDisbDate ? effectiveDisbDate >= cutoffDate : true;
+
       const profitTotal = updatedPrincipal * rate;
       const grandTotal = updatedPrincipal + profitTotal;
 
@@ -4860,20 +4873,25 @@ export async function registerRoutes(
         totalReceivable: grandTotal.toFixed(2),
       });
 
-      const existingInstallments = await storage.getInstallmentsByLoan(loanId);
-      const disbursement = await storage.getDisbursementByLoan(loanId);
+      const deletedCount = await storage.deleteInstallmentsBeyond(loanId, 0);
 
       const principalInstallments = durationMonths - updatedGracePeriod;
       const principalPerInst = principalInstallments > 0 ? updatedPrincipal / principalInstallments : 0;
-      const marginPerInst = numInstallments > 0 ? profitTotal / numInstallments : 0;
+
+      let marginPerInst: number;
+      if (useNewFormula) {
+        marginPerInst = numInstallments > 0 ? profitTotal / numInstallments : 0;
+      } else {
+        marginPerInst = durationMonths > 0 ? (updatedPrincipal * rate) / durationMonths : 0;
+      }
 
       const roundedPrincipalPerInst = Math.round(principalPerInst * 100) / 100;
       const roundedMarginPerInst = Math.round(marginPerInst * 100) / 100;
       const principalRemainder = Math.round((updatedPrincipal - (roundedPrincipalPerInst * principalInstallments)) * 100) / 100;
-      const marginRemainder = Math.round((profitTotal - (roundedMarginPerInst * numInstallments)) * 100) / 100;
+      const marginRemainderBase = useNewFormula ? numInstallments : durationMonths;
+      const marginRemainder = Math.round((profitTotal - (roundedMarginPerInst * marginRemainderBase)) * 100) / 100;
 
       let created = 0;
-      let updated = 0;
 
       for (let i = 1; i <= numInstallments; i++) {
         const isGrace = i <= updatedGracePeriod;
@@ -4901,52 +4919,97 @@ export async function registerRoutes(
           dueDate = firstDate.toISOString().split("T")[0];
         }
 
-        const existingInst = existingInstallments.find((inst: any) => inst.installmentNumber === i);
-        if (existingInst) {
-          await storage.updateInstallmentAmounts(existingInst.id, {
-            principleAmount: instPrincipal.toFixed(2),
-            marginAmount: instMargin.toFixed(2),
-            totalAmount: instTotal.toFixed(2),
-          });
-          updated++;
-        } else {
-          await storage.createInstallment({
-            loanId,
-            installmentNumber: i,
-            dueDate,
-            principleAmount: instPrincipal.toFixed(2),
-            marginAmount: instMargin.toFixed(2),
-            totalAmount: instTotal.toFixed(2),
-            paidAmount: "0",
-            installmentVariance: null,
-            paymentDate: null,
-            lateDays: null,
-            isPaid: false,
-          });
-          created++;
-        }
+        await storage.createInstallment({
+          loanId,
+          installmentNumber: i,
+          dueDate,
+          principleAmount: instPrincipal.toFixed(2),
+          marginAmount: instMargin.toFixed(2),
+          totalAmount: instTotal.toFixed(2),
+          paidAmount: "0",
+          installmentVariance: null,
+          paymentDate: null,
+          lateDays: null,
+          isPaid: false,
+        });
+        created++;
       }
 
-      const deleted = await storage.deleteInstallmentsBeyond(loanId, numInstallments);
+      const formulaUsed = useNewFormula ? "new (margin spread across installments)" : "old (margin = principal * rate / duration)";
 
       await storage.createActivityLog({
         userId: req.user?.id || "system",
         action: "loan_data_cleanup",
-        entity: "loan",
+        entityType: "loan",
         entityId: loanId,
-        details: `Updated loan fields and regenerated ${created + updated} installments (created: ${created}, updated: ${updated}, deleted: ${deleted})`,
+        details: `Updated loan fields, deleted ${deletedCount} old installments, regenerated ${created} installments using ${formulaUsed} formula`,
         ipAddress: req.ip || "",
       });
 
       res.json({
-        message: `Loan updated and ${created + updated} installments processed (created: ${created}, updated: ${updated}, deleted extra: ${deleted}).`,
+        message: `Deleted ${deletedCount} old installments and regenerated ${created} new installments using ${formulaUsed} formula.`,
         created,
-        updated,
-        deleted,
+        deleted: deletedCount,
+        formulaUsed,
       });
     } catch (error: any) {
       console.error("Error in update-and-regenerate:", error);
       res.status(500).json({ message: "Failed to update loan", error: error.message });
+    }
+  });
+
+  // Update installment payment (paid amount, payment date, PAR calc)
+  app.patch("/api/installments/:id/payment", isAuthenticated, requireRole("manager", "admin"), async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { paidAmount, paymentDate, isPaid } = req.body;
+
+      const installment = await storage.getInstallmentById(id);
+      if (!installment) return res.status(404).json({ message: "Installment not found" });
+
+      const totalDue = parseFloat(installment.totalAmount || "0");
+      const paid = parseFloat(paidAmount || "0");
+      const variance = paid - totalDue;
+
+      let lateDays: number | null = null;
+      if (paymentDate && installment.dueDate) {
+        const payDate = new Date(paymentDate);
+        const dueDate = new Date(installment.dueDate);
+        const diffTime = payDate.getTime() - dueDate.getTime();
+        lateDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        if (lateDays < 0) lateDays = 0;
+      }
+
+      await storage.updateInstallmentAmounts(id, {
+        principleAmount: installment.principleAmount || "0",
+        marginAmount: installment.marginAmount || "0",
+        totalAmount: installment.totalAmount || "0",
+        paidAmount: paid.toFixed(2),
+        paymentDate: paymentDate || null,
+        isPaid: isPaid !== undefined ? isPaid : true,
+      });
+
+      if (lateDays !== null) {
+        await pool.query(
+          `UPDATE installments SET late_days = $1, installment_variance = $2 WHERE id = $3`,
+          [lateDays, variance.toFixed(2), id]
+        );
+      } else {
+        await pool.query(
+          `UPDATE installments SET installment_variance = $1 WHERE id = $2`,
+          [variance.toFixed(2), id]
+        );
+      }
+
+      res.json({
+        message: "Payment updated successfully",
+        variance: variance.toFixed(2),
+        lateDays,
+        isPaid: isPaid !== undefined ? isPaid : true,
+      });
+    } catch (error: any) {
+      console.error("Error updating installment payment:", error);
+      res.status(500).json({ message: "Failed to update payment", error: error.message });
     }
   });
 
