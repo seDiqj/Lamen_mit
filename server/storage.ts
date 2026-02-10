@@ -1,6 +1,6 @@
 import { db } from "./db";
 import bcrypt from "bcrypt";
-import { eq, and, like, or, desc, asc, sql, count, gte, lte, isNull, inArray } from "drizzle-orm";
+import { eq, and, like, or, desc, asc, sql, count, gt, gte, lte, isNull, inArray } from "drizzle-orm";
 import {
   users,
   userRoles,
@@ -262,6 +262,7 @@ export interface IStorage {
   getInstallmentById(id: string): Promise<any>;
   updateInstallmentAmounts(id: string, data: { principleAmount: string; marginAmount: string; totalAmount: string; isPaid?: boolean; paymentDate?: string | null; paidAmount?: string }): Promise<any>;
   createInstallment(data: any): Promise<any>;
+  deleteInstallmentsBeyond(loanId: string, maxInstallmentNumber: number): Promise<number>;
   getDisbursedLoans(filters?: { search?: string; branchId?: string }): Promise<any[]>;
   
   // Activity Logs
@@ -1413,6 +1414,19 @@ export class DatabaseStorage implements IStorage {
       .where(eq(installments.id, id))
       .returning();
     return result;
+  }
+
+  async deleteInstallmentsBeyond(loanId: string, maxInstallmentNumber: number): Promise<number> {
+    const deleted = await db
+      .delete(installments)
+      .where(
+        and(
+          eq(installments.loanId, loanId),
+          gt(installments.installmentNumber, maxInstallmentNumber)
+        )
+      )
+      .returning();
+    return deleted.length;
   }
 
   async getDisbursedLoans(filters?: { search?: string; branchId?: string }): Promise<any[]> {

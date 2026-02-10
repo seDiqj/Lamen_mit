@@ -4927,19 +4927,22 @@ export async function registerRoutes(
         }
       }
 
+      const deleted = await storage.deleteInstallmentsBeyond(loanId, numInstallments);
+
       await storage.createActivityLog({
         userId: req.user?.id || "system",
         action: "loan_data_cleanup",
         entity: "loan",
         entityId: loanId,
-        details: `Updated loan fields and regenerated ${created + updated} installments (created: ${created}, updated: ${updated})`,
+        details: `Updated loan fields and regenerated ${created + updated} installments (created: ${created}, updated: ${updated}, deleted: ${deleted})`,
         ipAddress: req.ip || "",
       });
 
       res.json({
-        message: `Loan updated and ${created + updated} installments processed (created: ${created}, updated: ${updated}).`,
+        message: `Loan updated and ${created + updated} installments processed (created: ${created}, updated: ${updated}, deleted extra: ${deleted}).`,
         created,
         updated,
+        deleted,
       });
     } catch (error: any) {
       console.error("Error in update-and-regenerate:", error);
