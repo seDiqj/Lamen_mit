@@ -1352,12 +1352,6 @@ export default function CitizenBalanceStatementPage() {
                     </p>
                   </div>
                   <div className="flex gap-2 flex-wrap">
-                    {instScheduleData.summary.unpaidCount > 0 && (
-                      <Button onClick={handleApplyCalculated} variant="outline" className="border-amber-500 text-amber-700" data-testid="inst-button-apply-calculated">
-                        <Calculator className="mr-2 h-4 w-4" />
-                        Apply Calculated Values ({instScheduleData.summary.unpaidCount})
-                      </Button>
-                    )}
                     {hasInstChanges && (
                       <Button onClick={handleInstSave} className="bg-green-600 text-white" disabled={bulkUpdateMutation.isPending} data-testid="inst-button-save-installments">
                         <Save className="mr-2 h-4 w-4" />
