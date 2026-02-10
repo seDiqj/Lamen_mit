@@ -34,7 +34,11 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  FileSpreadsheet,
 } from "lucide-react";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import type { FundingSource } from "@shared/schema";
 import type { Loan } from "@shared/schema";
 
@@ -201,6 +205,72 @@ export default function LoansPage() {
     return `${day}-${month}-${year}`;
   };
 
+  const getExportData = () => {
+    const loans = sortedLoans || [];
+    return loans.map((loan) => ({
+      "Application ID": loan.applicationId || "-",
+      "Customer": loan.customerName || "-",
+      "Product": loan.productName || "-",
+      "Amount": loan.principleAmount || loan.requestAmount || 0,
+      "Duration": loan.financingDurationMonths ? `${loan.financingDurationMonths} months` : "-",
+      "Request Date": formatDateLocal(loan.requestDate),
+      "Status": getStatusLabel(loan.status || "pending"),
+    }));
+  };
+
+  const exportToExcel = () => {
+    const exportData = getExportData();
+    if (!exportData.length) return;
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    ws["!cols"] = [
+      { wch: 18 }, { wch: 25 }, { wch: 18 }, { wch: 15 }, { wch: 14 }, { wch: 16 }, { wch: 18 },
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Loans");
+    XLSX.writeFile(wb, `Loans_${new Date().toISOString().split("T")[0]}.xlsx`);
+  };
+
+  const exportToPDF = () => {
+    const exportData = getExportData();
+    if (!exportData.length) return;
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Lamen Microfinance Institution", 14, 14);
+    doc.setFontSize(11);
+    doc.text("Financing List", 14, 21);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    const now = new Date();
+    doc.text(`Date: ${formatDateLocal(now)}`, 250, 14);
+
+    const headers = ["Application ID", "Customer", "Product", "Amount", "Duration", "Request Date", "Status"];
+    const body = exportData.map((row) => [
+      row["Application ID"],
+      row["Customer"],
+      row["Product"],
+      typeof row["Amount"] === "number" ? formatCurrency(row["Amount"]) : String(row["Amount"]),
+      row["Duration"],
+      row["Request Date"],
+      row["Status"],
+    ]);
+
+    autoTable(doc, {
+      startY: 26,
+      head: [headers],
+      body,
+      margin: { left: 14, right: 14 },
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [60, 120, 80], textColor: 255, fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [245, 250, 245] },
+      columnStyles: {
+        3: { halign: "right" },
+      },
+    });
+
+    doc.save(`Loans_${new Date().toISOString().split("T")[0]}.pdf`);
+  };
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -301,9 +371,23 @@ export default function LoansPage() {
                   <SelectItem value="defaulted">Defaulted</SelectItem>
                 </SelectContent>
               </Select>
-              <Button variant="outline" data-testid="button-export-loans">
+              <Button
+                variant="outline"
+                className="bg-green-600 hover:bg-green-700 text-white border-green-600"
+                onClick={exportToExcel}
+                data-testid="button-export-excel-loans"
+              >
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                Excel
+              </Button>
+              <Button
+                variant="outline"
+                className="bg-red-600 hover:bg-red-700 text-white border-red-600"
+                onClick={exportToPDF}
+                data-testid="button-export-pdf-loans"
+              >
                 <Download className="mr-2 h-4 w-4" />
-                Export
+                PDF
               </Button>
             </div>
           </div>
