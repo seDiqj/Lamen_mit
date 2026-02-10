@@ -4879,17 +4879,19 @@ export async function registerRoutes(
       const principalPerInst = principalInstallments > 0 ? updatedPrincipal / principalInstallments : 0;
 
       let marginPerInst: number;
+      let marginPayingInstCount: number;
       if (useNewFormula) {
-        marginPerInst = numInstallments > 0 ? profitTotal / numInstallments : 0;
+        marginPayingInstCount = numInstallments;
+        marginPerInst = marginPayingInstCount > 0 ? profitTotal / marginPayingInstCount : 0;
       } else {
-        marginPerInst = durationMonths > 0 ? (updatedPrincipal * rate) / durationMonths : 0;
+        marginPayingInstCount = numInstallments - updatedGracePeriod;
+        marginPerInst = marginPayingInstCount > 0 ? profitTotal / marginPayingInstCount : 0;
       }
 
       const roundedPrincipalPerInst = Math.round(principalPerInst * 100) / 100;
       const roundedMarginPerInst = Math.round(marginPerInst * 100) / 100;
       const principalRemainder = Math.round((updatedPrincipal - (roundedPrincipalPerInst * principalInstallments)) * 100) / 100;
-      const marginRemainderBase = useNewFormula ? numInstallments : durationMonths;
-      const marginRemainder = Math.round((profitTotal - (roundedMarginPerInst * marginRemainderBase)) * 100) / 100;
+      const marginRemainder = Math.round((profitTotal - (roundedMarginPerInst * marginPayingInstCount)) * 100) / 100;
 
       let created = 0;
 
@@ -4898,13 +4900,21 @@ export async function registerRoutes(
         const isFirstPrincipal = updatedGracePeriod > 0 ? (i === updatedGracePeriod + 1) : (i === 1);
 
         let instPrincipal: number, instMargin: number, instTotal: number;
-        if (isGrace) {
+        if (isGrace && !useNewFormula) {
+          instPrincipal = 0;
+          instMargin = 0;
+          instTotal = 0;
+        } else if (isGrace && useNewFormula) {
           instPrincipal = 0;
           instMargin = (i === 1) ? roundedMarginPerInst + marginRemainder : roundedMarginPerInst;
           instTotal = instMargin;
         } else if (isFirstPrincipal) {
           instPrincipal = roundedPrincipalPerInst + principalRemainder;
-          instMargin = (updatedGracePeriod === 0 && i === 1) ? roundedMarginPerInst + marginRemainder : roundedMarginPerInst;
+          if (useNewFormula) {
+            instMargin = roundedMarginPerInst;
+          } else {
+            instMargin = roundedMarginPerInst + marginRemainder;
+          }
           instTotal = instPrincipal + instMargin;
         } else {
           instPrincipal = roundedPrincipalPerInst;
