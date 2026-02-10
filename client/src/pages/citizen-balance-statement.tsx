@@ -176,7 +176,7 @@ const formatDateTime = () => {
 };
 
 export default function CitizenBalanceStatementPage() {
-  const [activeTab, setActiveTab] = useState("statement");
+  const [activeTab, setActiveTab] = useState("installment-cleanup");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
   const [showReport, setShowReport] = useState(false);
   const [cleanupEdits, setCleanupEdits] = useState<Record<string, { requestAmount: string; principleAmount: string; marginRate: string; gracePeriod: string; financingDurationMonths: string; numberOfInstallments: string; disbursementDate: string }>>({});
@@ -825,8 +825,8 @@ export default function CitizenBalanceStatementPage() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-2 max-w-md">
-          <TabsTrigger value="statement" data-testid="tab-statement">Balance Statement</TabsTrigger>
           <TabsTrigger value="installment-cleanup" data-testid="tab-installment-cleanup">Installment & Payment Cleanup</TabsTrigger>
+          <TabsTrigger value="statement" data-testid="tab-statement">Balance Statement</TabsTrigger>
         </TabsList>
 
         <TabsContent value="statement" className="space-y-6">
