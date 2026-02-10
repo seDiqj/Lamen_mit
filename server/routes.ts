@@ -4929,7 +4929,7 @@ export async function registerRoutes(
           if (disbDay >= 25) {
             baseDate = new Date(effectiveDisbDate.getFullYear(), effectiveDisbDate.getMonth() + 2, 1);
           } else {
-            baseDate = new Date(effectiveDisbDate.getFullYear(), effectiveDisbDate.getMonth() + 1, 1);
+            baseDate = new Date(effectiveDisbDate.getFullYear(), effectiveDisbDate.getMonth() + 1, disbDay);
           }
           const instDate = new Date(baseDate);
           instDate.setMonth(instDate.getMonth() + (i - 1));
