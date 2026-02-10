@@ -14,7 +14,6 @@ import {
   ChevronDown,
   X,
   RefreshCw,
-  Wrench,
   Save,
   Calculator,
   Lock,
@@ -60,6 +59,7 @@ type LoanStatement = {
     totalReceivable: number;
     requestAmount: number;
     numberOfInstallments: number;
+    financingDurationMonths: number;
     gracePeriod: number;
   };
   branch: { name: string; shortName?: string } | null;
@@ -113,6 +113,10 @@ type ScheduleData = {
     principalAmount: number;
     marginRate: number;
     numberOfInstallments: number;
+    financingDurationMonths: number;
+    gracePeriod: number;
+    requestAmount: number;
+    financingCycle: number;
     status: string;
     productName: string;
   };
@@ -165,8 +169,7 @@ export default function CitizenBalanceStatementPage() {
   const [activeTab, setActiveTab] = useState("statement");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
   const [showReport, setShowReport] = useState(false);
-  const [showCleanup, setShowCleanup] = useState(false);
-  const [cleanupEdits, setCleanupEdits] = useState<Record<string, { requestAmount: string; principleAmount: string; marginRate: string; gracePeriod: string }>>({});
+  const [cleanupEdits, setCleanupEdits] = useState<Record<string, { requestAmount: string; principleAmount: string; marginRate: string; gracePeriod: string; financingDurationMonths: string; numberOfInstallments: string }>>({});
   const reportRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -205,6 +208,14 @@ export default function CitizenBalanceStatementPage() {
     onSuccess: (result) => {
       toast({ title: "Installments Regenerated", description: result.message });
       queryClient.invalidateQueries({ queryKey: ["/api/reports/citizen-balance-statement", selectedCustomerId] });
+      if (instSelectedLoanId) {
+        setCleanupEdits((prev) => {
+          const copy = { ...prev };
+          delete copy[instSelectedLoanId];
+          return copy;
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/loans", instSelectedLoanId, "installment-schedule"] });
+      }
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message || "Failed to regenerate", variant: "destructive" });
@@ -280,6 +291,25 @@ export default function CitizenBalanceStatementPage() {
     return () => document.removeEventListener("mousedown", handleInstClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (instScheduleData?.loan) {
+      const loanId = instScheduleData.loan.id;
+      if (!cleanupEdits[loanId]) {
+        setCleanupEdits((prev) => ({
+          ...prev,
+          [loanId]: {
+            requestAmount: instScheduleData.loan.requestAmount.toString(),
+            principleAmount: instScheduleData.loan.principalAmount.toString(),
+            marginRate: instScheduleData.loan.marginRate.toString(),
+            gracePeriod: instScheduleData.loan.gracePeriod.toString(),
+            financingDurationMonths: instScheduleData.loan.financingDurationMonths.toString(),
+            numberOfInstallments: instScheduleData.loan.numberOfInstallments.toString(),
+          },
+        }));
+      }
+    }
+  }, [instScheduleData]);
+
   const handleInstView = () => {
     if (!instSelectedLoanId) {
       toast({ title: "Select Financing", description: "Please select a financing first.", variant: "destructive" });
@@ -288,6 +318,11 @@ export default function CitizenBalanceStatementPage() {
     setShowInstSchedule(true);
     setEditedRows({});
     setApplyCalculated(false);
+    setCleanupEdits((prev) => {
+      const copy = { ...prev };
+      delete copy[instSelectedLoanId];
+      return copy;
+    });
   };
 
   const getRowKey = (inst: InstallmentRow) => inst.id || `new_${inst.installmentNumber}`;
@@ -396,7 +431,7 @@ export default function CitizenBalanceStatementPage() {
 
   useEffect(() => {
     if (statementData?.loanStatements) {
-      const edits: Record<string, { requestAmount: string; principleAmount: string; marginRate: string; gracePeriod: string }> = {};
+      const edits: Record<string, { requestAmount: string; principleAmount: string; marginRate: string; gracePeriod: string; financingDurationMonths: string; numberOfInstallments: string }> = {};
       statementData.loanStatements.forEach((ls) => {
         if (!cleanupEdits[ls.loan.id]) {
           edits[ls.loan.id] = {
@@ -404,6 +439,8 @@ export default function CitizenBalanceStatementPage() {
             principleAmount: ls.loan.principleAmount.toString(),
             marginRate: ls.loan.marginRate.toString(),
             gracePeriod: ls.loan.gracePeriod.toString(),
+            financingDurationMonths: ls.loan.financingDurationMonths.toString(),
+            numberOfInstallments: ls.loan.numberOfInstallments.toString(),
           };
         }
       });
@@ -425,7 +462,14 @@ export default function CitizenBalanceStatementPage() {
   const handleGenerate = (loanId: string) => {
     const edit = cleanupEdits[loanId];
     if (!edit) return;
-    regenerateMutation.mutate({ loanId, data: edit });
+    regenerateMutation.mutate({ loanId, data: {
+      requestAmount: edit.requestAmount,
+      principleAmount: edit.principleAmount,
+      marginRate: edit.marginRate,
+      gracePeriod: edit.gracePeriod,
+      financingDurationMonths: edit.financingDurationMonths,
+      numberOfInstallments: edit.numberOfInstallments,
+    }});
   };
 
   const updateCleanupField = (loanId: string, field: string, value: string) => {
@@ -834,91 +878,6 @@ export default function CitizenBalanceStatementPage() {
         </Card>
       )}
 
-      {showReport && statementData && statementData.loanStatements.length > 0 && (
-        <div className="flex justify-end">
-          <Button
-            variant={showCleanup ? "default" : "outline"}
-            onClick={() => setShowCleanup(!showCleanup)}
-            data-testid="button-toggle-cleanup"
-          >
-            <Wrench className="h-4 w-4 mr-2" />
-            {showCleanup ? "Hide Data Cleanup" : "Data Cleanup"}
-          </Button>
-        </div>
-      )}
-
-      {showCleanup && showReport && statementData && statementData.loanStatements.map((ls, lsIdx) => {
-        const edit = cleanupEdits[ls.loan.id];
-        if (!edit) return null;
-        const editedPrincipal = parseFloat(edit.principleAmount) || 0;
-        const editedMargin = parseFloat(edit.marginRate) || 0;
-        const editedRate = editedMargin > 1 ? editedMargin / 100 : editedMargin;
-        const previewFinancingAmount = editedPrincipal + (editedPrincipal * editedRate);
-        return (
-          <Card key={`cleanup-${ls.loan.id}`}>
-            <CardContent className="p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                <h3 className="text-sm font-bold text-green-700 dark:text-green-400" data-testid={`text-cleanup-title-${lsIdx}`}>
-                  Data Cleanup - {ls.loan.applicationId} (Cycle {ls.loan.financingCycle})
-                </h3>
-                <span className="text-xs text-muted-foreground">
-                  Installments: {ls.loan.numberOfInstallments} | Preview Financing Amount: {formatNumber(previewFinancingAmount)} AFN
-                </span>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Request Amount</label>
-                  <Input
-                    type="number"
-                    value={edit.requestAmount}
-                    onChange={(e) => updateCleanupField(ls.loan.id, "requestAmount", e.target.value)}
-                    data-testid={`input-cleanup-request-${lsIdx}`}
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Principle Amount</label>
-                  <Input
-                    type="number"
-                    value={edit.principleAmount}
-                    onChange={(e) => updateCleanupField(ls.loan.id, "principleAmount", e.target.value)}
-                    data-testid={`input-cleanup-principle-${lsIdx}`}
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Margin Rate</label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={edit.marginRate}
-                    onChange={(e) => updateCleanupField(ls.loan.id, "marginRate", e.target.value)}
-                    data-testid={`input-cleanup-margin-${lsIdx}`}
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Grace Period</label>
-                  <Input
-                    type="number"
-                    value={edit.gracePeriod}
-                    onChange={(e) => updateCleanupField(ls.loan.id, "gracePeriod", e.target.value)}
-                    data-testid={`input-cleanup-grace-${lsIdx}`}
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end mt-3">
-                <Button
-                  onClick={() => handleGenerate(ls.loan.id)}
-                  disabled={regenerateMutation.isPending}
-                  data-testid={`button-generate-${lsIdx}`}
-                >
-                  <RefreshCw className={`h-4 w-4 mr-2 ${regenerateMutation.isPending ? "animate-spin" : ""}`} />
-                  Generate
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })}
-
       {showReport && statementData && statementData.loanStatements.map((ls, lsIdx) => {
         const { date: nowDate, time: nowTime } = formatDateTime();
         return (
@@ -1178,6 +1137,97 @@ export default function CitizenBalanceStatementPage() {
               </div>
             </CardContent>
           </Card>
+
+          {showInstSchedule && instScheduleData && (() => {
+            const loanId = instScheduleData.loan.id;
+            const edit = cleanupEdits[loanId];
+            if (!edit) return null;
+            const editedPrincipal = parseFloat(edit.principleAmount) || 0;
+            const editedMargin = parseFloat(edit.marginRate) || 0;
+            const editedRate = editedMargin > 1 ? editedMargin / 100 : editedMargin;
+            const previewFinancingAmount = editedPrincipal + (editedPrincipal * editedRate);
+            return (
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <h3 className="text-sm font-bold text-green-700 dark:text-green-400" data-testid="text-cleanup-title">
+                      Data Cleanup - {instScheduleData.loan.applicationId} (Cycle {instScheduleData.loan.financingCycle})
+                    </h3>
+                    <span className="text-xs text-muted-foreground">
+                      Preview Financing Amount: {formatNumber(previewFinancingAmount)} AFN
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground mb-1 block">Request Amount</label>
+                      <Input
+                        type="number"
+                        value={edit.requestAmount}
+                        onChange={(e) => updateCleanupField(loanId, "requestAmount", e.target.value)}
+                        data-testid="input-cleanup-request"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground mb-1 block">Principle Amount</label>
+                      <Input
+                        type="number"
+                        value={edit.principleAmount}
+                        onChange={(e) => updateCleanupField(loanId, "principleAmount", e.target.value)}
+                        data-testid="input-cleanup-principle"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground mb-1 block">Margin Rate</label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={edit.marginRate}
+                        onChange={(e) => updateCleanupField(loanId, "marginRate", e.target.value)}
+                        data-testid="input-cleanup-margin"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground mb-1 block">Grace Period</label>
+                      <Input
+                        type="number"
+                        value={edit.gracePeriod}
+                        onChange={(e) => updateCleanupField(loanId, "gracePeriod", e.target.value)}
+                        data-testid="input-cleanup-grace"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground mb-1 block">Duration Months</label>
+                      <Input
+                        type="number"
+                        value={edit.financingDurationMonths}
+                        onChange={(e) => updateCleanupField(loanId, "financingDurationMonths", e.target.value)}
+                        data-testid="input-cleanup-duration"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground mb-1 block">No. of Installments</label>
+                      <Input
+                        type="number"
+                        value={edit.numberOfInstallments}
+                        onChange={(e) => updateCleanupField(loanId, "numberOfInstallments", e.target.value)}
+                        data-testid="input-cleanup-installments"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end mt-3">
+                    <Button
+                      onClick={() => handleGenerate(loanId)}
+                      disabled={regenerateMutation.isPending}
+                      data-testid="button-generate-cleanup"
+                    >
+                      <RefreshCw className={`h-4 w-4 mr-2 ${regenerateMutation.isPending ? "animate-spin" : ""}`} />
+                      Generate
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
 
           {showInstSchedule && instScheduleLoading && (
             <Card>

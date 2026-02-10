@@ -1167,6 +1167,10 @@ export async function registerRoutes(
           principalAmount,
           marginRate,
           numberOfInstallments: numInstallments,
+          financingDurationMonths: durationMonths,
+          gracePeriod,
+          requestAmount: parseFloat(loan.requestAmount || "0"),
+          financingCycle: loan.financingCycle || 1,
           status: loan.status,
           productName: loan.productName,
         },
@@ -4822,7 +4826,7 @@ export async function registerRoutes(
   app.post("/api/loans/:loanId/update-and-regenerate", isAuthenticated, requireRole("manager", "admin"), async (req: any, res) => {
     try {
       const { loanId } = req.params;
-      const { requestAmount, principleAmount, marginRate, gracePeriod } = req.body;
+      const { requestAmount, principleAmount, marginRate, gracePeriod, financingDurationMonths, numberOfInstallments } = req.body;
 
       const loan = await storage.getLoan(loanId);
       if (!loan) return res.status(404).json({ message: "Loan not found" });
@@ -4831,13 +4835,15 @@ export async function registerRoutes(
       const parsedMarginRate = parseFloat(marginRate);
       const parsedGracePeriod = parseInt(gracePeriod);
       const parsedRequestAmount = parseFloat(requestAmount);
+      const parsedDurationMonths = parseInt(financingDurationMonths);
+      const parsedNumInstallments = parseInt(numberOfInstallments);
 
       const updatedPrincipal = !isNaN(parsedPrincipal) && parsedPrincipal >= 0 ? parsedPrincipal : parseFloat(loan.principleAmount || "0");
       const updatedMarginRate = !isNaN(parsedMarginRate) && parsedMarginRate >= 0 ? parsedMarginRate : parseFloat(loan.marginRate || "0");
       const updatedGracePeriod = !isNaN(parsedGracePeriod) && parsedGracePeriod >= 0 ? parsedGracePeriod : (loan.gracePeriod || 0);
       const updatedRequestAmount = !isNaN(parsedRequestAmount) && parsedRequestAmount >= 0 ? parsedRequestAmount : parseFloat(loan.requestAmount || "0");
-      const durationMonths = loan.financingDurationMonths || 12;
-      const numInstallments = durationMonths;
+      const durationMonths = !isNaN(parsedDurationMonths) && parsedDurationMonths > 0 ? parsedDurationMonths : (loan.financingDurationMonths || 12);
+      const numInstallments = !isNaN(parsedNumInstallments) && parsedNumInstallments > 0 ? parsedNumInstallments : durationMonths;
 
       const rate = updatedMarginRate > 1 ? updatedMarginRate / 100 : updatedMarginRate;
       const profitTotal = updatedPrincipal * rate;
@@ -4848,6 +4854,7 @@ export async function registerRoutes(
         principleAmount: updatedPrincipal.toFixed(2),
         marginRate: updatedMarginRate.toString(),
         gracePeriod: updatedGracePeriod,
+        financingDurationMonths: durationMonths,
         numberOfInstallments: numInstallments,
         profit: profitTotal.toFixed(2),
         totalReceivable: grandTotal.toFixed(2),
@@ -5038,6 +5045,7 @@ export async function registerRoutes(
             totalReceivable: parseFloat(loan.totalReceivable as string || "0"),
             requestAmount: parseFloat(loan.requestAmount as string || "0"),
             numberOfInstallments: loan.numberOfInstallments || 12,
+            financingDurationMonths: loan.financingDurationMonths || 12,
             gracePeriod: loan.gracePeriod || 0,
           },
           branch: branch ? { name: branch.name, shortName: branch.shortName } : null,
