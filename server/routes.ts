@@ -4913,7 +4913,11 @@ export async function registerRoutes(
         }
 
         let dueDate: string | null = null;
-        if (disbursement?.firstInstallmentDate) {
+        if (effectiveDisbDate) {
+          const instDate = new Date(effectiveDisbDate);
+          instDate.setMonth(instDate.getMonth() + i);
+          dueDate = instDate.toISOString().split("T")[0];
+        } else if (disbursement?.firstInstallmentDate) {
           const firstDate = new Date(disbursement.firstInstallmentDate);
           firstDate.setMonth(firstDate.getMonth() + (i - 1));
           dueDate = firstDate.toISOString().split("T")[0];
