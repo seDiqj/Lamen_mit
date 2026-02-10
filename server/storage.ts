@@ -2023,26 +2023,42 @@ export class DatabaseStorage implements IStorage {
   async getParByBranch(): Promise<any> {
     const result = await db.execute(sql`
       SELECT 
-        b.name as branch_name,
+        COALESCE(b.name, 'Unassigned') as branch_name,
         COUNT(DISTINCT l.id) as loan_count,
-        COALESCE(SUM(COALESCE(l.principle_amount, l.request_amount)), 0) as total_amount,
-        COALESCE(SUM(l.outstanding_portfolio), 0) as outstanding_amount,
-        COALESCE(SUM(CASE WHEN i.late_days > 0 THEN l.outstanding_portfolio ELSE 0 END), 0) as par_amount
+        COALESCE(SUM(CASE WHEN l.total_receivable IS NOT NULL THEN l.total_receivable::numeric ELSE COALESCE(l.principle_amount, l.request_amount)::numeric END), 0) as total_portfolio,
+        COALESCE((
+          SELECT SUM(i.total_amount::numeric)
+          FROM installments i
+          WHERE i.loan_id IN (SELECT l2.id FROM loans l2 WHERE COALESCE(l2.branch_id, 0) = COALESCE(b.id, 0) AND l2.status IN ('disbursed', 'active', 'completed'))
+          AND i.is_paid = true
+        ), 0) as total_collected,
+        COALESCE((
+          SELECT SUM(i2.total_amount::numeric - COALESCE(i2.paid_amount::numeric, 0))
+          FROM installments i2
+          WHERE i2.loan_id IN (SELECT l3.id FROM loans l3 WHERE COALESCE(l3.branch_id, 0) = COALESCE(b.id, 0) AND l3.status IN ('disbursed', 'active', 'completed'))
+          AND i2.is_paid = false AND i2.late_days > 0
+        ), 0) as par_amount
       FROM loans l
       LEFT JOIN branches b ON l.branch_id = b.id
-      LEFT JOIN installments i ON l.id = i.loan_id
+      WHERE l.status IN ('disbursed', 'active', 'completed')
       GROUP BY b.id, b.name
-      ORDER BY outstanding_amount DESC
+      ORDER BY total_portfolio DESC
     `);
     
-    const branchData = (result.rows as any[]).map(row => ({
-      branch: row.branch_name || 'Unassigned',
-      loanCount: parseInt(row.loan_count) || 0,
-      totalAmount: parseFloat(row.total_amount) || 0,
-      outstandingAmount: parseFloat(row.outstanding_amount) || 0,
-      parAmount: parseFloat(row.par_amount) || 0,
-      parRatio: row.outstanding_amount > 0 ? ((row.par_amount / row.outstanding_amount) * 100).toFixed(2) : '0'
-    }));
+    const branchData = (result.rows as any[]).map(row => {
+      const totalPortfolio = parseFloat(row.total_portfolio) || 0;
+      const totalCollected = parseFloat(row.total_collected) || 0;
+      const outstanding = totalPortfolio - totalCollected;
+      const parAmount = parseFloat(row.par_amount) || 0;
+      return {
+        branch: row.branch_name || 'Unassigned',
+        loanCount: parseInt(row.loan_count) || 0,
+        totalAmount: totalPortfolio,
+        outstandingAmount: outstanding,
+        parAmount: parAmount,
+        parRatio: outstanding > 0 ? ((parAmount / outstanding) * 100).toFixed(2) : '0'
+      };
+    });
     
     return branchData;
   }
@@ -2050,29 +2066,46 @@ export class DatabaseStorage implements IStorage {
   async getParByOfficer(): Promise<any> {
     const result = await db.execute(sql`
       SELECT 
-        fo.name as officer_name,
-        b.name as branch_name,
+        COALESCE(fo.name, 'Unassigned') as officer_name,
+        COALESCE(b.name, 'N/A') as branch_name,
+        fo.id as officer_id,
         COUNT(DISTINCT l.id) as loan_count,
-        COALESCE(SUM(COALESCE(l.principle_amount, l.request_amount)), 0) as total_amount,
-        COALESCE(SUM(l.outstanding_portfolio), 0) as outstanding_amount,
-        COALESCE(SUM(CASE WHEN i.late_days > 0 THEN l.outstanding_portfolio ELSE 0 END), 0) as par_amount
+        COALESCE(SUM(CASE WHEN l.total_receivable IS NOT NULL THEN l.total_receivable::numeric ELSE COALESCE(l.principle_amount, l.request_amount)::numeric END), 0) as total_portfolio,
+        COALESCE((
+          SELECT SUM(i.total_amount::numeric)
+          FROM installments i
+          WHERE i.loan_id IN (SELECT l2.id FROM loans l2 WHERE COALESCE(l2.finance_officer_id, 0) = COALESCE(fo.id, 0) AND l2.status IN ('disbursed', 'active', 'completed'))
+          AND i.is_paid = true
+        ), 0) as total_collected,
+        COALESCE((
+          SELECT SUM(i2.total_amount::numeric - COALESCE(i2.paid_amount::numeric, 0))
+          FROM installments i2
+          WHERE i2.loan_id IN (SELECT l3.id FROM loans l3 WHERE COALESCE(l3.finance_officer_id, 0) = COALESCE(fo.id, 0) AND l3.status IN ('disbursed', 'active', 'completed'))
+          AND i2.is_paid = false AND i2.late_days > 0
+        ), 0) as par_amount
       FROM loans l
       LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
       LEFT JOIN branches b ON l.branch_id = b.id
-      LEFT JOIN installments i ON l.id = i.loan_id
+      WHERE l.status IN ('disbursed', 'active', 'completed')
       GROUP BY fo.id, fo.name, b.name
-      ORDER BY outstanding_amount DESC
+      ORDER BY total_portfolio DESC
     `);
     
-    const officerData = (result.rows as any[]).map(row => ({
-      officer: row.officer_name || 'Unassigned',
-      branch: row.branch_name || 'N/A',
-      loanCount: parseInt(row.loan_count) || 0,
-      totalAmount: parseFloat(row.total_amount) || 0,
-      outstandingAmount: parseFloat(row.outstanding_amount) || 0,
-      parAmount: parseFloat(row.par_amount) || 0,
-      parRatio: row.outstanding_amount > 0 ? ((row.par_amount / row.outstanding_amount) * 100).toFixed(2) : '0'
-    }));
+    const officerData = (result.rows as any[]).map(row => {
+      const totalPortfolio = parseFloat(row.total_portfolio) || 0;
+      const totalCollected = parseFloat(row.total_collected) || 0;
+      const outstanding = totalPortfolio - totalCollected;
+      const parAmount = parseFloat(row.par_amount) || 0;
+      return {
+        officer: row.officer_name || 'Unassigned',
+        branch: row.branch_name || 'N/A',
+        loanCount: parseInt(row.loan_count) || 0,
+        totalAmount: totalPortfolio,
+        outstandingAmount: outstanding,
+        parAmount: parAmount,
+        parRatio: outstanding > 0 ? ((parAmount / outstanding) * 100).toFixed(2) : '0'
+      };
+    });
     
     return officerData;
   }
@@ -2080,25 +2113,41 @@ export class DatabaseStorage implements IStorage {
   async getParByProduct(): Promise<any> {
     const result = await db.execute(sql`
       SELECT 
-        l.product_name,
+        COALESCE(l.product_name, 'Unknown') as product_name,
         COUNT(DISTINCT l.id) as loan_count,
-        COALESCE(SUM(COALESCE(l.principle_amount, l.request_amount)), 0) as total_amount,
-        COALESCE(SUM(l.outstanding_portfolio), 0) as outstanding_amount,
-        COALESCE(SUM(CASE WHEN i.late_days > 0 THEN l.outstanding_portfolio ELSE 0 END), 0) as par_amount
+        COALESCE(SUM(CASE WHEN l.total_receivable IS NOT NULL THEN l.total_receivable::numeric ELSE COALESCE(l.principle_amount, l.request_amount)::numeric END), 0) as total_portfolio,
+        COALESCE((
+          SELECT SUM(i.total_amount::numeric)
+          FROM installments i
+          WHERE i.loan_id IN (SELECT l2.id FROM loans l2 WHERE COALESCE(l2.product_name, 'Unknown') = COALESCE(l.product_name, 'Unknown') AND l2.status IN ('disbursed', 'active', 'completed'))
+          AND i.is_paid = true
+        ), 0) as total_collected,
+        COALESCE((
+          SELECT SUM(i2.total_amount::numeric - COALESCE(i2.paid_amount::numeric, 0))
+          FROM installments i2
+          WHERE i2.loan_id IN (SELECT l3.id FROM loans l3 WHERE COALESCE(l3.product_name, 'Unknown') = COALESCE(l.product_name, 'Unknown') AND l3.status IN ('disbursed', 'active', 'completed'))
+          AND i2.is_paid = false AND i2.late_days > 0
+        ), 0) as par_amount
       FROM loans l
-      LEFT JOIN installments i ON l.id = i.loan_id
+      WHERE l.status IN ('disbursed', 'active', 'completed')
       GROUP BY l.product_name
-      ORDER BY outstanding_amount DESC
+      ORDER BY total_portfolio DESC
     `);
     
-    const productData = (result.rows as any[]).map(row => ({
-      product: row.product_name || 'Unknown',
-      loanCount: parseInt(row.loan_count) || 0,
-      totalAmount: parseFloat(row.total_amount) || 0,
-      outstandingAmount: parseFloat(row.outstanding_amount) || 0,
-      parAmount: parseFloat(row.par_amount) || 0,
-      parRatio: row.outstanding_amount > 0 ? ((row.par_amount / row.outstanding_amount) * 100).toFixed(2) : '0'
-    }));
+    const productData = (result.rows as any[]).map(row => {
+      const totalPortfolio = parseFloat(row.total_portfolio) || 0;
+      const totalCollected = parseFloat(row.total_collected) || 0;
+      const outstanding = totalPortfolio - totalCollected;
+      const parAmount = parseFloat(row.par_amount) || 0;
+      return {
+        product: row.product_name || 'Unknown',
+        loanCount: parseInt(row.loan_count) || 0,
+        totalAmount: totalPortfolio,
+        outstandingAmount: outstanding,
+        parAmount: parAmount,
+        parRatio: outstanding > 0 ? ((parAmount / outstanding) * 100).toFixed(2) : '0'
+      };
+    });
     
     return productData;
   }
