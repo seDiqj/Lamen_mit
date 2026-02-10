@@ -1,19 +1,26 @@
 import { useState, useRef, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   FileSpreadsheet,
   FileText,
   Eye,
-  Printer,
   Search,
   ChevronDown,
   X,
   RefreshCw,
   Wrench,
+  Save,
+  Calculator,
+  Lock,
+  AlertTriangle,
+  CheckCircle2,
+  Loader2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -82,6 +89,50 @@ type StatementData = {
   loanStatements: LoanStatement[];
 };
 
+type InstallmentRow = {
+  id: string | null;
+  installmentNumber: number;
+  dueDate: string | null;
+  currentPrincipal: number | null;
+  currentMargin: number | null;
+  currentTotal: number | null;
+  calculatedPrincipal: number;
+  calculatedMargin: number;
+  calculatedTotal: number;
+  paidAmount: number;
+  isPaid: boolean;
+  paymentDate: string | null;
+  lateDays: number | null;
+  hasNullAmounts: boolean;
+};
+
+type ScheduleData = {
+  loan: {
+    id: string;
+    applicationId: string;
+    principalAmount: number;
+    marginRate: number;
+    numberOfInstallments: number;
+    status: string;
+    productName: string;
+  };
+  customer: { id: string; name: string; customerNo: string } | null;
+  branch: { id: string; name: string } | null;
+  disbursement: { disbursementDate: string; firstInstallmentDate: string; maturityDate: string } | null;
+  installments: InstallmentRow[];
+  summary: {
+    totalInstallments: number;
+    nullAmountCount: number;
+    paidCount: number;
+    unpaidCount: number;
+  };
+};
+
+function formatAFN(value: number | null | undefined): string {
+  if (value === null || value === undefined) return "—";
+  return new Intl.NumberFormat("en-AF", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+}
+
 const formatNumber = (num: number) => {
   return new Intl.NumberFormat("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
 };
@@ -111,12 +162,21 @@ const formatDateTime = () => {
 };
 
 export default function CitizenBalanceStatementPage() {
+  const [activeTab, setActiveTab] = useState("statement");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
   const [showReport, setShowReport] = useState(false);
   const [showCleanup, setShowCleanup] = useState(false);
   const [cleanupEdits, setCleanupEdits] = useState<Record<string, { requestAmount: string; principleAmount: string; marginRate: string; gracePeriod: string }>>({});
   const reportRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  const [instSelectedLoanId, setInstSelectedLoanId] = useState("");
+  const [instSearchTerm, setInstSearchTerm] = useState("");
+  const [instDropdownOpen, setInstDropdownOpen] = useState(false);
+  const instDropdownRef = useRef<HTMLDivElement>(null);
+  const [showInstSchedule, setShowInstSchedule] = useState(false);
+  const [editedRows, setEditedRows] = useState<Record<string, { principal: string; margin: string; isPaid?: boolean }>>({});
+  const [applyCalculated, setApplyCalculated] = useState(false);
 
   const { data: customers, isLoading: customersLoading } = useQuery<any[]>({
     queryKey: ["/api/customers", { limit: 9999 }],
@@ -150,6 +210,189 @@ export default function CitizenBalanceStatementPage() {
       toast({ title: "Error", description: error.message || "Failed to regenerate", variant: "destructive" });
     },
   });
+
+  const { data: disbursedLoans, isLoading: instLoansLoading } = useQuery<any[]>({
+    queryKey: ["/api/loans/disbursed"],
+    enabled: activeTab === "installment-cleanup",
+  });
+
+  const { data: instScheduleData, isLoading: instScheduleLoading, refetch: refetchInstSchedule } = useQuery<ScheduleData>({
+    queryKey: ["/api/loans", instSelectedLoanId, "installment-schedule"],
+    enabled: showInstSchedule && !!instSelectedLoanId,
+  });
+
+  const bulkUpdateMutation = useMutation({
+    mutationFn: async (updates: any[]) => {
+      const res = await apiRequest("PATCH", "/api/installments/bulk-update", { updates });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({ title: "Saved", description: `Updated ${data.updatedCount} installments, skipped ${data.skippedCount} (paid).` });
+      setEditedRows({});
+      queryClient.invalidateQueries({ queryKey: ["/api/loans", instSelectedLoanId, "installment-schedule"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to save", variant: "destructive" });
+    },
+  });
+
+  const generateAllMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/installments/generate-all");
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({ title: "Generation Complete", description: data.message });
+      queryClient.invalidateQueries({ queryKey: ["/api/loans/disbursed"] });
+      if (instSelectedLoanId) {
+        queryClient.invalidateQueries({ queryKey: ["/api/loans", instSelectedLoanId, "installment-schedule"] });
+      }
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to generate installments", variant: "destructive" });
+    },
+  });
+
+  const instLoanList = Array.isArray(disbursedLoans) ? disbursedLoans : [];
+
+  const getInstLoanLabel = (l: any) =>
+    `${l.customerName} (${l.customerNo || "N/A"}) - ${l.applicationId || "N/A"}`;
+
+  const filteredInstLoans = useMemo(() => {
+    if (!instSearchTerm.trim()) return instLoanList;
+    const lower = instSearchTerm.toLowerCase();
+    return instLoanList.filter((l: any) => getInstLoanLabel(l).toLowerCase().includes(lower));
+  }, [instLoanList, instSearchTerm]);
+
+  const selectedInstLoanLabel = useMemo(() => {
+    if (!instSelectedLoanId) return "";
+    const found = instLoanList.find((l: any) => l.id === instSelectedLoanId);
+    return found ? getInstLoanLabel(found) : "";
+  }, [instSelectedLoanId, instLoanList]);
+
+  useEffect(() => {
+    const handleInstClickOutside = (e: MouseEvent) => {
+      if (instDropdownRef.current && !instDropdownRef.current.contains(e.target as Node)) {
+        setInstDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleInstClickOutside);
+    return () => document.removeEventListener("mousedown", handleInstClickOutside);
+  }, []);
+
+  const handleInstView = () => {
+    if (!instSelectedLoanId) {
+      toast({ title: "Select Financing", description: "Please select a financing first.", variant: "destructive" });
+      return;
+    }
+    setShowInstSchedule(true);
+    setEditedRows({});
+    setApplyCalculated(false);
+  };
+
+  const getRowKey = (inst: InstallmentRow) => inst.id || `new_${inst.installmentNumber}`;
+
+  const handleApplyCalculated = () => {
+    if (!instScheduleData) return;
+    const newEdited: Record<string, { principal: string; margin: string }> = {};
+    for (const inst of instScheduleData.installments) {
+      if (!inst.isPaid) {
+        newEdited[getRowKey(inst)] = {
+          principal: inst.calculatedPrincipal.toFixed(2),
+          margin: inst.calculatedMargin.toFixed(2),
+        };
+      }
+    }
+    setEditedRows(newEdited);
+    setApplyCalculated(true);
+    toast({ title: "Calculated Values Applied", description: "Review the values and click Save to persist changes." });
+  };
+
+  const handleRowChange = (id: string, field: "principal" | "margin", value: string) => {
+    setEditedRows((prev) => ({
+      ...prev,
+      [id]: {
+        principal: prev[id]?.principal || "",
+        margin: prev[id]?.margin || "",
+        isPaid: prev[id]?.isPaid,
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleTogglePaid = (inst: InstallmentRow) => {
+    const key = getRowKey(inst);
+    const currentlyPaid = editedRows[key]?.isPaid !== undefined ? editedRows[key].isPaid : inst.isPaid;
+    setEditedRows((prev) => ({
+      ...prev,
+      [key]: {
+        principal: prev[key]?.principal || (inst.currentPrincipal !== null ? inst.currentPrincipal.toFixed(2) : ""),
+        margin: prev[key]?.margin || (inst.currentMargin !== null ? inst.currentMargin.toFixed(2) : ""),
+        isPaid: !currentlyPaid,
+      },
+    }));
+  };
+
+  const handleInstSave = () => {
+    if (!instScheduleData) return;
+    const updates = Object.entries(editedRows)
+      .filter(([_, v]) => v.principal || v.margin || v.isPaid !== undefined)
+      .map(([key, v]) => {
+        const isNew = key.startsWith("new_");
+        if (isNew) {
+          const instNum = parseInt(key.replace("new_", ""));
+          const inst = instScheduleData.installments.find((i) => i.installmentNumber === instNum);
+          return {
+            id: null,
+            loanId: instScheduleData.loan.id,
+            installmentNumber: instNum,
+            dueDate: inst?.dueDate || null,
+            principleAmount: v.principal,
+            marginAmount: v.margin,
+            isPaid: v.isPaid,
+          };
+        }
+        return {
+          id: key,
+          principleAmount: v.principal,
+          marginAmount: v.margin,
+          isPaid: v.isPaid,
+        };
+      });
+
+    if (updates.length === 0) {
+      toast({ title: "No Changes", description: "No installments were modified.", variant: "destructive" });
+      return;
+    }
+    bulkUpdateMutation.mutate(updates);
+  };
+
+  const getDisplayPrincipal = (inst: InstallmentRow) => {
+    const key = getRowKey(inst);
+    if (editedRows[key]) return editedRows[key].principal;
+    if (inst.currentPrincipal !== null) return inst.currentPrincipal.toFixed(2);
+    return "";
+  };
+
+  const getDisplayMargin = (inst: InstallmentRow) => {
+    const key = getRowKey(inst);
+    if (editedRows[key]) return editedRows[key].margin;
+    if (inst.currentMargin !== null) return inst.currentMargin.toFixed(2);
+    return "";
+  };
+
+  const getDisplayTotal = (inst: InstallmentRow) => {
+    const key = getRowKey(inst);
+    if (editedRows[key]) {
+      const p = parseFloat(editedRows[key].principal || "0");
+      const m = parseFloat(editedRows[key].margin || "0");
+      return (p + m).toFixed(2);
+    }
+    if (inst.currentTotal !== null) return inst.currentTotal.toFixed(2);
+    return "";
+  };
+
+  const hasInstChanges = Object.keys(editedRows).length > 0;
 
   useEffect(() => {
     if (statementData?.loanStatements) {
@@ -474,11 +717,18 @@ export default function CitizenBalanceStatementPage() {
             Citizen Balance Statement
           </h1>
           <p className="text-muted-foreground">
-            View financing schedule and payment details for a customer
+            View financing schedule, payment details, and manage installments
           </p>
         </div>
       </div>
 
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-2 max-w-md">
+          <TabsTrigger value="statement" data-testid="tab-statement">Balance Statement</TabsTrigger>
+          <TabsTrigger value="installment-cleanup" data-testid="tab-installment-cleanup">Installment & Payment Cleanup</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="statement" className="space-y-6">
       <Card>
         <CardContent className="p-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4">
@@ -862,6 +1112,311 @@ export default function CitizenBalanceStatementPage() {
           </div>
         );
       })}
+        </TabsContent>
+
+        <TabsContent value="installment-cleanup" className="space-y-6">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4">
+                <div className="flex-1 min-w-[300px] relative" ref={instDropdownRef}>
+                  <label className="text-sm font-medium mb-2 block">Select Financing</label>
+                  <div
+                    className="flex items-center border rounded-md bg-background cursor-pointer"
+                    onClick={() => setInstDropdownOpen(!instDropdownOpen)}
+                    data-testid="inst-select-loan"
+                  >
+                    <Search className="ml-3 h-4 w-4 text-muted-foreground shrink-0" />
+                    <input
+                      type="text"
+                      className="flex-1 px-3 py-2 text-sm bg-transparent outline-none placeholder:text-muted-foreground"
+                      placeholder={instSelectedLoanId ? selectedInstLoanLabel : "Search by customer name, ID, or application..."}
+                      value={instSearchTerm}
+                      onChange={(e) => { setInstSearchTerm(e.target.value); setInstDropdownOpen(true); }}
+                      onFocus={() => setInstDropdownOpen(true)}
+                      onClick={(e) => e.stopPropagation()}
+                      data-testid="inst-input-search-loan"
+                    />
+                    {instSelectedLoanId && !instSearchTerm && (
+                      <button
+                        className="mr-1 p-1 rounded-sm hover-elevate"
+                        onClick={(e) => { e.stopPropagation(); setInstSelectedLoanId(""); setInstSearchTerm(""); setShowInstSchedule(false); }}
+                        data-testid="inst-button-clear-loan"
+                      >
+                        <X className="h-4 w-4 text-muted-foreground" />
+                      </button>
+                    )}
+                    <ChevronDown className="mr-3 h-4 w-4 text-muted-foreground shrink-0" />
+                  </div>
+                  {instDropdownOpen && (
+                    <div className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-md border bg-popover shadow-md">
+                      {instLoansLoading ? (
+                        <div className="p-3 text-sm text-muted-foreground">Loading...</div>
+                      ) : filteredInstLoans.length === 0 ? (
+                        <div className="p-3 text-sm text-muted-foreground">No disbursed financings found</div>
+                      ) : (
+                        filteredInstLoans.map((l: any) => (
+                          <div
+                            key={l.id}
+                            className={`px-3 py-2 text-sm cursor-pointer hover-elevate ${l.id === instSelectedLoanId ? "bg-primary text-primary-foreground" : ""}`}
+                            onClick={() => { setInstSelectedLoanId(l.id); setInstSearchTerm(""); setInstDropdownOpen(false); setShowInstSchedule(false); }}
+                            data-testid={`inst-option-loan-${l.id}`}
+                          >
+                            <span className="font-medium">{l.customerName}</span>
+                            <span className="text-muted-foreground ml-1">({l.customerNo})</span>
+                            <span className="text-muted-foreground ml-2">- {l.applicationId}</span>
+                            {l.branchName && <span className="text-muted-foreground ml-2">[{l.branchName}]</span>}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+                <Button onClick={handleInstView} className="bg-blue-600 text-white" data-testid="inst-button-view-schedule">
+                  <Eye className="mr-2 h-4 w-4" />
+                  View
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {showInstSchedule && instScheduleLoading && (
+            <Card>
+              <CardContent className="p-6">
+                <Skeleton className="h-8 w-1/3 mb-4" />
+                <Skeleton className="h-[400px] w-full" />
+              </CardContent>
+            </Card>
+          )}
+
+          {showInstSchedule && instScheduleData && (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="text-sm text-muted-foreground">Total Installments</div>
+                    <div className="text-2xl font-bold" data-testid="inst-text-total-installments">{instScheduleData.summary.totalInstallments}</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="text-sm text-muted-foreground">Missing Amounts</div>
+                    <div className="text-2xl font-bold text-amber-600" data-testid="inst-text-null-count">
+                      {instScheduleData.summary.nullAmountCount}
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="text-sm text-muted-foreground">Paid</div>
+                    <div className="text-2xl font-bold text-green-600" data-testid="inst-text-paid-count">{instScheduleData.summary.paidCount}</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="text-sm text-muted-foreground">Unpaid</div>
+                    <div className="text-2xl font-bold text-blue-600" data-testid="inst-text-unpaid-count">{instScheduleData.summary.unpaidCount}</div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0 pb-4">
+                  <div>
+                    <CardTitle className="text-lg">
+                      {instScheduleData.customer?.name || "Unknown"} — {instScheduleData.loan.applicationId}
+                    </CardTitle>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {instScheduleData.loan.productName && <span className="font-medium">{instScheduleData.loan.productName} | </span>}
+                      Principal: {formatAFN(instScheduleData.loan.principalAmount)} AFN | Margin Rate: {instScheduleData.loan.marginRate > 1 ? instScheduleData.loan.marginRate : (instScheduleData.loan.marginRate * 100).toFixed(0)}% | {instScheduleData.loan.numberOfInstallments} installments
+                    </p>
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    {instScheduleData.summary.unpaidCount > 0 && (
+                      <Button onClick={handleApplyCalculated} variant="outline" className="border-amber-500 text-amber-700" data-testid="inst-button-apply-calculated">
+                        <Calculator className="mr-2 h-4 w-4" />
+                        Apply Calculated Values ({instScheduleData.summary.unpaidCount})
+                      </Button>
+                    )}
+                    {hasInstChanges && (
+                      <Button onClick={handleInstSave} className="bg-green-600 text-white" disabled={bulkUpdateMutation.isPending} data-testid="inst-button-save-installments">
+                        <Save className="mr-2 h-4 w-4" />
+                        {bulkUpdateMutation.isPending ? "Saving..." : "Save Changes"}
+                      </Button>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-muted/50">
+                          <th className="px-4 py-3 text-left font-medium">#</th>
+                          <th className="px-4 py-3 text-left font-medium">Due Date</th>
+                          <th className="px-4 py-3 text-right font-medium">Calculated Principal</th>
+                          <th className="px-4 py-3 text-right font-medium">Calculated Margin</th>
+                          <th className="px-4 py-3 text-right font-medium">Principal Amount</th>
+                          <th className="px-4 py-3 text-right font-medium">Margin Amount</th>
+                          <th className="px-4 py-3 text-right font-medium">Total</th>
+                          <th className="px-4 py-3 text-right font-medium">Paid</th>
+                          <th className="px-4 py-3 text-center font-medium">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {instScheduleData.installments.map((inst, idx) => {
+                          const rowKey = getRowKey(inst);
+                          const isEditable = !inst.isPaid;
+                          const displayPrincipal = getDisplayPrincipal(inst);
+                          const displayMargin = getDisplayMargin(inst);
+                          const displayTotal = getDisplayTotal(inst);
+                          const isModified = !!editedRows[rowKey];
+
+                          return (
+                            <tr
+                              key={rowKey}
+                              className={`border-b ${inst.isPaid ? "bg-green-50/50 dark:bg-green-950/20" : inst.hasNullAmounts ? "bg-amber-50/50 dark:bg-amber-950/20" : ""} ${isModified ? "bg-blue-50/50 dark:bg-blue-950/20" : ""}`}
+                              data-testid={`inst-row-installment-${inst.installmentNumber}`}
+                            >
+                              <td className="px-4 py-2 font-medium">{inst.installmentNumber}</td>
+                              <td className="px-4 py-2">{inst.dueDate || "—"}</td>
+                              <td className="px-4 py-2 text-right text-muted-foreground">{formatAFN(inst.calculatedPrincipal)}</td>
+                              <td className="px-4 py-2 text-right text-muted-foreground">{formatAFN(inst.calculatedMargin)}</td>
+                              <td className="px-4 py-2 text-right">
+                                {inst.isPaid ? (
+                                  <span>{inst.currentPrincipal !== null ? formatAFN(inst.currentPrincipal) : "—"}</span>
+                                ) : isEditable ? (
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    className="w-28 px-2 py-1 text-right border rounded-md bg-background text-sm"
+                                    value={displayPrincipal}
+                                    onChange={(e) => handleRowChange(rowKey, "principal", e.target.value)}
+                                    placeholder="0.00"
+                                    data-testid={`inst-input-principal-${inst.installmentNumber}`}
+                                  />
+                                ) : (
+                                  <span className="text-muted-foreground">—</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-2 text-right">
+                                {inst.isPaid ? (
+                                  <span>{inst.currentMargin !== null ? formatAFN(inst.currentMargin) : "—"}</span>
+                                ) : isEditable ? (
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    className="w-28 px-2 py-1 text-right border rounded-md bg-background text-sm"
+                                    value={displayMargin}
+                                    onChange={(e) => handleRowChange(rowKey, "margin", e.target.value)}
+                                    placeholder="0.00"
+                                    data-testid={`inst-input-margin-${inst.installmentNumber}`}
+                                  />
+                                ) : (
+                                  <span className="text-muted-foreground">—</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-2 text-right font-medium">
+                                {displayTotal ? formatAFN(parseFloat(displayTotal)) : "—"}
+                              </td>
+                              <td className="px-4 py-2 text-right">
+                                {formatAFN(inst.paidAmount)}
+                              </td>
+                              <td className="px-4 py-2 text-center">
+                                {(() => {
+                                  const effectivePaid = editedRows[rowKey]?.isPaid !== undefined ? editedRows[rowKey].isPaid : inst.isPaid;
+                                  const paidChanged = editedRows[rowKey]?.isPaid !== undefined && editedRows[rowKey].isPaid !== inst.isPaid;
+                                  if (effectivePaid) {
+                                    return (
+                                      <Badge
+                                        variant="default"
+                                        className={`cursor-pointer ${paidChanged ? "bg-green-500 ring-2 ring-blue-400" : "bg-green-600"} text-white`}
+                                        onClick={() => handleTogglePaid(inst)}
+                                        data-testid={`inst-badge-paid-${inst.installmentNumber}`}
+                                      >
+                                        <Lock className="mr-1 h-3 w-3" />
+                                        Paid
+                                      </Badge>
+                                    );
+                                  }
+                                  return (
+                                    <Badge
+                                      variant="outline"
+                                      className={`cursor-pointer ${paidChanged ? "border-red-400 text-red-600 ring-2 ring-blue-400" : inst.hasNullAmounts ? "border-amber-500 text-amber-700" : isModified ? "border-blue-500 text-blue-700" : ""}`}
+                                      onClick={() => handleTogglePaid(inst)}
+                                      data-testid={`inst-badge-unpaid-${inst.installmentNumber}`}
+                                    >
+                                      {paidChanged ? (
+                                        <>
+                                          <AlertTriangle className="mr-1 h-3 w-3" />
+                                          Unpaid
+                                        </>
+                                      ) : inst.hasNullAmounts ? (
+                                        <>
+                                          <AlertTriangle className="mr-1 h-3 w-3" />
+                                          Missing
+                                        </>
+                                      ) : isModified ? (
+                                        "Modified"
+                                      ) : (
+                                        <>
+                                          <CheckCircle2 className="mr-1 h-3 w-3" />
+                                          Set
+                                        </>
+                                      )}
+                                    </Badge>
+                                  );
+                                })()}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      <tfoot>
+                        <tr className="border-t-2 font-bold bg-muted/30">
+                          <td className="px-4 py-3" colSpan={2}>Totals</td>
+                          <td className="px-4 py-3 text-right">
+                            {formatAFN(instScheduleData.installments.reduce((s, i) => s + i.calculatedPrincipal, 0))}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            {formatAFN(instScheduleData.installments.reduce((s, i) => s + i.calculatedMargin, 0))}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            {formatAFN(
+                              instScheduleData.installments.reduce((s, i) => {
+                                const dp = getDisplayPrincipal(i);
+                                return s + (dp ? parseFloat(dp) : 0);
+                              }, 0)
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            {formatAFN(
+                              instScheduleData.installments.reduce((s, i) => {
+                                const dm = getDisplayMargin(i);
+                                return s + (dm ? parseFloat(dm) : 0);
+                              }, 0)
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            {formatAFN(
+                              instScheduleData.installments.reduce((s, i) => {
+                                const dt = getDisplayTotal(i);
+                                return s + (dt ? parseFloat(dt) : 0);
+                              }, 0)
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            {formatAFN(instScheduleData.installments.reduce((s, i) => s + i.paidAmount, 0))}
+                          </td>
+                          <td className="px-4 py-3"></td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
