@@ -1072,8 +1072,8 @@ export class DatabaseStorage implements IStorage {
       const [loan] = await tx.select().from(loans).where(eq(loans.id, loanId));
       if (!loan) throw new Error("Loan not found");
 
-      const numInstallments = loan.numberOfInstallments || loan.financingDurationMonths || 12;
-      const durationMonths = loan.financingDurationMonths || numInstallments;
+      const durationMonths = loan.financingDurationMonths || 12;
+      const numInstallments = durationMonths;
       const gracePeriod = loan.gracePeriod || 0;
       const principalTotal = parseFloat(loan.principleAmount || loan.requestAmount || "0");
       let profitTotal = parseFloat(loan.profit || "0");
@@ -1090,10 +1090,11 @@ export class DatabaseStorage implements IStorage {
         status: "disbursed",
         profit: profitTotal.toFixed(2),
         totalReceivable: grandTotal.toFixed(2),
+        numberOfInstallments: numInstallments,
         updatedAt: new Date(),
       }).where(eq(loans.id, loanId));
 
-      const principalInstallments = numInstallments - gracePeriod;
+      const principalInstallments = durationMonths - gracePeriod;
       const principalPerInst = principalInstallments > 0 ? principalTotal / principalInstallments : 0;
       const marginPerInst = numInstallments > 0 ? profitTotal / numInstallments : 0;
 
@@ -1176,8 +1177,8 @@ export class DatabaseStorage implements IStorage {
           disbursedById: userId,
         });
 
-        const numInstallments = loan.numberOfInstallments || duration;
         const durationMonths = loan.financingDurationMonths || duration;
+        const numInstallments = durationMonths;
         const gracePeriod = loan.gracePeriod || 0;
         const principalTotal = parseFloat(loan.principleAmount || loan.requestAmount || "0");
         let profitTotal = parseFloat(loan.profit || "0");
@@ -1194,10 +1195,11 @@ export class DatabaseStorage implements IStorage {
           status: "disbursed",
           profit: profitTotal.toFixed(2),
           totalReceivable: grandTotalReceivable.toFixed(2),
+          numberOfInstallments: numInstallments,
           updatedAt: new Date(),
         }).where(eq(loans.id, loan.id));
 
-        const principalInstallments = numInstallments - gracePeriod;
+        const principalInstallments = durationMonths - gracePeriod;
         const principalPerInst = principalInstallments > 0 ? principalTotal / principalInstallments : 0;
         const marginPerInst = numInstallments > 0 ? profitTotal / numInstallments : 0;
 

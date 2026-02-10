@@ -1061,24 +1061,48 @@ export async function registerRoutes(
 
       const principalAmount = parseFloat(loan.principleAmount || "0");
       const marginRate = parseFloat(loan.marginRate || "0");
-      const numInstallments = loan.numberOfInstallments || existingInstallments.length || 12;
+      const durationMonths = loan.financingDurationMonths || 12;
+      const numInstallments = durationMonths;
+      const gracePeriod = loan.gracePeriod || 0;
 
-      const principalPerInstallment = principalAmount > 0 ? principalAmount / numInstallments : 0;
+      const principalInstCount = durationMonths - gracePeriod;
+      const principalPerInstallment = principalInstCount > 0 ? principalAmount / principalInstCount : 0;
 
       const calculatedSchedule = [];
-      let remainingPrincipal = principalAmount;
-      const monthlyRate = marginRate > 1 ? marginRate / 100 / 12 : marginRate / 12;
+
+      let profitTotalCalc = parseFloat(loan.profit || "0");
+      if (profitTotalCalc === 0 && principalAmount > 0) {
+        const rateCalc = marginRate > 1 ? marginRate / 100 : marginRate;
+        profitTotalCalc = (principalAmount * rateCalc / 12) * durationMonths;
+      }
+      const marginPerInstCalc = numInstallments > 0 ? profitTotalCalc / numInstallments : 0;
+      const roundedMarginCalc = Math.round(marginPerInstCalc * 100) / 100;
+      const marginRemainderCalc = Math.round((profitTotalCalc - (roundedMarginCalc * numInstallments)) * 100) / 100;
+      const roundedPrincipalCalc = Math.round(principalPerInstallment * 100) / 100;
+      const principalRemainderCalc = Math.round((principalAmount - (roundedPrincipalCalc * principalInstCount)) * 100) / 100;
 
       for (let i = 1; i <= numInstallments; i++) {
-        const marginForInstallment = remainingPrincipal * monthlyRate;
-        const totalForInstallment = principalPerInstallment + marginForInstallment;
-        remainingPrincipal -= principalPerInstallment;
+        const isGrace = i <= gracePeriod;
+        const isFirstPrincipal = gracePeriod > 0 ? (i === gracePeriod + 1) : (i === 1);
+
+        let instPrincipal: number, instMargin: number;
+        if (isGrace) {
+          instPrincipal = 0;
+          instMargin = (i === 1) ? roundedMarginCalc + marginRemainderCalc : roundedMarginCalc;
+        } else if (isFirstPrincipal) {
+          instPrincipal = roundedPrincipalCalc + principalRemainderCalc;
+          instMargin = (gracePeriod === 0 && i === 1) ? roundedMarginCalc + marginRemainderCalc : roundedMarginCalc;
+        } else {
+          instPrincipal = roundedPrincipalCalc;
+          instMargin = roundedMarginCalc;
+        }
+        const instTotal = instPrincipal + instMargin;
 
         calculatedSchedule.push({
           installmentNumber: i,
-          calculatedPrincipal: Math.round(principalPerInstallment * 100) / 100,
-          calculatedMargin: Math.round(marginForInstallment * 100) / 100,
-          calculatedTotal: Math.round(totalForInstallment * 100) / 100,
+          calculatedPrincipal: Math.round(instPrincipal * 100) / 100,
+          calculatedMargin: Math.round(instMargin * 100) / 100,
+          calculatedTotal: Math.round(instTotal * 100) / 100,
         });
       }
 
@@ -1257,10 +1281,10 @@ export async function registerRoutes(
 
         const principalAmount = parseFloat(loan.principleAmount || loan.requestAmount || "0");
         const marginRate = parseFloat(loan.marginRate || "0");
-        const numInstallments = loan.numberOfInstallments || existingInstallments.length || 12;
+        const durationMonths = loan.financingDurationMonths || 12;
+        const numInstallments = durationMonths;
         const gracePeriod = loan.gracePeriod || 0;
 
-        const durationMonths = loan.financingDurationMonths || numInstallments;
         let profitTotal = parseFloat(loan.profit || "0");
         if (profitTotal === 0 && principalAmount > 0) {
           const rate = marginRate > 1 ? marginRate / 100 : marginRate;
@@ -1268,7 +1292,7 @@ export async function registerRoutes(
         }
         const grandTotal = principalAmount + profitTotal;
 
-        const principalInstallments = numInstallments - gracePeriod;
+        const principalInstallments = durationMonths - gracePeriod;
         const principalPerInst = principalInstallments > 0 ? principalAmount / principalInstallments : 0;
         const marginPerInst = numInstallments > 0 ? profitTotal / numInstallments : 0;
 
@@ -4812,7 +4836,8 @@ export async function registerRoutes(
       const updatedMarginRate = !isNaN(parsedMarginRate) && parsedMarginRate >= 0 ? parsedMarginRate : parseFloat(loan.marginRate || "0");
       const updatedGracePeriod = !isNaN(parsedGracePeriod) && parsedGracePeriod >= 0 ? parsedGracePeriod : (loan.gracePeriod || 0);
       const updatedRequestAmount = !isNaN(parsedRequestAmount) && parsedRequestAmount >= 0 ? parsedRequestAmount : parseFloat(loan.requestAmount || "0");
-      const numInstallments = loan.numberOfInstallments || 12;
+      const durationMonths = loan.financingDurationMonths || 12;
+      const numInstallments = durationMonths;
 
       const rate = updatedMarginRate > 1 ? updatedMarginRate / 100 : updatedMarginRate;
       const profitTotal = updatedPrincipal * rate;
@@ -4823,6 +4848,7 @@ export async function registerRoutes(
         principleAmount: updatedPrincipal.toFixed(2),
         marginRate: updatedMarginRate.toString(),
         gracePeriod: updatedGracePeriod,
+        numberOfInstallments: numInstallments,
         profit: profitTotal.toFixed(2),
         totalReceivable: grandTotal.toFixed(2),
       });
@@ -4830,7 +4856,7 @@ export async function registerRoutes(
       const existingInstallments = await storage.getInstallmentsByLoan(loanId);
       const disbursement = await storage.getDisbursementByLoan(loanId);
 
-      const principalInstallments = numInstallments - updatedGracePeriod;
+      const principalInstallments = durationMonths - updatedGracePeriod;
       const principalPerInst = principalInstallments > 0 ? updatedPrincipal / principalInstallments : 0;
       const marginPerInst = numInstallments > 0 ? profitTotal / numInstallments : 0;
 
