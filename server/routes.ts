@@ -4924,8 +4924,15 @@ export async function registerRoutes(
 
         let dueDate: string | null = null;
         if (effectiveDisbDate) {
-          const instDate = new Date(effectiveDisbDate);
-          instDate.setMonth(instDate.getMonth() + i);
+          const disbDay = effectiveDisbDate.getDate();
+          let baseDate: Date;
+          if (disbDay >= 25) {
+            baseDate = new Date(effectiveDisbDate.getFullYear(), effectiveDisbDate.getMonth() + 2, 1);
+          } else {
+            baseDate = new Date(effectiveDisbDate.getFullYear(), effectiveDisbDate.getMonth() + 1, 1);
+          }
+          const instDate = new Date(baseDate);
+          instDate.setMonth(instDate.getMonth() + (i - 1));
           dueDate = instDate.toISOString().split("T")[0];
         } else if (disbursement?.firstInstallmentDate) {
           const firstDate = new Date(disbursement.firstInstallmentDate);
