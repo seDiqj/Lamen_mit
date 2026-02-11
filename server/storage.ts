@@ -4560,13 +4560,17 @@ export class DatabaseStorage implements IStorage {
   // ============== ADMIN DASHBOARD ==============
 
   async getAdminDashboardStats() {
-    // HR Staff counts
-    const totalStaff = await db.select({ count: count() }).from(employees).where(eq(employees.employmentStatus, 'active'));
-    const femaleStaff = await db.select({ count: count() }).from(employees).where(
+    // HR Staff counts from employees table
+    const totalEmployees = await db.select({ count: count() }).from(employees).where(eq(employees.employmentStatus, 'active'));
+    const femaleEmployees = await db.select({ count: count() }).from(employees).where(
       and(eq(employees.employmentStatus, 'active'), eq(employees.gender, 'female'))
     );
-    
-    // Credit officers - employees in positions containing "credit" or "officer"
+
+    // Finance officers from finance_officers table
+    const activeFinanceOfficers = await db.select({ id: financeOfficers.id, name: financeOfficers.name }).from(financeOfficers).where(eq(financeOfficers.isActive, true));
+    const totalFinancingOfficers = activeFinanceOfficers.length;
+
+    // Also check employees table for financing/credit officer positions
     const allActiveEmployees = await db.select({
       id: employees.id,
       positionId: employees.positionId,
@@ -4575,11 +4579,18 @@ export class DatabaseStorage implements IStorage {
 
     const positionsList = await db.select().from(positions);
     const creditOfficerPositionIds = positionsList
-      .filter(p => p.title?.toLowerCase().includes('credit') || p.title?.toLowerCase().includes('officer'))
+      .filter(p => p.title?.toLowerCase().includes('credit') || p.title?.toLowerCase().includes('financing') || p.title?.toLowerCase().includes('officer'))
       .map(p => p.id);
 
-    const creditOfficers = allActiveEmployees.filter(e => e.positionId && creditOfficerPositionIds.includes(e.positionId));
-    const femaleCreditOfficers = creditOfficers.filter(e => e.gender === 'female');
+    const employeeCreditOfficers = allActiveEmployees.filter(e => e.positionId && creditOfficerPositionIds.includes(e.positionId));
+    const femaleEmployeeCreditOfficers = employeeCreditOfficers.filter(e => e.gender === 'female');
+
+    // Combine: total staff = employees + finance officers
+    const totalStaffCount = (Number(totalEmployees[0]?.count) || 0) + totalFinancingOfficers;
+    const totalFemaleStaffCount = Number(femaleEmployees[0]?.count) || 0;
+    // Total financing officers = from finance_officers table + employee-based
+    const totalCreditOfficersCount = totalFinancingOfficers + employeeCreditOfficers.length;
+    const femaleCreditOfficersCount = femaleEmployeeCreditOfficers.length;
 
     // Disbursement data - current month
     const now = new Date();
@@ -4611,20 +4622,20 @@ export class DatabaseStorage implements IStorage {
     // Branch-wise OLB with female client data and PAR
     const branchCustomerMap = new Map<string, { branchId: string; loans: any[] }>();
     for (const row of loanOlbRows) {
-      const key = row.branch_id || '__unknown__';
+      const key = String(row.branch_id || '__unknown__');
       if (!branchCustomerMap.has(key)) branchCustomerMap.set(key, { branchId: key, loans: [] });
       branchCustomerMap.get(key)!.loans.push(row);
     }
 
     const allBranches = await db.select({ id: branches.id, name: branches.name }).from(branches);
-    const branchNameMap = new Map(allBranches.map((b: any) => [b.id, b.name]));
+    const branchNameMap = new Map(allBranches.map((b: any) => [String(b.id), b.name]));
 
     const customerGenders = new Map<string, string>();
-    const customerIds = [...new Set(loanOlbRows.map(r => r.customer_id).filter(Boolean))];
+    const customerIds = [...new Set(loanOlbRows.map(r => String(r.customer_id)).filter(id => id && id !== 'null' && id !== 'undefined'))];
     if (customerIds.length > 0) {
-      const genderResult = await db.execute(sql`SELECT id, gender FROM customers WHERE id = ANY(${customerIds})`);
-      for (const r of genderResult.rows as any[]) {
-        customerGenders.set(r.id, r.gender);
+      const genderResult = await db.select({ id: customers.id, gender: customers.gender }).from(customers).where(inArray(customers.id, customerIds));
+      for (const r of genderResult) {
+        if (r.gender) customerGenders.set(String(r.id), r.gender);
       }
     }
 
@@ -4632,7 +4643,7 @@ export class DatabaseStorage implements IStorage {
       const loans = data.loans;
       const no = loans.length;
       const olb = loans.reduce((sum: number, r: any) => sum + parseFloat(r.olb || 0), 0);
-      const femaleLoansList = loans.filter((r: any) => customerGenders.get(r.customer_id) === 'female');
+      const femaleLoansList = loans.filter((r: any) => customerGenders.get(String(r.customer_id)) === 'female');
       const femaleNo = femaleLoansList.length;
       const femaleValue = femaleLoansList.reduce((sum: number, r: any) => sum + parseFloat(r.olb || 0), 0);
       const par1_30 = loans.filter((r: any) => parseInt(r.max_late_days) >= 1 && parseInt(r.max_late_days) <= 30).length;
@@ -4657,21 +4668,21 @@ export class DatabaseStorage implements IStorage {
     const totalOLB = (sectorWiseResult.rows as any[]).reduce((sum, r) => sum + parseFloat(r.olb || 0), 0);
 
     // Calculate caseload and productivity
-    const activeCreditOfficerCount = creditOfficers.length || 1;
+    const activeCreditOfficerCount = totalCreditOfficersCount || 1;
     const activeLoansCount = await db.select({ count: count() }).from(loans).where(
       or(eq(loans.status, 'disbursed'), eq(loans.status, 'active'))
     );
     const caseload = activeLoansCount[0]?.count ? (Number(activeLoansCount[0].count) / activeCreditOfficerCount).toFixed(2) : 0;
 
-    // Productivity - total disbursed loans per credit officer
+    // Productivity - total disbursed loans per financing officer
     const productivity = (Number(disbursementStats?.disbursedCount) || 0) / activeCreditOfficerCount;
 
     return {
       hrStaff: {
-        totalStaff: Number(totalStaff[0]?.count) || 0,
-        totalFemaleStaff: Number(femaleStaff[0]?.count) || 0,
-        totalCreditOfficers: creditOfficers.length,
-        femaleCreditOfficers: femaleCreditOfficers.length,
+        totalStaff: totalStaffCount,
+        totalFemaleStaff: totalFemaleStaffCount,
+        totalCreditOfficers: totalCreditOfficersCount,
+        femaleCreditOfficers: femaleCreditOfficersCount,
         caseload: parseFloat(String(caseload)),
         productivity: parseFloat(productivity.toFixed(2)),
       },
