@@ -107,7 +107,6 @@ export default function AdminDashboard() {
   }
 
   const hrStaff = data?.hrStaff || { totalStaff: 0, totalFemaleStaff: 0, totalCreditOfficers: 0, femaleCreditOfficers: 0, caseload: 0, productivity: 0 };
-  const disbursement = data?.disbursement || { target: 0, disbursedNo: 0, actual: 0 };
   const branchWise = data?.branchWise || [];
   const sectorWise = data?.sectorWise || [];
   const loansClosing = data?.loansClosing || {};
@@ -116,7 +115,6 @@ export default function AdminDashboard() {
   const femaleStaffPercent = hrStaff.totalStaff > 0 ? ((hrStaff.totalFemaleStaff / hrStaff.totalStaff) * 100).toFixed(1) : "0.0";
   const creditOfficersPercent = hrStaff.totalStaff > 0 ? ((hrStaff.totalCreditOfficers / hrStaff.totalStaff) * 100).toFixed(1) : "0.0";
   const femaleCOPercent = hrStaff.totalCreditOfficers > 0 ? ((hrStaff.femaleCreditOfficers / hrStaff.totalCreditOfficers) * 100).toFixed(1) : "0.0";
-  const disbursementPercent = disbursement.target > 0 ? ((disbursement.actual / disbursement.target) * 100).toFixed(1) : "0.0";
 
   const branchTotals = branchWise.reduce((acc, b) => ({
     no: acc.no + b.no,
@@ -218,7 +216,7 @@ export default function AdminDashboard() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6 mt-4">
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4">
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -284,50 +282,6 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Target className="h-5 w-5 text-green-500" />
-                  Total Disbursement (Current Period)
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Target</TableHead>
-                      <TableHead className="text-right">Disbursed No</TableHead>
-                      <TableHead className="text-right">Actual</TableHead>
-                      <TableHead className="text-right">Percentage</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    <TableRow>
-                      <TableCell className="font-medium">{formatCurrency(disbursement.target)}</TableCell>
-                      <TableCell className="text-right">{disbursement.disbursedNo}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(disbursement.actual)}</TableCell>
-                      <TableCell className="text-right font-semibold text-green-600">{disbursementPercent}%</TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-                <div className="mt-6">
-                  <div className="flex justify-between text-sm mb-2">
-                    <span>Progress toward target</span>
-                    <span className="font-medium">{disbursementPercent}%</span>
-                  </div>
-                  <div className="h-4 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-green-500 to-emerald-500 rounded-full transition-all"
-                      style={{ width: `${Math.min(parseFloat(disbursementPercent), 100)}%` }}
-                    />
-                  </div>
-                  <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                    <span>0</span>
-                    <span>{formatCurrency(disbursement.target)}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
           </div>
 
           <Card>
