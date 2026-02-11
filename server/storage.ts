@@ -1707,6 +1707,8 @@ export class DatabaseStorage implements IStorage {
       .select({
         totalDisbursed: sql<number>`COALESCE(SUM(CASE WHEN ${loans.status} IN ('disbursed', 'active', 'completed') THEN ${loans.principleAmount}::numeric ELSE 0 END), 0)`,
         totalPortfolio: sql<number>`COALESCE(SUM(CASE WHEN ${loans.status} IN ('disbursed', 'active', 'completed') THEN ${loans.totalReceivable}::numeric ELSE 0 END), 0)`,
+        portfolioPrincipal: sql<number>`COALESCE(SUM(CASE WHEN ${loans.status} IN ('disbursed', 'active', 'completed') THEN ${loans.principleAmount}::numeric ELSE 0 END), 0)`,
+        portfolioMargin: sql<number>`COALESCE(SUM(CASE WHEN ${loans.status} IN ('disbursed', 'active', 'completed') THEN (${loans.totalReceivable}::numeric - ${loans.principleAmount}::numeric) ELSE 0 END), 0)`,
       })
       .from(loans);
 
@@ -1775,6 +1777,8 @@ export class DatabaseStorage implements IStorage {
       totalCustomers: Number(customerCount.count),
       totalDisbursed: Number(amounts.totalDisbursed),
       totalPortfolio: Number(amounts.totalPortfolio),
+      portfolioPrincipal: Number(amounts.portfolioPrincipal),
+      portfolioMargin: Number(amounts.portfolioMargin),
       totalCollected: Number(collectedResult.totalCollected),
       principalCollected: Number(collectedResult.principalCollected),
       marginCollected: Number(collectedResult.marginCollected),

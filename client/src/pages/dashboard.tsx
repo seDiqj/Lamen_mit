@@ -383,6 +383,10 @@ export default function Dashboard() {
           loading={isLoading}
           gradient="bg-gradient-to-r from-purple-500 to-violet-500"
           iconBg="bg-gradient-to-br from-purple-500 to-violet-600"
+          breakdown={[
+            { label: "Principal Amount", value: formatCurrency(stats?.portfolioPrincipal || 0) },
+            { label: "Profit (Margin)", value: formatCurrency(stats?.portfolioMargin || 0) },
+          ]}
         />
         <StatCard
           title="Total Collected"
