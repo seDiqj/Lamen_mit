@@ -1168,7 +1168,7 @@ export default function CitizenBalanceStatementPage() {
                       {instLoansLoading ? (
                         <div className="p-3 text-sm text-muted-foreground">Loading...</div>
                       ) : filteredInstLoans.length === 0 ? (
-                        <div className="p-3 text-sm text-muted-foreground">No disbursed financings found</div>
+                        <div className="p-3 text-sm text-muted-foreground">No financings found</div>
                       ) : (
                         filteredInstLoans.map((l: any) => (
                           <div
@@ -1181,6 +1181,7 @@ export default function CitizenBalanceStatementPage() {
                             <span className="text-muted-foreground ml-1">({l.customerNo})</span>
                             <span className="text-muted-foreground ml-2">- {l.applicationId}</span>
                             {l.branchName && <span className="text-muted-foreground ml-2">[{l.branchName}]</span>}
+                            <span className={`ml-2 text-xs px-1.5 py-0.5 rounded ${l.status === 'disbursed' || l.status === 'active' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : l.status === 'pending' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}>{l.status}</span>
                           </div>
                         ))
                       )}
@@ -1309,7 +1310,24 @@ export default function CitizenBalanceStatementPage() {
             </Card>
           )}
 
-          {showInstSchedule && instScheduleData && (
+          {showInstSchedule && instScheduleLoading && (
+            <Card>
+              <CardContent className="p-6 text-center text-muted-foreground">
+                Loading installment data...
+              </CardContent>
+            </Card>
+          )}
+
+          {showInstSchedule && !instScheduleLoading && instScheduleData && instScheduleData.installments.length === 0 && (
+            <Card>
+              <CardContent className="p-6 text-center">
+                <div className="text-muted-foreground font-medium" data-testid="text-no-installments">No installment data found for this loan.</div>
+                <div className="text-sm text-muted-foreground mt-1">Installments may not have been generated yet. Use the "Generate All Installments" button above to create them.</div>
+              </CardContent>
+            </Card>
+          )}
+
+          {showInstSchedule && instScheduleData && instScheduleData.installments.length > 0 && (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <Card>

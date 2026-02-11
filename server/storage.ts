@@ -1446,8 +1446,7 @@ export class DatabaseStorage implements IStorage {
       })
       .from(loans)
       .leftJoin(customers, eq(loans.customerId, customers.id))
-      .leftJoin(branches, eq(loans.branchId, branches.id))
-      .where(eq(loans.status, "disbursed"));
+      .leftJoin(branches, eq(loans.branchId, branches.id));
 
     const results = await query.orderBy(loans.createdAt);
     
