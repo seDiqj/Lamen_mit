@@ -89,15 +89,12 @@ export default function RiskCompliancePage() {
     enabled: !!selectedLoanId,
   });
 
-  const { data: guarantors = [] } = useQuery<any[]>({
-    queryKey: ["/api/guarantors", selectedLoanId],
-    queryFn: async () => {
-      const res = await fetch(`/api/guarantors?loanId=${selectedLoanId}`);
-      if (!res.ok) return [];
-      return res.json();
-    },
-    enabled: !!selectedLoanId,
-  });
+  const guarantors = (() => {
+    const list: any[] = [];
+    if (loanDetails?.financialGuarantor) list.push(loanDetails.financialGuarantor);
+    if (loanDetails?.familyGuarantor) list.push(loanDetails.familyGuarantor);
+    return list;
+  })();
 
   const { data: fadReviewData } = useQuery({
     queryKey: ["/api/fad-reviews", selectedLoanId],
@@ -395,16 +392,24 @@ export default function RiskCompliancePage() {
                     {guarantors.map((g: any, index: number) => (
                       <Card key={g.id} className="bg-muted/30">
                         <CardHeader className="pb-2">
-                          <CardTitle className="text-sm">Guarantor {index + 1}</CardTitle>
+                          <CardTitle className="text-sm">
+                            {g.guarantorType === "financial" ? "Financial Guarantor" : "Family Guarantor"}
+                          </CardTitle>
                         </CardHeader>
                         <CardContent>
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            {renderViewField("Name", g.name)}
+                            {renderViewField("Full Name", g.fullName)}
+                            {renderViewField("Father Name", g.fatherName)}
                             {renderViewField("National ID", g.nationalId)}
                             {renderViewField("Phone", g.phoneNumber)}
-                            {renderViewField("Relationship", g.relationship)}
-                            {renderViewField("Address", g.address)}
-                            {renderViewField("Occupation", g.occupation)}
+                            {renderViewField("Relationship", g.relationshipWithCustomer)}
+                            {renderViewField("Home Address", g.homeAddress)}
+                            {renderViewField("District", g.district)}
+                            {renderViewField("Business", g.business)}
+                            {renderViewField("Business Address", g.businessAddress)}
+                            {g.guarantorType === "financial" && renderViewField("Monthly Income", g.monthlyIncome ? `AFN ${Number(g.monthlyIncome).toLocaleString()}` : null)}
+                            {g.guarantorType === "financial" && renderViewField("Inventory", g.inventory)}
+                            {g.guarantorType === "financial" && renderViewField("Years of Experience", g.yearsOfExperience)}
                           </div>
                         </CardContent>
                       </Card>
