@@ -39,7 +39,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Pencil, Trash2, Target } from "lucide-react";
+import { Plus, Pencil, Trash2, Target, TrendingUp, TrendingDown, Users, Banknote, CheckCircle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import type { Branch } from "@shared/schema";
 
 interface DisbursementTarget {
@@ -50,6 +53,17 @@ interface DisbursementTarget {
   targetDisbursementAmount: string;
   targetNoOfCustomer: number;
   createdAt: string | null;
+}
+
+interface TargetProgress {
+  target_id: number;
+  branch_id: string;
+  branch_name: string;
+  month_year: string;
+  target_amount: number;
+  target_customers: number;
+  actual_amount: number;
+  actual_customers: number;
 }
 
 export default function DisbursementTargetsPage() {
@@ -80,6 +94,15 @@ export default function DisbursementTargetsPage() {
     queryFn: async () => {
       const res = await fetch("/api/branches", { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch branches");
+      return res.json();
+    },
+  });
+
+  const { data: progressData, isLoading: progressLoading } = useQuery<TargetProgress[]>({
+    queryKey: ["/api/disbursement-targets/progress"],
+    queryFn: async () => {
+      const res = await fetch("/api/disbursement-targets/progress", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch progress");
       return res.json();
     },
   });
@@ -282,6 +305,226 @@ export default function DisbursementTargetsPage() {
                 Add Target
               </Button>
             </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Disbursement Target Progress Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-primary" />
+            Disbursement Target Progress
+          </CardTitle>
+          <CardDescription>
+            Track actual disbursements vs targets by month and branch (based on disbursement date)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {progressLoading ? (
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-24 w-full" />
+              ))}
+            </div>
+          ) : !progressData || progressData.length === 0 ? (
+            <div className="text-center py-8">
+              <Target className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+              <p className="text-muted-foreground" data-testid="text-no-progress">No target progress data available. Add targets above to start tracking.</p>
+            </div>
+          ) : (
+            <Tabs defaultValue="by-month">
+              <TabsList className="mb-4">
+                <TabsTrigger value="by-month" data-testid="tab-by-month">By Month</TabsTrigger>
+                <TabsTrigger value="by-branch" data-testid="tab-by-branch">By Branch</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="by-month">
+                <div className="space-y-6">
+                  {(() => {
+                    const months = Array.from(new Set(progressData.map(p => p.month_year))).sort().reverse();
+                    return months.map(month => {
+                      const monthItems = progressData.filter(p => p.month_year === month);
+                      const totalTarget = monthItems.reduce((s, p) => s + Number(p.target_amount), 0);
+                      const totalActual = monthItems.reduce((s, p) => s + Number(p.actual_amount), 0);
+                      const totalTargetCust = monthItems.reduce((s, p) => s + Number(p.target_customers), 0);
+                      const totalActualCust = monthItems.reduce((s, p) => s + Number(p.actual_customers), 0);
+                      const amtPct = totalTarget > 0 ? Math.min(Math.round((totalActual / totalTarget) * 100), 100) : 0;
+                      const custPct = totalTargetCust > 0 ? Math.min(Math.round((totalActualCust / totalTargetCust) * 100), 100) : 0;
+                      const monthLabel = new Date(month + "-01").toLocaleDateString("en-US", { year: "numeric", month: "long" });
+
+                      return (
+                        <div key={month} className="border rounded-md p-4 space-y-4" data-testid={`progress-month-${month}`}>
+                          <div className="flex items-center justify-between flex-wrap gap-2">
+                            <h3 className="font-semibold text-lg" data-testid={`text-month-label-${month}`}>{monthLabel}</h3>
+                            <Badge variant={amtPct >= 100 ? "default" : amtPct >= 50 ? "secondary" : "outline"} data-testid={`badge-month-pct-${month}`}>
+                              {amtPct}% achieved
+                            </Badge>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between gap-2 text-sm">
+                                <span className="flex items-center gap-1 text-muted-foreground">
+                                  <Banknote className="h-4 w-4" /> Disbursement Amount
+                                </span>
+                                <span className="font-medium" data-testid={`text-month-amt-${month}`}>
+                                  AFN {totalActual.toLocaleString()} / AFN {totalTarget.toLocaleString()}
+                                </span>
+                              </div>
+                              <Progress value={amtPct} className="h-3" />
+                            </div>
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between gap-2 text-sm">
+                                <span className="flex items-center gap-1 text-muted-foreground">
+                                  <Users className="h-4 w-4" /> No. of Customers
+                                </span>
+                                <span className="font-medium" data-testid={`text-month-cust-${month}`}>
+                                  {totalActualCust} / {totalTargetCust}
+                                </span>
+                              </div>
+                              <Progress value={custPct} className="h-3" />
+                            </div>
+                          </div>
+
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Branch</TableHead>
+                                <TableHead className="text-right">Target Amount</TableHead>
+                                <TableHead className="text-right">Actual Disbursed</TableHead>
+                                <TableHead className="text-right">Amount %</TableHead>
+                                <TableHead className="text-right">Target Customers</TableHead>
+                                <TableHead className="text-right">Actual Customers</TableHead>
+                                <TableHead className="text-right">Customer %</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {monthItems.map(item => {
+                                const itemAmtPct = Number(item.target_amount) > 0 ? Math.round((Number(item.actual_amount) / Number(item.target_amount)) * 100) : 0;
+                                const itemCustPct = Number(item.target_customers) > 0 ? Math.round((Number(item.actual_customers) / Number(item.target_customers)) * 100) : 0;
+                                return (
+                                  <TableRow key={item.target_id} data-testid={`row-progress-${item.target_id}`}>
+                                    <TableCell className="font-medium">{item.branch_name}</TableCell>
+                                    <TableCell className="text-right">AFN {Number(item.target_amount).toLocaleString()}</TableCell>
+                                    <TableCell className="text-right">AFN {Number(item.actual_amount).toLocaleString()}</TableCell>
+                                    <TableCell className="text-right">
+                                      <Badge variant={itemAmtPct >= 100 ? "default" : itemAmtPct >= 50 ? "secondary" : "outline"}>
+                                        {itemAmtPct}%
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-right">{Number(item.target_customers)}</TableCell>
+                                    <TableCell className="text-right">{Number(item.actual_customers)}</TableCell>
+                                    <TableCell className="text-right">
+                                      <Badge variant={itemCustPct >= 100 ? "default" : itemCustPct >= 50 ? "secondary" : "outline"}>
+                                        {itemCustPct}%
+                                      </Badge>
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="by-branch">
+                <div className="space-y-6">
+                  {(() => {
+                    const branchNames = Array.from(new Set(progressData.map(p => p.branch_name))).sort();
+                    return branchNames.map(brName => {
+                      const brItems = progressData.filter(p => p.branch_name === brName);
+                      const totalTarget = brItems.reduce((s, p) => s + Number(p.target_amount), 0);
+                      const totalActual = brItems.reduce((s, p) => s + Number(p.actual_amount), 0);
+                      const totalTargetCust = brItems.reduce((s, p) => s + Number(p.target_customers), 0);
+                      const totalActualCust = brItems.reduce((s, p) => s + Number(p.actual_customers), 0);
+                      const amtPct = totalTarget > 0 ? Math.min(Math.round((totalActual / totalTarget) * 100), 100) : 0;
+                      const custPct = totalTargetCust > 0 ? Math.min(Math.round((totalActualCust / totalTargetCust) * 100), 100) : 0;
+
+                      return (
+                        <div key={brName} className="border rounded-md p-4 space-y-4" data-testid={`progress-branch-${brName}`}>
+                          <div className="flex items-center justify-between flex-wrap gap-2">
+                            <h3 className="font-semibold text-lg" data-testid={`text-branch-label-${brName}`}>{brName}</h3>
+                            <Badge variant={amtPct >= 100 ? "default" : amtPct >= 50 ? "secondary" : "outline"} data-testid={`badge-branch-pct-${brName}`}>
+                              {amtPct}% overall
+                            </Badge>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between gap-2 text-sm">
+                                <span className="flex items-center gap-1 text-muted-foreground">
+                                  <Banknote className="h-4 w-4" /> Total Disbursement
+                                </span>
+                                <span className="font-medium">
+                                  AFN {totalActual.toLocaleString()} / AFN {totalTarget.toLocaleString()}
+                                </span>
+                              </div>
+                              <Progress value={amtPct} className="h-3" />
+                            </div>
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between gap-2 text-sm">
+                                <span className="flex items-center gap-1 text-muted-foreground">
+                                  <Users className="h-4 w-4" /> Total Customers
+                                </span>
+                                <span className="font-medium">
+                                  {totalActualCust} / {totalTargetCust}
+                                </span>
+                              </div>
+                              <Progress value={custPct} className="h-3" />
+                            </div>
+                          </div>
+
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Month</TableHead>
+                                <TableHead className="text-right">Target Amount</TableHead>
+                                <TableHead className="text-right">Actual Disbursed</TableHead>
+                                <TableHead className="text-right">Amount %</TableHead>
+                                <TableHead className="text-right">Target Customers</TableHead>
+                                <TableHead className="text-right">Actual Customers</TableHead>
+                                <TableHead className="text-right">Customer %</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {brItems.sort((a, b) => b.month_year.localeCompare(a.month_year)).map(item => {
+                                const itemAmtPct = Number(item.target_amount) > 0 ? Math.round((Number(item.actual_amount) / Number(item.target_amount)) * 100) : 0;
+                                const itemCustPct = Number(item.target_customers) > 0 ? Math.round((Number(item.actual_customers) / Number(item.target_customers)) * 100) : 0;
+                                const mLabel = new Date(item.month_year + "-01").toLocaleDateString("en-US", { year: "numeric", month: "long" });
+                                return (
+                                  <TableRow key={item.target_id} data-testid={`row-branch-progress-${item.target_id}`}>
+                                    <TableCell className="font-medium">{mLabel}</TableCell>
+                                    <TableCell className="text-right">AFN {Number(item.target_amount).toLocaleString()}</TableCell>
+                                    <TableCell className="text-right">AFN {Number(item.actual_amount).toLocaleString()}</TableCell>
+                                    <TableCell className="text-right">
+                                      <Badge variant={itemAmtPct >= 100 ? "default" : itemAmtPct >= 50 ? "secondary" : "outline"}>
+                                        {itemAmtPct}%
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-right">{Number(item.target_customers)}</TableCell>
+                                    <TableCell className="text-right">{Number(item.actual_customers)}</TableCell>
+                                    <TableCell className="text-right">
+                                      <Badge variant={itemCustPct >= 100 ? "default" : itemCustPct >= 50 ? "secondary" : "outline"}>
+                                        {itemCustPct}%
+                                      </Badge>
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              </TabsContent>
+            </Tabs>
           )}
         </CardContent>
       </Card>

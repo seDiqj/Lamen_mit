@@ -292,6 +292,7 @@ export interface IStorage {
   createDisbursementTarget(data: any): Promise<any>;
   updateDisbursementTarget(id: number, data: any): Promise<any>;
   deleteDisbursementTarget(id: number): Promise<void>;
+  getDisbursementTargetProgress(): Promise<any[]>;
   
   // Admin Users
   getUsers(search?: string): Promise<any[]>;
@@ -2407,6 +2408,39 @@ export class DatabaseStorage implements IStorage {
 
   async deleteDisbursementTarget(id: number): Promise<void> {
     await db.delete(disbursementTargets).where(eq(disbursementTargets.id, id));
+  }
+
+  async getDisbursementTargetProgress(): Promise<any[]> {
+    const result = await db.execute(sql`
+      WITH actual_data AS (
+        SELECT
+          l.branch_id,
+          b.name AS branch_name,
+          TO_CHAR(d.disbursement_date, 'YYYY-MM') AS month_year,
+          COUNT(DISTINCT d.loan_id) AS actual_customers,
+          COALESCE(SUM(l.principle_amount::numeric), 0) AS actual_amount
+        FROM disbursements d
+        JOIN loans l ON l.id = d.loan_id
+        LEFT JOIN branches b ON l.branch_id = b.id
+        WHERE l.status IN ('disbursed', 'active', 'completed')
+          AND d.disbursement_date IS NOT NULL
+        GROUP BY l.branch_id, b.name, TO_CHAR(d.disbursement_date, 'YYYY-MM')
+      )
+      SELECT
+        dt.id AS target_id,
+        dt.branch_id,
+        COALESCE(b.name, 'Unknown') AS branch_name,
+        dt.target_month_year AS month_year,
+        dt.target_disbursement_amount::numeric AS target_amount,
+        dt.target_no_of_customer AS target_customers,
+        COALESCE(a.actual_amount, 0) AS actual_amount,
+        COALESCE(a.actual_customers, 0) AS actual_customers
+      FROM disbursement_targets dt
+      LEFT JOIN branches b ON dt.branch_id = b.id
+      LEFT JOIN actual_data a ON a.branch_id = dt.branch_id AND a.month_year = dt.target_month_year
+      ORDER BY dt.target_month_year DESC, b.name
+    `);
+    return result.rows as any[];
   }
 
   // Admin Users

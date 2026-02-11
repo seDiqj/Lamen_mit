@@ -477,6 +477,16 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/disbursement-targets/progress", isAuthenticated, async (req, res) => {
+    try {
+      const progress = await storage.getDisbursementTargetProgress();
+      res.json(progress);
+    } catch (error) {
+      console.error("Error fetching disbursement target progress:", error);
+      res.status(500).json({ message: "Failed to fetch disbursement target progress" });
+    }
+  });
+
   app.delete("/api/disbursement-targets/:id", isAuthenticated, requirePageAccess("disbursement-targets"), async (req: any, res) => {
     try {
       await storage.deleteDisbursementTarget(parseInt(req.params.id));
