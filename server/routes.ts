@@ -1753,78 +1753,111 @@ export async function registerRoutes(
         marginRate: dec(data.marginRate),
       });
 
-      // Update business if exists
+      // Update or create business
       if (loan.customerId) {
-        const business = await storage.getCustomerBusinessByCustomerId(loan.customerId);
+        let business = await storage.getCustomerBusinessByCustomerId(loan.customerId);
+        const businessData = {
+          businessName: str(data.businessName),
+          province: str(data.businessProvince),
+          district: str(data.businessDistrict),
+          village: str(data.businessVillage),
+          detailedAddress: str(data.businessDetailedAddress),
+          yearsOfExperience: num(data.businessYearsOfExperience),
+        };
+
         if (business) {
-          await storage.updateCustomerBusiness(business.id, {
-            businessName: str(data.businessName),
-            province: str(data.businessProvince),
-            district: str(data.businessDistrict),
-            village: str(data.businessVillage),
-            detailedAddress: str(data.businessDetailedAddress),
-            yearsOfExperience: num(data.businessYearsOfExperience),
-          });
-          
+          await storage.updateCustomerBusiness(business.id, businessData);
+        } else {
+          const hasBusinessData = Object.values(businessData).some(v => v !== null);
+          if (hasBusinessData) {
+            business = await storage.createCustomerBusiness({ customerId: loan.customerId, ...businessData });
+          }
+        }
+
+        if (business) {
+          const licenseData = {
+            licenseType: str(data.licenseType),
+            president: str(data.licensePresident),
+            licenseNumber: str(data.licenseNumber),
+            registerDate: str(data.licenseRegisterDate),
+            expiryDate: str(data.licenseExpiryDate),
+          };
           const license = await storage.getBusinessLicenseByBusinessId(business.id);
           if (license) {
-            await storage.updateBusinessLicense(license.id, {
-              licenseType: str(data.licenseType),
-              president: str(data.licensePresident),
-              licenseNumber: str(data.licenseNumber),
-              registerDate: str(data.licenseRegisterDate),
-              expiryDate: str(data.licenseExpiryDate),
-            });
+            await storage.updateBusinessLicense(license.id, licenseData);
+          } else {
+            const hasLicenseData = Object.values(licenseData).some(v => v !== null);
+            if (hasLicenseData) {
+              await storage.createBusinessLicense({ customerBusinessId: business.id, ...licenseData });
+            }
           }
         }
       }
 
-      // Update collateral
+      // Update or create collateral
       const collateral = await storage.getCollateralByLoanId(loan.id);
+      const collateralData = {
+        ownerName: str(data.collateralOwnerName),
+        ownerNationalId: str(data.collateralOwnerNid),
+        collateralType: str(data.collateralType),
+        province: str(data.collateralProvince),
+        address: str(data.collateralAddress),
+        purchasedPrice: dec(data.collateralPurchasedPrice),
+        marketPrice: dec(data.collateralMarketPrice),
+      };
       if (collateral) {
-        await storage.updateCollateral(collateral.id, {
-          ownerName: str(data.collateralOwnerName),
-          ownerNationalId: str(data.collateralOwnerNid),
-          collateralType: str(data.collateralType),
-          province: str(data.collateralProvince),
-          address: str(data.collateralAddress),
-          purchasedPrice: dec(data.collateralPurchasedPrice),
-          marketPrice: dec(data.collateralMarketPrice),
-        });
+        await storage.updateCollateral(collateral.id, collateralData);
+      } else {
+        const hasCollateralData = Object.values(collateralData).some(v => v !== null);
+        if (hasCollateralData) {
+          await storage.createCollateral({ loanId: loan.id, ...collateralData });
+        }
       }
 
-      // Update guarantors
+      // Update or create guarantors
       const guarantors = await storage.getGuarantorsByLoanId(loan.id);
       const financialGuarantor = guarantors.find(g => g.guarantorType === "financial");
       const familyGuarantor = guarantors.find(g => g.guarantorType === "family");
 
+      const financialGuarantorData = {
+        fullName: str(data.financialGuarantorFullName),
+        fatherName: str(data.financialGuarantorFatherName),
+        nationalId: str(data.financialGuarantorNid),
+        phoneNumber: str(data.financialGuarantorPhone),
+        homeAddress: str(data.financialGuarantorHomeAddress),
+        district: str(data.financialGuarantorDistrict),
+        business: str(data.financialGuarantorBusiness),
+        businessAddress: str(data.financialGuarantorBusinessAddress),
+        relationshipWithCustomer: str(data.financialGuarantorRelationship),
+        yearsOfExperience: num(data.financialGuarantorYearsOfExperience),
+        inventory: dec(data.financialGuarantorInventory),
+        monthlyIncome: dec(data.financialGuarantorMonthlyIncome),
+      };
       if (financialGuarantor) {
-        await storage.updateGuarantor(financialGuarantor.id, {
-          fullName: str(data.financialGuarantorFullName),
-          fatherName: str(data.financialGuarantorFatherName),
-          nationalId: str(data.financialGuarantorNid),
-          phoneNumber: str(data.financialGuarantorPhone),
-          homeAddress: str(data.financialGuarantorHomeAddress),
-          district: str(data.financialGuarantorDistrict),
-          business: str(data.financialGuarantorBusiness),
-          businessAddress: str(data.financialGuarantorBusinessAddress),
-          relationshipWithCustomer: str(data.financialGuarantorRelationship),
-          yearsOfExperience: num(data.financialGuarantorYearsOfExperience),
-          inventory: dec(data.financialGuarantorInventory),
-          monthlyIncome: dec(data.financialGuarantorMonthlyIncome),
-        });
+        await storage.updateGuarantor(financialGuarantor.id, financialGuarantorData);
+      } else {
+        const hasData = Object.values(financialGuarantorData).some(v => v !== null);
+        if (hasData) {
+          await storage.createGuarantor({ loanId: loan.id, guarantorType: "financial", ...financialGuarantorData });
+        }
       }
 
+      const familyGuarantorData = {
+        fullName: str(data.familyGuarantorFullName),
+        fatherName: str(data.familyGuarantorFatherName),
+        nationalId: str(data.familyGuarantorNid),
+        phoneNumber: str(data.familyGuarantorPhone),
+        homeAddress: str(data.familyGuarantorHomeAddress),
+        district: str(data.familyGuarantorDistrict),
+        relationshipWithCustomer: str(data.familyGuarantorRelationship),
+      };
       if (familyGuarantor) {
-        await storage.updateGuarantor(familyGuarantor.id, {
-          fullName: str(data.familyGuarantorFullName),
-          fatherName: str(data.familyGuarantorFatherName),
-          nationalId: str(data.familyGuarantorNid),
-          phoneNumber: str(data.familyGuarantorPhone),
-          homeAddress: str(data.familyGuarantorHomeAddress),
-          district: str(data.familyGuarantorDistrict),
-          relationshipWithCustomer: str(data.familyGuarantorRelationship),
-        });
+        await storage.updateGuarantor(familyGuarantor.id, familyGuarantorData);
+      } else {
+        const hasData = Object.values(familyGuarantorData).some(v => v !== null);
+        if (hasData) {
+          await storage.createGuarantor({ loanId: loan.id, guarantorType: "family", ...familyGuarantorData });
+        }
       }
 
       await logActivity(req, "update_loan_application", "loan", loan.id, `Updated loan application: ${loan.applicationId}`);
