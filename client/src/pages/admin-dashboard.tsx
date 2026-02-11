@@ -495,7 +495,7 @@ export default function AdminDashboard() {
                               <YAxis tick={{ fontSize: 10 }} className="fill-muted-foreground" tickFormatter={(v) => `${(v / 1000000).toFixed(1)}M`} />
                               <Tooltip content={customTooltip} />
                               <Legend wrapperStyle={{ fontSize: 12 }} />
-                              <Bar dataKey="target" name="Target" fill="#94a3b8" radius={[3, 3, 0, 0]} />
+                              <Bar dataKey="target" name="Target" fill="#6366f1" radius={[3, 3, 0, 0]} />
                               <Bar dataKey="actual" name="Actual" fill="#10b981" radius={[3, 3, 0, 0]} />
                             </BarChart>
                           </ResponsiveContainer>
@@ -588,7 +588,7 @@ export default function AdminDashboard() {
                         <YAxis tick={{ fontSize: 11 }} className="fill-muted-foreground" tickFormatter={(v) => `${(v / 1000).toFixed(0)}K`} />
                         <Tooltip content={customTooltip} />
                         <Legend />
-                        <Bar dataKey="target" name="Target" fill="#94a3b8" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="target" name="Target" fill="#6366f1" radius={[4, 4, 0, 0]} />
                         <Bar dataKey="actual" name="Actual" fill="#10b981" radius={[4, 4, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
@@ -607,7 +607,7 @@ export default function AdminDashboard() {
                         <YAxis tick={{ fontSize: 11 }} className="fill-muted-foreground" />
                         <Tooltip />
                         <Legend />
-                        <Bar dataKey="target" name="Target Customers" fill="#94a3b8" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="target" name="Target Customers" fill="#6366f1" radius={[4, 4, 0, 0]} />
                         <Bar dataKey="actual" name="Actual Customers" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
@@ -678,7 +678,7 @@ export default function AdminDashboard() {
                         <YAxis tick={{ fontSize: 11 }} className="fill-muted-foreground" tickFormatter={(v) => `${(v / 1000).toFixed(0)}K`} />
                         <Tooltip content={customTooltip} />
                         <Legend />
-                        <Bar dataKey="target" name="Target" fill="#94a3b8" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="target" name="Target" fill="#6366f1" radius={[4, 4, 0, 0]} />
                         <Bar dataKey="actual" name="Actual" fill="#10b981" radius={[4, 4, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
