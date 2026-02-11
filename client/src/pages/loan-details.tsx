@@ -80,7 +80,9 @@ const loanDetailsSchema = z.object({
   collateralMarketPrice: optNum,
   financialGuarantorFullName: z.string().optional(),
   financialGuarantorFatherName: z.string().optional(),
+  financialGuarantorDateOfBirth: z.string().optional(),
   financialGuarantorNid: z.string().optional(),
+  financialGuarantorNidExpiry: z.string().optional(),
   financialGuarantorPhone: z.string().optional(),
   financialGuarantorHomeAddress: z.string().optional(),
   financialGuarantorDistrict: z.string().optional(),
@@ -92,7 +94,9 @@ const loanDetailsSchema = z.object({
   financialGuarantorMonthlyIncome: optNum,
   familyGuarantorFullName: z.string().optional(),
   familyGuarantorFatherName: z.string().optional(),
+  familyGuarantorDateOfBirth: z.string().optional(),
   familyGuarantorNid: z.string().optional(),
+  familyGuarantorNidExpiry: z.string().optional(),
   familyGuarantorPhone: z.string().optional(),
   familyGuarantorHomeAddress: z.string().optional(),
   familyGuarantorDistrict: z.string().optional(),
@@ -206,7 +210,9 @@ export default function LoanDetailsPage() {
         collateralMarketPrice: toNum(d.collateral?.marketPrice),
         financialGuarantorFullName: d.financialGuarantor?.fullName ?? "",
         financialGuarantorFatherName: d.financialGuarantor?.fatherName ?? "",
+        financialGuarantorDateOfBirth: d.financialGuarantor?.dateOfBirth ?? "",
         financialGuarantorNid: d.financialGuarantor?.nationalId ?? "",
+        financialGuarantorNidExpiry: d.financialGuarantor?.nidExpiryDate ?? "",
         financialGuarantorPhone: d.financialGuarantor?.phoneNumber ?? "",
         financialGuarantorHomeAddress: d.financialGuarantor?.homeAddress ?? "",
         financialGuarantorDistrict: d.financialGuarantor?.district ?? "",
@@ -218,7 +224,9 @@ export default function LoanDetailsPage() {
         financialGuarantorMonthlyIncome: toNum(d.financialGuarantor?.monthlyIncome),
         familyGuarantorFullName: d.familyGuarantor?.fullName ?? "",
         familyGuarantorFatherName: d.familyGuarantor?.fatherName ?? "",
+        familyGuarantorDateOfBirth: d.familyGuarantor?.dateOfBirth ?? "",
         familyGuarantorNid: d.familyGuarantor?.nationalId ?? "",
+        familyGuarantorNidExpiry: d.familyGuarantor?.nidExpiryDate ?? "",
         familyGuarantorPhone: d.familyGuarantor?.phoneNumber ?? "",
         familyGuarantorHomeAddress: d.familyGuarantor?.homeAddress ?? "",
         familyGuarantorDistrict: d.familyGuarantor?.district ?? "",
@@ -753,8 +761,24 @@ export default function LoanDetailsPage() {
                     <FormField control={form.control} name="financialGuarantorFatherName" render={({ field }) => (
                       <FormItem><FormLabel>Father's Name</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
+                    <FormField control={form.control} name="financialGuarantorDateOfBirth" render={({ field }) => {
+                      const calcAge = (dob: string) => { if (!dob) return null; const b = new Date(dob); const t = new Date(); let a = t.getFullYear() - b.getFullYear(); if (t.getMonth() < b.getMonth() || (t.getMonth() === b.getMonth() && t.getDate() < b.getDate())) a--; return a; };
+                      const age = calcAge(field.value || "");
+                      const invalid = age !== null && (age < 18 || age > 65);
+                      return (
+                        <FormItem><FormLabel>Date of Birth</FormLabel>
+                          <div className="flex gap-2 items-center">
+                            <FormControl><Input type="date" disabled={!isEditing} className="flex-1" {...field} /></FormControl>
+                            {age !== null && age >= 0 && <div className={`h-9 px-3 flex items-center rounded-md text-sm font-medium whitespace-nowrap ${invalid ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'}`}>Age: {age}{invalid && ' (18-65)'}</div>}
+                          </div>
+                        <FormMessage /></FormItem>
+                      );
+                    }} />
                     <FormField control={form.control} name="financialGuarantorNid" render={({ field }) => (
                       <FormItem><FormLabel>NID</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="financialGuarantorNidExpiry" render={({ field }) => (
+                      <FormItem><FormLabel>NID Expiry Date</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="financialGuarantorPhone" render={({ field }) => (
                       <FormItem><FormLabel>Phone</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
@@ -794,8 +818,24 @@ export default function LoanDetailsPage() {
                     <FormField control={form.control} name="familyGuarantorFatherName" render={({ field }) => (
                       <FormItem><FormLabel>Father's Name</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
+                    <FormField control={form.control} name="familyGuarantorDateOfBirth" render={({ field }) => {
+                      const calcAge = (dob: string) => { if (!dob) return null; const b = new Date(dob); const t = new Date(); let a = t.getFullYear() - b.getFullYear(); if (t.getMonth() < b.getMonth() || (t.getMonth() === b.getMonth() && t.getDate() < b.getDate())) a--; return a; };
+                      const age = calcAge(field.value || "");
+                      const invalid = age !== null && (age < 18 || age > 65);
+                      return (
+                        <FormItem><FormLabel>Date of Birth</FormLabel>
+                          <div className="flex gap-2 items-center">
+                            <FormControl><Input type="date" disabled={!isEditing} className="flex-1" {...field} /></FormControl>
+                            {age !== null && age >= 0 && <div className={`h-9 px-3 flex items-center rounded-md text-sm font-medium whitespace-nowrap ${invalid ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'}`}>Age: {age}{invalid && ' (18-65)'}</div>}
+                          </div>
+                        <FormMessage /></FormItem>
+                      );
+                    }} />
                     <FormField control={form.control} name="familyGuarantorNid" render={({ field }) => (
                       <FormItem><FormLabel>NID</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="familyGuarantorNidExpiry" render={({ field }) => (
+                      <FormItem><FormLabel>NID Expiry Date</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="familyGuarantorPhone" render={({ field }) => (
                       <FormItem><FormLabel>Phone</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>

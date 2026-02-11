@@ -490,7 +490,10 @@ export default function CommitteeVotingPage() {
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             {renderViewField("Full Name", g.fullName)}
                             {renderViewField("Father Name", g.fatherName)}
+                            {renderViewField("Date of Birth", g.dateOfBirth)}
+                            {renderViewField("Age", g.age)}
                             {renderViewField("National ID", g.nationalId)}
+                            {renderViewField("NID Expiry Date", g.nidExpiryDate)}
                             {renderViewField("Phone", g.phoneNumber)}
                             {renderViewField("Relationship", g.relationshipWithCustomer)}
                             {renderViewField("Home Address", g.homeAddress)}
