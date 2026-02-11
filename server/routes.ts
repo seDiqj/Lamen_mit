@@ -1707,46 +1707,50 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Loan not found" });
       }
 
+      const str = (v: any) => (v !== undefined && v !== null && v !== "") ? v : null;
+      const num = (v: any) => (v !== undefined && v !== null && v !== "") ? Number(v) : null;
+      const dec = (v: any) => (v !== undefined && v !== null && v !== "" && v !== 0) ? v.toString() : (v === 0 ? "0" : null);
+
       // Update customer
       if (loan.customerId) {
         await storage.updateCustomer(loan.customerId, {
-          customerNo: data.customerNo || null,
-          firstName: data.firstName || null,
-          lastName: data.lastName || null,
-          fatherName: data.fatherName || null,
-          gender: data.gender || null,
-          nationalId: data.nationalId || null,
-          dateOfBirth: data.dateOfBirth || null,
-          placeOfBirth: data.placeOfBirth || null,
-          homeAddress: data.homeAddress || null,
-          district: data.district || null,
-          phoneNumber: data.phoneNumber || null,
-          secondPhoneNumber: data.secondPhoneNumber || null,
-          numberOfDependents: data.numberOfDependents ?? null,
-          directMaleDependent: data.directMaleDependent ?? null,
-          directFemaleDependent: data.directFemaleDependent ?? null,
-          indirectMaleDependent: data.indirectMaleDependent ?? null,
-          indirectFemaleDependent: data.indirectFemaleDependent ?? null,
+          customerNo: str(data.customerNo),
+          firstName: str(data.firstName),
+          lastName: str(data.lastName),
+          fatherName: str(data.fatherName),
+          gender: str(data.gender),
+          nationalId: str(data.nationalId),
+          dateOfBirth: str(data.dateOfBirth),
+          placeOfBirth: str(data.placeOfBirth),
+          homeAddress: str(data.homeAddress),
+          district: str(data.district),
+          phoneNumber: str(data.phoneNumber),
+          secondPhoneNumber: str(data.secondPhoneNumber),
+          numberOfDependents: num(data.numberOfDependents),
+          directMaleDependent: num(data.directMaleDependent),
+          directFemaleDependent: num(data.directFemaleDependent),
+          indirectMaleDependent: num(data.indirectMaleDependent),
+          indirectFemaleDependent: num(data.indirectFemaleDependent),
         });
       }
 
       // Update loan
       await storage.updateLoan(loan.id, {
-        branchId: data.branchId || null,
-        financeOfficerId: data.financeOfficerId || null,
-        productName: data.productName || null,
-        productCode: data.productCode || null,
-        sector: data.sector || null,
-        businessDescription: data.businessDescription || null,
-        financingPurpose: data.financingPurpose || null,
-        fundingSourceId: data.fundingSourceId || null,
-        requestDate: data.requestDate || null,
-        requestAmount: data.requestAmount ? data.requestAmount.toString() : null,
-        financingDurationMonths: data.financingDurationMonths ?? null,
-        gracePeriod: data.gracePeriod ?? null,
-        numberOfInstallments: data.numberOfInstallments ?? null,
-        principleAmount: data.principleAmount ? data.principleAmount.toString() : null,
-        marginRate: data.marginRate ? data.marginRate.toString() : null,
+        branchId: str(data.branchId),
+        financeOfficerId: str(data.financeOfficerId),
+        productName: str(data.productName),
+        productCode: str(data.productCode),
+        sector: str(data.sector),
+        businessDescription: str(data.businessDescription),
+        financingPurpose: str(data.financingPurpose),
+        fundingSourceId: str(data.fundingSourceId),
+        requestDate: str(data.requestDate),
+        requestAmount: dec(data.requestAmount),
+        financingDurationMonths: num(data.financingDurationMonths),
+        gracePeriod: num(data.gracePeriod),
+        numberOfInstallments: num(data.numberOfInstallments),
+        principleAmount: dec(data.principleAmount),
+        marginRate: dec(data.marginRate),
       });
 
       // Update business if exists
@@ -1754,22 +1758,22 @@ export async function registerRoutes(
         const business = await storage.getCustomerBusinessByCustomerId(loan.customerId);
         if (business) {
           await storage.updateCustomerBusiness(business.id, {
-            businessName: data.businessName || null,
-            province: data.businessProvince || null,
-            district: data.businessDistrict || null,
-            village: data.businessVillage || null,
-            detailedAddress: data.businessDetailedAddress || null,
-            yearsOfExperience: data.businessYearsOfExperience ?? null,
+            businessName: str(data.businessName),
+            province: str(data.businessProvince),
+            district: str(data.businessDistrict),
+            village: str(data.businessVillage),
+            detailedAddress: str(data.businessDetailedAddress),
+            yearsOfExperience: num(data.businessYearsOfExperience),
           });
           
           const license = await storage.getBusinessLicenseByBusinessId(business.id);
           if (license) {
             await storage.updateBusinessLicense(license.id, {
-              licenseType: data.licenseType || null,
-              president: data.licensePresident || null,
-              licenseNumber: data.licenseNumber || null,
-              registerDate: data.licenseRegisterDate || null,
-              expiryDate: data.licenseExpiryDate || null,
+              licenseType: str(data.licenseType),
+              president: str(data.licensePresident),
+              licenseNumber: str(data.licenseNumber),
+              registerDate: str(data.licenseRegisterDate),
+              expiryDate: str(data.licenseExpiryDate),
             });
           }
         }
@@ -1779,13 +1783,13 @@ export async function registerRoutes(
       const collateral = await storage.getCollateralByLoanId(loan.id);
       if (collateral) {
         await storage.updateCollateral(collateral.id, {
-          ownerName: data.collateralOwnerName || null,
-          ownerNationalId: data.collateralOwnerNid || null,
-          collateralType: data.collateralType || null,
-          province: data.collateralProvince || null,
-          address: data.collateralAddress || null,
-          purchasedPrice: data.collateralPurchasedPrice ? data.collateralPurchasedPrice.toString() : null,
-          marketPrice: data.collateralMarketPrice ? data.collateralMarketPrice.toString() : null,
+          ownerName: str(data.collateralOwnerName),
+          ownerNationalId: str(data.collateralOwnerNid),
+          collateralType: str(data.collateralType),
+          province: str(data.collateralProvince),
+          address: str(data.collateralAddress),
+          purchasedPrice: dec(data.collateralPurchasedPrice),
+          marketPrice: dec(data.collateralMarketPrice),
         });
       }
 
@@ -1796,30 +1800,30 @@ export async function registerRoutes(
 
       if (financialGuarantor) {
         await storage.updateGuarantor(financialGuarantor.id, {
-          fullName: data.financialGuarantorFullName || null,
-          fatherName: data.financialGuarantorFatherName || null,
-          nationalId: data.financialGuarantorNid || null,
-          phoneNumber: data.financialGuarantorPhone || null,
-          homeAddress: data.financialGuarantorHomeAddress || null,
-          district: data.financialGuarantorDistrict || null,
-          business: data.financialGuarantorBusiness || null,
-          businessAddress: data.financialGuarantorBusinessAddress || null,
-          relationshipWithCustomer: data.financialGuarantorRelationship || null,
-          yearsOfExperience: data.financialGuarantorYearsOfExperience ?? null,
-          inventory: data.financialGuarantorInventory ? data.financialGuarantorInventory.toString() : null,
-          monthlyIncome: data.financialGuarantorMonthlyIncome ? data.financialGuarantorMonthlyIncome.toString() : null,
+          fullName: str(data.financialGuarantorFullName),
+          fatherName: str(data.financialGuarantorFatherName),
+          nationalId: str(data.financialGuarantorNid),
+          phoneNumber: str(data.financialGuarantorPhone),
+          homeAddress: str(data.financialGuarantorHomeAddress),
+          district: str(data.financialGuarantorDistrict),
+          business: str(data.financialGuarantorBusiness),
+          businessAddress: str(data.financialGuarantorBusinessAddress),
+          relationshipWithCustomer: str(data.financialGuarantorRelationship),
+          yearsOfExperience: num(data.financialGuarantorYearsOfExperience),
+          inventory: dec(data.financialGuarantorInventory),
+          monthlyIncome: dec(data.financialGuarantorMonthlyIncome),
         });
       }
 
       if (familyGuarantor) {
         await storage.updateGuarantor(familyGuarantor.id, {
-          fullName: data.familyGuarantorFullName || null,
-          fatherName: data.familyGuarantorFatherName || null,
-          nationalId: data.familyGuarantorNid || null,
-          phoneNumber: data.familyGuarantorPhone || null,
-          homeAddress: data.familyGuarantorHomeAddress || null,
-          district: data.familyGuarantorDistrict || null,
-          relationshipWithCustomer: data.familyGuarantorRelationship || null,
+          fullName: str(data.familyGuarantorFullName),
+          fatherName: str(data.familyGuarantorFatherName),
+          nationalId: str(data.familyGuarantorNid),
+          phoneNumber: str(data.familyGuarantorPhone),
+          homeAddress: str(data.familyGuarantorHomeAddress),
+          district: str(data.familyGuarantorDistrict),
+          relationshipWithCustomer: str(data.familyGuarantorRelationship),
         });
       }
 

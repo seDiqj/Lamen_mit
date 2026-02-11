@@ -21,6 +21,11 @@ import {
 import type { Branch, FinanceOfficer, FundingSource } from "@shared/schema";
 import { cn } from "@/lib/utils";
 
+const optNum = z.preprocess(
+  (v) => (v === "" || v === null || v === undefined ? undefined : Number(v)),
+  z.number().optional()
+);
+
 const loanDetailsSchema = z.object({
   customerNo: z.string().optional(),
   firstName: z.string().min(1, "Name is required"),
@@ -30,16 +35,16 @@ const loanDetailsSchema = z.object({
   nationalId: z.string().optional(),
   dateOfBirth: z.string().optional(),
   placeOfBirth: z.string().optional(),
-  age: z.coerce.number().optional(),
+  age: optNum,
   homeAddress: z.string().optional(),
   district: z.string().optional(),
   phoneNumber: z.string().optional(),
   secondPhoneNumber: z.string().optional(),
-  numberOfDependents: z.coerce.number().optional(),
-  directMaleDependent: z.coerce.number().optional(),
-  directFemaleDependent: z.coerce.number().optional(),
-  indirectMaleDependent: z.coerce.number().optional(),
-  indirectFemaleDependent: z.coerce.number().optional(),
+  numberOfDependents: optNum,
+  directMaleDependent: optNum,
+  directFemaleDependent: optNum,
+  indirectMaleDependent: optNum,
+  indirectFemaleDependent: optNum,
   branchId: z.string().optional(),
   financeOfficerId: z.string().optional(),
   productName: z.string().optional(),
@@ -49,18 +54,18 @@ const loanDetailsSchema = z.object({
   financingPurpose: z.string().optional(),
   fundingSourceId: z.string().optional(),
   requestDate: z.string().optional(),
-  requestAmount: z.coerce.number().optional(),
-  financingDurationMonths: z.coerce.number().optional(),
-  gracePeriod: z.coerce.number().optional(),
-  numberOfInstallments: z.coerce.number().optional(),
-  principleAmount: z.coerce.number().optional(),
-  marginRate: z.coerce.number().optional(),
+  requestAmount: optNum,
+  financingDurationMonths: optNum,
+  gracePeriod: optNum,
+  numberOfInstallments: optNum,
+  principleAmount: optNum,
+  marginRate: optNum,
   businessName: z.string().optional(),
   businessProvince: z.string().optional(),
   businessDistrict: z.string().optional(),
   businessVillage: z.string().optional(),
   businessDetailedAddress: z.string().optional(),
-  businessYearsOfExperience: z.coerce.number().optional(),
+  businessYearsOfExperience: optNum,
   licenseType: z.string().optional(),
   licensePresident: z.string().optional(),
   licenseNumber: z.string().optional(),
@@ -71,8 +76,8 @@ const loanDetailsSchema = z.object({
   collateralType: z.string().optional(),
   collateralProvince: z.string().optional(),
   collateralAddress: z.string().optional(),
-  collateralPurchasedPrice: z.coerce.number().optional(),
-  collateralMarketPrice: z.coerce.number().optional(),
+  collateralPurchasedPrice: optNum,
+  collateralMarketPrice: optNum,
   financialGuarantorFullName: z.string().optional(),
   financialGuarantorFatherName: z.string().optional(),
   financialGuarantorNid: z.string().optional(),
@@ -82,9 +87,9 @@ const loanDetailsSchema = z.object({
   financialGuarantorBusiness: z.string().optional(),
   financialGuarantorBusinessAddress: z.string().optional(),
   financialGuarantorRelationship: z.string().optional(),
-  financialGuarantorYearsOfExperience: z.coerce.number().optional(),
-  financialGuarantorInventory: z.coerce.number().optional(),
-  financialGuarantorMonthlyIncome: z.coerce.number().optional(),
+  financialGuarantorYearsOfExperience: optNum,
+  financialGuarantorInventory: optNum,
+  financialGuarantorMonthlyIncome: optNum,
   familyGuarantorFullName: z.string().optional(),
   familyGuarantorFatherName: z.string().optional(),
   familyGuarantorNid: z.string().optional(),
@@ -139,79 +144,85 @@ export default function LoanDetailsPage() {
     defaultValues: {},
   });
 
+  const toNum = (v: any): number | undefined => {
+    if (v === null || v === undefined || v === "") return undefined;
+    const n = typeof v === "string" ? parseFloat(v) : v;
+    return isNaN(n) ? undefined : n;
+  };
+
   useEffect(() => {
     if (loanData) {
       const d = loanData;
       form.reset({
-        customerNo: d.customer?.customerNo || "",
-        firstName: d.customer?.firstName || "",
-        lastName: d.customer?.lastName || "",
-        fatherName: d.customer?.fatherName || "",
-        gender: d.customer?.gender || "male",
-        nationalId: d.customer?.nationalId || "",
-        dateOfBirth: d.customer?.dateOfBirth || "",
-        placeOfBirth: d.customer?.placeOfBirth || "",
-        homeAddress: d.customer?.homeAddress || "",
-        district: d.customer?.district || "",
-        phoneNumber: d.customer?.phoneNumber || "",
-        secondPhoneNumber: d.customer?.secondPhoneNumber || "",
-        numberOfDependents: d.customer?.numberOfDependents || 0,
-        directMaleDependent: d.customer?.directMaleDependent || 0,
-        directFemaleDependent: d.customer?.directFemaleDependent || 0,
-        indirectMaleDependent: d.customer?.indirectMaleDependent || 0,
-        indirectFemaleDependent: d.customer?.indirectFemaleDependent || 0,
-        branchId: d.loan?.branchId || "",
-        financeOfficerId: d.loan?.financeOfficerId || "",
-        productName: d.loan?.productName || "",
-        productCode: d.loan?.productCode || "",
-        sector: d.loan?.sector || "",
-        businessDescription: d.loan?.businessDescription || "",
-        financingPurpose: d.loan?.financingPurpose || "",
-        fundingSourceId: d.loan?.fundingSourceId || "",
-        requestDate: d.loan?.requestDate || "",
-        requestAmount: parseFloat(d.loan?.requestAmount) || 0,
-        financingDurationMonths: d.loan?.financingDurationMonths || 0,
-        gracePeriod: d.loan?.gracePeriod || 0,
-        numberOfInstallments: d.loan?.numberOfInstallments || 0,
-        principleAmount: parseFloat(d.loan?.principleAmount) || 0,
-        marginRate: parseFloat(d.loan?.marginRate) || 0,
-        businessName: d.business?.businessName || "",
-        businessProvince: d.business?.province || "",
-        businessDistrict: d.business?.district || "",
-        businessVillage: d.business?.village || "",
-        businessDetailedAddress: d.business?.detailedAddress || "",
-        businessYearsOfExperience: d.business?.yearsOfExperience || 0,
-        licenseType: d.license?.licenseType || "",
-        licensePresident: d.license?.president || "",
-        licenseNumber: d.license?.licenseNumber || "",
-        licenseRegisterDate: d.license?.registerDate || "",
-        licenseExpiryDate: d.license?.expiryDate || "",
-        collateralOwnerName: d.collateral?.ownerName || "",
-        collateralOwnerNid: d.collateral?.ownerNationalId || "",
-        collateralType: d.collateral?.collateralType || "",
-        collateralProvince: d.collateral?.province || "",
-        collateralAddress: d.collateral?.address || "",
-        collateralPurchasedPrice: parseFloat(d.collateral?.purchasedPrice) || 0,
-        collateralMarketPrice: parseFloat(d.collateral?.marketPrice) || 0,
-        financialGuarantorFullName: d.financialGuarantor?.fullName || "",
-        financialGuarantorFatherName: d.financialGuarantor?.fatherName || "",
-        financialGuarantorNid: d.financialGuarantor?.nationalId || "",
-        financialGuarantorPhone: d.financialGuarantor?.phoneNumber || "",
-        financialGuarantorHomeAddress: d.financialGuarantor?.homeAddress || "",
-        financialGuarantorDistrict: d.financialGuarantor?.district || "",
-        financialGuarantorBusiness: d.financialGuarantor?.business || "",
-        financialGuarantorBusinessAddress: d.financialGuarantor?.businessAddress || "",
-        financialGuarantorRelationship: d.financialGuarantor?.relationshipWithCustomer || "",
-        financialGuarantorYearsOfExperience: d.financialGuarantor?.yearsOfExperience || 0,
-        financialGuarantorInventory: parseFloat(d.financialGuarantor?.inventory) || 0,
-        financialGuarantorMonthlyIncome: parseFloat(d.financialGuarantor?.monthlyIncome) || 0,
-        familyGuarantorFullName: d.familyGuarantor?.fullName || "",
-        familyGuarantorFatherName: d.familyGuarantor?.fatherName || "",
-        familyGuarantorNid: d.familyGuarantor?.nationalId || "",
-        familyGuarantorPhone: d.familyGuarantor?.phoneNumber || "",
-        familyGuarantorHomeAddress: d.familyGuarantor?.homeAddress || "",
-        familyGuarantorDistrict: d.familyGuarantor?.district || "",
-        familyGuarantorRelationship: d.familyGuarantor?.relationshipWithCustomer || "",
+        customerNo: d.customer?.customerNo ?? "",
+        firstName: d.customer?.firstName ?? "",
+        lastName: d.customer?.lastName ?? "",
+        fatherName: d.customer?.fatherName ?? "",
+        gender: d.customer?.gender ?? "male",
+        nationalId: d.customer?.nationalId ?? "",
+        dateOfBirth: d.customer?.dateOfBirth ?? "",
+        placeOfBirth: d.customer?.placeOfBirth ?? "",
+        homeAddress: d.customer?.homeAddress ?? "",
+        district: d.customer?.district ?? "",
+        phoneNumber: d.customer?.phoneNumber ?? "",
+        secondPhoneNumber: d.customer?.secondPhoneNumber ?? "",
+        numberOfDependents: toNum(d.customer?.numberOfDependents),
+        directMaleDependent: toNum(d.customer?.directMaleDependent),
+        directFemaleDependent: toNum(d.customer?.directFemaleDependent),
+        indirectMaleDependent: toNum(d.customer?.indirectMaleDependent),
+        indirectFemaleDependent: toNum(d.customer?.indirectFemaleDependent),
+        branchId: d.loan?.branchId ?? "",
+        financeOfficerId: d.loan?.financeOfficerId ?? "",
+        productName: d.loan?.productName ?? "",
+        productCode: d.loan?.productCode ?? "",
+        sector: d.loan?.sector ?? "",
+        businessDescription: d.loan?.businessDescription ?? "",
+        financingPurpose: d.loan?.financingPurpose ?? "",
+        fundingSourceId: d.loan?.fundingSourceId ?? "",
+        requestDate: d.loan?.requestDate ?? "",
+        requestAmount: toNum(d.loan?.requestAmount),
+        financingDurationMonths: toNum(d.loan?.financingDurationMonths),
+        gracePeriod: toNum(d.loan?.gracePeriod),
+        numberOfInstallments: toNum(d.loan?.numberOfInstallments),
+        principleAmount: toNum(d.loan?.principleAmount),
+        marginRate: toNum(d.loan?.marginRate),
+        businessName: d.business?.businessName ?? "",
+        businessProvince: d.business?.province ?? "",
+        businessDistrict: d.business?.district ?? "",
+        businessVillage: d.business?.village ?? "",
+        businessDetailedAddress: d.business?.detailedAddress ?? "",
+        businessYearsOfExperience: toNum(d.business?.yearsOfExperience),
+        licenseType: d.license?.licenseType ?? "",
+        licensePresident: d.license?.president ?? "",
+        licenseNumber: d.license?.licenseNumber ?? "",
+        licenseRegisterDate: d.license?.registerDate ?? "",
+        licenseExpiryDate: d.license?.expiryDate ?? "",
+        collateralOwnerName: d.collateral?.ownerName ?? "",
+        collateralOwnerNid: d.collateral?.ownerNationalId ?? "",
+        collateralType: d.collateral?.collateralType ?? "",
+        collateralProvince: d.collateral?.province ?? "",
+        collateralAddress: d.collateral?.address ?? "",
+        collateralPurchasedPrice: toNum(d.collateral?.purchasedPrice),
+        collateralMarketPrice: toNum(d.collateral?.marketPrice),
+        financialGuarantorFullName: d.financialGuarantor?.fullName ?? "",
+        financialGuarantorFatherName: d.financialGuarantor?.fatherName ?? "",
+        financialGuarantorNid: d.financialGuarantor?.nationalId ?? "",
+        financialGuarantorPhone: d.financialGuarantor?.phoneNumber ?? "",
+        financialGuarantorHomeAddress: d.financialGuarantor?.homeAddress ?? "",
+        financialGuarantorDistrict: d.financialGuarantor?.district ?? "",
+        financialGuarantorBusiness: d.financialGuarantor?.business ?? "",
+        financialGuarantorBusinessAddress: d.financialGuarantor?.businessAddress ?? "",
+        financialGuarantorRelationship: d.financialGuarantor?.relationshipWithCustomer ?? "",
+        financialGuarantorYearsOfExperience: toNum(d.financialGuarantor?.yearsOfExperience),
+        financialGuarantorInventory: toNum(d.financialGuarantor?.inventory),
+        financialGuarantorMonthlyIncome: toNum(d.financialGuarantor?.monthlyIncome),
+        familyGuarantorFullName: d.familyGuarantor?.fullName ?? "",
+        familyGuarantorFatherName: d.familyGuarantor?.fatherName ?? "",
+        familyGuarantorNid: d.familyGuarantor?.nationalId ?? "",
+        familyGuarantorPhone: d.familyGuarantor?.phoneNumber ?? "",
+        familyGuarantorHomeAddress: d.familyGuarantor?.homeAddress ?? "",
+        familyGuarantorDistrict: d.familyGuarantor?.district ?? "",
+        familyGuarantorRelationship: d.familyGuarantor?.relationshipWithCustomer ?? "",
       });
     }
   }, [loanData, form]);
@@ -481,19 +492,19 @@ export default function LoanDetailsPage() {
                     <FormItem><FormLabel>2nd Phone</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="numberOfDependents" render={({ field }) => (
-                    <FormItem><FormLabel>Dependents</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Dependents</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="directMaleDependent" render={({ field }) => (
-                    <FormItem><FormLabel>Direct Male Dep.</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Direct Male Dep.</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="directFemaleDependent" render={({ field }) => (
-                    <FormItem><FormLabel>Direct Female Dep.</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Direct Female Dep.</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="indirectMaleDependent" render={({ field }) => (
-                    <FormItem><FormLabel>Indirect Male Dep.</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Indirect Male Dep.</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="indirectFemaleDependent" render={({ field }) => (
-                    <FormItem><FormLabel>Indirect Female Dep.</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Indirect Female Dep.</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
                   )} />
                 </div>
               </CardContent>
@@ -557,22 +568,22 @@ export default function LoanDetailsPage() {
                     <FormItem><FormLabel>Request Date</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="requestAmount" render={({ field }) => (
-                    <FormItem><FormLabel>Request Amount (AFN)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Request Amount (AFN)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="financingDurationMonths" render={({ field }) => (
-                    <FormItem><FormLabel>Duration (Months)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Duration (Months)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="gracePeriod" render={({ field }) => (
-                    <FormItem><FormLabel>Grace Period</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Grace Period</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="numberOfInstallments" render={({ field }) => (
-                    <FormItem><FormLabel>Installments</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Installments</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="principleAmount" render={({ field }) => (
-                    <FormItem><FormLabel>Principle (AFN)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Principle (AFN)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="marginRate" render={({ field }) => (
-                    <FormItem><FormLabel>Margin Rate (%)</FormLabel><FormControl><Input type="number" step="0.01" disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Margin Rate (%)</FormLabel><FormControl><Input type="number" step="0.01" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
                   )} />
                 </div>
 
@@ -654,7 +665,7 @@ export default function LoanDetailsPage() {
                       <FormItem><FormLabel>Detailed Address</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="businessYearsOfExperience" render={({ field }) => (
-                      <FormItem><FormLabel>Years of Experience</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
+                      <FormItem><FormLabel>Years of Experience</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
                     )} />
                   </div>
                 </div>
@@ -711,10 +722,10 @@ export default function LoanDetailsPage() {
                     <FormItem><FormLabel>Address</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="collateralPurchasedPrice" render={({ field }) => (
-                    <FormItem><FormLabel>Purchased Price (AFN)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Purchased Price (AFN)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="collateralMarketPrice" render={({ field }) => (
-                    <FormItem><FormLabel>Market Price (AFN)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Market Price (AFN)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
                   )} />
                 </div>
               </CardContent>
@@ -764,13 +775,13 @@ export default function LoanDetailsPage() {
                       <FormItem><FormLabel>Relationship</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="financialGuarantorYearsOfExperience" render={({ field }) => (
-                      <FormItem><FormLabel>Years of Exp</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
+                      <FormItem><FormLabel>Years of Exp</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="financialGuarantorInventory" render={({ field }) => (
-                      <FormItem><FormLabel>Inventory (AFN)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
+                      <FormItem><FormLabel>Inventory (AFN)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="financialGuarantorMonthlyIncome" render={({ field }) => (
-                      <FormItem><FormLabel>Monthly Income</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
+                      <FormItem><FormLabel>Monthly Income</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
                     )} />
                   </div>
                 </div>
