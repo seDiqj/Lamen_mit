@@ -314,7 +314,7 @@ export default function DisbursementTargetsPage() {
               <Label htmlFor="targetMonthYear">Target Month/Year</Label>
               <Input
                 id="targetMonthYear"
-                placeholder="YYYY-MM (e.g. 2026-02)"
+                type="month"
                 value={targetMonthYear}
                 onChange={(e) => setTargetMonthYear(e.target.value)}
                 data-testid="input-target-month-year"
