@@ -127,12 +127,12 @@ export default function AdminDashboard() {
                   <TableCell className="text-right">{femaleStaffPercent}%</TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell className="font-medium">Total Credit Officers</TableCell>
+                  <TableCell className="font-medium">Total Financing Officers</TableCell>
                   <TableCell className="text-right">{hrStaff.totalCreditOfficers}</TableCell>
                   <TableCell className="text-right">{creditOfficersPercent}%</TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell className="font-medium">Female Credit Officers</TableCell>
+                  <TableCell className="font-medium">Female Financing Officers</TableCell>
                   <TableCell className="text-right">{hrStaff.femaleCreditOfficers}</TableCell>
                   <TableCell className="text-right">{femaleCOPercent}%</TableCell>
                 </TableRow>

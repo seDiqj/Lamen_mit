@@ -4590,42 +4590,69 @@ export class DatabaseStorage implements IStorage {
       disbursedCount: sql<number>`COUNT(*) FILTER (WHERE ${loans.status} IN ('disbursed', 'active', 'completed'))`,
     }).from(loans);
 
-    // Branch-wise OLB with female client data and PAR (calculated from installments late_days)
-    const branchWiseResult = await db.execute(sql`
-      WITH loan_max_late AS (
-        SELECT l.id as loan_id, COALESCE(MAX(i.late_days), 0) as max_late_days
-        FROM loans l
-        LEFT JOIN installments i ON i.loan_id = l.id
-        WHERE l.status IN ('disbursed', 'active')
-        GROUP BY l.id
-      )
+    // OLB = total_receivable - SUM(paid installment amounts) per loan, clamped to 0 minimum
+    const loanOlbResult = await db.execute(sql`
       SELECT 
-        COALESCE(b.name, 'Unknown') as branch,
-        COUNT(DISTINCT l.id) as no,
-        COALESCE(SUM(l.outstanding_portfolio::numeric), 0) as olb,
-        COUNT(DISTINCT CASE WHEN c.gender = 'female' THEN l.id END) as female_no,
-        COALESCE(SUM(CASE WHEN c.gender = 'female' THEN l.outstanding_portfolio::numeric ELSE 0 END), 0) as female_value,
-        COUNT(DISTINCT CASE WHEN lml.max_late_days BETWEEN 1 AND 30 THEN l.id END) as par_1_30_no,
-        COUNT(DISTINCT CASE WHEN lml.max_late_days > 30 THEN l.id END) as par_30_plus_no
+        l.id as loan_id,
+        l.branch_id,
+        l.customer_id,
+        l.sector,
+        GREATEST(
+          COALESCE(l.total_receivable::numeric, COALESCE(l.principle_amount, l.request_amount)::numeric, 0) 
+          - COALESCE((SELECT SUM(COALESCE(i2.paid_amount::numeric, 0)) FROM installments i2 WHERE i2.loan_id = l.id AND i2.is_paid = true), 0),
+          0
+        ) as olb,
+        COALESCE((SELECT MAX(i3.late_days) FROM installments i3 WHERE i3.loan_id = l.id), 0) as max_late_days
       FROM loans l
-      LEFT JOIN branches b ON l.branch_id = b.id
-      LEFT JOIN customers c ON l.customer_id = c.id
-      LEFT JOIN loan_max_late lml ON lml.loan_id = l.id
       WHERE l.status IN ('disbursed', 'active')
-      GROUP BY b.name
-      ORDER BY olb DESC
     `);
+    const loanOlbRows = loanOlbResult.rows as any[];
 
-    // Sector-wise OLB - using sector column directly from loans table
-    const sectorWiseResult = await db.execute(sql`
-      SELECT 
-        COALESCE(l.sector, 'Other') as sector,
-        COALESCE(SUM(l.outstanding_portfolio::numeric), 0) as olb
-      FROM loans l
-      WHERE l.status IN ('disbursed', 'active')
-      GROUP BY l.sector
-      ORDER BY olb DESC
-    `);
+    // Branch-wise OLB with female client data and PAR
+    const branchCustomerMap = new Map<string, { branchId: string; loans: any[] }>();
+    for (const row of loanOlbRows) {
+      const key = row.branch_id || '__unknown__';
+      if (!branchCustomerMap.has(key)) branchCustomerMap.set(key, { branchId: key, loans: [] });
+      branchCustomerMap.get(key)!.loans.push(row);
+    }
+
+    const allBranches = await db.select({ id: branches.id, name: branches.name }).from(branches);
+    const branchNameMap = new Map(allBranches.map((b: any) => [b.id, b.name]));
+
+    const customerGenders = new Map<string, string>();
+    const customerIds = [...new Set(loanOlbRows.map(r => r.customer_id).filter(Boolean))];
+    if (customerIds.length > 0) {
+      const genderResult = await db.execute(sql`SELECT id, gender FROM customers WHERE id = ANY(${customerIds})`);
+      for (const r of genderResult.rows as any[]) {
+        customerGenders.set(r.id, r.gender);
+      }
+    }
+
+    const branchWiseData = Array.from(branchCustomerMap.entries()).map(([branchId, data]) => {
+      const loans = data.loans;
+      const no = loans.length;
+      const olb = loans.reduce((sum: number, r: any) => sum + parseFloat(r.olb || 0), 0);
+      const femaleLoansList = loans.filter((r: any) => customerGenders.get(r.customer_id) === 'female');
+      const femaleNo = femaleLoansList.length;
+      const femaleValue = femaleLoansList.reduce((sum: number, r: any) => sum + parseFloat(r.olb || 0), 0);
+      const par1_30 = loans.filter((r: any) => parseInt(r.max_late_days) >= 1 && parseInt(r.max_late_days) <= 30).length;
+      const par30Plus = loans.filter((r: any) => parseInt(r.max_late_days) > 30).length;
+      return {
+        branch: branchNameMap.get(branchId) || 'Unknown',
+        no, olb, female_no: femaleNo, female_value: femaleValue,
+        par_1_30_no: par1_30, par_30_plus_no: par30Plus,
+      };
+    }).sort((a, b) => b.olb - a.olb);
+
+    const branchWiseResult = { rows: branchWiseData };
+
+    // Sector-wise OLB - reusing same per-loan data
+    const sectorMap = new Map<string, number>();
+    for (const row of loanOlbRows) {
+      const sector = row.sector || 'Other';
+      sectorMap.set(sector, (sectorMap.get(sector) || 0) + parseFloat(row.olb || 0));
+    }
+    const sectorWiseResult = { rows: Array.from(sectorMap.entries()).map(([sector, olb]) => ({ sector, olb })).sort((a, b) => b.olb - a.olb) };
 
     const totalOLB = (sectorWiseResult.rows as any[]).reduce((sum, r) => sum + parseFloat(r.olb || 0), 0);
 
