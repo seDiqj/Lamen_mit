@@ -1,6 +1,9 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { db } from "./db";
+import { customers, loans } from "@shared/schema";
+import { eq, and, inArray } from "drizzle-orm";
 import { z } from "zod";
 import bcrypt from "bcrypt";
 import session from "express-session";
@@ -1481,6 +1484,25 @@ export async function registerRoutes(
   app.post("/api/loan-applications", isAuthenticated, async (req: any, res) => {
     try {
       const data = req.body;
+
+      // Duplicate check: prevent creating a new application if same national ID already has a pending/active loan
+      if (data.nationalId) {
+        const existingCustomers = await db.select().from(customers).where(eq(customers.nationalId, data.nationalId));
+        if (existingCustomers.length > 0) {
+          const customerIds = existingCustomers.map(c => c.id);
+          const existingLoans = await db.select().from(loans).where(
+            and(
+              inArray(loans.customerId, customerIds),
+              inArray(loans.status, ['pending', 'pending_fad_review', 'pending_risk_review', 'pending_committee_review', 'approved', 'active'])
+            )
+          );
+          if (existingLoans.length > 0) {
+            return res.status(400).json({ 
+              message: `A financing application already exists for this customer (National ID: ${data.nationalId}). Existing application ID: ${existingLoans[0].applicationId}` 
+            });
+          }
+        }
+      }
       
       // Create or find customer
       let customerId: string;
