@@ -8,7 +8,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Users, Target, Building2, Briefcase, Loader2, TrendingUp, Banknote, BarChart3 } from "lucide-react";
+import { Users, Target, Building2, Briefcase, Loader2, TrendingUp, Banknote, BarChart3, Calendar, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -451,7 +451,108 @@ export default function AdminDashboard() {
             </div>
           ) : (
             <>
-              {/* Summary KPI Cards */}
+              {/* Current Year Summary */}
+              {(() => {
+                const currentYear = new Date().getFullYear().toString();
+                const yearData = progressData.filter(p => p.month_year.startsWith(currentYear));
+                const yearTarget = yearData.reduce((s, p) => s + Number(p.target_amount), 0);
+                const yearActual = yearData.reduce((s, p) => s + Number(p.actual_amount), 0);
+                const yearTargetCust = yearData.reduce((s, p) => s + Number(p.target_customers), 0);
+                const yearActualCust = yearData.reduce((s, p) => s + Number(p.actual_customers), 0);
+                const yearPct = yearTarget > 0 ? Math.round((yearActual / yearTarget) * 100) : 0;
+                const yearCustPct = yearTargetCust > 0 ? Math.round((yearActualCust / yearTargetCust) * 100) : 0;
+                const yearGap = yearTarget - yearActual;
+
+                const monthlyBreakdown = Array.from(new Set(yearData.map(p => p.month_year))).sort().map(m => {
+                  const items = yearData.filter(p => p.month_year === m);
+                  const target = items.reduce((s, p) => s + Number(p.target_amount), 0);
+                  const actual = items.reduce((s, p) => s + Number(p.actual_amount), 0);
+                  const pct = target > 0 ? Math.round((actual / target) * 100) : 0;
+                  const label = new Date(m + "-01").toLocaleDateString("en-US", { month: "short" });
+                  return { month: label, monthFull: m, target, actual, pct };
+                });
+
+                return (
+                  <Card className="border-primary/30">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          <Calendar className="h-5 w-5 text-primary" />
+                          Current Year Progress ({currentYear})
+                        </CardTitle>
+                        <Badge variant={yearPct >= 100 ? "default" : yearPct >= 75 ? "secondary" : "outline"} data-testid="badge-year-pct">
+                          {yearPct}% achieved
+                        </Badge>
+                      </div>
+                      <CardDescription>Year-to-date disbursement performance summary</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-5">
+                      <div className="grid gap-4 md:grid-cols-3">
+                        <div className="p-4 rounded-lg bg-green-50 dark:bg-green-900/20 space-y-1">
+                          <p className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Target className="h-3 w-3" /> Year Target
+                          </p>
+                          <p className="text-xl font-bold text-green-700 dark:text-green-400" data-testid="text-year-target">
+                            AFN {formatCurrency(yearTarget)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">{yearTargetCust} customers</p>
+                        </div>
+                        <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 space-y-1">
+                          <p className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Banknote className="h-3 w-3" /> Year Actual
+                          </p>
+                          <p className="text-xl font-bold text-blue-700 dark:text-blue-400" data-testid="text-year-actual">
+                            AFN {formatCurrency(yearActual)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">{yearActualCust} customers ({yearCustPct}%)</p>
+                        </div>
+                        <div className={`p-4 rounded-lg space-y-1 ${yearGap > 0 ? "bg-red-50 dark:bg-red-900/20" : "bg-emerald-50 dark:bg-emerald-900/20"}`}>
+                          <p className="text-xs text-muted-foreground flex items-center gap-1">
+                            {yearGap > 0 ? <ArrowDownRight className="h-3 w-3" /> : <ArrowUpRight className="h-3 w-3" />}
+                            {yearGap > 0 ? "Gap Remaining" : "Exceeded By"}
+                          </p>
+                          <p className={`text-xl font-bold ${yearGap > 0 ? "text-red-700 dark:text-red-400" : "text-emerald-700 dark:text-emerald-400"}`} data-testid="text-year-gap">
+                            AFN {formatCurrency(Math.abs(yearGap))}
+                          </p>
+                          <p className="text-xs text-muted-foreground">{yearPct}% of annual target</p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Annual Progress</span>
+                          <span className="font-semibold">{yearPct}%</span>
+                        </div>
+                        <div className="h-5 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${yearPct >= 100 ? "bg-gradient-to-r from-emerald-500 to-green-400" : yearPct >= 75 ? "bg-gradient-to-r from-green-500 to-emerald-400" : yearPct >= 50 ? "bg-gradient-to-r from-amber-500 to-yellow-400" : "bg-gradient-to-r from-red-500 to-orange-400"}`}
+                            style={{ width: `${Math.min(yearPct, 100)}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {monthlyBreakdown.length > 0 && (
+                        <div>
+                          <p className="text-sm font-medium mb-3">Monthly Breakdown</p>
+                          <ResponsiveContainer width="100%" height={200}>
+                            <BarChart data={monthlyBreakdown} barGap={2}>
+                              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                              <XAxis dataKey="month" tick={{ fontSize: 11 }} className="fill-muted-foreground" />
+                              <YAxis tick={{ fontSize: 10 }} className="fill-muted-foreground" tickFormatter={(v) => `${(v / 1000000).toFixed(1)}M`} />
+                              <Tooltip content={customTooltip} />
+                              <Legend wrapperStyle={{ fontSize: 12 }} />
+                              <Bar dataKey="target" name="Target" fill="#94a3b8" radius={[3, 3, 0, 0]} />
+                              <Bar dataKey="actual" name="Actual" fill="#10b981" radius={[3, 3, 0, 0]} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })()}
+
+              {/* All-Time Summary KPI Cards */}
               {(() => {
                 const totalTarget = progressData.reduce((s, p) => s + Number(p.target_amount), 0);
                 const totalActual = progressData.reduce((s, p) => s + Number(p.actual_amount), 0);
@@ -470,7 +571,7 @@ export default function AdminDashboard() {
                             <Target className="h-5 w-5 text-green-600" />
                           </div>
                           <div>
-                            <p className="text-xs text-muted-foreground">Total Target</p>
+                            <p className="text-xs text-muted-foreground">Total Target (All Time)</p>
                             <p className="text-lg font-bold" data-testid="text-total-target">AFN {formatCurrency(totalTarget)}</p>
                           </div>
                         </div>
@@ -483,7 +584,7 @@ export default function AdminDashboard() {
                             <Banknote className="h-5 w-5 text-blue-600" />
                           </div>
                           <div>
-                            <p className="text-xs text-muted-foreground">Actual Disbursed</p>
+                            <p className="text-xs text-muted-foreground">Actual Disbursed (All Time)</p>
                             <p className="text-lg font-bold" data-testid="text-total-actual">AFN {formatCurrency(totalActual)}</p>
                           </div>
                         </div>
