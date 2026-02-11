@@ -1951,8 +1951,11 @@ export class DatabaseStorage implements IStorage {
         AND i.is_paid = false
         AND i.due_date IS NOT NULL
         AND i.due_date::date < CURRENT_DATE
+        AND (COALESCE(i.total_amount::numeric, 0) - COALESCE(i.paid_amount::numeric, 0)) > 0
       ORDER BY days_past_due DESC
     `);
+    
+    console.log(`[PAR Analysis] Found ${overdueInstallments.rows.length} overdue installments with balance`);
 
     const totalPortfolioResult = await db.execute(sql`
       SELECT 
@@ -1997,7 +2000,7 @@ export class DatabaseStorage implements IStorage {
       const unpaidAmount = parseFloat(inst.unpaid_amount) || 0;
       const loanId = inst.loan_id;
       
-      if (daysPastDue <= 0 || unpaidAmount <= 0) continue;
+      if (daysPastDue < 1 || unpaidAmount <= 0) continue;
       
       allLoanIds.add(loanId);
       

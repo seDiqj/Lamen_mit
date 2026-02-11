@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle, TrendingDown, Building2, Users, Package, FileText, Loader2 } from "lucide-react";
+import { AlertTriangle, TrendingDown, Building2, Users, Package, FileText, Loader2, ChevronDown, ChevronRight } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -55,6 +55,173 @@ type ParAnalysisData = {
 };
 
 type DialogType = "category" | "branch" | "officer" | "product" | null;
+
+type GroupedLoan = {
+  loanId: string;
+  customerName: string;
+  branch: string;
+  officer: string;
+  product: string;
+  loanAmount: number;
+  totalUnpaid: number;
+  maxDaysPastDue: number;
+  installments: any[];
+};
+
+function AgingReportSection({ agingReport, agingLoading, formatCurrency }: { agingReport: any[] | undefined; agingLoading: boolean; formatCurrency: (n: number) => string }) {
+  const [expandedLoans, setExpandedLoans] = useState<Set<string>>(new Set());
+
+  const toggleLoan = (loanId: string) => {
+    setExpandedLoans(prev => {
+      const next = new Set(prev);
+      if (next.has(loanId)) {
+        next.delete(loanId);
+      } else {
+        next.add(loanId);
+      }
+      return next;
+    });
+  };
+
+  const expandAll = () => {
+    const allIds = groupedLoans.map(g => g.loanId);
+    setExpandedLoans(new Set(allIds));
+  };
+
+  const collapseAll = () => {
+    setExpandedLoans(new Set());
+  };
+
+  const groupedLoans: GroupedLoan[] = (() => {
+    if (!agingReport || agingReport.length === 0) return [];
+    const map = new Map<string, GroupedLoan>();
+    for (const item of agingReport) {
+      const key = item.loanId;
+      if (!map.has(key)) {
+        map.set(key, {
+          loanId: item.loanId,
+          customerName: item.customerName,
+          branch: item.branch,
+          officer: item.officer,
+          product: item.product || 'N/A',
+          loanAmount: item.loanAmount,
+          totalUnpaid: 0,
+          maxDaysPastDue: 0,
+          installments: [],
+        });
+      }
+      const group = map.get(key)!;
+      group.totalUnpaid += item.unpaidAmount || 0;
+      group.maxDaysPastDue = Math.max(group.maxDaysPastDue, item.daysPastDue || 0);
+      group.installments.push(item);
+    }
+    return Array.from(map.values()).sort((a, b) => b.maxDaysPastDue - a.maxDaysPastDue);
+  })();
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Loan Aging Report
+            </CardTitle>
+            <CardDescription>Overdue installments grouped by financing. Click a row to expand and see late installments.</CardDescription>
+          </div>
+          {groupedLoans.length > 0 && (
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={expandAll} data-testid="button-expand-all">
+                Expand All
+              </Button>
+              <Button variant="outline" size="sm" onClick={collapseAll} data-testid="button-collapse-all">
+                Collapse All
+              </Button>
+            </div>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        {agingLoading ? (
+          <Skeleton className="h-[300px] w-full" />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm" data-testid="table-aging-report">
+              <thead>
+                <tr className="border-b bg-muted/50">
+                  <th className="text-left p-3 font-semibold w-8"></th>
+                  <th className="text-left p-3 font-semibold">Financing ID</th>
+                  <th className="text-left p-3 font-semibold">Customer</th>
+                  <th className="text-left p-3 font-semibold">Product</th>
+                  <th className="text-left p-3 font-semibold">Branch</th>
+                  <th className="text-left p-3 font-semibold">Officer</th>
+                  <th className="text-center p-3 font-semibold">Late Inst.</th>
+                  <th className="text-right p-3 font-semibold">Total Unpaid</th>
+                  <th className="text-right p-3 font-semibold">Max Days Past Due</th>
+                </tr>
+              </thead>
+              {groupedLoans.map((group) => {
+                  const isExpanded = expandedLoans.has(group.loanId);
+                  return (
+                    <tbody key={group.loanId}>
+                      <tr 
+                        className="border-b hover:bg-muted/50 cursor-pointer transition-colors"
+                        onClick={() => toggleLoan(group.loanId)}
+                        data-testid={`row-aging-loan-${group.loanId}`}
+                      >
+                        <td className="p-3">
+                          {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                        </td>
+                        <td className="p-3 font-mono text-sm font-medium">{group.loanId}</td>
+                        <td className="p-3 font-medium">{group.customerName}</td>
+                        <td className="p-3">{group.product}</td>
+                        <td className="p-3 text-muted-foreground">{group.branch}</td>
+                        <td className="p-3 text-muted-foreground">{group.officer}</td>
+                        <td className="p-3 text-center">
+                          <Badge variant="secondary">{group.installments.length}</Badge>
+                        </td>
+                        <td className="p-3 text-right font-medium">{formatCurrency(group.totalUnpaid)}</td>
+                        <td className="p-3 text-right">
+                          <Badge variant={group.maxDaysPastDue > 90 ? "destructive" : group.maxDaysPastDue > 30 ? "secondary" : "outline"}>
+                            {group.maxDaysPastDue} days
+                          </Badge>
+                        </td>
+                      </tr>
+                      {isExpanded && group.installments.map((inst: any) => (
+                        <tr key={`${group.loanId}-inst-${inst.installmentNumber}`} className="bg-muted/30 border-b">
+                          <td className="p-2"></td>
+                          <td className="p-2"></td>
+                          <td colSpan={2} className="p-2 pl-4 text-muted-foreground text-xs">
+                            Installment #{inst.installmentNumber}
+                          </td>
+                          <td className="p-2 text-xs text-muted-foreground">
+                            {inst.dueDate ? new Date(inst.dueDate + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}
+                          </td>
+                          <td className="p-2 text-xs text-muted-foreground">{inst.parCategory}</td>
+                          <td className="p-2"></td>
+                          <td className="p-2 text-right text-xs">{formatCurrency(inst.unpaidAmount || 0)}</td>
+                          <td className="p-2 text-right">
+                            <Badge variant={inst.daysPastDue > 90 ? "destructive" : inst.daysPastDue > 30 ? "secondary" : "outline"} className="text-xs">
+                              {inst.daysPastDue} days
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  );
+                })}
+            </table>
+            {groupedLoans.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                No overdue installments found
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function ParReportPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -460,62 +627,7 @@ export default function ParReportPage() {
       </Card>
 
       {/* Aging Report */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-amber-500" />
-            Loan Aging Report
-          </CardTitle>
-          <CardDescription>Each row is an overdue unpaid installment. Days Past Due = Today minus Due Date.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {agingLoading ? (
-            <Skeleton className="h-[300px] w-full" />
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm" data-testid="table-aging-report">
-                <thead>
-                  <tr className="border-b bg-muted/50">
-                    <th className="text-left p-3 font-semibold">Financing ID</th>
-                    <th className="text-left p-3 font-semibold">Customer</th>
-                    <th className="text-left p-3 font-semibold">Branch</th>
-                    <th className="text-left p-3 font-semibold">Officer</th>
-                    <th className="text-center p-3 font-semibold">Inst #</th>
-                    <th className="text-left p-3 font-semibold">Due Date</th>
-                    <th className="text-right p-3 font-semibold">Unpaid Amount</th>
-                    <th className="text-right p-3 font-semibold">Days Past Due</th>
-                    <th className="text-left p-3 font-semibold">PAR Category</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(agingReport || []).map((item: any, index: number) => (
-                    <tr key={index} className="border-b hover:bg-muted/50">
-                      <td className="p-3 font-mono text-sm">{item.loanId}</td>
-                      <td className="p-3 font-medium">{item.customerName}</td>
-                      <td className="p-3 text-muted-foreground">{item.branch}</td>
-                      <td className="p-3 text-muted-foreground">{item.officer}</td>
-                      <td className="p-3 text-center">{item.installmentNumber}</td>
-                      <td className="p-3">{item.dueDate ? new Date(item.dueDate + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}</td>
-                      <td className="p-3 text-right">{formatCurrency(item.unpaidAmount || 0)}</td>
-                      <td className="p-3 text-right">
-                        <Badge variant={item.daysPastDue > 30 ? "destructive" : item.daysPastDue > 7 ? "secondary" : "outline"}>
-                          {item.daysPastDue} days
-                        </Badge>
-                      </td>
-                      <td className="p-3">{item.parCategory}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {(!agingReport || agingReport.length === 0) && (
-                <div className="text-center py-8 text-muted-foreground">
-                  No overdue installments found
-                </div>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <AgingReportSection agingReport={agingReport} agingLoading={agingLoading} formatCurrency={formatCurrency} />
 
       {/* Detail Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
