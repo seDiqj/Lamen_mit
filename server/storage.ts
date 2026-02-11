@@ -1919,25 +1919,45 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getParAnalysis(): Promise<any> {
-    // Get PAR categories
     const categories = await db.select().from(parCategories).orderBy(parCategories.startDay);
     
-    // Get loan late days summary (sum of late days per loan from installments)
-    const loanLateDays = await db.execute(sql`
+    const overdueInstallments = await db.execute(sql`
       SELECT 
-        l.id as loan_id,
+        i.id as installment_id,
+        i.loan_id,
+        i.installment_number,
+        i.due_date,
+        i.total_amount,
+        i.paid_amount,
+        i.is_paid,
+        (CURRENT_DATE - i.due_date::date) as days_past_due,
+        (COALESCE(i.total_amount::numeric, 0) - COALESCE(i.paid_amount::numeric, 0)) as unpaid_amount,
         l.application_id,
+        l.product_name,
         COALESCE(l.principle_amount, l.request_amount) as loan_amount,
-        l.outstanding_portfolio,
         c.first_name || ' ' || COALESCE(c.last_name, '') as customer_name,
-        COALESCE(SUM(CASE WHEN i.late_days > 0 THEN i.late_days ELSE 0 END), 0) as total_late_days
-      FROM loans l
+        b.name as branch_name,
+        fo.name as officer_name
+      FROM installments i
+      INNER JOIN loans l ON i.loan_id = l.id
       LEFT JOIN customers c ON l.customer_id = c.id
-      LEFT JOIN installments i ON l.id = i.loan_id
-      GROUP BY l.id, l.application_id, l.principle_amount, l.request_amount, l.outstanding_portfolio, c.first_name, c.last_name
+      LEFT JOIN branches b ON l.branch_id = b.id
+      LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
+      WHERE l.status IN ('disbursed', 'active')
+        AND i.is_paid = false
+        AND i.due_date IS NOT NULL
+        AND i.due_date::date < CURRENT_DATE
+      ORDER BY days_past_due DESC
+    `);
+
+    const totalPortfolioResult = await db.execute(sql`
+      SELECT 
+        COUNT(l.id) as total_loans,
+        COALESCE(SUM(COALESCE(l.principle_amount::numeric, l.request_amount::numeric, 0)), 0) as total_portfolio
+      FROM loans l
+      WHERE l.status IN ('disbursed', 'active')
     `);
     
-    // Initialize category results
     const parResults = categories.map(cat => ({
       id: cat.id,
       category: cat.category,
@@ -1948,10 +1968,10 @@ export class DatabaseStorage implements IStorage {
       totalAmount: 0,
       outstandingAmount: 0,
       provisionAmount: 0,
-      loans: [] as any[]
+      installmentCount: 0,
+      loanIds: new Set<string>(),
     }));
     
-    // Add "Current" category for loans with 0 late days
     const currentCategory = {
       id: 0,
       category: 'Current (0 days)',
@@ -1962,68 +1982,100 @@ export class DatabaseStorage implements IStorage {
       totalAmount: 0,
       outstandingAmount: 0,
       provisionAmount: 0,
-      loans: [] as any[]
+      installmentCount: 0,
+      loanIds: new Set<string>(),
     };
+
+    const allLoanIds = new Set<string>();
     
-    // Categorize loans
-    for (const loan of loanLateDays.rows as any[]) {
-      const lateDays = parseInt(loan.total_late_days) || 0;
-      const loanAmount = parseFloat(loan.loan_amount) || 0;
-      const outstanding = parseFloat(loan.outstanding_portfolio) || 0;
+    for (const inst of overdueInstallments.rows as any[]) {
+      const daysPastDue = parseInt(inst.days_past_due) || 0;
+      const unpaidAmount = parseFloat(inst.unpaid_amount) || 0;
+      const loanId = inst.loan_id;
       
-      if (lateDays === 0) {
-        currentCategory.loanCount++;
-        currentCategory.totalAmount += loanAmount;
-        currentCategory.outstandingAmount += outstanding;
-        currentCategory.loans.push({
-          loanId: loan.application_id,
-          customerName: loan.customer_name,
-          loanAmount,
-          outstanding,
-          lateDays
-        });
-      } else {
-        for (const cat of parResults) {
-          if (lateDays >= cat.startDay && lateDays <= cat.endDay) {
-            cat.loanCount++;
-            cat.totalAmount += loanAmount;
-            cat.outstandingAmount += outstanding;
-            cat.provisionAmount += outstanding * (cat.provisionPercent / 100);
-            cat.loans.push({
-              loanId: loan.application_id,
-              customerName: loan.customer_name,
-              loanAmount,
-              outstanding,
-              lateDays
-            });
-            break;
-          }
+      if (daysPastDue <= 0 || unpaidAmount <= 0) continue;
+      
+      allLoanIds.add(loanId);
+      
+      let placed = false;
+      for (const cat of parResults) {
+        if (daysPastDue >= cat.startDay && daysPastDue <= cat.endDay) {
+          cat.outstandingAmount += unpaidAmount;
+          cat.provisionAmount += unpaidAmount * (cat.provisionPercent / 100);
+          cat.installmentCount++;
+          cat.loanIds.add(loanId);
+          placed = true;
+          break;
+        }
+      }
+      if (!placed && parResults.length > 0) {
+        const lastCat = parResults[parResults.length - 1];
+        if (daysPastDue > lastCat.endDay) {
+          lastCat.outstandingAmount += unpaidAmount;
+          lastCat.provisionAmount += unpaidAmount * (lastCat.provisionPercent / 100);
+          lastCat.installmentCount++;
+          lastCat.loanIds.add(loanId);
         }
       }
     }
-    
-    // Calculate totals
+
+    const totalLoansNum = parseInt((totalPortfolioResult.rows[0] as any)?.total_loans) || 0;
+    const totalPortfolio = parseFloat((totalPortfolioResult.rows[0] as any)?.total_portfolio) || 0;
+
+    for (const cat of parResults) {
+      cat.loanCount = cat.loanIds.size;
+    }
+
+    const currentLoansResult = await db.execute(sql`
+      SELECT COUNT(l.id) as count, 
+             COALESCE(SUM(COALESCE(l.principle_amount::numeric, l.request_amount::numeric, 0)), 0) as amount
+      FROM loans l
+      WHERE l.status IN ('disbursed', 'active')
+        AND l.id NOT IN (
+          SELECT DISTINCT i2.loan_id FROM installments i2 
+          INNER JOIN loans l2 ON i2.loan_id = l2.id
+          WHERE l2.status IN ('disbursed', 'active')
+            AND i2.is_paid = false 
+            AND i2.due_date IS NOT NULL
+            AND i2.due_date::date < CURRENT_DATE
+            AND (COALESCE(i2.total_amount::numeric, 0) - COALESCE(i2.paid_amount::numeric, 0)) > 0
+        )
+    `);
+    currentCategory.loanCount = parseInt((currentLoansResult.rows[0] as any)?.count) || 0;
+    currentCategory.totalAmount = parseFloat((currentLoansResult.rows[0] as any)?.amount) || 0;
+
+    for (const cat of parResults) {
+      if (cat.loanIds.size > 0) {
+        const loanIdsArr = Array.from(cat.loanIds);
+        const loanAmtResult = await db.execute(sql`
+          SELECT COALESCE(SUM(COALESCE(l.principle_amount::numeric, l.request_amount::numeric, 0)), 0) as amount
+          FROM loans l WHERE l.id = ANY(${loanIdsArr})
+        `);
+        cat.totalAmount = parseFloat((loanAmtResult.rows[0] as any)?.amount) || 0;
+      }
+    }
+
     const allCategories = [currentCategory, ...parResults];
-    const totalLoans = allCategories.reduce((sum, c) => sum + c.loanCount, 0);
-    const totalPortfolio = allCategories.reduce((sum, c) => sum + c.totalAmount, 0);
     const totalOutstanding = allCategories.reduce((sum, c) => sum + c.outstandingAmount, 0);
     const totalProvision = allCategories.reduce((sum, c) => sum + c.provisionAmount, 0);
     
-    // Add percentages
-    const categoriesWithPercentage = allCategories.map(cat => ({
-      ...cat,
-      loanPercentage: totalLoans > 0 ? ((cat.loanCount / totalLoans) * 100).toFixed(2) : '0',
-      amountPercentage: totalPortfolio > 0 ? ((cat.totalAmount / totalPortfolio) * 100).toFixed(2) : '0',
-    }));
+    const categoriesWithPercentage = allCategories.map(cat => {
+      const { loanIds, ...rest } = cat;
+      return {
+        ...rest,
+        loanPercentage: totalLoansNum > 0 ? ((cat.loanCount / totalLoansNum) * 100).toFixed(2) : '0',
+        amountPercentage: totalPortfolio > 0 ? ((cat.totalAmount / totalPortfolio) * 100).toFixed(2) : '0',
+      };
+    });
     
     return {
       categories: categoriesWithPercentage,
       summary: {
-        totalLoans,
+        totalLoans: totalLoansNum,
         totalPortfolio,
         totalOutstanding,
         totalProvision,
-        parRatio: totalOutstanding > 0 ? (((totalOutstanding - currentCategory.outstandingAmount) / totalOutstanding) * 100).toFixed(2) : '0'
+        parRatio: totalPortfolio > 0 ? ((totalOutstanding / totalPortfolio) * 100).toFixed(2) : '0'
       }
     };
   }
@@ -2032,43 +2084,49 @@ export class DatabaseStorage implements IStorage {
     const result = await db.execute(sql`
       SELECT 
         COALESCE(b.name, 'Unassigned') as branch_name,
-        COUNT(DISTINCT l.id) as loan_count,
-        COALESCE(SUM(CASE WHEN l.total_receivable IS NOT NULL THEN l.total_receivable::numeric ELSE COALESCE(l.principle_amount, l.request_amount)::numeric END), 0) as total_portfolio,
+        COUNT(l.id) as loan_count,
+        COALESCE(SUM(COALESCE(l.principle_amount::numeric, l.request_amount::numeric, 0)), 0) as total_portfolio,
         COALESCE((
-          SELECT SUM(COALESCE(i.paid_amount::numeric, 0))
-          FROM installments i
-          WHERE i.loan_id IN (SELECT l2.id FROM loans l2 WHERE COALESCE(l2.branch_id, 0) = COALESCE(b.id, 0) AND l2.status IN ('disbursed', 'active', 'completed'))
-          AND i.is_paid = true
-        ), 0) as total_collected,
-        COALESCE((
-          SELECT SUM(i2.total_amount::numeric - COALESCE(i2.paid_amount::numeric, 0))
+          SELECT SUM(COALESCE(i2.total_amount::numeric, 0) - COALESCE(i2.paid_amount::numeric, 0))
           FROM installments i2
-          WHERE i2.loan_id IN (SELECT l3.id FROM loans l3 WHERE COALESCE(l3.branch_id, 0) = COALESCE(b.id, 0) AND l3.status IN ('disbursed', 'active', 'completed'))
-          AND i2.is_paid = false AND i2.late_days > 0
-        ), 0) as par_amount
+          INNER JOIN loans l2 ON i2.loan_id = l2.id
+          WHERE l2.branch_id = b.id
+            AND l2.status IN ('disbursed', 'active')
+            AND i2.is_paid = false 
+            AND i2.due_date IS NOT NULL
+            AND i2.due_date::date < CURRENT_DATE
+            AND (COALESCE(i2.total_amount::numeric, 0) - COALESCE(i2.paid_amount::numeric, 0)) > 0
+        ), 0) as par_amount,
+        (SELECT COUNT(DISTINCT i3.loan_id)
+          FROM installments i3
+          INNER JOIN loans l3 ON i3.loan_id = l3.id
+          WHERE l3.branch_id = b.id
+            AND l3.status IN ('disbursed', 'active')
+            AND i3.is_paid = false 
+            AND i3.due_date IS NOT NULL
+            AND i3.due_date::date < CURRENT_DATE
+            AND (COALESCE(i3.total_amount::numeric, 0) - COALESCE(i3.paid_amount::numeric, 0)) > 0
+        ) as par_loan_count
       FROM loans l
       LEFT JOIN branches b ON l.branch_id = b.id
-      WHERE l.status IN ('disbursed', 'active', 'completed')
+      WHERE l.status IN ('disbursed', 'active')
       GROUP BY b.id, b.name
       ORDER BY total_portfolio DESC
     `);
     
-    const branchData = (result.rows as any[]).map(row => {
+    return (result.rows as any[]).map(row => {
       const totalPortfolio = parseFloat(row.total_portfolio) || 0;
-      const totalCollected = parseFloat(row.total_collected) || 0;
-      const outstanding = totalPortfolio - totalCollected;
       const parAmount = parseFloat(row.par_amount) || 0;
       return {
         branch: row.branch_name || 'Unassigned',
         loanCount: parseInt(row.loan_count) || 0,
         totalAmount: totalPortfolio,
-        outstandingAmount: outstanding,
+        outstandingAmount: parAmount,
         parAmount: parAmount,
-        parRatio: outstanding > 0 ? ((parAmount / outstanding) * 100).toFixed(2) : '0'
+        parLoanCount: parseInt(row.par_loan_count) || 0,
+        parRatio: totalPortfolio > 0 ? ((parAmount / totalPortfolio) * 100).toFixed(2) : '0'
       };
     });
-    
-    return branchData;
   }
 
   async getParByOfficer(): Promise<any> {
@@ -2076,88 +2134,77 @@ export class DatabaseStorage implements IStorage {
       SELECT 
         COALESCE(fo.name, 'Unassigned') as officer_name,
         COALESCE(b.name, 'N/A') as branch_name,
-        fo.id as officer_id,
-        COUNT(DISTINCT l.id) as loan_count,
-        COALESCE(SUM(CASE WHEN l.total_receivable IS NOT NULL THEN l.total_receivable::numeric ELSE COALESCE(l.principle_amount, l.request_amount)::numeric END), 0) as total_portfolio,
+        COUNT(l.id) as loan_count,
+        COALESCE(SUM(COALESCE(l.principle_amount::numeric, l.request_amount::numeric, 0)), 0) as total_portfolio,
         COALESCE((
-          SELECT SUM(COALESCE(i.paid_amount::numeric, 0))
-          FROM installments i
-          WHERE i.loan_id IN (SELECT l2.id FROM loans l2 WHERE COALESCE(l2.finance_officer_id, 0) = COALESCE(fo.id, 0) AND l2.status IN ('disbursed', 'active', 'completed'))
-          AND i.is_paid = true
-        ), 0) as total_collected,
-        COALESCE((
-          SELECT SUM(i2.total_amount::numeric - COALESCE(i2.paid_amount::numeric, 0))
+          SELECT SUM(COALESCE(i2.total_amount::numeric, 0) - COALESCE(i2.paid_amount::numeric, 0))
           FROM installments i2
-          WHERE i2.loan_id IN (SELECT l3.id FROM loans l3 WHERE COALESCE(l3.finance_officer_id, 0) = COALESCE(fo.id, 0) AND l3.status IN ('disbursed', 'active', 'completed'))
-          AND i2.is_paid = false AND i2.late_days > 0
+          INNER JOIN loans l2 ON i2.loan_id = l2.id
+          WHERE l2.finance_officer_id = fo.id
+            AND l2.status IN ('disbursed', 'active')
+            AND i2.is_paid = false 
+            AND i2.due_date IS NOT NULL
+            AND i2.due_date::date < CURRENT_DATE
+            AND (COALESCE(i2.total_amount::numeric, 0) - COALESCE(i2.paid_amount::numeric, 0)) > 0
         ), 0) as par_amount
       FROM loans l
       LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
       LEFT JOIN branches b ON l.branch_id = b.id
-      WHERE l.status IN ('disbursed', 'active', 'completed')
+      WHERE l.status IN ('disbursed', 'active')
       GROUP BY fo.id, fo.name, b.name
       ORDER BY total_portfolio DESC
     `);
     
-    const officerData = (result.rows as any[]).map(row => {
+    return (result.rows as any[]).map(row => {
       const totalPortfolio = parseFloat(row.total_portfolio) || 0;
-      const totalCollected = parseFloat(row.total_collected) || 0;
-      const outstanding = totalPortfolio - totalCollected;
       const parAmount = parseFloat(row.par_amount) || 0;
       return {
         officer: row.officer_name || 'Unassigned',
         branch: row.branch_name || 'N/A',
         loanCount: parseInt(row.loan_count) || 0,
         totalAmount: totalPortfolio,
-        outstandingAmount: outstanding,
+        outstandingAmount: parAmount,
         parAmount: parAmount,
-        parRatio: outstanding > 0 ? ((parAmount / outstanding) * 100).toFixed(2) : '0'
+        parRatio: totalPortfolio > 0 ? ((parAmount / totalPortfolio) * 100).toFixed(2) : '0'
       };
     });
-    
-    return officerData;
   }
 
   async getParByProduct(): Promise<any> {
     const result = await db.execute(sql`
       SELECT 
         COALESCE(l.product_name, 'Unknown') as product_name,
-        COUNT(DISTINCT l.id) as loan_count,
-        COALESCE(SUM(CASE WHEN l.total_receivable IS NOT NULL THEN l.total_receivable::numeric ELSE COALESCE(l.principle_amount, l.request_amount)::numeric END), 0) as total_portfolio,
+        COUNT(l.id) as loan_count,
+        COALESCE(SUM(COALESCE(l.principle_amount::numeric, l.request_amount::numeric, 0)), 0) as total_portfolio,
         COALESCE((
-          SELECT SUM(COALESCE(i.paid_amount::numeric, 0))
-          FROM installments i
-          WHERE i.loan_id IN (SELECT l2.id FROM loans l2 WHERE COALESCE(l2.product_name, 'Unknown') = COALESCE(l.product_name, 'Unknown') AND l2.status IN ('disbursed', 'active', 'completed'))
-          AND i.is_paid = true
-        ), 0) as total_collected,
-        COALESCE((
-          SELECT SUM(i2.total_amount::numeric - COALESCE(i2.paid_amount::numeric, 0))
+          SELECT SUM(COALESCE(i2.total_amount::numeric, 0) - COALESCE(i2.paid_amount::numeric, 0))
           FROM installments i2
-          WHERE i2.loan_id IN (SELECT l3.id FROM loans l3 WHERE COALESCE(l3.product_name, 'Unknown') = COALESCE(l.product_name, 'Unknown') AND l3.status IN ('disbursed', 'active', 'completed'))
-          AND i2.is_paid = false AND i2.late_days > 0
+          INNER JOIN loans l2 ON i2.loan_id = l2.id
+          WHERE COALESCE(l2.product_name, 'Unknown') = COALESCE(l.product_name, 'Unknown')
+            AND l2.status IN ('disbursed', 'active')
+            AND i2.is_paid = false 
+            AND i2.due_date IS NOT NULL
+            AND i2.due_date::date < CURRENT_DATE
+            AND (COALESCE(i2.total_amount::numeric, 0) - COALESCE(i2.paid_amount::numeric, 0)) > 0
         ), 0) as par_amount
       FROM loans l
-      WHERE l.status IN ('disbursed', 'active', 'completed')
+      WHERE l.status IN ('disbursed', 'active')
       GROUP BY l.product_name
       ORDER BY total_portfolio DESC
     `);
     
-    const productData = (result.rows as any[]).map(row => {
+    return (result.rows as any[]).map(row => {
       const totalPortfolio = parseFloat(row.total_portfolio) || 0;
-      const totalCollected = parseFloat(row.total_collected) || 0;
-      const outstanding = totalPortfolio - totalCollected;
       const parAmount = parseFloat(row.par_amount) || 0;
       return {
         product: row.product_name || 'Unknown',
         loanCount: parseInt(row.loan_count) || 0,
         totalAmount: totalPortfolio,
-        outstandingAmount: outstanding,
+        outstandingAmount: parAmount,
         parAmount: parAmount,
-        parRatio: outstanding > 0 ? ((parAmount / outstanding) * 100).toFixed(2) : '0'
+        parRatio: totalPortfolio > 0 ? ((parAmount / totalPortfolio) * 100).toFixed(2) : '0'
       };
     });
-    
-    return productData;
   }
 
   async getAgingReport(): Promise<any> {
@@ -2169,38 +2216,63 @@ export class DatabaseStorage implements IStorage {
         fo.name as officer_name,
         l.product_name,
         COALESCE(l.principle_amount, l.request_amount) as loan_amount,
-        l.outstanding_portfolio,
-        COALESCE(SUM(i.late_days), 0) as total_late_days,
-        MAX(i.due_date) as last_due_date
-      FROM loans l
+        i.installment_number,
+        i.due_date,
+        i.total_amount as installment_amount,
+        i.paid_amount,
+        (COALESCE(i.total_amount::numeric, 0) - COALESCE(i.paid_amount::numeric, 0)) as unpaid_amount,
+        (CURRENT_DATE - i.due_date::date) as days_past_due
+      FROM installments i
+      INNER JOIN loans l ON i.loan_id = l.id
       LEFT JOIN customers c ON l.customer_id = c.id
       LEFT JOIN branches b ON l.branch_id = b.id
       LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
-      LEFT JOIN installments i ON l.id = i.loan_id
-      WHERE l.outstanding_portfolio > 0
-      GROUP BY l.id, l.application_id, c.first_name, c.last_name, b.name, fo.name, l.product_name, l.principle_amount, l.request_amount, l.outstanding_portfolio
-      HAVING COALESCE(SUM(i.late_days), 0) > 0
-      ORDER BY total_late_days DESC
-      LIMIT 100
+      WHERE l.status IN ('disbursed', 'active')
+        AND i.is_paid = false
+        AND i.due_date IS NOT NULL
+        AND i.due_date::date < CURRENT_DATE
+        AND (COALESCE(i.total_amount::numeric, 0) - COALESCE(i.paid_amount::numeric, 0)) > 0
+      ORDER BY days_past_due DESC
+      LIMIT 200
     `);
     
-    const agingData = (result.rows as any[]).map(row => ({
-      loanId: row.application_id,
-      customerName: row.customer_name?.trim() || 'Unknown',
-      branch: row.branch_name || 'N/A',
-      officer: row.officer_name || 'N/A',
-      product: row.product_name || 'N/A',
-      loanAmount: parseFloat(row.loan_amount) || 0,
-      outstanding: parseFloat(row.outstanding_portfolio) || 0,
-      totalLateDays: parseInt(row.total_late_days) || 0,
-      lastDueDate: row.last_due_date
-    }));
+    const categories = await db.select().from(parCategories).orderBy(parCategories.startDay);
+    
+    const agingData = (result.rows as any[]).map(row => {
+      const daysPastDue = parseInt(row.days_past_due) || 0;
+      let parCategory = 'Current';
+      for (const cat of categories) {
+        if (daysPastDue >= cat.startDay && daysPastDue <= cat.endDay) {
+          parCategory = cat.category || `${cat.startDay}-${cat.endDay} days`;
+          break;
+        }
+      }
+      if (parCategory === 'Current' && daysPastDue > 0 && categories.length > 0) {
+        const lastCat = categories[categories.length - 1];
+        if (daysPastDue > lastCat.endDay) {
+          parCategory = lastCat.category || `${lastCat.startDay}+ days`;
+        }
+      }
+      return {
+        loanId: row.application_id,
+        customerName: row.customer_name?.trim() || 'Unknown',
+        branch: row.branch_name || 'N/A',
+        officer: row.officer_name || 'N/A',
+        product: row.product_name || 'N/A',
+        loanAmount: parseFloat(row.loan_amount) || 0,
+        installmentNumber: row.installment_number,
+        dueDate: row.due_date,
+        installmentAmount: parseFloat(row.installment_amount) || 0,
+        unpaidAmount: parseFloat(row.unpaid_amount) || 0,
+        daysPastDue,
+        parCategory
+      };
+    });
     
     return agingData;
   }
 
   async getLoansByParCategory(categoryId: number): Promise<any[]> {
-    // First get the PAR category to know the days range
     const categoryResult = await db.execute(sql`
       SELECT start_day, end_day FROM par_categories WHERE id = ${categoryId}
     `);
@@ -2210,8 +2282,8 @@ export class DatabaseStorage implements IStorage {
     }
     
     const category = categoryResult.rows[0] as any;
-    const startDay = category.start_day;
-    const endDay = category.end_day;
+    const startDay = parseInt(category.start_day);
+    const endDay = parseInt(category.end_day);
     
     const result = await db.execute(sql`
       SELECT 
@@ -2222,17 +2294,23 @@ export class DatabaseStorage implements IStorage {
         fo.name as officer_name,
         l.product_name,
         COALESCE(l.principle_amount, l.request_amount) as loan_amount,
-        l.outstanding_portfolio,
-        COALESCE(SUM(i.late_days), 0) as total_late_days
-      FROM loans l
+        i.installment_number,
+        i.due_date,
+        (COALESCE(i.total_amount::numeric, 0) - COALESCE(i.paid_amount::numeric, 0)) as unpaid_amount,
+        (CURRENT_DATE - i.due_date::date) as days_past_due
+      FROM installments i
+      INNER JOIN loans l ON i.loan_id = l.id
       LEFT JOIN customers c ON l.customer_id = c.id
       LEFT JOIN branches b ON l.branch_id = b.id
       LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
-      LEFT JOIN installments i ON l.id = i.loan_id
-      WHERE l.outstanding_portfolio > 0
-      GROUP BY l.id, l.application_id, c.first_name, c.last_name, b.name, fo.name, l.product_name, l.principle_amount, l.request_amount, l.outstanding_portfolio
-      HAVING COALESCE(SUM(i.late_days), 0) >= ${startDay} AND COALESCE(SUM(i.late_days), 0) <= ${endDay}
-      ORDER BY total_late_days DESC
+      WHERE l.status IN ('disbursed', 'active')
+        AND i.is_paid = false
+        AND i.due_date IS NOT NULL
+        AND i.due_date::date < CURRENT_DATE
+        AND (COALESCE(i.total_amount::numeric, 0) - COALESCE(i.paid_amount::numeric, 0)) > 0
+        AND (CURRENT_DATE - i.due_date::date) >= ${startDay}
+        AND (CURRENT_DATE - i.due_date::date) <= ${endDay}
+      ORDER BY days_past_due DESC
     `);
     
     return (result.rows as any[]).map(row => ({
@@ -2243,8 +2321,10 @@ export class DatabaseStorage implements IStorage {
       officer: row.officer_name || 'N/A',
       product: row.product_name || 'N/A',
       loanAmount: parseFloat(row.loan_amount) || 0,
-      outstanding: parseFloat(row.outstanding_portfolio) || 0,
-      lateDays: parseInt(row.total_late_days) || 0
+      outstanding: parseFloat(row.unpaid_amount) || 0,
+      lateDays: parseInt(row.days_past_due) || 0,
+      installmentNumber: row.installment_number,
+      dueDate: row.due_date
     }));
   }
 
@@ -2258,16 +2338,22 @@ export class DatabaseStorage implements IStorage {
         fo.name as officer_name,
         l.product_name,
         COALESCE(l.principle_amount, l.request_amount) as loan_amount,
-        l.outstanding_portfolio,
-        COALESCE(SUM(i.late_days), 0) as total_late_days
-      FROM loans l
+        i.installment_number,
+        i.due_date,
+        (COALESCE(i.total_amount::numeric, 0) - COALESCE(i.paid_amount::numeric, 0)) as unpaid_amount,
+        (CURRENT_DATE - i.due_date::date) as days_past_due
+      FROM installments i
+      INNER JOIN loans l ON i.loan_id = l.id
       LEFT JOIN customers c ON l.customer_id = c.id
       LEFT JOIN branches b ON l.branch_id = b.id
       LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
-      LEFT JOIN installments i ON l.id = i.loan_id
-      WHERE l.outstanding_portfolio > 0 AND b.name = ${branchName}
-      GROUP BY l.id, l.application_id, c.first_name, c.last_name, b.name, fo.name, l.product_name, l.principle_amount, l.request_amount, l.outstanding_portfolio
-      ORDER BY l.outstanding_portfolio DESC
+      WHERE l.status IN ('disbursed', 'active')
+        AND b.name = ${branchName}
+        AND i.is_paid = false
+        AND i.due_date IS NOT NULL
+        AND i.due_date::date < CURRENT_DATE
+        AND (COALESCE(i.total_amount::numeric, 0) - COALESCE(i.paid_amount::numeric, 0)) > 0
+      ORDER BY days_past_due DESC
     `);
     
     return (result.rows as any[]).map(row => ({
@@ -2278,8 +2364,10 @@ export class DatabaseStorage implements IStorage {
       officer: row.officer_name || 'N/A',
       product: row.product_name || 'N/A',
       loanAmount: parseFloat(row.loan_amount) || 0,
-      outstanding: parseFloat(row.outstanding_portfolio) || 0,
-      lateDays: parseInt(row.total_late_days) || 0
+      outstanding: parseFloat(row.unpaid_amount) || 0,
+      lateDays: parseInt(row.days_past_due) || 0,
+      installmentNumber: row.installment_number,
+      dueDate: row.due_date
     }));
   }
 
@@ -2293,16 +2381,22 @@ export class DatabaseStorage implements IStorage {
         fo.name as officer_name,
         l.product_name,
         COALESCE(l.principle_amount, l.request_amount) as loan_amount,
-        l.outstanding_portfolio,
-        COALESCE(SUM(i.late_days), 0) as total_late_days
-      FROM loans l
+        i.installment_number,
+        i.due_date,
+        (COALESCE(i.total_amount::numeric, 0) - COALESCE(i.paid_amount::numeric, 0)) as unpaid_amount,
+        (CURRENT_DATE - i.due_date::date) as days_past_due
+      FROM installments i
+      INNER JOIN loans l ON i.loan_id = l.id
       LEFT JOIN customers c ON l.customer_id = c.id
       LEFT JOIN branches b ON l.branch_id = b.id
       LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
-      LEFT JOIN installments i ON l.id = i.loan_id
-      WHERE l.outstanding_portfolio > 0 AND fo.name = ${officerName}
-      GROUP BY l.id, l.application_id, c.first_name, c.last_name, b.name, fo.name, l.product_name, l.principle_amount, l.request_amount, l.outstanding_portfolio
-      ORDER BY l.outstanding_portfolio DESC
+      WHERE l.status IN ('disbursed', 'active')
+        AND fo.name = ${officerName}
+        AND i.is_paid = false
+        AND i.due_date IS NOT NULL
+        AND i.due_date::date < CURRENT_DATE
+        AND (COALESCE(i.total_amount::numeric, 0) - COALESCE(i.paid_amount::numeric, 0)) > 0
+      ORDER BY days_past_due DESC
     `);
     
     return (result.rows as any[]).map(row => ({
@@ -2313,8 +2407,10 @@ export class DatabaseStorage implements IStorage {
       officer: row.officer_name || 'N/A',
       product: row.product_name || 'N/A',
       loanAmount: parseFloat(row.loan_amount) || 0,
-      outstanding: parseFloat(row.outstanding_portfolio) || 0,
-      lateDays: parseInt(row.total_late_days) || 0
+      outstanding: parseFloat(row.unpaid_amount) || 0,
+      lateDays: parseInt(row.days_past_due) || 0,
+      installmentNumber: row.installment_number,
+      dueDate: row.due_date
     }));
   }
 
@@ -2328,16 +2424,22 @@ export class DatabaseStorage implements IStorage {
         fo.name as officer_name,
         l.product_name,
         COALESCE(l.principle_amount, l.request_amount) as loan_amount,
-        l.outstanding_portfolio,
-        COALESCE(SUM(i.late_days), 0) as total_late_days
-      FROM loans l
+        i.installment_number,
+        i.due_date,
+        (COALESCE(i.total_amount::numeric, 0) - COALESCE(i.paid_amount::numeric, 0)) as unpaid_amount,
+        (CURRENT_DATE - i.due_date::date) as days_past_due
+      FROM installments i
+      INNER JOIN loans l ON i.loan_id = l.id
       LEFT JOIN customers c ON l.customer_id = c.id
       LEFT JOIN branches b ON l.branch_id = b.id
       LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
-      LEFT JOIN installments i ON l.id = i.loan_id
-      WHERE l.outstanding_portfolio > 0 AND l.product_name = ${productName}
-      GROUP BY l.id, l.application_id, c.first_name, c.last_name, b.name, fo.name, l.product_name, l.principle_amount, l.request_amount, l.outstanding_portfolio
-      ORDER BY l.outstanding_portfolio DESC
+      WHERE l.status IN ('disbursed', 'active')
+        AND l.product_name = ${productName}
+        AND i.is_paid = false
+        AND i.due_date IS NOT NULL
+        AND i.due_date::date < CURRENT_DATE
+        AND (COALESCE(i.total_amount::numeric, 0) - COALESCE(i.paid_amount::numeric, 0)) > 0
+      ORDER BY days_past_due DESC
     `);
     
     return (result.rows as any[]).map(row => ({
@@ -2348,8 +2450,10 @@ export class DatabaseStorage implements IStorage {
       officer: row.officer_name || 'N/A',
       product: row.product_name || 'N/A',
       loanAmount: parseFloat(row.loan_amount) || 0,
-      outstanding: parseFloat(row.outstanding_portfolio) || 0,
-      lateDays: parseInt(row.total_late_days) || 0
+      outstanding: parseFloat(row.unpaid_amount) || 0,
+      lateDays: parseInt(row.days_past_due) || 0,
+      installmentNumber: row.installment_number,
+      dueDate: row.due_date
     }));
   }
 

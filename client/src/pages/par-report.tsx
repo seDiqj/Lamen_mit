@@ -24,6 +24,8 @@ type LoanDetail = {
   loanAmount: number;
   outstanding: number;
   lateDays: number;
+  installmentNumber?: number;
+  dueDate?: string;
 };
 
 type ParCategory = {
@@ -33,6 +35,7 @@ type ParCategory = {
   endDay: number;
   provisionPercent: number;
   loanCount: number;
+  installmentCount: number;
   totalAmount: number;
   outstandingAmount: number;
   provisionAmount: number;
@@ -248,8 +251,9 @@ export default function ParReportPage() {
                     <th className="text-right p-3 font-semibold">Days Range</th>
                     <th className="text-right p-3 font-semibold">Provision %</th>
                     <th className="text-right p-3 font-semibold">Financings</th>
-                    <th className="text-right p-3 font-semibold">Total Amount</th>
-                    <th className="text-right p-3 font-semibold">Outstanding</th>
+                    <th className="text-right p-3 font-semibold">Overdue Installments</th>
+                    <th className="text-right p-3 font-semibold">Financing Amount</th>
+                    <th className="text-right p-3 font-semibold">Overdue Amount</th>
                     <th className="text-right p-3 font-semibold">Provision</th>
                     <th className="text-right p-3 font-semibold">% of Portfolio</th>
                   </tr>
@@ -268,6 +272,7 @@ export default function ParReportPage() {
                       </td>
                       <td className="p-3 text-right">{cat.provisionPercent}%</td>
                       <td className="p-3 text-right">{cat.loanCount}</td>
+                      <td className="p-3 text-right">{cat.installmentCount || 0}</td>
                       <td className="p-3 text-right">{formatCurrency(cat.totalAmount)}</td>
                       <td className="p-3 text-right">{formatCurrency(cat.outstandingAmount)}</td>
                       <td className="p-3 text-right text-red-600 font-medium">{formatCurrency(cat.provisionAmount)}</td>
@@ -283,6 +288,7 @@ export default function ParReportPage() {
                     <td className="p-3"></td>
                     <td className="p-3"></td>
                     <td className="p-3 text-right">{parData?.summary?.totalLoans || 0}</td>
+                    <td className="p-3 text-right">{(parData?.categories || []).reduce((sum: number, c: any) => sum + (c.installmentCount || 0), 0)}</td>
                     <td className="p-3 text-right">{formatCurrency(parData?.summary?.totalPortfolio || 0)}</td>
                     <td className="p-3 text-right">{formatCurrency(parData?.summary?.totalOutstanding || 0)}</td>
                     <td className="p-3 text-right text-red-600">{formatCurrency(parData?.summary?.totalProvision || 0)}</td>
@@ -460,7 +466,7 @@ export default function ParReportPage() {
             <AlertTriangle className="h-5 w-5 text-amber-500" />
             Loan Aging Report
           </CardTitle>
-          <CardDescription>Detailed view of overdue loans with late days</CardDescription>
+          <CardDescription>Each row is an overdue unpaid installment. Days Past Due = Today minus Due Date.</CardDescription>
         </CardHeader>
         <CardContent>
           {agingLoading ? (
@@ -474,34 +480,36 @@ export default function ParReportPage() {
                     <th className="text-left p-3 font-semibold">Customer</th>
                     <th className="text-left p-3 font-semibold">Branch</th>
                     <th className="text-left p-3 font-semibold">Officer</th>
-                    <th className="text-left p-3 font-semibold">Product</th>
-                    <th className="text-right p-3 font-semibold">Financing Amount</th>
-                    <th className="text-right p-3 font-semibold">Outstanding</th>
-                    <th className="text-right p-3 font-semibold">Late Days</th>
+                    <th className="text-center p-3 font-semibold">Inst #</th>
+                    <th className="text-left p-3 font-semibold">Due Date</th>
+                    <th className="text-right p-3 font-semibold">Unpaid Amount</th>
+                    <th className="text-right p-3 font-semibold">Days Past Due</th>
+                    <th className="text-left p-3 font-semibold">PAR Category</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {(agingReport || []).map((item, index) => (
+                  {(agingReport || []).map((item: any, index: number) => (
                     <tr key={index} className="border-b hover:bg-muted/50">
                       <td className="p-3 font-mono text-sm">{item.loanId}</td>
                       <td className="p-3 font-medium">{item.customerName}</td>
                       <td className="p-3 text-muted-foreground">{item.branch}</td>
                       <td className="p-3 text-muted-foreground">{item.officer}</td>
-                      <td className="p-3">{item.product}</td>
-                      <td className="p-3 text-right">{formatCurrency(item.loanAmount)}</td>
-                      <td className="p-3 text-right">{formatCurrency(item.outstanding)}</td>
+                      <td className="p-3 text-center">{item.installmentNumber}</td>
+                      <td className="p-3">{item.dueDate ? new Date(item.dueDate + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}</td>
+                      <td className="p-3 text-right">{formatCurrency(item.unpaidAmount || 0)}</td>
                       <td className="p-3 text-right">
-                        <Badge variant={item.totalLateDays > 30 ? "destructive" : item.totalLateDays > 7 ? "secondary" : "outline"}>
-                          {item.totalLateDays} days
+                        <Badge variant={item.daysPastDue > 30 ? "destructive" : item.daysPastDue > 7 ? "secondary" : "outline"}>
+                          {item.daysPastDue} days
                         </Badge>
                       </td>
+                      <td className="p-3">{item.parCategory}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
               {(!agingReport || agingReport.length === 0) && (
                 <div className="text-center py-8 text-muted-foreground">
-                  No overdue loans found
+                  No overdue installments found
                 </div>
               )}
             </div>
@@ -660,9 +668,10 @@ export default function ParReportPage() {
                             <th className="text-left p-2 font-semibold">Financing ID</th>
                             <th className="text-left p-2 font-semibold">Customer</th>
                             <th className="text-left p-2 font-semibold">Branch</th>
-                            <th className="text-right p-2 font-semibold">Financing Amount</th>
-                            <th className="text-right p-2 font-semibold">Outstanding</th>
-                            <th className="text-right p-2 font-semibold">Late Days</th>
+                            <th className="text-center p-2 font-semibold">Inst #</th>
+                            <th className="text-left p-2 font-semibold">Due Date</th>
+                            <th className="text-right p-2 font-semibold">Unpaid Amount</th>
+                            <th className="text-right p-2 font-semibold">Days Past Due</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -671,11 +680,12 @@ export default function ParReportPage() {
                               <td className="p-2 font-medium">{loan.applicationId}</td>
                               <td className="p-2">{loan.customerName}</td>
                               <td className="p-2 text-muted-foreground">{loan.branch}</td>
-                              <td className="p-2 text-right">{formatCurrency(loan.loanAmount)}</td>
+                              <td className="p-2 text-center">{loan.installmentNumber || '-'}</td>
+                              <td className="p-2">{loan.dueDate ? new Date(loan.dueDate + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</td>
                               <td className="p-2 text-right">{formatCurrency(loan.outstanding)}</td>
                               <td className="p-2 text-right">
                                 <Badge variant={loan.lateDays > 30 ? "destructive" : loan.lateDays > 0 ? "secondary" : "outline"}>
-                                  {loan.lateDays}
+                                  {loan.lateDays} days
                                 </Badge>
                               </td>
                             </tr>
