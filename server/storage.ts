@@ -920,7 +920,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getGuarantorsByLoanId(loanId: string): Promise<Guarantor[]> {
-    return db.select().from(guarantors).where(eq(guarantors.loanId, loanId));
+    return db.select().from(guarantors).where(eq(guarantors.loanId, loanId)).orderBy(guarantors.createdAt);
   }
 
   async updateGuarantor(id: string, data: Partial<InsertGuarantor>): Promise<Guarantor> {

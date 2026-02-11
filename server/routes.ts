@@ -1530,6 +1530,7 @@ export async function registerRoutes(
             directFemaleDependent: data.directFemaleDependent,
             indirectMaleDependent: data.indirectMaleDependent,
             indirectFemaleDependent: data.indirectFemaleDependent,
+            nidExpiryDate: data.nidExpiryDate,
           });
           customerId = customer.id;
         }
@@ -1552,6 +1553,7 @@ export async function registerRoutes(
           directFemaleDependent: data.directFemaleDependent,
           indirectMaleDependent: data.indirectMaleDependent,
           indirectFemaleDependent: data.indirectFemaleDependent,
+          nidExpiryDate: data.nidExpiryDate,
         });
         customerId = customer.id;
       }
@@ -1641,6 +1643,7 @@ export async function registerRoutes(
           loanId: loan.id,
           ownerName: data.collateralOwnerName,
           ownerNationalId: data.collateralOwnerNid,
+          ownerNidExpiryDate: data.collateralOwnerNidExpiry,
           collateralType: data.collateralType,
           province: data.collateralProvince,
           address: data.collateralAddress,
@@ -1690,6 +1693,29 @@ export async function registerRoutes(
         });
       }
 
+      // Create financial guarantor 2 if provided
+      if (data.financialGuarantor2FullName) {
+        await storage.createGuarantor({
+          loanId: loan.id,
+          guarantorType: "financial",
+          fullName: data.financialGuarantor2FullName,
+          fatherName: data.financialGuarantor2FatherName,
+          dateOfBirth: data.financialGuarantor2DateOfBirth,
+          age: data.financialGuarantor2DateOfBirth ? Math.floor((Date.now() - new Date(data.financialGuarantor2DateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : null,
+          nationalId: data.financialGuarantor2Nid,
+          nidExpiryDate: data.financialGuarantor2NidExpiry,
+          phoneNumber: data.financialGuarantor2Phone,
+          homeAddress: data.financialGuarantor2HomeAddress,
+          district: data.financialGuarantor2District,
+          business: data.financialGuarantor2Business,
+          businessAddress: data.financialGuarantor2BusinessAddress,
+          relationshipWithCustomer: data.financialGuarantor2Relationship,
+          yearsOfExperience: data.financialGuarantor2YearsOfExperience,
+          inventory: data.financialGuarantor2Inventory?.toString(),
+          monthlyIncome: data.financialGuarantor2MonthlyIncome?.toString(),
+        });
+      }
+
       await logActivity(req, "create_loan_application", "loan", loan.id, `Created loan application: ${loan.applicationId} for customer: ${data.firstName}`);
       res.status(201).json({ loanId: loan.id, applicationId: loan.applicationId, customerId });
     } catch (error) {
@@ -1711,12 +1737,15 @@ export async function registerRoutes(
       const license = business ? await storage.getBusinessLicenseByBusinessId(business.id) : null;
       const collateral = await storage.getCollateralByLoanId(loan.id);
       const guarantors = await storage.getGuarantorsByLoanId(loan.id);
-      const financialGuarantor = guarantors.find(g => g.guarantorType === "financial");
+      const financialGuarantors = guarantors.filter(g => g.guarantorType === "financial");
+      const financialGuarantor = financialGuarantors[0] || null;
+      const financialGuarantor2 = financialGuarantors[1] || null;
       const familyGuarantor = guarantors.find(g => g.guarantorType === "family");
 
       const fadReview = await storage.getFadReviewByLoanId(loan.id);
       const riskComplianceReview = await storage.getRiskComplianceReviewByLoanId(loan.id);
       const committeeVotes = await storage.getCommitteeVotesByLoanId(loan.id);
+      const fundingSource = loan.fundingSourceId ? await storage.getFundingSource(loan.fundingSourceId) : null;
       
       res.json({
         loan,
@@ -1725,10 +1754,12 @@ export async function registerRoutes(
         license,
         collateral,
         financialGuarantor,
+        financialGuarantor2,
         familyGuarantor,
         fadReview,
         riskComplianceReview,
         committeeVotes,
+        fundingSource,
       });
     } catch (error) {
       console.error("Error fetching loan application:", error);
@@ -1769,6 +1800,7 @@ export async function registerRoutes(
           directFemaleDependent: num(data.directFemaleDependent),
           indirectMaleDependent: num(data.indirectMaleDependent),
           indirectFemaleDependent: num(data.indirectFemaleDependent),
+          nidExpiryDate: str(data.nidExpiryDate),
         });
       }
 
@@ -1837,6 +1869,7 @@ export async function registerRoutes(
       const collateralData = {
         ownerName: str(data.collateralOwnerName),
         ownerNationalId: str(data.collateralOwnerNid),
+        ownerNidExpiryDate: str(data.collateralOwnerNidExpiry),
         collateralType: str(data.collateralType),
         province: str(data.collateralProvince),
         address: str(data.collateralAddress),
@@ -1854,7 +1887,9 @@ export async function registerRoutes(
 
       // Update or create guarantors
       const guarantors = await storage.getGuarantorsByLoanId(loan.id);
-      const financialGuarantor = guarantors.find(g => g.guarantorType === "financial");
+      const financialGuarantors = guarantors.filter(g => g.guarantorType === "financial");
+      const financialGuarantor = financialGuarantors[0];
+      const financialGuarantor2 = financialGuarantors[1];
       const familyGuarantor = guarantors.find(g => g.guarantorType === "family");
 
       const financialGuarantorData = {
@@ -1901,6 +1936,32 @@ export async function registerRoutes(
         const hasData = Object.values(familyGuarantorData).some(v => v !== null);
         if (hasData) {
           await storage.createGuarantor({ loanId: loan.id, guarantorType: "family", ...familyGuarantorData });
+        }
+      }
+
+      const financialGuarantor2Data = {
+        fullName: str(data.financialGuarantor2FullName),
+        fatherName: str(data.financialGuarantor2FatherName),
+        dateOfBirth: str(data.financialGuarantor2DateOfBirth),
+        age: data.financialGuarantor2DateOfBirth ? Math.floor((Date.now() - new Date(data.financialGuarantor2DateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : null,
+        nationalId: str(data.financialGuarantor2Nid),
+        nidExpiryDate: str(data.financialGuarantor2NidExpiry),
+        phoneNumber: str(data.financialGuarantor2Phone),
+        homeAddress: str(data.financialGuarantor2HomeAddress),
+        district: str(data.financialGuarantor2District),
+        business: str(data.financialGuarantor2Business),
+        businessAddress: str(data.financialGuarantor2BusinessAddress),
+        relationshipWithCustomer: str(data.financialGuarantor2Relationship),
+        yearsOfExperience: num(data.financialGuarantor2YearsOfExperience),
+        inventory: dec(data.financialGuarantor2Inventory),
+        monthlyIncome: dec(data.financialGuarantor2MonthlyIncome),
+      };
+      if (financialGuarantor2) {
+        await storage.updateGuarantor(financialGuarantor2.id, financialGuarantor2Data);
+      } else {
+        const hasData = Object.values(financialGuarantor2Data).some(v => v !== null);
+        if (hasData) {
+          await storage.createGuarantor({ loanId: loan.id, guarantorType: "financial", ...financialGuarantor2Data });
         }
       }
 

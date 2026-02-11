@@ -33,6 +33,7 @@ const loanDetailsSchema = z.object({
   fatherName: z.string().optional(),
   gender: z.string().optional(),
   nationalId: z.string().optional(),
+  nidExpiryDate: z.string().optional(),
   dateOfBirth: z.string().optional(),
   placeOfBirth: z.string().optional(),
   age: optNum,
@@ -73,6 +74,7 @@ const loanDetailsSchema = z.object({
   licenseExpiryDate: z.string().optional(),
   collateralOwnerName: z.string().optional(),
   collateralOwnerNid: z.string().optional(),
+  collateralOwnerNidExpiry: z.string().optional(),
   collateralType: z.string().optional(),
   collateralProvince: z.string().optional(),
   collateralAddress: z.string().optional(),
@@ -92,6 +94,20 @@ const loanDetailsSchema = z.object({
   financialGuarantorYearsOfExperience: optNum,
   financialGuarantorInventory: optNum,
   financialGuarantorMonthlyIncome: optNum,
+  financialGuarantor2FullName: z.string().optional(),
+  financialGuarantor2FatherName: z.string().optional(),
+  financialGuarantor2DateOfBirth: z.string().optional(),
+  financialGuarantor2Nid: z.string().optional(),
+  financialGuarantor2NidExpiry: z.string().optional(),
+  financialGuarantor2Phone: z.string().optional(),
+  financialGuarantor2HomeAddress: z.string().optional(),
+  financialGuarantor2District: z.string().optional(),
+  financialGuarantor2Business: z.string().optional(),
+  financialGuarantor2BusinessAddress: z.string().optional(),
+  financialGuarantor2Relationship: z.string().optional(),
+  financialGuarantor2YearsOfExperience: optNum,
+  financialGuarantor2Inventory: optNum,
+  financialGuarantor2MonthlyIncome: optNum,
   familyGuarantorFullName: z.string().optional(),
   familyGuarantorFatherName: z.string().optional(),
   familyGuarantorDateOfBirth: z.string().optional(),
@@ -164,6 +180,7 @@ export default function LoanDetailsPage() {
         fatherName: d.customer?.fatherName ?? "",
         gender: d.customer?.gender ?? "male",
         nationalId: d.customer?.nationalId ?? "",
+        nidExpiryDate: d.customer?.nidExpiryDate ?? "",
         dateOfBirth: d.customer?.dateOfBirth ?? "",
         placeOfBirth: d.customer?.placeOfBirth ?? "",
         homeAddress: d.customer?.homeAddress ?? "",
@@ -203,6 +220,7 @@ export default function LoanDetailsPage() {
         licenseExpiryDate: d.license?.expiryDate ?? "",
         collateralOwnerName: d.collateral?.ownerName ?? "",
         collateralOwnerNid: d.collateral?.ownerNationalId ?? "",
+        collateralOwnerNidExpiry: d.collateral?.ownerNidExpiryDate ?? "",
         collateralType: d.collateral?.collateralType ?? "",
         collateralProvince: d.collateral?.province ?? "",
         collateralAddress: d.collateral?.address ?? "",
@@ -222,6 +240,20 @@ export default function LoanDetailsPage() {
         financialGuarantorYearsOfExperience: toNum(d.financialGuarantor?.yearsOfExperience),
         financialGuarantorInventory: toNum(d.financialGuarantor?.inventory),
         financialGuarantorMonthlyIncome: toNum(d.financialGuarantor?.monthlyIncome),
+        financialGuarantor2FullName: d.financialGuarantor2?.fullName ?? "",
+        financialGuarantor2FatherName: d.financialGuarantor2?.fatherName ?? "",
+        financialGuarantor2DateOfBirth: d.financialGuarantor2?.dateOfBirth ?? "",
+        financialGuarantor2Nid: d.financialGuarantor2?.nationalId ?? "",
+        financialGuarantor2NidExpiry: d.financialGuarantor2?.nidExpiryDate ?? "",
+        financialGuarantor2Phone: d.financialGuarantor2?.phoneNumber ?? "",
+        financialGuarantor2HomeAddress: d.financialGuarantor2?.homeAddress ?? "",
+        financialGuarantor2District: d.financialGuarantor2?.district ?? "",
+        financialGuarantor2Business: d.financialGuarantor2?.business ?? "",
+        financialGuarantor2BusinessAddress: d.financialGuarantor2?.businessAddress ?? "",
+        financialGuarantor2Relationship: d.financialGuarantor2?.relationshipWithCustomer ?? "",
+        financialGuarantor2YearsOfExperience: toNum(d.financialGuarantor2?.yearsOfExperience),
+        financialGuarantor2Inventory: toNum(d.financialGuarantor2?.inventory),
+        financialGuarantor2MonthlyIncome: toNum(d.financialGuarantor2?.monthlyIncome),
         familyGuarantorFullName: d.familyGuarantor?.fullName ?? "",
         familyGuarantorFatherName: d.familyGuarantor?.fatherName ?? "",
         familyGuarantorDateOfBirth: d.familyGuarantor?.dateOfBirth ?? "",
@@ -481,6 +513,9 @@ export default function LoanDetailsPage() {
                   <FormField control={form.control} name="nationalId" render={({ field }) => (
                     <FormItem><FormLabel>National ID</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
+                  <FormField control={form.control} name="nidExpiryDate" render={({ field }) => (
+                    <FormItem><FormLabel>NID Expiry Date</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-nid-expiry" /></FormControl><FormMessage /></FormItem>
+                  )} />
                   <FormField control={form.control} name="dateOfBirth" render={({ field }) => (
                     <FormItem><FormLabel>Date of Birth</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
@@ -720,6 +755,9 @@ export default function LoanDetailsPage() {
                   <FormField control={form.control} name="collateralOwnerNid" render={({ field }) => (
                     <FormItem><FormLabel>Owner NID</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
+                  <FormField control={form.control} name="collateralOwnerNidExpiry" render={({ field }) => (
+                    <FormItem><FormLabel>Owner NID Expiry Date</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-collateral-owner-nid-expiry" /></FormControl><FormMessage /></FormItem>
+                  )} />
                   <FormField control={form.control} name="collateralType" render={({ field }) => (
                     <FormItem><FormLabel>Type</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
@@ -806,6 +844,63 @@ export default function LoanDetailsPage() {
                     )} />
                     <FormField control={form.control} name="financialGuarantorMonthlyIncome" render={({ field }) => (
                       <FormItem><FormLabel>Monthly Income</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                  </div>
+                </div>
+                <div className="border-t pt-6">
+                  <h3 className="text-sm font-semibold text-teal-600 mb-3 flex items-center gap-2"><Users className="h-4 w-4" /> Financial Guarantor 2</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <FormField control={form.control} name="financialGuarantor2FullName" render={({ field }) => (
+                      <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-fin-guarantor2-name" /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="financialGuarantor2FatherName" render={({ field }) => (
+                      <FormItem><FormLabel>Father's Name</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-fin-guarantor2-father" /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="financialGuarantor2DateOfBirth" render={({ field }) => {
+                      const calcAge = (dob: string) => { if (!dob) return null; const b = new Date(dob); const t = new Date(); let a = t.getFullYear() - b.getFullYear(); if (t.getMonth() < b.getMonth() || (t.getMonth() === b.getMonth() && t.getDate() < b.getDate())) a--; return a; };
+                      const age = calcAge(field.value || "");
+                      const invalid = age !== null && (age < 18 || age > 65);
+                      return (
+                        <FormItem><FormLabel>Date of Birth</FormLabel>
+                          <div className="flex gap-2 items-center">
+                            <FormControl><Input type="date" disabled={!isEditing} className="flex-1" {...field} data-testid="input-fin-guarantor2-dob" /></FormControl>
+                            {age !== null && age >= 0 && <div className={`h-9 px-3 flex items-center rounded-md text-sm font-medium whitespace-nowrap ${invalid ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'}`}>Age: {age}{invalid && ' (18-65)'}</div>}
+                          </div>
+                        <FormMessage /></FormItem>
+                      );
+                    }} />
+                    <FormField control={form.control} name="financialGuarantor2Nid" render={({ field }) => (
+                      <FormItem><FormLabel>NID</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-fin-guarantor2-nid" /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="financialGuarantor2NidExpiry" render={({ field }) => (
+                      <FormItem><FormLabel>NID Expiry Date</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-fin-guarantor2-nid-expiry" /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="financialGuarantor2Phone" render={({ field }) => (
+                      <FormItem><FormLabel>Phone</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-fin-guarantor2-phone" /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="financialGuarantor2HomeAddress" render={({ field }) => (
+                      <FormItem><FormLabel>Home Address</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-fin-guarantor2-address" /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="financialGuarantor2District" render={({ field }) => (
+                      <FormItem><FormLabel>District</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-fin-guarantor2-district" /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="financialGuarantor2Business" render={({ field }) => (
+                      <FormItem><FormLabel>Business</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-fin-guarantor2-business" /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="financialGuarantor2BusinessAddress" render={({ field }) => (
+                      <FormItem><FormLabel>Business Address</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-fin-guarantor2-business-address" /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="financialGuarantor2Relationship" render={({ field }) => (
+                      <FormItem><FormLabel>Relationship</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-fin-guarantor2-relationship" /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="financialGuarantor2YearsOfExperience" render={({ field }) => (
+                      <FormItem><FormLabel>Years of Exp</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} data-testid="input-fin-guarantor2-experience" /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="financialGuarantor2Inventory" render={({ field }) => (
+                      <FormItem><FormLabel>Inventory (AFN)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} data-testid="input-fin-guarantor2-inventory" /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="financialGuarantor2MonthlyIncome" render={({ field }) => (
+                      <FormItem><FormLabel>Monthly Income</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} data-testid="input-fin-guarantor2-income" /></FormControl><FormMessage /></FormItem>
                     )} />
                   </div>
                 </div>

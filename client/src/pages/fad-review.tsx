@@ -87,6 +87,7 @@ const fadReviewSchema = z.object({
   fatherName: z.string().optional(),
   gender: z.string().optional(),
   nationalId: z.string().optional(),
+  nidExpiryDate: z.string().optional(),
   dateOfBirth: z.string().optional(),
   placeOfBirth: z.string().optional(),
   homeAddress: z.string().optional(),
@@ -126,6 +127,7 @@ const fadReviewSchema = z.object({
   licenseExpiryDate: z.string().optional(),
   collateralOwnerName: z.string().optional(),
   collateralOwnerNid: z.string().optional(),
+  collateralOwnerNidExpiry: z.string().optional(),
   collateralType: z.string().optional(),
   collateralProvince: z.string().optional(),
   collateralAddress: z.string().optional(),
@@ -145,6 +147,20 @@ const fadReviewSchema = z.object({
   financialGuarantorYearsOfExperience: z.coerce.number().optional(),
   financialGuarantorInventory: z.coerce.number().optional(),
   financialGuarantorMonthlyIncome: z.coerce.number().optional(),
+  financialGuarantor2FullName: z.string().optional(),
+  financialGuarantor2FatherName: z.string().optional(),
+  financialGuarantor2DateOfBirth: z.string().optional(),
+  financialGuarantor2Nid: z.string().optional(),
+  financialGuarantor2NidExpiry: z.string().optional(),
+  financialGuarantor2Phone: z.string().optional(),
+  financialGuarantor2HomeAddress: z.string().optional(),
+  financialGuarantor2District: z.string().optional(),
+  financialGuarantor2Business: z.string().optional(),
+  financialGuarantor2BusinessAddress: z.string().optional(),
+  financialGuarantor2Relationship: z.string().optional(),
+  financialGuarantor2YearsOfExperience: z.coerce.number().optional(),
+  financialGuarantor2Inventory: z.coerce.number().optional(),
+  financialGuarantor2MonthlyIncome: z.coerce.number().optional(),
   familyGuarantorFullName: z.string().optional(),
   familyGuarantorFatherName: z.string().optional(),
   familyGuarantorDateOfBirth: z.string().optional(),
@@ -241,6 +257,7 @@ export default function FadReviewPage() {
         fatherName: d.customer?.fatherName || "",
         gender: d.customer?.gender || "male",
         nationalId: d.customer?.nationalId || "",
+        nidExpiryDate: d.customer?.nidExpiryDate || "",
         dateOfBirth: d.customer?.dateOfBirth || "",
         placeOfBirth: d.customer?.placeOfBirth || "",
         homeAddress: d.customer?.homeAddress || "",
@@ -280,6 +297,7 @@ export default function FadReviewPage() {
         licenseExpiryDate: d.license?.expiryDate || "",
         collateralOwnerName: d.collateral?.ownerName || "",
         collateralOwnerNid: d.collateral?.ownerNationalId || "",
+        collateralOwnerNidExpiry: d.collateral?.ownerNidExpiryDate || "",
         collateralType: d.collateral?.collateralType || "",
         collateralProvince: d.collateral?.province || "",
         collateralAddress: d.collateral?.address || "",
@@ -299,6 +317,20 @@ export default function FadReviewPage() {
         financialGuarantorYearsOfExperience: d.financialGuarantor?.yearsOfExperience || 0,
         financialGuarantorInventory: parseFloat(d.financialGuarantor?.inventory) || 0,
         financialGuarantorMonthlyIncome: parseFloat(d.financialGuarantor?.monthlyIncome) || 0,
+        financialGuarantor2FullName: d.financialGuarantor2?.fullName || "",
+        financialGuarantor2FatherName: d.financialGuarantor2?.fatherName || "",
+        financialGuarantor2DateOfBirth: d.financialGuarantor2?.dateOfBirth || "",
+        financialGuarantor2Nid: d.financialGuarantor2?.nationalId || "",
+        financialGuarantor2NidExpiry: d.financialGuarantor2?.nidExpiryDate || "",
+        financialGuarantor2Phone: d.financialGuarantor2?.phoneNumber || "",
+        financialGuarantor2HomeAddress: d.financialGuarantor2?.homeAddress || "",
+        financialGuarantor2District: d.financialGuarantor2?.district || "",
+        financialGuarantor2Business: d.financialGuarantor2?.business || "",
+        financialGuarantor2BusinessAddress: d.financialGuarantor2?.businessAddress || "",
+        financialGuarantor2Relationship: d.financialGuarantor2?.relationshipWithCustomer || "",
+        financialGuarantor2YearsOfExperience: d.financialGuarantor2?.yearsOfExperience || 0,
+        financialGuarantor2Inventory: parseFloat(d.financialGuarantor2?.inventory) || 0,
+        financialGuarantor2MonthlyIncome: parseFloat(d.financialGuarantor2?.monthlyIncome) || 0,
         familyGuarantorFullName: d.familyGuarantor?.fullName || "",
         familyGuarantorFatherName: d.familyGuarantor?.fatherName || "",
         familyGuarantorDateOfBirth: d.familyGuarantor?.dateOfBirth || "",
@@ -528,9 +560,35 @@ export default function FadReviewPage() {
                     <FormField control={form.control} name="nationalId" render={({ field }) => (
                       <FormItem><FormLabel>National ID</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-nationalId" /></FormControl><FormMessage /></FormItem>
                     )} />
-                    <FormField control={form.control} name="dateOfBirth" render={({ field }) => (
-                      <FormItem><FormLabel>Date of Birth</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-dateOfBirth" /></FormControl><FormMessage /></FormItem>
+                    <FormField control={form.control} name="nidExpiryDate" render={({ field }) => (
+                      <FormItem><FormLabel>NID Expiry Date</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-nidExpiryDate" /></FormControl><FormMessage /></FormItem>
                     )} />
+                    <FormField control={form.control} name="dateOfBirth" render={({ field }) => {
+                      const calculateAge = (dob: string) => {
+                        if (!dob) return null;
+                        const birthDate = new Date(dob);
+                        const today = new Date();
+                        let age = today.getFullYear() - birthDate.getFullYear();
+                        const monthDiff = today.getMonth() - birthDate.getMonth();
+                        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                          age--;
+                        }
+                        return age;
+                      };
+                      const age = calculateAge(field.value || "");
+                      return (
+                        <FormItem><FormLabel>Date of Birth</FormLabel>
+                          <div className="flex gap-2 items-center">
+                            <FormControl><Input type="date" disabled={!isEditing} className="flex-1" {...field} data-testid="input-dateOfBirth" /></FormControl>
+                            {age !== null && age >= 0 && (
+                              <div className="h-9 px-3 flex items-center bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-md text-sm font-medium whitespace-nowrap" data-testid="text-customerAge">
+                                Age: {age}
+                              </div>
+                            )}
+                          </div>
+                        <FormMessage /></FormItem>
+                      );
+                    }} />
                     <FormField control={form.control} name="placeOfBirth" render={({ field }) => (
                       <FormItem><FormLabel>Place of Birth</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-placeOfBirth" /></FormControl><FormMessage /></FormItem>
                     )} />
@@ -609,6 +667,9 @@ export default function FadReviewPage() {
                     )} />
                     <FormField control={form.control} name="sector" render={({ field }) => (
                       <FormItem><FormLabel>Sector</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-sector" /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="fundingSourceId" render={({ field }) => (
+                      <FormItem><FormLabel>Funding Source</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-fundingSourceId" /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="financingPurpose" render={({ field }) => (
                       <FormItem className="col-span-2"><FormLabel>Purpose</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-purpose" /></FormControl><FormMessage /></FormItem>
@@ -730,6 +791,9 @@ export default function FadReviewPage() {
                     <FormField control={form.control} name="collateralOwnerNid" render={({ field }) => (
                       <FormItem><FormLabel>Owner NID</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-collateralNid" /></FormControl><FormMessage /></FormItem>
                     )} />
+                    <FormField control={form.control} name="collateralOwnerNidExpiry" render={({ field }) => (
+                      <FormItem><FormLabel>Owner NID Expiry Date</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-collateralOwnerNidExpiry" /></FormControl><FormMessage /></FormItem>
+                    )} />
                     <FormField control={form.control} name="collateralType" render={({ field }) => (
                       <FormItem><FormLabel>Type</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-collateralType" /></FormControl><FormMessage /></FormItem>
                     )} />
@@ -803,6 +867,74 @@ export default function FadReviewPage() {
                       )} />
                       <FormField control={form.control} name="financialGuarantorMonthlyIncome" render={({ field }) => (
                         <FormItem><FormLabel>Monthly Income (AFN)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} data-testid="input-finGuarantorIncome" /></FormControl><FormMessage /></FormItem>
+                      )} />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-0 shadow-lg overflow-hidden">
+                  <div className="h-1 bg-gradient-to-r from-teal-400 to-emerald-500" />
+                  <CardHeader className="pb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-teal-400 to-emerald-500 flex items-center justify-center shadow-lg">
+                        <Users className="h-5 w-5 text-white" />
+                      </div>
+                      <CardTitle>Financial Guarantor 2</CardTitle>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <FormField control={form.control} name="financialGuarantor2FullName" render={({ field }) => (
+                        <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-finGuarantor2Name" /></FormControl><FormMessage /></FormItem>
+                      )} />
+                      <FormField control={form.control} name="financialGuarantor2FatherName" render={({ field }) => (
+                        <FormItem><FormLabel>Father's Name</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-finGuarantor2Father" /></FormControl><FormMessage /></FormItem>
+                      )} />
+                      <FormField control={form.control} name="financialGuarantor2DateOfBirth" render={({ field }) => {
+                        const calcAge = (dob: string) => { if (!dob) return null; const b = new Date(dob); const t = new Date(); let a = t.getFullYear() - b.getFullYear(); if (t.getMonth() < b.getMonth() || (t.getMonth() === b.getMonth() && t.getDate() < b.getDate())) a--; return a; };
+                        const age = calcAge(field.value || "");
+                        const invalid = age !== null && (age < 18 || age > 65);
+                        return (
+                          <FormItem><FormLabel>Date of Birth</FormLabel>
+                            <div className="flex gap-2 items-center">
+                              <FormControl><Input type="date" disabled={!isEditing} className="flex-1" {...field} data-testid="input-finGuarantor2Dob" /></FormControl>
+                              {age !== null && age >= 0 && <div className={`h-9 px-3 flex items-center rounded-md text-sm font-medium whitespace-nowrap ${invalid ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'}`} data-testid="text-finGuarantor2Age">Age: {age}{invalid && ' (18-65)'}</div>}
+                            </div>
+                          <FormMessage /></FormItem>
+                        );
+                      }} />
+                      <FormField control={form.control} name="financialGuarantor2Nid" render={({ field }) => (
+                        <FormItem><FormLabel>National ID</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-finGuarantor2Nid" /></FormControl><FormMessage /></FormItem>
+                      )} />
+                      <FormField control={form.control} name="financialGuarantor2NidExpiry" render={({ field }) => (
+                        <FormItem><FormLabel>NID Expiry Date</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-finGuarantor2NidExpiry" /></FormControl><FormMessage /></FormItem>
+                      )} />
+                      <FormField control={form.control} name="financialGuarantor2Phone" render={({ field }) => (
+                        <FormItem><FormLabel>Phone</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-finGuarantor2Phone" /></FormControl><FormMessage /></FormItem>
+                      )} />
+                      <FormField control={form.control} name="financialGuarantor2HomeAddress" render={({ field }) => (
+                        <FormItem><FormLabel>Home Address</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-finGuarantor2Address" /></FormControl><FormMessage /></FormItem>
+                      )} />
+                      <FormField control={form.control} name="financialGuarantor2District" render={({ field }) => (
+                        <FormItem><FormLabel>District</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-finGuarantor2District" /></FormControl><FormMessage /></FormItem>
+                      )} />
+                      <FormField control={form.control} name="financialGuarantor2Business" render={({ field }) => (
+                        <FormItem><FormLabel>Business</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-finGuarantor2Business" /></FormControl><FormMessage /></FormItem>
+                      )} />
+                      <FormField control={form.control} name="financialGuarantor2BusinessAddress" render={({ field }) => (
+                        <FormItem><FormLabel>Business Address</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-finGuarantor2BusinessAddress" /></FormControl><FormMessage /></FormItem>
+                      )} />
+                      <FormField control={form.control} name="financialGuarantor2Relationship" render={({ field }) => (
+                        <FormItem><FormLabel>Relationship</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-finGuarantor2Relation" /></FormControl><FormMessage /></FormItem>
+                      )} />
+                      <FormField control={form.control} name="financialGuarantor2YearsOfExperience" render={({ field }) => (
+                        <FormItem><FormLabel>Years of Experience</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} data-testid="input-finGuarantor2Experience" /></FormControl><FormMessage /></FormItem>
+                      )} />
+                      <FormField control={form.control} name="financialGuarantor2Inventory" render={({ field }) => (
+                        <FormItem><FormLabel>Inventory (AFN)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} data-testid="input-finGuarantor2Inventory" /></FormControl><FormMessage /></FormItem>
+                      )} />
+                      <FormField control={form.control} name="financialGuarantor2MonthlyIncome" render={({ field }) => (
+                        <FormItem><FormLabel>Monthly Income (AFN)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} data-testid="input-finGuarantor2Income" /></FormControl><FormMessage /></FormItem>
                       )} />
                     </div>
                   </CardContent>

@@ -115,6 +115,7 @@ export const customers = pgTable("customers", {
   directFemaleDependent: integer("direct_female_dependent"),
   indirectMaleDependent: integer("indirect_male_dependent"),
   indirectFemaleDependent: integer("indirect_female_dependent"),
+  nidExpiryDate: varchar("nid_expiry_date", { length: 50 }),
   photoUrl: text("photo_url"),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -198,6 +199,7 @@ export const collaterals = pgTable("collaterals", {
   loanId: varchar("loan_id").references(() => loans.id),
   ownerName: varchar("owner_name", { length: 255 }),
   ownerNationalId: varchar("owner_national_id", { length: 100 }),
+  ownerNidExpiryDate: varchar("owner_nid_expiry_date", { length: 50 }),
   collateralType: varchar("collateral_type", { length: 255 }),
   titleDeedNumber: varchar("title_deed_number", { length: 100 }),
   province: varchar("province", { length: 255 }),

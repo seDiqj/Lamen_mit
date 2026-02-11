@@ -92,6 +92,7 @@ export default function RiskCompliancePage() {
   const guarantors = (() => {
     const list: any[] = [];
     if (loanDetails?.financialGuarantor) list.push(loanDetails.financialGuarantor);
+    if (loanDetails?.financialGuarantor2) list.push({ ...loanDetails.financialGuarantor2, guarantorType: "financial2" });
     if (loanDetails?.familyGuarantor) list.push(loanDetails.familyGuarantor);
     return list;
   })();
@@ -245,7 +246,9 @@ export default function RiskCompliancePage() {
                   {renderViewField("Father's Name", loanDetails?.customer?.fatherName)}
                   {renderViewField("Gender", loanDetails?.customer?.gender)}
                   {renderViewField("National ID", loanDetails?.customer?.nationalId)}
+                  {renderViewField("NID Expiry Date", formatDate(loanDetails?.customer?.nidExpiryDate))}
                   {renderViewField("Date of Birth", formatDate(loanDetails?.customer?.dateOfBirth))}
+                  {renderViewField("Age", loanDetails?.customer?.age)}
                   {renderViewField("Place of Birth", loanDetails?.customer?.placeOfBirth)}
                   {renderViewField("Phone Number", loanDetails?.customer?.phoneNumber)}
                   {renderViewField("Second Phone", loanDetails?.customer?.secondPhoneNumber)}
@@ -281,6 +284,7 @@ export default function RiskCompliancePage() {
                   {renderViewField("Grace Period", loanDetails?.loan?.gracePeriod)}
                   {renderViewField("Installments", loanDetails?.loan?.numberOfInstallments)}
                   {renderViewField("Margin Rate %", loanDetails?.loan?.marginRate)}
+                  {renderViewField("Funding Source", loanDetails?.fundingSource?.name || "N/A")}
                 </div>
 
                 {(() => {
@@ -367,6 +371,7 @@ export default function RiskCompliancePage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {renderViewField("Owner Name", loanDetails?.collateral?.ownerName)}
                   {renderViewField("Owner National ID", loanDetails?.collateral?.ownerNationalId)}
+                  {renderViewField("Owner NID Expiry", formatDate(loanDetails?.collateral?.ownerNidExpiryDate))}
                   {renderViewField("Collateral Type", loanDetails?.collateral?.collateralType)}
                   {renderViewField("Title Deed Number", loanDetails?.collateral?.titleDeedNumber)}
                   {renderViewField("Province", loanDetails?.collateral?.province)}
@@ -393,7 +398,7 @@ export default function RiskCompliancePage() {
                       <Card key={g.id} className="bg-muted/30">
                         <CardHeader className="pb-2">
                           <CardTitle className="text-sm">
-                            {g.guarantorType === "financial" ? "Financial Guarantor" : "Family Guarantor"}
+                            {g.guarantorType === "financial" ? "Financial Guarantor" : g.guarantorType === "financial2" ? "Financial Guarantor 2" : "Family Guarantor"}
                           </CardTitle>
                         </CardHeader>
                         <CardContent>
@@ -410,9 +415,9 @@ export default function RiskCompliancePage() {
                             {renderViewField("District", g.district)}
                             {renderViewField("Business", g.business)}
                             {renderViewField("Business Address", g.businessAddress)}
-                            {g.guarantorType === "financial" && renderViewField("Monthly Income", g.monthlyIncome ? `AFN ${Number(g.monthlyIncome).toLocaleString()}` : null)}
-                            {g.guarantorType === "financial" && renderViewField("Inventory", g.inventory)}
-                            {g.guarantorType === "financial" && renderViewField("Years of Experience", g.yearsOfExperience)}
+                            {(g.guarantorType === "financial" || g.guarantorType === "financial2") && renderViewField("Monthly Income", g.monthlyIncome ? `AFN ${Number(g.monthlyIncome).toLocaleString()}` : null)}
+                            {(g.guarantorType === "financial" || g.guarantorType === "financial2") && renderViewField("Inventory", g.inventory)}
+                            {(g.guarantorType === "financial" || g.guarantorType === "financial2") && renderViewField("Years of Experience", g.yearsOfExperience)}
                           </div>
                         </CardContent>
                       </Card>
