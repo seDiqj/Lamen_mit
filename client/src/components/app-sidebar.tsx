@@ -52,6 +52,7 @@ import {
   Network,
   Banknote,
   ClipboardCheck,
+  Target,
 } from "lucide-react";
 import lamenLogo from "@assets/LamenLogo_1769936371528.jpeg";
 import {
@@ -102,6 +103,7 @@ const PAGE_URL_TO_NAME: Record<string, string> = {
   "/funding-sources": "funding-sources",
   "/lookup": "lookup",
   "/par-categories": "par-categories",
+  "/disbursement-targets": "disbursement-targets",
   "/fad-review": "fad-review",
   "/risk-compliance": "risk-compliance",
   "/committee-voting": "committee-voting",
@@ -171,6 +173,7 @@ export function AppSidebar() {
         { title: "Funding Sources", url: "/funding-sources", icon: Wallet, iconColor: "text-amber-500" },
         { title: "Lookup", url: "/lookup", icon: Layers, iconColor: "text-emerald-500" },
         { title: "PAR Categories", url: "/par-categories", icon: AlertTriangle, iconColor: "text-amber-500" },
+        { title: "Disbursement Targets", url: "/disbursement-targets", icon: Target, iconColor: "text-rose-500" },
       ],
     },
     {
@@ -247,6 +250,7 @@ export function AppSidebar() {
         { title: "Funding Sources", url: "/funding-sources", icon: Wallet, iconColor: "text-amber-500" },
         { title: "Lookup", url: "/lookup", icon: Layers, iconColor: "text-emerald-500" },
         { title: "PAR Categories", url: "/par-categories", icon: AlertTriangle, iconColor: "text-amber-500" },
+        { title: "Disbursement Targets", url: "/disbursement-targets", icon: Target, iconColor: "text-rose-500" },
       ],
     },
     {
@@ -319,6 +323,7 @@ export function AppSidebar() {
         { title: "Funding Sources", url: "/funding-sources", icon: Wallet, iconColor: "text-amber-500" },
         { title: "Lookup", url: "/lookup", icon: Layers, iconColor: "text-emerald-500" },
         { title: "PAR Categories", url: "/par-categories", icon: AlertTriangle, iconColor: "text-amber-500" },
+        { title: "Disbursement Targets", url: "/disbursement-targets", icon: Target, iconColor: "text-rose-500" },
         { title: "Users", url: "/users", icon: Shield, iconColor: "text-red-500" },
       ],
     },

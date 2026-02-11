@@ -158,7 +158,7 @@ export default function PaymentsPage() {
   const getLoanRepayment = (loan: LoanItem) => {
     const loanInstallments = allInstallments.filter((i) => i.loanId === loan.id);
     const paidInstallments = loanInstallments.filter((i) => i.isPaid);
-    const totalRepaid = paidInstallments.reduce((sum, i) => sum + parseFloat(i.totalAmount || "0"), 0);
+    const totalRepaid = paidInstallments.reduce((sum, i) => sum + parseFloat(i.paidAmount || i.totalAmount || "0"), 0);
     const { financingAmount } = calcFinancing(loan);
     const totalTarget = parseFloat(loan.totalReceivable || "0") || financingAmount;
     const progress = totalTarget > 0 ? Math.min((totalRepaid / totalTarget) * 100, 100) : 0;

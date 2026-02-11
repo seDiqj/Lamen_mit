@@ -39,6 +39,7 @@ import IncomeStatementPage from "@/pages/income-statement";
 import BalanceSheetPage from "@/pages/balance-sheet";
 import LookupPage from "@/pages/lookup";
 import ParCategoriesPage from "@/pages/par-categories";
+import DisbursementTargetsPage from "@/pages/disbursement-targets";
 import AccountingDashboardPage from "@/pages/accounting-dashboard";
 import HRDashboardPage from "@/pages/hr/dashboard";
 import HROrgStructurePage from "@/pages/hr/org-structure";
@@ -159,6 +160,7 @@ function AppRoutes() {
         <Route path="/funding-sources" component={FundingSourcesPage} />
         <Route path="/lookup" component={LookupPage} />
         <Route path="/par-categories" component={ParCategoriesPage} />
+        <Route path="/disbursement-targets" component={DisbursementTargetsPage} />
         <Route path="/users" component={UsersPage} />
         <Route path="/page-permissions" component={PagePermissionsPage} />
         <Route path="/activity" component={ActivityPage} />

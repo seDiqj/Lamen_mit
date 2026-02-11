@@ -65,6 +65,7 @@ import {
   benefitPlans,
   employeeBenefitEnrollments,
   benefitDependents,
+  disbursementTargets,
   type Account,
   type InsertAccount,
   type FiscalPeriod,
@@ -284,6 +285,13 @@ export interface IStorage {
   getLoansByBranch(branchName: string): Promise<any[]>;
   getLoansByOfficer(officerName: string): Promise<any[]>;
   getLoansByProduct(productName: string): Promise<any[]>;
+  
+  // Disbursement Targets
+  getDisbursementTargets(): Promise<any[]>;
+  getDisbursementTarget(id: number): Promise<any | undefined>;
+  createDisbursementTarget(data: any): Promise<any>;
+  updateDisbursementTarget(id: number, data: any): Promise<any>;
+  deleteDisbursementTarget(id: number): Promise<void>;
   
   // Admin Users
   getUsers(search?: string): Promise<any[]>;
@@ -1704,7 +1712,7 @@ export class DatabaseStorage implements IStorage {
 
     const [collectedResult] = await db
       .select({
-        totalCollected: sql<number>`COALESCE(SUM(${installments.totalAmount}::numeric), 0)`,
+        totalCollected: sql<number>`COALESCE(SUM(COALESCE(${installments.paidAmount}::numeric, 0)), 0)`,
         principalCollected: sql<number>`COALESCE(SUM(${installments.principleAmount}::numeric), 0)`,
         marginCollected: sql<number>`COALESCE(SUM(${installments.marginAmount}::numeric), 0)`,
       })
@@ -1743,7 +1751,7 @@ export class DatabaseStorage implements IStorage {
         TO_CHAR(d.disbursement_date, 'MM') as month_num,
         COALESCE(SUM(l.principle_amount::numeric), 0) as disbursed,
         COALESCE((
-          SELECT SUM(i.total_amount::numeric)
+          SELECT SUM(COALESCE(i.paid_amount::numeric, 0))
           FROM installments i
           WHERE i.loan_id = ANY(ARRAY_AGG(l.id)) AND i.is_paid = true
         ), 0) as collected
@@ -1786,7 +1794,7 @@ export class DatabaseStorage implements IStorage {
         COUNT(DISTINCT l.customer_id) as customer_count,
         COALESCE(SUM(COALESCE(l.principle_amount, l.request_amount)::numeric), 0) as total_disbursed,
         COALESCE((
-          SELECT SUM(i.total_amount::numeric)
+          SELECT SUM(COALESCE(i.paid_amount::numeric, 0))
           FROM installments i
           WHERE i.loan_id IN (SELECT l2.id FROM loans l2 WHERE l2.branch_id = b.id AND l2.status IN ('disbursed', 'active', 'completed'))
           AND i.is_paid = true
@@ -2027,7 +2035,7 @@ export class DatabaseStorage implements IStorage {
         COUNT(DISTINCT l.id) as loan_count,
         COALESCE(SUM(CASE WHEN l.total_receivable IS NOT NULL THEN l.total_receivable::numeric ELSE COALESCE(l.principle_amount, l.request_amount)::numeric END), 0) as total_portfolio,
         COALESCE((
-          SELECT SUM(i.total_amount::numeric)
+          SELECT SUM(COALESCE(i.paid_amount::numeric, 0))
           FROM installments i
           WHERE i.loan_id IN (SELECT l2.id FROM loans l2 WHERE COALESCE(l2.branch_id, 0) = COALESCE(b.id, 0) AND l2.status IN ('disbursed', 'active', 'completed'))
           AND i.is_paid = true
@@ -2072,7 +2080,7 @@ export class DatabaseStorage implements IStorage {
         COUNT(DISTINCT l.id) as loan_count,
         COALESCE(SUM(CASE WHEN l.total_receivable IS NOT NULL THEN l.total_receivable::numeric ELSE COALESCE(l.principle_amount, l.request_amount)::numeric END), 0) as total_portfolio,
         COALESCE((
-          SELECT SUM(i.total_amount::numeric)
+          SELECT SUM(COALESCE(i.paid_amount::numeric, 0))
           FROM installments i
           WHERE i.loan_id IN (SELECT l2.id FROM loans l2 WHERE COALESCE(l2.finance_officer_id, 0) = COALESCE(fo.id, 0) AND l2.status IN ('disbursed', 'active', 'completed'))
           AND i.is_paid = true
@@ -2117,7 +2125,7 @@ export class DatabaseStorage implements IStorage {
         COUNT(DISTINCT l.id) as loan_count,
         COALESCE(SUM(CASE WHEN l.total_receivable IS NOT NULL THEN l.total_receivable::numeric ELSE COALESCE(l.principle_amount, l.request_amount)::numeric END), 0) as total_portfolio,
         COALESCE((
-          SELECT SUM(i.total_amount::numeric)
+          SELECT SUM(COALESCE(i.paid_amount::numeric, 0))
           FROM installments i
           WHERE i.loan_id IN (SELECT l2.id FROM loans l2 WHERE COALESCE(l2.product_name, 'Unknown') = COALESCE(l.product_name, 'Unknown') AND l2.status IN ('disbursed', 'active', 'completed'))
           AND i.is_paid = true
@@ -2345,6 +2353,63 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
+  // Disbursement Targets
+  async getDisbursementTargets(): Promise<any[]> {
+    const results = await db
+      .select({
+        id: disbursementTargets.id,
+        branchId: disbursementTargets.branchId,
+        branchName: branches.name,
+        targetMonthYear: disbursementTargets.targetMonthYear,
+        targetDisbursementAmount: disbursementTargets.targetDisbursementAmount,
+        targetNoOfCustomer: disbursementTargets.targetNoOfCustomer,
+        createdAt: disbursementTargets.createdAt,
+      })
+      .from(disbursementTargets)
+      .leftJoin(branches, eq(disbursementTargets.branchId, branches.id))
+      .orderBy(desc(disbursementTargets.targetMonthYear));
+    return results;
+  }
+
+  async getDisbursementTarget(id: number): Promise<any | undefined> {
+    const [result] = await db
+      .select()
+      .from(disbursementTargets)
+      .where(eq(disbursementTargets.id, id));
+    return result;
+  }
+
+  async createDisbursementTarget(data: any): Promise<any> {
+    const [result] = await db
+      .insert(disbursementTargets)
+      .values({
+        branchId: data.branchId,
+        targetMonthYear: data.targetMonthYear,
+        targetDisbursementAmount: data.targetDisbursementAmount,
+        targetNoOfCustomer: data.targetNoOfCustomer,
+      })
+      .returning();
+    return result;
+  }
+
+  async updateDisbursementTarget(id: number, data: any): Promise<any> {
+    const [result] = await db
+      .update(disbursementTargets)
+      .set({
+        branchId: data.branchId,
+        targetMonthYear: data.targetMonthYear,
+        targetDisbursementAmount: data.targetDisbursementAmount,
+        targetNoOfCustomer: data.targetNoOfCustomer,
+      })
+      .where(eq(disbursementTargets.id, id))
+      .returning();
+    return result;
+  }
+
+  async deleteDisbursementTarget(id: number): Promise<void> {
+    await db.delete(disbursementTargets).where(eq(disbursementTargets.id, id));
+  }
+
   // Admin Users
   async getUsers(search?: string): Promise<any[]> {
     const results = await db
@@ -2512,6 +2577,7 @@ export class DatabaseStorage implements IStorage {
       "hr-leave-types",
       "hr-leave-requests",
       "hr-holidays",
+      "disbursement-targets",
     ];
   }
 

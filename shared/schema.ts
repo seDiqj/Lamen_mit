@@ -456,6 +456,20 @@ export const insertNotificationSchema = createInsertSchema(notifications).omit({
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type Notification = typeof notifications.$inferSelect;
 
+// Disbursement Targets
+export const disbursementTargets = pgTable("disbursement_targets", {
+  id: serial("id").primaryKey(),
+  branchId: varchar("branch_id").references(() => branches.id),
+  targetMonthYear: varchar("target_month_year", { length: 7 }).notNull(),
+  targetDisbursementAmount: decimal("target_disbursement_amount", { precision: 15, scale: 2 }).notNull(),
+  targetNoOfCustomer: integer("target_no_of_customer").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertDisbursementTargetSchema = createInsertSchema(disbursementTargets).omit({ id: true, createdAt: true });
+export type InsertDisbursementTarget = z.infer<typeof insertDisbursementTargetSchema>;
+export type DisbursementTarget = typeof disbursementTargets.$inferSelect;
+
 // ============== ACCOUNTING MODULE ==============
 
 // Account Types Enum

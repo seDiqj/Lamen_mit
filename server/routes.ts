@@ -444,6 +444,50 @@ export async function registerRoutes(
     }
   });
 
+  // ===== DISBURSEMENT TARGETS =====
+  app.get("/api/disbursement-targets", isAuthenticated, async (req, res) => {
+    try {
+      const targets = await storage.getDisbursementTargets();
+      res.json(targets);
+    } catch (error) {
+      console.error("Error fetching disbursement targets:", error);
+      res.status(500).json({ message: "Failed to fetch disbursement targets" });
+    }
+  });
+
+  app.post("/api/disbursement-targets", isAuthenticated, requirePageAccess("disbursement-targets"), async (req: any, res) => {
+    try {
+      const target = await storage.createDisbursementTarget(req.body);
+      await logActivity(req, "create_disbursement_target", "disbursement_target", String(target.id), `Created disbursement target for ${req.body.targetMonthYear}`);
+      res.status(201).json(target);
+    } catch (error) {
+      console.error("Error creating disbursement target:", error);
+      res.status(500).json({ message: "Failed to create disbursement target" });
+    }
+  });
+
+  app.patch("/api/disbursement-targets/:id", isAuthenticated, requirePageAccess("disbursement-targets"), async (req: any, res) => {
+    try {
+      const target = await storage.updateDisbursementTarget(parseInt(req.params.id), req.body);
+      await logActivity(req, "update_disbursement_target", "disbursement_target", req.params.id, `Updated disbursement target`);
+      res.json(target);
+    } catch (error) {
+      console.error("Error updating disbursement target:", error);
+      res.status(500).json({ message: "Failed to update disbursement target" });
+    }
+  });
+
+  app.delete("/api/disbursement-targets/:id", isAuthenticated, requirePageAccess("disbursement-targets"), async (req: any, res) => {
+    try {
+      await storage.deleteDisbursementTarget(parseInt(req.params.id));
+      await logActivity(req, "delete_disbursement_target", "disbursement_target", req.params.id, `Deleted disbursement target`);
+      res.json({ message: "Deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting disbursement target:", error);
+      res.status(500).json({ message: "Failed to delete disbursement target" });
+    }
+  });
+
   // ===== OFFICERS =====
   app.get("/api/officers", isAuthenticated, async (req, res) => {
     try {
