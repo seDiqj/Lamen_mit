@@ -115,6 +115,7 @@ const PAGE_URL_TO_NAME: Record<string, string> = {
   "/hr/performance": "hr-performance",
   "/hr/training": "hr-training",
   "/hr/benefits": "hr-benefits",
+  "/disbursement-targets": "disbursement-targets",
 };
 
 interface IconRailNavProps {
@@ -250,6 +251,7 @@ export function IconRailNav({ children }: IconRailNavProps) {
         { title: "Funding Sources", url: "/funding-sources", icon: Wallet, iconColor: "text-amber-500" },
         { title: "Lookup", url: "/lookup", icon: Layers, iconColor: "text-emerald-500" },
         { title: "PAR Categories", url: "/par-categories", icon: AlertTriangle, iconColor: "text-amber-500" },
+        { title: "Disbursement Targets", url: "/disbursement-targets", icon: Target, iconColor: "text-rose-500" },
         ...(role === "admin" ? [{ title: "Users", url: "/users", icon: Shield, iconColor: "text-red-500" }] : []),
       ],
     },
