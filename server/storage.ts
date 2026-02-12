@@ -3603,11 +3603,11 @@ export class DatabaseStorage implements IStorage {
       accountFlows.set(line.accountId, existing);
     }
 
-    const allNonCashAccounts = allAccounts.filter(a => !cashAccountIds.has(a.id));
-
-    for (const account of allNonCashAccounts) {
-      const flows = accountFlows.get(account.id) || { debit: 0, credit: 0 };
+    for (const [accountId, flows] of Array.from(accountFlows.entries())) {
+      const account = accountMap.get(accountId);
+      if (!account || cashAccountIds.has(account.id)) continue;
       const net = flows.debit - flows.credit;
+      if (Math.abs(net) < 0.01) continue;
 
       const item = {
         accountCode: account.accountCode,
@@ -3621,6 +3621,10 @@ export class DatabaseStorage implements IStorage {
       if (type === 'income' || type === 'expense') {
         profitItems.push(item);
       } else if (
+        name.includes('security deposit')
+      ) {
+        investingItems.push(item);
+      } else if (
         name.includes('receivable') ||
         name.includes('inventory') || name.includes('murabaha') ||
         name.includes('qard') || name.includes('provision') ||
@@ -3629,15 +3633,16 @@ export class DatabaseStorage implements IStorage {
         name.includes('advances') || name.includes('depreciation') ||
         name.includes('accum') || name.includes('deferred') ||
         name.includes('withheld') || name.includes('withholding') ||
-        name.includes('tax payable')
+        name.includes('tax payable') || name.includes('salaries') ||
+        name.includes('wages')
       ) {
         adjustmentItems.push(item);
       } else if (
+        name.includes('cost of') ||
         name.includes('equipment') || name.includes('furniture') ||
         name.includes('vehicle') || name.includes('property') ||
         name.includes('plant') || name.includes('computer') ||
-        name.includes('fixed asset') || name.includes('investment') ||
-        name.includes('security deposit') || name.includes('cost of')
+        name.includes('fixed asset') || name.includes('investment')
       ) {
         investingItems.push(item);
       } else if (
