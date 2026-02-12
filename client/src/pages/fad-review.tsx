@@ -47,7 +47,10 @@ import {
   ClipboardCheck,
   ArrowLeft,
   Camera,
-  ExternalLink
+  ExternalLink,
+  Upload,
+  X,
+  File
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Branch, FinanceOfficer } from "@shared/schema";
@@ -200,6 +203,12 @@ export default function FadReviewPage() {
   const [selectedLoanId, setSelectedLoanId] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(1);
   const [isEditing, setIsEditing] = useState(false);
+  const [customerPhotoUrl, setCustomerPhotoUrl] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [newDocuments, setNewDocuments] = useState<{documentType: string; fileName: string; fileUrl: string}[]>([]);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [newDocType, setNewDocType] = useState("");
+  const [newDocName, setNewDocName] = useState("");
   const [comments, setComments] = useState("");
   const [dataQualityScore, setDataQualityScore] = useState(80);
 
@@ -250,6 +259,58 @@ export default function FadReviewPage() {
     resolver: zodResolver(fadReviewSchema),
     defaultValues: {},
   });
+
+  useEffect(() => {
+    if (loanDetails?.customer?.photoUrl) {
+      setCustomerPhotoUrl(loanDetails.customer.photoUrl);
+    }
+  }, [loanDetails]);
+
+  const documentTypes = [
+    "National ID", "Tazkira", "Business License", "Bank Statement",
+    "Property Document", "Salary Slip", "Tax Certificate", "Other"
+  ];
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingPhoto(true);
+    try {
+      const formData = new FormData();
+      formData.append("photo", file);
+      const response = await fetch("/api/upload/photo", { method: "POST", body: formData, credentials: "include" });
+      if (!response.ok) throw new Error("Upload failed");
+      const result = await response.json();
+      setCustomerPhotoUrl(result.url);
+      toast({ title: "Success", description: "Photo uploaded successfully" });
+    } catch {
+      toast({ title: "Error", description: "Failed to upload photo", variant: "destructive" });
+    }
+    setUploadingPhoto(false);
+  };
+
+  const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !newDocType) {
+      toast({ title: "Error", description: "Please select a document type first", variant: "destructive" });
+      return;
+    }
+    setUploadingDoc(true);
+    try {
+      const formData = new FormData();
+      formData.append("document", file);
+      const response = await fetch("/api/upload/document", { method: "POST", body: formData, credentials: "include" });
+      if (!response.ok) throw new Error("Upload failed");
+      const result = await response.json();
+      setNewDocuments([...newDocuments, { documentType: newDocType, fileName: newDocName || result.filename, fileUrl: result.url }]);
+      setNewDocType("");
+      setNewDocName("");
+      toast({ title: "Success", description: "Document uploaded successfully" });
+    } catch {
+      toast({ title: "Error", description: "Failed to upload document", variant: "destructive" });
+    }
+    setUploadingDoc(false);
+  };
 
   useEffect(() => {
     if (loanDetails) {
@@ -352,7 +413,11 @@ export default function FadReviewPage() {
 
   const updateMutation = useMutation({
     mutationFn: async (data: FadReviewFormData) => {
-      const response = await apiRequest("PUT", `/api/loan-applications/${selectedLoanId}`, data);
+      const response = await apiRequest("PUT", `/api/loan-applications/${selectedLoanId}`, {
+        ...data,
+        customerPhoto: customerPhotoUrl,
+        documents: newDocuments,
+      });
       return response.json();
     },
     onSuccess: () => {
@@ -628,12 +693,28 @@ export default function FadReviewPage() {
                       <div className="space-y-2">
                         <label className="text-xs font-medium">Customer Photo</label>
                         <div className="w-24 h-24 border-2 border-dashed rounded-lg flex items-center justify-center bg-muted/50 overflow-hidden">
-                          {loanDetails?.customer?.photoUrl ? (
-                            <img src={loanDetails.customer.photoUrl} alt="Customer" className="w-full h-full object-cover" />
+                          {customerPhotoUrl ? (
+                            <img src={customerPhotoUrl} alt="Customer" className="w-full h-full object-cover" />
                           ) : (
                             <Camera className="h-8 w-8 text-muted-foreground" />
                           )}
                         </div>
+                        {isEditing && (
+                          <div className="flex items-center gap-2">
+                            <input type="file" accept="image/*" className="hidden" id="fad-edit-photo-upload" onChange={handlePhotoUpload} disabled={uploadingPhoto} data-testid="input-fad-edit-photo" />
+                            <Button type="button" variant="outline" size="sm" asChild disabled={uploadingPhoto}>
+                              <label htmlFor="fad-edit-photo-upload" className="cursor-pointer">
+                                {uploadingPhoto ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Upload className="h-4 w-4 mr-1" />}
+                                {customerPhotoUrl ? "Change" : "Upload"}
+                              </label>
+                            </Button>
+                            {customerPhotoUrl && (
+                              <Button type="button" variant="ghost" size="sm" onClick={() => setCustomerPhotoUrl(null)} data-testid="button-remove-fad-edit-photo">
+                                <X className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <label className="text-xs font-medium">Uploaded Documents</label>
@@ -654,6 +735,44 @@ export default function FadReviewPage() {
                           </div>
                         ) : (
                           <p className="text-xs text-muted-foreground">No documents uploaded</p>
+                        )}
+                        {newDocuments.length > 0 && (
+                          <div className="space-y-1">
+                            {newDocuments.map((doc, index) => (
+                              <div key={index} className="flex items-center gap-2 text-sm p-2 bg-green-50 dark:bg-green-900/20 rounded-md">
+                                <File className="h-4 w-4 text-green-600 flex-shrink-0" />
+                                <span className="flex-1 truncate">{doc.fileName}</span>
+                                <Badge variant="secondary" className="text-xs">{doc.documentType}</Badge>
+                                <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => setNewDocuments(newDocuments.filter((_, i) => i !== index))}>
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {isEditing && (
+                          <div className="space-y-2 border-t pt-2 mt-2">
+                            <div className="flex gap-2">
+                              <Select value={newDocType} onValueChange={setNewDocType}>
+                                <SelectTrigger className="h-8 text-xs" data-testid="select-fad-edit-doc-type">
+                                  <SelectValue placeholder="Document Type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {documentTypes.map((type) => (
+                                    <SelectItem key={type} value={type}>{type}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <Input placeholder="File name (optional)" value={newDocName} onChange={(e) => setNewDocName(e.target.value)} className="h-8 text-xs" data-testid="input-fad-edit-doc-name" />
+                            </div>
+                            <input type="file" className="hidden" id="fad-edit-doc-upload" onChange={handleDocumentUpload} disabled={uploadingDoc || !newDocType} data-testid="input-fad-edit-doc-file" />
+                            <Button type="button" variant="outline" size="sm" asChild disabled={uploadingDoc || !newDocType} className="w-full">
+                              <label htmlFor="fad-edit-doc-upload" className="cursor-pointer">
+                                {uploadingDoc ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Upload className="h-4 w-4 mr-1" />}
+                                Upload Document
+                              </label>
+                            </Button>
+                          </div>
                         )}
                       </div>
                     </div>

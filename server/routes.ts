@@ -1823,7 +1823,20 @@ export async function registerRoutes(
           indirectMaleDependent: num(data.indirectMaleDependent),
           indirectFemaleDependent: num(data.indirectFemaleDependent),
           nidExpiryDate: str(data.nidExpiryDate),
+          photoUrl: data.customerPhoto !== undefined ? str(data.customerPhoto) : undefined,
         });
+
+        // Save new documents if provided
+        if (data.documents && Array.isArray(data.documents)) {
+          for (const doc of data.documents) {
+            await storage.createCustomerDocument({
+              customerId: loan.customerId,
+              documentType: doc.documentType,
+              fileName: doc.fileName,
+              fileUrl: doc.fileUrl,
+            });
+          }
+        }
       }
 
       // Update loan

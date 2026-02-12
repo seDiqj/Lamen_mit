@@ -509,8 +509,8 @@ export default function LoansPage() {
                     </TableRow>
                   ))
                 ) : sortedLoans && sortedLoans.length > 0 ? (
-                  sortedLoans.map((loan) => (
-                    <TableRow key={loan.id} className="hover:bg-muted/30" data-testid={`row-loan-${loan.id}`}>
+                  sortedLoans.map((loan, index) => (
+                    <TableRow key={loan.id} className={`hover:bg-muted/30 ${page === 1 && index < 3 && !sortColumn ? "bg-green-50 dark:bg-green-900/15" : ""}`} data-testid={`row-loan-${loan.id}`}>
                       <TableCell className="font-medium">
                         <span className="text-primary font-semibold">
                           {loan.applicationId || "-"}
