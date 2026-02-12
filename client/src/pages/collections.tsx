@@ -98,11 +98,24 @@ function getDaysStatus(dueDate: string) {
   const diff = Math.floor((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
   if (diff < 0) {
-    return { label: `${Math.abs(diff)} days overdue`, color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400", isOverdue: true, days: Math.abs(diff) };
+    return { label: `${Math.abs(diff)} days overdue`, color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400", isOverdue: true, days: Math.abs(diff), rowHighlight: "overdue" as const };
   } else if (diff === 0) {
-    return { label: "Due today", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400", isOverdue: false, days: 0 };
+    return { label: "Due today", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400", isOverdue: false, days: 0, rowHighlight: "overdue" as const };
+  } else if (diff === 1) {
+    return { label: `Due in 1 day`, color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400", isOverdue: false, days: diff, rowHighlight: "tomorrow" as const };
+  } else if (diff <= 3) {
+    return { label: `Due in ${diff} days`, color: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400", isOverdue: false, days: diff, rowHighlight: "soon" as const };
   } else {
-    return { label: `Due in ${diff} days`, color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400", isOverdue: false, days: diff };
+    return { label: `Due in ${diff} days`, color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400", isOverdue: false, days: diff, rowHighlight: "normal" as const };
+  }
+}
+
+function getRowHighlightClass(highlight: string) {
+  switch (highlight) {
+    case "overdue": return "bg-red-50 dark:bg-red-950/20";
+    case "tomorrow": return "bg-yellow-50 dark:bg-yellow-950/20";
+    case "soon": return "bg-red-50/50 dark:bg-red-950/10";
+    default: return "";
   }
 }
 
@@ -460,7 +473,7 @@ export default function CollectionsPage() {
                     const progress = total > 0 ? (paid / total) * 100 : 0;
 
                     return (
-                      <TableRow key={inst.id} data-testid={`row-collection-${inst.id}`} className={status.isOverdue ? "bg-red-50/50 dark:bg-red-950/10" : ""}>
+                      <TableRow key={inst.id} data-testid={`row-collection-${inst.id}`} className={getRowHighlightClass(status.rowHighlight)}>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <FileText className="h-4 w-4 text-muted-foreground" />
