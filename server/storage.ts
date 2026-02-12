@@ -3588,7 +3588,8 @@ export class DatabaseStorage implements IStorage {
     );
     const cashAccountIds = new Set(cashAccounts.map(a => a.id));
 
-    const operatingItems: any[] = [];
+    const profitItems: any[] = [];
+    const adjustmentItems: any[] = [];
     const investingItems: any[] = [];
     const financingItems: any[] = [];
 
@@ -3602,11 +3603,11 @@ export class DatabaseStorage implements IStorage {
       accountFlows.set(line.accountId, existing);
     }
 
-    for (const [accountId, flows] of Array.from(accountFlows.entries())) {
-      const account = accountMap.get(accountId);
-      if (!account) continue;
+    const allNonCashAccounts = allAccounts.filter(a => !cashAccountIds.has(a.id));
+
+    for (const account of allNonCashAccounts) {
+      const flows = accountFlows.get(account.id) || { debit: 0, credit: 0 };
       const net = flows.debit - flows.credit;
-      if (Math.abs(net) < 0.01) continue;
 
       const item = {
         accountCode: account.accountCode,
@@ -3615,38 +3616,44 @@ export class DatabaseStorage implements IStorage {
       };
 
       const type = account.accountType;
-      const code = account.accountCode;
       const name = account.accountName.toLowerCase();
 
       if (type === 'income' || type === 'expense') {
-        operatingItems.push(item);
+        profitItems.push(item);
       } else if (
-        name.includes('loan') || name.includes('receivable') ||
-        name.includes('interest') || name.includes('provision') ||
+        name.includes('receivable') ||
+        name.includes('inventory') || name.includes('murabaha') ||
+        name.includes('qard') || name.includes('provision') ||
         name.includes('payable') || name.includes('accrued') ||
-        name.includes('prepaid') || name.includes('deposit')
+        name.includes('prepaid') || name.includes('prepayment') ||
+        name.includes('advances') || name.includes('depreciation') ||
+        name.includes('accum') || name.includes('deferred') ||
+        name.includes('withheld') || name.includes('withholding') ||
+        name.includes('tax payable')
       ) {
-        operatingItems.push(item);
+        adjustmentItems.push(item);
       } else if (
         name.includes('equipment') || name.includes('furniture') ||
         name.includes('vehicle') || name.includes('property') ||
+        name.includes('plant') || name.includes('computer') ||
         name.includes('fixed asset') || name.includes('investment') ||
-        name.includes('depreciation')
+        name.includes('security deposit') || name.includes('cost of')
       ) {
         investingItems.push(item);
       } else if (
         type === 'equity' ||
         name.includes('capital') || name.includes('borrowing') ||
         name.includes('dividend') || name.includes('share') ||
-        name.includes('reserve') || name.includes('retained')
+        name.includes('reserve') || name.includes('retained') ||
+        name.includes('donor') || name.includes('fund')
       ) {
         financingItems.push(item);
       } else if (type === 'asset') {
         investingItems.push(item);
       } else if (type === 'liability') {
-        financingItems.push(item);
+        adjustmentItems.push(item);
       } else {
-        operatingItems.push(item);
+        adjustmentItems.push(item);
       }
     }
 
@@ -3678,17 +3685,21 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
-    const totalOperating = operatingItems.reduce((s, i) => s + i.amount, 0);
+    const profitForYear = profitItems.reduce((s, i) => s + i.amount, 0);
+    const totalAdjustments = adjustmentItems.reduce((s, i) => s + i.amount, 0);
+    const totalOperating = profitForYear + totalAdjustments;
     const totalInvesting = investingItems.reduce((s, i) => s + i.amount, 0);
     const totalFinancing = financingItems.reduce((s, i) => s + i.amount, 0);
     const netChange = totalOperating + totalInvesting + totalFinancing;
     const cashClosingBalance = cashOpeningBalance + netChange;
 
     return {
-      operating: operatingItems.sort((a, b) => a.accountCode.localeCompare(b.accountCode)),
+      profitForYear,
+      adjustments: adjustmentItems.sort((a, b) => a.accountCode.localeCompare(b.accountCode)),
+      totalAdjustments,
+      totalOperating,
       investing: investingItems.sort((a, b) => a.accountCode.localeCompare(b.accountCode)),
       financing: financingItems.sort((a, b) => a.accountCode.localeCompare(b.accountCode)),
-      totalOperating,
       totalInvesting,
       totalFinancing,
       netChange,

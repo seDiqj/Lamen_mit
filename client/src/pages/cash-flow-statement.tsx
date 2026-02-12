@@ -23,10 +23,12 @@ type FlowItem = {
 };
 
 type CashFlowData = {
-  operating: FlowItem[];
+  profitForYear: number;
+  adjustments: FlowItem[];
+  totalAdjustments: number;
+  totalOperating: number;
   investing: FlowItem[];
   financing: FlowItem[];
-  totalOperating: number;
   totalInvesting: number;
   totalFinancing: number;
   netChange: number;
@@ -34,6 +36,16 @@ type CashFlowData = {
   cashClosingBalance: number;
   period: { startDate: string; endDate: string };
 };
+
+function formatAmount(val: number): string {
+  if (Math.abs(val) < 0.005) return "0.00";
+  const formatted = formatCurrency(val.toString()).replace("AFN", "").trim();
+  return formatted;
+}
+
+function fullName(item: FlowItem): string {
+  return `${item.accountCode} ${item.accountName}`;
+}
 
 export default function CashFlowStatement() {
   const [startDate, setStartDate] = useState(() => {
@@ -62,57 +74,54 @@ export default function CashFlowStatement() {
   const handleExportExcel = () => {
     if (!data) return;
 
-    const exportData: any[] = [];
+    const rows: (string | number)[][] = [];
 
-    exportData.push({ "Category": "OPERATING ACTIVITIES", "Account Code": "", "Account Name": "", "Amount (AFN)": "" });
-    data.operating.forEach(item => {
-      exportData.push({
-        "Category": "",
-        "Account Code": item.accountCode,
-        "Account Name": item.accountName,
-        "Amount (AFN)": item.amount,
-      });
+    rows.push(["Statement of Cash Flows", ""]);
+    rows.push(["Lamen Microfinance Institution (LMI)", ""]);
+    rows.push([`${formatDate(startDate)}-${formatDate(endDate)}`, ""]);
+    rows.push(["", ""]);
+    rows.push(["Full name", "Total"]);
+
+    rows.push(["Cash flows from operating activities", ""]);
+    rows.push(["Profit for the year", formatNum(data.profitForYear)]);
+    rows.push(["Adjustments for non-cash income and expenses:", ""]);
+    data.adjustments.forEach(item => {
+      rows.push([fullName(item), formatNum(item.amount)]);
     });
-    exportData.push({ "Category": "", "Account Code": "", "Account Name": "Net Cash from Operating Activities", "Amount (AFN)": data.totalOperating });
-    exportData.push({ "Category": "", "Account Code": "", "Account Name": "", "Amount (AFN)": "" });
+    rows.push(["Total for Adjustments for non-cash income and expenses:", formatNum(data.totalAdjustments)]);
+    rows.push(["Net cash from operating activities", formatNum(data.totalOperating)]);
 
-    exportData.push({ "Category": "INVESTING ACTIVITIES", "Account Code": "", "Account Name": "", "Amount (AFN)": "" });
+    rows.push(["Cash flows from investing activities", ""]);
     data.investing.forEach(item => {
-      exportData.push({
-        "Category": "",
-        "Account Code": item.accountCode,
-        "Account Name": item.accountName,
-        "Amount (AFN)": item.amount,
-      });
+      rows.push([fullName(item), formatNum(item.amount)]);
     });
-    exportData.push({ "Category": "", "Account Code": "", "Account Name": "Net Cash from Investing Activities", "Amount (AFN)": data.totalInvesting });
-    exportData.push({ "Category": "", "Account Code": "", "Account Name": "", "Amount (AFN)": "" });
+    rows.push(["Net cash used in investing activities", formatNum(data.totalInvesting)]);
 
-    exportData.push({ "Category": "FINANCING ACTIVITIES", "Account Code": "", "Account Name": "", "Amount (AFN)": "" });
+    rows.push(["Cash flows from financing activities", ""]);
     data.financing.forEach(item => {
-      exportData.push({
-        "Category": "",
-        "Account Code": item.accountCode,
-        "Account Name": item.accountName,
-        "Amount (AFN)": item.amount,
-      });
+      rows.push([fullName(item), formatNum(item.amount)]);
     });
-    exportData.push({ "Category": "", "Account Code": "", "Account Name": "Net Cash from Financing Activities", "Amount (AFN)": data.totalFinancing });
-    exportData.push({ "Category": "", "Account Code": "", "Account Name": "", "Amount (AFN)": "" });
+    rows.push(["Net cash used in financing activities", formatNum(data.totalFinancing)]);
 
-    exportData.push({ "Category": "SUMMARY", "Account Code": "", "Account Name": "", "Amount (AFN)": "" });
-    exportData.push({ "Category": "", "Account Code": "", "Account Name": "Opening Cash Balance", "Amount (AFN)": data.cashOpeningBalance });
-    exportData.push({ "Category": "", "Account Code": "", "Account Name": "Net Change in Cash", "Amount (AFN)": data.netChange });
-    exportData.push({ "Category": "", "Account Code": "", "Account Name": "Closing Cash Balance", "Amount (AFN)": data.cashClosingBalance });
+    rows.push(["NET INCREASE (DECREASE) IN CASH AND CASH EQUIVALENTS", formatNum(data.netChange)]);
+    rows.push(["Cash and cash equivalents at beginning of year", formatNum(data.cashOpeningBalance)]);
+    rows.push(["CASH AND CASH EQUIVALENTS AT END OF YEAR", formatNum(data.cashClosingBalance)]);
 
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    ws["!cols"] = [{ wch: 25 }, { wch: 15 }, { wch: 40 }, { wch: 20 }];
+    rows.push(["", ""]);
+    rows.push(["", ""]);
+    rows.push(["", ""]);
+    const now = new Date();
+    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }).toUpperCase();
+    rows.push([` ${days[now.getDay()]}, ${months[now.getMonth()]} ${String(now.getDate()).padStart(2, '0')}, ${now.getFullYear()} ${timeStr} GMTZ`, ""]);
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws["!cols"] = [{ wch: 70 }, { wch: 20 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Cash Flow Statement");
 
-    const startStr = startDate.replace(/-/g, "");
-    const endStr = endDate.replace(/-/g, "");
-    XLSX.writeFile(wb, `Cash_Flow_Statement_${startStr}_to_${endStr}.xlsx`);
+    XLSX.writeFile(wb, `Statement_of_Cash_Flows_${Date.now()}.xlsx`);
   };
 
   const handleExportPDF = () => {
@@ -120,114 +129,106 @@ export default function CashFlowStatement() {
 
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
-    doc.setFontSize(18);
+    doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
-    doc.text("Lamen Microfinance Institution", 105, 15, { align: "center" });
+    doc.text("Statement of Cash Flows", 105, 15, { align: "center" });
 
-    doc.setFontSize(14);
-    doc.text("Statement of Cash Flows", 105, 23, { align: "center" });
+    doc.setFontSize(12);
+    doc.text("Lamen Microfinance Institution (LMI)", 105, 23, { align: "center" });
 
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    doc.text(`Period: ${formatDate(startDate)} to ${formatDate(endDate)}`, 105, 31, { align: "center" });
-
-    doc.setFontSize(9);
-    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 105, 37, { align: "center" });
+    doc.text(`${formatDate(startDate)} - ${formatDate(endDate)}`, 105, 31, { align: "center" });
 
     const tableData: any[] = [];
 
     tableData.push([
-      { content: "OPERATING ACTIVITIES", colSpan: 3, styles: { fontStyle: "bold", fillColor: [34, 139, 34], textColor: [255, 255, 255] } },
+      { content: "Cash flows from operating activities", styles: { fontStyle: "bold", fillColor: [240, 248, 240] } },
+      { content: "", styles: { fillColor: [240, 248, 240] } },
     ]);
-    data.operating.forEach(item => {
+    tableData.push([
+      { content: "Profit for the year", styles: { fontStyle: "bold" } },
+      { content: formatAmount(data.profitForYear), styles: { halign: "right", fontStyle: "bold" } },
+    ]);
+    tableData.push([
+      { content: "Adjustments for non-cash income and expenses:", styles: { fontStyle: "italic" } },
+      "",
+    ]);
+    data.adjustments.forEach(item => {
       tableData.push([
-        `${item.accountCode} - ${item.accountName}`,
-        "",
-        { content: formatCurrency(item.amount.toString()).replace("AFN", "").trim(), styles: { halign: "right" } },
+        `  ${fullName(item)}`,
+        { content: formatAmount(item.amount), styles: { halign: "right" } },
       ]);
     });
-    if (data.operating.length === 0) {
-      tableData.push(["No operating activities", "", ""]);
-    }
     tableData.push([
-      { content: "Net Cash from Operating Activities", styles: { fontStyle: "bold" } },
-      "",
-      { content: formatCurrency(data.totalOperating.toString()).replace("AFN", "").trim(), styles: { fontStyle: "bold", halign: "right" } },
+      { content: "Total for Adjustments for non-cash income and expenses:", styles: { fontStyle: "bold" } },
+      { content: formatAmount(data.totalAdjustments), styles: { halign: "right", fontStyle: "bold" } },
+    ]);
+    tableData.push([
+      { content: "Net cash from operating activities", styles: { fontStyle: "bold" } },
+      { content: formatAmount(data.totalOperating), styles: { halign: "right", fontStyle: "bold" } },
     ]);
 
-    tableData.push([{ content: "", colSpan: 3, styles: { cellPadding: 1 } }]);
+    tableData.push([{ content: "", colSpan: 2, styles: { cellPadding: 1 } }]);
 
     tableData.push([
-      { content: "INVESTING ACTIVITIES", colSpan: 3, styles: { fontStyle: "bold", fillColor: [30, 100, 180], textColor: [255, 255, 255] } },
+      { content: "Cash flows from investing activities", styles: { fontStyle: "bold", fillColor: [240, 240, 255] } },
+      { content: "", styles: { fillColor: [240, 240, 255] } },
     ]);
     data.investing.forEach(item => {
       tableData.push([
-        `${item.accountCode} - ${item.accountName}`,
-        "",
-        { content: formatCurrency(item.amount.toString()).replace("AFN", "").trim(), styles: { halign: "right" } },
+        `  ${fullName(item)}`,
+        { content: formatAmount(item.amount), styles: { halign: "right" } },
       ]);
     });
-    if (data.investing.length === 0) {
-      tableData.push(["No investing activities", "", ""]);
-    }
     tableData.push([
-      { content: "Net Cash from Investing Activities", styles: { fontStyle: "bold" } },
-      "",
-      { content: formatCurrency(data.totalInvesting.toString()).replace("AFN", "").trim(), styles: { fontStyle: "bold", halign: "right" } },
+      { content: "Net cash used in investing activities", styles: { fontStyle: "bold" } },
+      { content: formatAmount(data.totalInvesting), styles: { halign: "right", fontStyle: "bold" } },
     ]);
 
-    tableData.push([{ content: "", colSpan: 3, styles: { cellPadding: 1 } }]);
+    tableData.push([{ content: "", colSpan: 2, styles: { cellPadding: 1 } }]);
 
     tableData.push([
-      { content: "FINANCING ACTIVITIES", colSpan: 3, styles: { fontStyle: "bold", fillColor: [139, 90, 43], textColor: [255, 255, 255] } },
+      { content: "Cash flows from financing activities", styles: { fontStyle: "bold", fillColor: [255, 248, 240] } },
+      { content: "", styles: { fillColor: [255, 248, 240] } },
     ]);
     data.financing.forEach(item => {
       tableData.push([
-        `${item.accountCode} - ${item.accountName}`,
-        "",
-        { content: formatCurrency(item.amount.toString()).replace("AFN", "").trim(), styles: { halign: "right" } },
+        `  ${fullName(item)}`,
+        { content: formatAmount(item.amount), styles: { halign: "right" } },
       ]);
     });
-    if (data.financing.length === 0) {
-      tableData.push(["No financing activities", "", ""]);
-    }
     tableData.push([
-      { content: "Net Cash from Financing Activities", styles: { fontStyle: "bold" } },
-      "",
-      { content: formatCurrency(data.totalFinancing.toString()).replace("AFN", "").trim(), styles: { fontStyle: "bold", halign: "right" } },
+      { content: "Net cash used in financing activities", styles: { fontStyle: "bold" } },
+      { content: formatAmount(data.totalFinancing), styles: { halign: "right", fontStyle: "bold" } },
     ]);
 
-    tableData.push([{ content: "", colSpan: 3, styles: { cellPadding: 1 } }]);
+    tableData.push([{ content: "", colSpan: 2, styles: { cellPadding: 1 } }]);
 
     tableData.push([
-      { content: "SUMMARY", colSpan: 3, styles: { fontStyle: "bold", fillColor: [80, 80, 80], textColor: [255, 255, 255] } },
+      { content: "NET INCREASE (DECREASE) IN CASH AND CASH EQUIVALENTS", styles: { fontStyle: "bold" } },
+      { content: formatAmount(data.netChange), styles: { halign: "right", fontStyle: "bold" } },
     ]);
     tableData.push([
-      "Opening Cash Balance",
-      "",
-      { content: formatCurrency(data.cashOpeningBalance.toString()).replace("AFN", "").trim(), styles: { halign: "right" } },
+      "Cash and cash equivalents at beginning of year",
+      { content: formatAmount(data.cashOpeningBalance), styles: { halign: "right" } },
     ]);
     tableData.push([
-      { content: "Net Change in Cash", styles: { fontStyle: "bold" } },
-      "",
-      { content: formatCurrency(data.netChange.toString()).replace("AFN", "").trim(), styles: { fontStyle: "bold", halign: "right" } },
-    ]);
-    tableData.push([
-      { content: "Closing Cash Balance", styles: { fontStyle: "bold" } },
-      "",
-      { content: formatCurrency(data.cashClosingBalance.toString()).replace("AFN", "").trim(), styles: { fontStyle: "bold", halign: "right", fillColor: [240, 240, 240] } },
+      { content: "CASH AND CASH EQUIVALENTS AT END OF YEAR", styles: { fontStyle: "bold", fillColor: [240, 240, 240] } },
+      { content: formatAmount(data.cashClosingBalance), styles: { halign: "right", fontStyle: "bold", fillColor: [240, 240, 240] } },
     ]);
 
     autoTable(doc, {
-      startY: 43,
+      startY: 37,
+      head: [["Full name", "Total"]],
       body: tableData,
       theme: "grid",
+      headStyles: { fillColor: [80, 80, 80], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 9 },
       columnStyles: {
-        0: { halign: "left", cellWidth: 100 },
-        1: { halign: "center", cellWidth: 30 },
-        2: { halign: "right", cellWidth: 40 },
+        0: { halign: "left", cellWidth: 130 },
+        1: { halign: "right", cellWidth: 40 },
       },
-      styles: { fontSize: 9, cellPadding: 2.5 },
+      styles: { fontSize: 8, cellPadding: 2 },
     });
 
     const pageCount = doc.getNumberOfPages();
@@ -239,41 +240,8 @@ export default function CashFlowStatement() {
       doc.text("Lamen Microfinance Institution - Confidential", 14, 287);
     }
 
-    const startStr = startDate.replace(/-/g, "");
-    const endStr = endDate.replace(/-/g, "");
-    doc.save(`Cash_Flow_Statement_${startStr}_to_${endStr}.pdf`);
+    doc.save(`Statement_of_Cash_Flows_${Date.now()}.pdf`);
   };
-
-  const renderSection = (title: string, items: FlowItem[], total: number, colorClass: string) => (
-    <>
-      <TableRow className={colorClass}>
-        <TableCell colSpan={3} className="font-bold text-sm">{title}</TableCell>
-      </TableRow>
-      {items.length > 0 ? items.map((item, idx) => (
-        <TableRow key={idx}>
-          <TableCell className="pl-6 font-mono text-xs text-muted-foreground">{item.accountCode}</TableCell>
-          <TableCell>{item.accountName}</TableCell>
-          <TableCell className={`text-right font-mono ${item.amount < 0 ? "text-red-600 dark:text-red-400" : ""}`}>
-            {formatCurrency(item.amount.toString())}
-          </TableCell>
-        </TableRow>
-      )) : (
-        <TableRow>
-          <TableCell colSpan={3} className="text-center text-muted-foreground text-sm py-3">
-            No items in this category
-          </TableCell>
-        </TableRow>
-      )}
-      <TableRow className="border-t-2 bg-muted/20">
-        <TableCell colSpan={2} className="font-semibold text-sm">
-          Net Cash from {title.replace("ACTIVITIES", "").trim()}
-        </TableCell>
-        <TableCell className={`text-right font-mono font-bold ${total < 0 ? "text-red-600 dark:text-red-400" : "text-green-700 dark:text-green-400"}`}>
-          {formatCurrency(total.toString())}
-        </TableCell>
-      </TableRow>
-    </>
-  );
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -366,45 +334,118 @@ export default function CashFlowStatement() {
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div>
                 <CardTitle className="text-xl">Statement of Cash Flows</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">Lamen Microfinance Institution (LMI)</p>
                 <p className="text-muted-foreground text-sm mt-1">
-                  Period: {formatDate(startDate)} to {formatDate(endDate)}
+                  {formatDate(startDate)} - {formatDate(endDate)}
                 </p>
-              </div>
-              <div className="flex gap-6 text-right">
-                <div>
-                  <p className="text-sm text-muted-foreground">Opening Cash</p>
-                  <p className="text-lg font-bold" data-testid="text-opening-cash">{formatCurrency(data.cashOpeningBalance.toString())}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Closing Cash</p>
-                  <p className="text-lg font-bold" data-testid="text-closing-cash">{formatCurrency(data.cashClosingBalance.toString())}</p>
-                </div>
               </div>
             </div>
           </CardHeader>
           <CardContent className="pt-4">
             <Table>
               <TableBody>
-                {renderSection("OPERATING ACTIVITIES", data.operating, data.totalOperating, "bg-green-50 dark:bg-green-900/20")}
-                <TableRow><TableCell colSpan={3} className="py-1"></TableCell></TableRow>
-                {renderSection("INVESTING ACTIVITIES", data.investing, data.totalInvesting, "bg-blue-50 dark:bg-blue-900/20")}
-                <TableRow><TableCell colSpan={3} className="py-1"></TableCell></TableRow>
-                {renderSection("FINANCING ACTIVITIES", data.financing, data.totalFinancing, "bg-amber-50 dark:bg-amber-900/20")}
-                <TableRow><TableCell colSpan={3} className="py-1"></TableCell></TableRow>
-
-                <TableRow className="bg-muted/40 border-t-2">
-                  <TableCell colSpan={2} className="font-bold text-sm">Opening Cash Balance</TableCell>
-                  <TableCell className="text-right font-mono font-bold">{formatCurrency(data.cashOpeningBalance.toString())}</TableCell>
+                <TableRow className="bg-green-50 dark:bg-green-900/20">
+                  <TableCell colSpan={2} className="font-bold text-sm">Cash flows from operating activities</TableCell>
                 </TableRow>
-                <TableRow className="bg-muted/40">
-                  <TableCell colSpan={2} className="font-bold text-sm">Net Change in Cash</TableCell>
-                  <TableCell className={`text-right font-mono font-bold ${data.netChange < 0 ? "text-red-600 dark:text-red-400" : "text-green-700 dark:text-green-400"}`}>
-                    {formatCurrency(data.netChange.toString())}
+                <TableRow>
+                  <TableCell className="pl-6 font-semibold">Profit for the year</TableCell>
+                  <TableCell className={`text-right font-mono font-bold ${data.profitForYear < 0 ? "text-red-600 dark:text-red-400" : ""}`}>
+                    {formatAmount(data.profitForYear)}
                   </TableCell>
                 </TableRow>
+                <TableRow>
+                  <TableCell colSpan={2} className="pl-6 text-sm font-medium text-muted-foreground italic">
+                    Adjustments for non-cash income and expenses:
+                  </TableCell>
+                </TableRow>
+                {data.adjustments.map((item, idx) => (
+                  <TableRow key={idx}>
+                    <TableCell className="pl-10 text-sm">{fullName(item)}</TableCell>
+                    <TableCell className={`text-right font-mono text-sm ${item.amount < 0 ? "text-red-600 dark:text-red-400" : ""}`}>
+                      {formatAmount(item.amount)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                <TableRow className="border-t">
+                  <TableCell className="pl-6 font-semibold text-sm">Total for Adjustments for non-cash income and expenses:</TableCell>
+                  <TableCell className={`text-right font-mono font-bold ${data.totalAdjustments < 0 ? "text-red-600 dark:text-red-400" : ""}`}>
+                    {formatAmount(data.totalAdjustments)}
+                  </TableCell>
+                </TableRow>
+                <TableRow className="border-t-2 bg-muted/20">
+                  <TableCell className="font-bold text-sm">Net cash from operating activities</TableCell>
+                  <TableCell className={`text-right font-mono font-bold ${data.totalOperating < 0 ? "text-red-600 dark:text-red-400" : "text-green-700 dark:text-green-400"}`}>
+                    {formatAmount(data.totalOperating)}
+                  </TableCell>
+                </TableRow>
+
+                <TableRow><TableCell colSpan={2} className="py-1"></TableCell></TableRow>
+
+                <TableRow className="bg-blue-50 dark:bg-blue-900/20">
+                  <TableCell colSpan={2} className="font-bold text-sm">Cash flows from investing activities</TableCell>
+                </TableRow>
+                {data.investing.length > 0 ? data.investing.map((item, idx) => (
+                  <TableRow key={idx}>
+                    <TableCell className="pl-6 text-sm">{fullName(item)}</TableCell>
+                    <TableCell className={`text-right font-mono text-sm ${item.amount < 0 ? "text-red-600 dark:text-red-400" : ""}`}>
+                      {formatAmount(item.amount)}
+                    </TableCell>
+                  </TableRow>
+                )) : (
+                  <TableRow>
+                    <TableCell colSpan={2} className="text-center text-muted-foreground text-sm py-3">
+                      No items in this category
+                    </TableCell>
+                  </TableRow>
+                )}
+                <TableRow className="border-t-2 bg-muted/20">
+                  <TableCell className="font-bold text-sm">Net cash used in investing activities</TableCell>
+                  <TableCell className={`text-right font-mono font-bold ${data.totalInvesting < 0 ? "text-red-600 dark:text-red-400" : "text-green-700 dark:text-green-400"}`}>
+                    {formatAmount(data.totalInvesting)}
+                  </TableCell>
+                </TableRow>
+
+                <TableRow><TableCell colSpan={2} className="py-1"></TableCell></TableRow>
+
+                <TableRow className="bg-amber-50 dark:bg-amber-900/20">
+                  <TableCell colSpan={2} className="font-bold text-sm">Cash flows from financing activities</TableCell>
+                </TableRow>
+                {data.financing.length > 0 ? data.financing.map((item, idx) => (
+                  <TableRow key={idx}>
+                    <TableCell className="pl-6 text-sm">{fullName(item)}</TableCell>
+                    <TableCell className={`text-right font-mono text-sm ${item.amount < 0 ? "text-red-600 dark:text-red-400" : ""}`}>
+                      {formatAmount(item.amount)}
+                    </TableCell>
+                  </TableRow>
+                )) : (
+                  <TableRow>
+                    <TableCell colSpan={2} className="text-center text-muted-foreground text-sm py-3">
+                      No items in this category
+                    </TableCell>
+                  </TableRow>
+                )}
+                <TableRow className="border-t-2 bg-muted/20">
+                  <TableCell className="font-bold text-sm">Net cash used in financing activities</TableCell>
+                  <TableCell className={`text-right font-mono font-bold ${data.totalFinancing < 0 ? "text-red-600 dark:text-red-400" : "text-green-700 dark:text-green-400"}`}>
+                    {formatAmount(data.totalFinancing)}
+                  </TableCell>
+                </TableRow>
+
+                <TableRow><TableCell colSpan={2} className="py-1"></TableCell></TableRow>
+
+                <TableRow className="bg-muted/40 border-t-2">
+                  <TableCell className="font-bold text-sm">NET INCREASE (DECREASE) IN CASH AND CASH EQUIVALENTS</TableCell>
+                  <TableCell className={`text-right font-mono font-bold ${data.netChange < 0 ? "text-red-600 dark:text-red-400" : "text-green-700 dark:text-green-400"}`}>
+                    {formatAmount(data.netChange)}
+                  </TableCell>
+                </TableRow>
+                <TableRow className="bg-muted/40">
+                  <TableCell className="font-semibold text-sm">Cash and cash equivalents at beginning of year</TableCell>
+                  <TableCell className="text-right font-mono font-bold">{formatAmount(data.cashOpeningBalance)}</TableCell>
+                </TableRow>
                 <TableRow className="bg-muted/60 border-t-2">
-                  <TableCell colSpan={2} className="font-bold text-base">Closing Cash Balance</TableCell>
-                  <TableCell className="text-right font-mono font-bold text-base">{formatCurrency(data.cashClosingBalance.toString())}</TableCell>
+                  <TableCell className="font-bold text-base">CASH AND CASH EQUIVALENTS AT END OF YEAR</TableCell>
+                  <TableCell className="text-right font-mono font-bold text-base">{formatAmount(data.cashClosingBalance)}</TableCell>
                 </TableRow>
               </TableBody>
             </Table>
@@ -413,4 +454,14 @@ export default function CashFlowStatement() {
       )}
     </div>
   );
+}
+
+function formatNum(val: number): string {
+  if (Math.abs(val) < 0.005) return "0.00";
+  const negative = val < 0;
+  const abs = Math.abs(val);
+  const parts = abs.toFixed(2).split(".");
+  const intPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  const result = `${intPart}.${parts[1]}`;
+  return negative ? `-${result}` : result;
 }
