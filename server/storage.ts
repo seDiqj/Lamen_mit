@@ -3606,7 +3606,7 @@ export class DatabaseStorage implements IStorage {
     for (const [accountId, flows] of Array.from(accountFlows.entries())) {
       const account = accountMap.get(accountId);
       if (!account || cashAccountIds.has(account.id)) continue;
-      const net = flows.debit - flows.credit;
+      const net = flows.credit - flows.debit;
       if (Math.abs(net) < 0.01) continue;
 
       const item = {
