@@ -1533,6 +1533,7 @@ export async function registerRoutes(
             indirectMaleDependent: data.indirectMaleDependent,
             indirectFemaleDependent: data.indirectFemaleDependent,
             nidExpiryDate: data.nidExpiryDate,
+            photoUrl: data.customerPhoto || undefined,
           });
           customerId = customer.id;
         }
@@ -1558,8 +1559,21 @@ export async function registerRoutes(
           indirectMaleDependent: data.indirectMaleDependent,
           indirectFemaleDependent: data.indirectFemaleDependent,
           nidExpiryDate: data.nidExpiryDate,
+          photoUrl: data.customerPhoto || undefined,
         });
         customerId = customer.id;
+      }
+
+      // Save customer documents if provided
+      if (data.documents && Array.isArray(data.documents)) {
+        for (const doc of data.documents) {
+          await storage.createCustomerDocument({
+            customerId,
+            documentType: doc.documentType,
+            fileName: doc.fileName,
+            fileUrl: doc.fileUrl,
+          });
+        }
       }
 
       // Create customer business if provided
