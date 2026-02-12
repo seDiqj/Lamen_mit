@@ -1657,8 +1657,8 @@ export class DatabaseStorage implements IStorage {
         COALESCE(SUM(COALESCE(l.principle_amount::numeric, 0) + COALESCE(l.profit::numeric, 0)), 0) as total
       FROM loans l
       WHERE l.status IN ('disbursed', 'active')
-      GROUP BY category
-      ORDER BY CASE WHEN COALESCE(l.financing_duration_months, 0) <= 12 THEN 0 ELSE 1 END
+      GROUP BY CASE WHEN COALESCE(l.financing_duration_months, 0) <= 12 THEN 'Current' ELSE 'Long' END
+      ORDER BY CASE WHEN COALESCE(l.financing_duration_months, 0) <= 12 THEN 'Current' ELSE 'Long' END
     `);
 
     const collectionResult = await db.execute(sql`
@@ -1670,7 +1670,7 @@ export class DatabaseStorage implements IStorage {
       FROM loans l
       LEFT JOIN installments i ON i.loan_id = l.id
       WHERE l.status IN ('disbursed', 'active')
-      GROUP BY category
+      GROUP BY CASE WHEN COALESCE(l.financing_duration_months, 0) <= 12 THEN 'Current' ELSE 'Long' END
     `);
 
     const collectionMap: Record<string, any> = {};
