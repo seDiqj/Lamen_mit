@@ -187,8 +187,34 @@ function NotesToFinancialStatements() {
             <p className="text-xs text-muted-foreground">{data.header.subtitle}</p>
             <p className="text-xs text-muted-foreground">{data.header.section}</p>
             <p className="text-sm font-semibold mt-2">{data.header.reportName}</p>
-            <p className="text-xs text-muted-foreground mt-1">Currency: {data.header.currency} | Frequency: {data.header.frequency}</p>
           </div>
+
+          <Table className="mb-4">
+            <TableBody>
+              <TableRow>
+                <TableCell className="text-center font-semibold text-xs py-1.5 w-1/2 border">MFI Name</TableCell>
+                <TableCell className="text-xs py-1.5 border" data-testid="text-mfi-name">Lamen Micro Finance Institution</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="text-center font-semibold text-xs py-1.5 border">License Number</TableCell>
+                <TableCell className="text-xs py-1.5 border" data-testid="text-license-number">97950</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="text-center font-semibold text-xs py-1.5 border">Date/Period</TableCell>
+                <TableCell className="text-xs py-1.5 border" data-testid="text-date-period">
+                  {new Date().toLocaleString("en-US", { month: "long", year: "numeric" })}
+                </TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="text-center font-semibold text-xs py-1.5 border">Currency</TableCell>
+                <TableCell className="text-xs py-1.5 border" data-testid="text-currency">{data.header.currency}</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="text-center font-semibold text-xs py-1.5 border">Frequency</TableCell>
+                <TableCell className="text-xs py-1.5 border" data-testid="text-frequency">{data.header.frequency}</TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
 
           <div className="space-y-4">
             {data.notes.map((note) => (
