@@ -215,18 +215,58 @@ export default function IncomeStatement() {
           <CardTitle className="text-lg">Select Period</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-end gap-4">
-            <div className="space-y-2">
-              <Label>Start Date</Label>
-              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} data-testid="input-start-date" />
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-medium text-muted-foreground">Quick:</span>
+              {[
+                { label: "1D", days: 1 },
+                { label: "2D", days: 2 },
+                { label: "1W", days: 7 },
+                { label: "2W", days: 14 },
+                { label: "1M", months: 1 },
+                { label: "3M", months: 3 },
+                { label: "6M", months: 6 },
+                { label: "1Y", months: 12 },
+                { label: "All", all: true },
+              ].map((opt) => (
+                <button
+                  key={opt.label}
+                  type="button"
+                  data-testid={`button-quick-${opt.label}`}
+                  className="px-3 py-1 text-xs font-medium rounded-full border border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-100 dark:bg-sky-900/30 dark:text-sky-300 dark:border-sky-700 dark:hover:bg-sky-900/50 transition-colors"
+                  onClick={() => {
+                    const end = new Date();
+                    const endStr = end.toISOString().split("T")[0];
+                    setEndDate(endStr);
+                    if ((opt as any).all) {
+                      setStartDate("2024-01-01");
+                    } else {
+                      const start = new Date();
+                      if ((opt as any).months) start.setMonth(start.getMonth() - (opt as any).months);
+                      if ((opt as any).days) start.setDate(start.getDate() - (opt as any).days);
+                      const minDate = new Date("2024-01-01");
+                      if (start < minDate) start.setTime(minDate.getTime());
+                      setStartDate(start.toISOString().split("T")[0]);
+                    }
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
-            <div className="space-y-2">
-              <Label>End Date</Label>
-              <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} data-testid="input-end-date" />
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="space-y-2">
+                <Label>Start Date</Label>
+                <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} data-testid="input-start-date" />
+              </div>
+              <div className="space-y-2">
+                <Label>End Date</Label>
+                <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} data-testid="input-end-date" />
+              </div>
+              <Button onClick={fetchReport} disabled={isLoading} data-testid="button-generate">
+                {isLoading ? "Loading..." : "Generate Report"}
+              </Button>
             </div>
-            <Button onClick={fetchReport} disabled={isLoading} data-testid="button-generate">
-              {isLoading ? "Loading..." : "Generate Report"}
-            </Button>
           </div>
         </CardContent>
       </Card>
