@@ -3559,8 +3559,43 @@ export class DatabaseStorage implements IStorage {
   async getAccountStatement(accountId: string, startDate?: string, endDate?: string): Promise<any> {
     const [account] = await db.select().from(accounts).where(eq(accounts.id, accountId));
     if (!account) return null;
-    
-    let query = db
+
+    const baseOpeningBalance = Number(account.openingBalance || 0);
+    let openingBalance = baseOpeningBalance;
+
+    if (startDate) {
+      const priorTxns = await db
+        .select({
+          debitAmount: journalLines.debitAmount,
+          creditAmount: journalLines.creditAmount,
+        })
+        .from(journalLines)
+        .leftJoin(journalEntries, eq(journalLines.journalEntryId, journalEntries.id))
+        .where(and(
+          eq(journalLines.accountId, accountId),
+          eq(journalEntries.isPosted, true),
+          sql`${journalEntries.entryDate} < ${startDate}`
+        ));
+
+      for (const tx of priorTxns) {
+        const debit = Number(tx.debitAmount || 0);
+        const credit = Number(tx.creditAmount || 0);
+        if (account.accountType === 'asset' || account.accountType === 'expense') {
+          openingBalance += debit - credit;
+        } else {
+          openingBalance += credit - debit;
+        }
+      }
+    }
+
+    const conditions: any[] = [
+      eq(journalLines.accountId, accountId),
+      eq(journalEntries.isPosted, true),
+    ];
+    if (startDate) conditions.push(gte(journalEntries.entryDate, startDate));
+    if (endDate) conditions.push(lte(journalEntries.entryDate, endDate));
+
+    const transactions = await db
       .select({
         entryDate: journalEntries.entryDate,
         entryNumber: journalEntries.entryNumber,
@@ -3571,33 +3606,29 @@ export class DatabaseStorage implements IStorage {
       })
       .from(journalLines)
       .leftJoin(journalEntries, eq(journalLines.journalEntryId, journalEntries.id))
-      .where(and(
-        eq(journalLines.accountId, accountId),
-        eq(journalEntries.isPosted, true)
-      ));
-    
-    const transactions = await query.orderBy(asc(journalEntries.entryDate));
-    
-    let runningBalance = Number(account.openingBalance || 0);
+      .where(and(...conditions))
+      .orderBy(asc(journalEntries.entryDate));
+
+    let runningBalance = openingBalance;
     const statement = transactions.map(tx => {
       const debit = Number(tx.debitAmount || 0);
       const credit = Number(tx.creditAmount || 0);
-      
+
       if (account.accountType === 'asset' || account.accountType === 'expense') {
         runningBalance += debit - credit;
       } else {
         runningBalance += credit - debit;
       }
-      
+
       return {
         ...tx,
         balance: runningBalance,
       };
     });
-    
+
     return {
       account,
-      openingBalance: Number(account.openingBalance || 0),
+      openingBalance,
       transactions: statement,
       closingBalance: runningBalance,
     };
