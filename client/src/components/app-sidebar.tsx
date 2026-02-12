@@ -53,6 +53,7 @@ import {
   Banknote,
   ClipboardCheck,
   Target,
+  ArrowDownUp,
 } from "lucide-react";
 import lamenLogo from "@assets/LamenLogo_1769936371528.jpeg";
 import {
@@ -113,6 +114,7 @@ const PAGE_URL_TO_NAME: Record<string, string> = {
   "/trial-balance": "trial-balance",
   "/income-statement": "income-statement",
   "/balance-sheet": "balance-sheet",
+  "/cash-flow-statement": "cash-flow-statement",
   "/accounting-dashboard": "accounting-dashboard",
   "/hr/dashboard": "hr-dashboard",
   "/hr/org-structure": "hr-org-structure",
@@ -203,6 +205,7 @@ export function AppSidebar() {
         { title: "Trial Balance", url: "/trial-balance", icon: Scale, iconColor: "text-amber-500" },
         { title: "Income Statement", url: "/income-statement", icon: TrendingUp, iconColor: "text-green-500" },
         { title: "Balance Sheet", url: "/balance-sheet", icon: FileText, iconColor: "text-cyan-500" },
+        { title: "Cash Flow Statement", url: "/cash-flow-statement", icon: ArrowDownUp, iconColor: "text-indigo-500" },
       ],
     },
     {
@@ -277,6 +280,7 @@ export function AppSidebar() {
         { title: "Trial Balance", url: "/trial-balance", icon: Scale, iconColor: "text-amber-500" },
         { title: "Income Statement", url: "/income-statement", icon: TrendingUp, iconColor: "text-green-500" },
         { title: "Balance Sheet", url: "/balance-sheet", icon: FileText, iconColor: "text-cyan-500" },
+        { title: "Cash Flow Statement", url: "/cash-flow-statement", icon: ArrowDownUp, iconColor: "text-indigo-500" },
       ],
     },
     {
@@ -354,6 +358,7 @@ export function AppSidebar() {
         { title: "Trial Balance", url: "/trial-balance", icon: Scale, iconColor: "text-amber-500" },
         { title: "Income Statement", url: "/income-statement", icon: TrendingUp, iconColor: "text-green-500" },
         { title: "Balance Sheet", url: "/balance-sheet", icon: FileText, iconColor: "text-cyan-500" },
+        { title: "Cash Flow Statement", url: "/cash-flow-statement", icon: ArrowDownUp, iconColor: "text-indigo-500" },
       ],
     },
     {

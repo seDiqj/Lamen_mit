@@ -3508,6 +3508,20 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/reports/cash-flow-statement", isAuthenticated, async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "startDate and endDate are required" });
+      }
+      const cashFlow = await storage.getCashFlowStatement(startDate as string, endDate as string);
+      res.json(cashFlow);
+    } catch (error) {
+      console.error("Error fetching cash flow statement:", error);
+      res.status(500).json({ message: "Failed to fetch cash flow statement" });
+    }
+  });
+
   app.get("/api/reports/account-statement/:accountId", isAuthenticated, async (req, res) => {
     try {
       const { startDate, endDate } = req.query;

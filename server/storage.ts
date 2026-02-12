@@ -334,6 +334,7 @@ export interface IStorage {
   getIncomeStatement(startDate: string, endDate: string): Promise<any>;
   getBalanceSheet(asOfDate: string): Promise<any>;
   getAccountStatement(accountId: string, startDate?: string, endDate?: string): Promise<any>;
+  getCashFlowStatement(startDate: string, endDate: string): Promise<any>;
   getNextEntryNumber(): Promise<string>;
   
   // Seed
@@ -3553,6 +3554,147 @@ export class DatabaseStorage implements IStorage {
       totalLiabilities,
       totalEquity,
       asOfDate,
+    };
+  }
+
+  async getCashFlowStatement(startDate: string, endDate: string): Promise<any> {
+    const allAccounts = await db.select().from(accounts);
+    const accountMap = new Map(allAccounts.map(a => [a.id, a]));
+
+    const lines = await db
+      .select({
+        accountId: journalLines.accountId,
+        debitAmount: journalLines.debitAmount,
+        creditAmount: journalLines.creditAmount,
+        entryDate: journalEntries.entryDate,
+        description: journalEntries.description,
+        reference: journalEntries.reference,
+        referenceType: journalEntries.referenceType,
+        entryNumber: journalEntries.entryNumber,
+      })
+      .from(journalLines)
+      .leftJoin(journalEntries, eq(journalLines.journalEntryId, journalEntries.id))
+      .where(and(
+        eq(journalEntries.isPosted, true),
+        sql`${journalEntries.entryDate} >= ${startDate}`,
+        sql`${journalEntries.entryDate} <= ${endDate}`,
+      ));
+
+    const cashAccountCodes = ['1000', '1001', '1010', '1100'];
+    const cashAccounts = allAccounts.filter(a =>
+      cashAccountCodes.some(code => a.accountCode.startsWith(code)) ||
+      a.accountName.toLowerCase().includes('cash') ||
+      a.accountName.toLowerCase().includes('bank')
+    );
+    const cashAccountIds = new Set(cashAccounts.map(a => a.id));
+
+    const operatingItems: any[] = [];
+    const investingItems: any[] = [];
+    const financingItems: any[] = [];
+
+    const accountFlows = new Map<string, { debit: number; credit: number }>();
+
+    for (const line of lines) {
+      if (!line.accountId || cashAccountIds.has(line.accountId)) continue;
+      const existing = accountFlows.get(line.accountId) || { debit: 0, credit: 0 };
+      existing.debit += Number(line.debitAmount || 0);
+      existing.credit += Number(line.creditAmount || 0);
+      accountFlows.set(line.accountId, existing);
+    }
+
+    for (const [accountId, flows] of Array.from(accountFlows.entries())) {
+      const account = accountMap.get(accountId);
+      if (!account) continue;
+      const net = flows.debit - flows.credit;
+      if (Math.abs(net) < 0.01) continue;
+
+      const item = {
+        accountCode: account.accountCode,
+        accountName: account.accountName,
+        amount: net,
+      };
+
+      const type = account.accountType;
+      const code = account.accountCode;
+      const name = account.accountName.toLowerCase();
+
+      if (type === 'income' || type === 'expense') {
+        operatingItems.push(item);
+      } else if (
+        name.includes('loan') || name.includes('receivable') ||
+        name.includes('interest') || name.includes('provision') ||
+        name.includes('payable') || name.includes('accrued') ||
+        name.includes('prepaid') || name.includes('deposit')
+      ) {
+        operatingItems.push(item);
+      } else if (
+        name.includes('equipment') || name.includes('furniture') ||
+        name.includes('vehicle') || name.includes('property') ||
+        name.includes('fixed asset') || name.includes('investment') ||
+        name.includes('depreciation')
+      ) {
+        investingItems.push(item);
+      } else if (
+        type === 'equity' ||
+        name.includes('capital') || name.includes('borrowing') ||
+        name.includes('dividend') || name.includes('share') ||
+        name.includes('reserve') || name.includes('retained')
+      ) {
+        financingItems.push(item);
+      } else if (type === 'asset') {
+        investingItems.push(item);
+      } else if (type === 'liability') {
+        financingItems.push(item);
+      } else {
+        operatingItems.push(item);
+      }
+    }
+
+    let cashOpeningBalance = 0;
+    for (const ca of cashAccounts) {
+      cashOpeningBalance += Number(ca.openingBalance || 0);
+    }
+
+    if (cashAccountIds.size > 0) {
+      const priorCashLines = await db
+        .select({
+          accountId: journalLines.accountId,
+          debitAmount: journalLines.debitAmount,
+          creditAmount: journalLines.creditAmount,
+        })
+        .from(journalLines)
+        .leftJoin(journalEntries, eq(journalLines.journalEntryId, journalEntries.id))
+        .where(and(
+          eq(journalEntries.isPosted, true),
+          sql`${journalEntries.entryDate} < ${startDate}`,
+          sql`${journalLines.accountId} = ANY(${sql`ARRAY[${sql.join(
+            Array.from(cashAccountIds).map(id => sql`${id}`),
+            sql`, `
+          )}]`})`
+        ));
+
+      for (const line of priorCashLines) {
+        cashOpeningBalance += Number(line.debitAmount || 0) - Number(line.creditAmount || 0);
+      }
+    }
+
+    const totalOperating = operatingItems.reduce((s, i) => s + i.amount, 0);
+    const totalInvesting = investingItems.reduce((s, i) => s + i.amount, 0);
+    const totalFinancing = financingItems.reduce((s, i) => s + i.amount, 0);
+    const netChange = totalOperating + totalInvesting + totalFinancing;
+    const cashClosingBalance = cashOpeningBalance + netChange;
+
+    return {
+      operating: operatingItems.sort((a, b) => a.accountCode.localeCompare(b.accountCode)),
+      investing: investingItems.sort((a, b) => a.accountCode.localeCompare(b.accountCode)),
+      financing: financingItems.sort((a, b) => a.accountCode.localeCompare(b.accountCode)),
+      totalOperating,
+      totalInvesting,
+      totalFinancing,
+      netChange,
+      cashOpeningBalance,
+      cashClosingBalance,
+      period: { startDate, endDate },
     };
   }
 
