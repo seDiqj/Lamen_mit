@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { 
   User, FileText, Building2, Shield, Users, UserCheck, 
   ChevronLeft, ChevronRight, Save, ArrowLeft, Loader2, Check, Eye, Edit2,
-  XCircle, AlertTriangle, CheckCircle2, Clock
+  XCircle, AlertTriangle, CheckCircle2, Clock, Camera, ExternalLink
 } from "lucide-react";
 import type { Branch, FinanceOfficer, FundingSource } from "@shared/schema";
 import { cn } from "@/lib/utils";
@@ -549,6 +549,44 @@ export default function LoanDetailsPage() {
                   <FormField control={form.control} name="indirectFemaleDependent" render={({ field }) => (
                     <FormItem><FormLabel>Indirect Female Dep.</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
                   )} />
+                </div>
+
+                {/* Photo & Documents Section */}
+                <div className="border-t pt-3 mt-4">
+                  <h3 className="text-xs font-semibold text-muted-foreground mb-3">Photo & Documents</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium">Customer Photo</label>
+                      <div className="w-24 h-24 border-2 border-dashed rounded-lg flex items-center justify-center bg-muted/50 overflow-hidden">
+                        {loanData?.customer?.photoUrl ? (
+                          <img src={loanData.customer.photoUrl} alt="Customer" className="w-full h-full object-cover" />
+                        ) : (
+                          <Camera className="h-8 w-8 text-muted-foreground" />
+                        )}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium">Uploaded Documents</label>
+                      {loanData?.customerDocuments && loanData.customerDocuments.length > 0 ? (
+                        <div className="space-y-1">
+                          {loanData.customerDocuments.map((doc: any) => (
+                            <div key={doc.id} className="flex items-center gap-2 text-sm p-2 bg-muted/50 rounded-md" data-testid={`doc-item-${doc.id}`}>
+                              <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                              <span className="flex-1 truncate">{doc.fileName || doc.documentType || 'Document'}</span>
+                              <Badge variant="secondary" className="text-xs">{doc.documentType}</Badge>
+                              {doc.fileUrl && (
+                                <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                                  <ExternalLink className="h-3.5 w-3.5" />
+                                </a>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">No documents uploaded</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>

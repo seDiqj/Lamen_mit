@@ -1746,6 +1746,7 @@ export async function registerRoutes(
       const riskComplianceReview = await storage.getRiskComplianceReviewByLoanId(loan.id);
       const committeeVotes = await storage.getCommitteeVotesByLoanId(loan.id);
       const fundingSource = loan.fundingSourceId ? await storage.getFundingSource(loan.fundingSourceId) : null;
+      const customerDocuments = customer ? await storage.getCustomerDocuments(customer.id) : [];
       
       res.json({
         loan,
@@ -1760,6 +1761,7 @@ export async function registerRoutes(
         riskComplianceReview,
         committeeVotes,
         fundingSource,
+        customerDocuments,
       });
     } catch (error) {
       console.error("Error fetching loan application:", error);
