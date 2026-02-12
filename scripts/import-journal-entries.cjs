@@ -6,11 +6,31 @@ const pool = new Pool({
 });
 
 async function importJournalEntries() {
-  const workbook = XLSX.readFile('attached_assets/JVEntryClean_1770114117286.xlsx');
-  const sheet = workbook.Sheets['JVEntry'];
+  const workbook = XLSX.readFile('attached_assets/LMIJournal_12-Feb-2026_Clean_1770873876294.xlsx');
+  const sheet = workbook.Sheets['Clean'];
   const data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
   console.log(`Total rows in Excel: ${data.length}`);
+
+  // Step 1: Clear existing journal data
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const deletedLines = await client.query('DELETE FROM journal_lines');
+    console.log(`Deleted ${deletedLines.rowCount} journal lines`);
+    const deletedEntries = await client.query('DELETE FROM journal_entries');
+    console.log(`Deleted ${deletedEntries.rowCount} journal entries`);
+    // Reset all account balances to 0
+    await client.query('UPDATE accounts SET current_balance = 0');
+    console.log('Reset all account balances to 0');
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Failed to clear old data:', err);
+    throw err;
+  } finally {
+    client.release();
+  }
 
   // Get all accounts from database for mapping
   const accountsResult = await pool.query('SELECT id, account_code, account_name FROM accounts');
@@ -58,9 +78,29 @@ async function importJournalEntries() {
     if (typeof transactionDate === 'number') {
       entryDate = new Date((transactionDate - 25569) * 86400 * 1000);
     } else if (typeof transactionDate === 'string') {
-      entryDate = new Date(transactionDate);
+      // Handle MM/DD/YYYY format
+      const parts = transactionDate.split('/');
+      if (parts.length === 3) {
+        entryDate = new Date(parseInt(parts[2]), parseInt(parts[0]) - 1, parseInt(parts[1]));
+      } else {
+        entryDate = new Date(transactionDate);
+      }
     } else {
       entryDate = new Date();
+    }
+
+    // Use the date from the first line if this row's date is inherited
+    if (!transactionDate && lastTransactionDate) {
+      if (typeof lastTransactionDate === 'number') {
+        entryDate = new Date((lastTransactionDate - 25569) * 86400 * 1000);
+      } else if (typeof lastTransactionDate === 'string') {
+        const parts = lastTransactionDate.split('/');
+        if (parts.length === 3) {
+          entryDate = new Date(parseInt(parts[2]), parseInt(parts[0]) - 1, parseInt(parts[1]));
+        } else {
+          entryDate = new Date(lastTransactionDate);
+        }
+      }
     }
 
     // Find account ID
@@ -75,7 +115,7 @@ async function importJournalEntries() {
       entriesMap.set(jvNumber, {
         jvNumber,
         entryDate,
-        transactionType,
+        transactionType: transactionType || lastTransactionType,
         description,
         lines: []
       });
@@ -95,16 +135,16 @@ async function importJournalEntries() {
   
   if (skippedAccounts.size > 0) {
     console.log(`\nWARNING: ${skippedAccounts.size} account codes not found in database:`);
-    [...skippedAccounts].slice(0, 20).forEach(acc => console.log(`  - ${acc}`));
-    if (skippedAccounts.size > 20) {
-      console.log(`  ... and ${skippedAccounts.size - 20} more`);
+    [...skippedAccounts].slice(0, 30).forEach(acc => console.log(`  - ${acc}`));
+    if (skippedAccounts.size > 30) {
+      console.log(`  ... and ${skippedAccounts.size - 30} more`);
     }
   }
 
   // Insert entries into database
-  const client = await pool.connect();
+  const insertClient = await pool.connect();
   try {
-    await client.query('BEGIN');
+    await insertClient.query('BEGIN');
 
     let insertedCount = 0;
     let skippedCount = 0;
@@ -133,7 +173,7 @@ async function importJournalEntries() {
         }
 
         // Generate entry number
-        const entryNumberResult = await client.query(
+        const entryNumberResult = await insertClient.query(
           "SELECT COALESCE(MAX(CAST(SUBSTRING(entry_number FROM 4) AS INTEGER)), 0) + 1 as next_num FROM journal_entries WHERE entry_number LIKE 'JE-%'"
         );
         const nextNum = entryNumberResult.rows[0].next_num;
@@ -153,7 +193,7 @@ async function importJournalEntries() {
         }
 
         // Insert journal entry (as posted)
-        const insertResult = await client.query(
+        const insertResult = await insertClient.query(
           `INSERT INTO journal_entries 
            (entry_number, entry_date, description, reference, reference_type, total_debit, total_credit, is_posted, posted_at, created_by)
            VALUES ($1, $2, $3, $4, $5, $6, $7, true, NOW(), $8)
@@ -174,7 +214,7 @@ async function importJournalEntries() {
 
         // Insert lines
         for (const line of entry.lines) {
-          await client.query(
+          await insertClient.query(
             `INSERT INTO journal_lines 
              (journal_entry_id, account_id, description, debit_amount, credit_amount)
              VALUES ($1, $2, $3, $4, $5)`,
@@ -188,7 +228,7 @@ async function importJournalEntries() {
           const credit = parseFloat(line.creditAmount);
           
           // Get account type to determine balance direction
-          const accResult = await client.query('SELECT account_type FROM accounts WHERE id = $1', [line.accountId]);
+          const accResult = await insertClient.query('SELECT account_type FROM accounts WHERE id = $1', [line.accountId]);
           const accountType = accResult.rows[0]?.account_type;
           
           let balanceChange = 0;
@@ -198,7 +238,7 @@ async function importJournalEntries() {
             balanceChange = credit - debit;
           }
           
-          await client.query(
+          await insertClient.query(
             'UPDATE accounts SET current_balance = COALESCE(current_balance, 0) + $1 WHERE id = $2',
             [balanceChange, line.accountId]
           );
@@ -215,18 +255,18 @@ async function importJournalEntries() {
       }
     }
 
-    await client.query('COMMIT');
+    await insertClient.query('COMMIT');
     console.log(`\n=== Import Complete ===`);
     console.log(`Inserted: ${insertedCount} entries`);
     console.log(`Skipped: ${skippedCount} entries`);
     console.log(`Errors: ${errorCount}`);
 
   } catch (err) {
-    await client.query('ROLLBACK');
+    await insertClient.query('ROLLBACK');
     console.error('Import failed:', err);
     throw err;
   } finally {
-    client.release();
+    insertClient.release();
   }
 
   await pool.end();
