@@ -3580,12 +3580,13 @@ export class DatabaseStorage implements IStorage {
         sql`${journalEntries.entryDate} <= ${endDate}`,
       ));
 
-    const cashAccountCodes = ['1000', '1001', '1010', '1100'];
-    const cashAccounts = allAccounts.filter(a =>
-      cashAccountCodes.some(code => a.accountCode.startsWith(code)) ||
-      a.accountName.toLowerCase().includes('cash') ||
-      a.accountName.toLowerCase().includes('bank')
-    );
+    const cashAccountCodes = ['100', '101', '102'];
+    const cashAccounts = allAccounts.filter(a => {
+      if (a.accountType === 'income' || a.accountType === 'expense') return false;
+      return cashAccountCodes.some(code => a.accountCode.startsWith(code)) ||
+        (a.accountName.toLowerCase().includes('cash') && a.accountType === 'asset') ||
+        (a.accountName.toLowerCase().includes('bank') && a.accountType === 'asset');
+    });
     const cashAccountIds = new Set(cashAccounts.map(a => a.id));
 
     const profitItems: any[] = [];
