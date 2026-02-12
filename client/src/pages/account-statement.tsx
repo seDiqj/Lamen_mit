@@ -273,11 +273,13 @@ export default function AccountStatement() {
                     const endStr = end.toISOString().split("T")[0];
                     setEndDate(endStr);
                     if (opt.all) {
-                      setStartDate("2000-01-01");
+                      setStartDate("2024-01-01");
                     } else {
                       const start = new Date();
                       if (opt.months) start.setMonth(start.getMonth() - opt.months);
                       if (opt.days) start.setDate(start.getDate() - opt.days);
+                      const minDate = new Date("2024-01-01");
+                      if (start < minDate) start.setTime(minDate.getTime());
                       setStartDate(start.toISOString().split("T")[0]);
                     }
                   }}
