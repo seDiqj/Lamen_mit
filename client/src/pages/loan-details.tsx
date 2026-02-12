@@ -19,7 +19,7 @@ import {
   XCircle, AlertTriangle, CheckCircle2, Clock, Camera, ExternalLink
 } from "lucide-react";
 import type { Branch, FinanceOfficer, FundingSource } from "@shared/schema";
-import { cn } from "@/lib/utils";
+import { cn, toPersianDate, calculateAge } from "@/lib/utils";
 
 const optNum = z.preprocess(
   (v) => (v === "" || v === null || v === undefined ? undefined : Number(v)),
@@ -31,6 +31,8 @@ const loanDetailsSchema = z.object({
   firstName: z.string().min(1, "Name is required"),
   lastName: z.string().optional(),
   fatherName: z.string().optional(),
+  fullNameDari: z.string().optional(),
+  fatherNameDari: z.string().optional(),
   gender: z.string().optional(),
   nationalId: z.string().optional(),
   nidExpiryDate: z.string().optional(),
@@ -178,6 +180,8 @@ export default function LoanDetailsPage() {
         firstName: d.customer?.firstName ?? "",
         lastName: d.customer?.lastName ?? "",
         fatherName: d.customer?.fatherName ?? "",
+        fullNameDari: d.customer?.fullNameDari ?? "",
+        fatherNameDari: d.customer?.fatherNameDari ?? "",
         gender: d.customer?.gender ?? "male",
         nationalId: d.customer?.nationalId ?? "",
         nidExpiryDate: d.customer?.nidExpiryDate ?? "",
@@ -503,6 +507,12 @@ export default function LoanDetailsPage() {
                   <FormField control={form.control} name="fatherName" render={({ field }) => (
                     <FormItem><FormLabel>Father's Name</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
+                  <FormField control={form.control} name="fullNameDari" render={({ field }) => (
+                    <FormItem><FormLabel>Full Name (Dari)</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-fullNameDari" dir="rtl" /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name="fatherNameDari" render={({ field }) => (
+                    <FormItem><FormLabel>Father's Name (Dari)</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-fatherNameDari" dir="rtl" /></FormControl><FormMessage /></FormItem>
+                  )} />
                   <FormField control={form.control} name="gender" render={({ field }) => (
                     <FormItem><FormLabel>Gender</FormLabel>
                       <Select disabled={!isEditing} onValueChange={field.onChange} value={field.value}>
@@ -514,11 +524,25 @@ export default function LoanDetailsPage() {
                     <FormItem><FormLabel>National ID</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="nidExpiryDate" render={({ field }) => (
-                    <FormItem><FormLabel>NID Expiry Date</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-nid-expiry" /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>NID Expiry Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-nid-expiry" /></FormControl><FormMessage /></FormItem>
                   )} />
-                  <FormField control={form.control} name="dateOfBirth" render={({ field }) => (
-                    <FormItem><FormLabel>Date of Birth</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
-                  )} />
+                  <FormField control={form.control} name="dateOfBirth" render={({ field }) => {
+                    const age = calculateAge(field.value || "");
+                    return (
+                      <FormItem>
+                        <FormLabel>Date of Birth {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel>
+                        <div className="flex gap-2 items-center">
+                          <FormControl><Input type="date" disabled={!isEditing} className="flex-1" {...field} /></FormControl>
+                          {age !== null && (
+                            <div className="h-9 px-3 flex items-center bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-md text-sm font-medium whitespace-nowrap" data-testid="text-customerAge">
+                              Age: {age}
+                            </div>
+                          )}
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }} />
                   <FormField control={form.control} name="placeOfBirth" render={({ field }) => (
                     <FormItem><FormLabel>Place of Birth</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
@@ -646,7 +670,7 @@ export default function LoanDetailsPage() {
                       </Select><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="requestDate" render={({ field }) => (
-                    <FormItem><FormLabel>Request Date</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Request Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="requestAmount" render={({ field }) => (
                     <FormItem><FormLabel>Request Amount (AFN)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
@@ -763,10 +787,10 @@ export default function LoanDetailsPage() {
                       <FormItem><FormLabel>License Number</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="licenseRegisterDate" render={({ field }) => (
-                      <FormItem><FormLabel>Register Date</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
+                      <FormItem><FormLabel>Register Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="licenseExpiryDate" render={({ field }) => (
-                      <FormItem><FormLabel>Expiry Date</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
+                      <FormItem><FormLabel>Expiry Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
                   </div>
                 </div>
@@ -794,7 +818,7 @@ export default function LoanDetailsPage() {
                     <FormItem><FormLabel>Owner NID</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="collateralOwnerNidExpiry" render={({ field }) => (
-                    <FormItem><FormLabel>Owner NID Expiry Date</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-collateral-owner-nid-expiry" /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Owner NID Expiry Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-collateral-owner-nid-expiry" /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="collateralType" render={({ field }) => (
                     <FormItem><FormLabel>Type</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
@@ -842,7 +866,7 @@ export default function LoanDetailsPage() {
                       const age = calcAge(field.value || "");
                       const invalid = age !== null && (age < 18 || age > 65);
                       return (
-                        <FormItem><FormLabel>Date of Birth</FormLabel>
+                        <FormItem><FormLabel>Date of Birth {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel>
                           <div className="flex gap-2 items-center">
                             <FormControl><Input type="date" disabled={!isEditing} className="flex-1" {...field} /></FormControl>
                             {age !== null && age >= 0 && <div className={`h-9 px-3 flex items-center rounded-md text-sm font-medium whitespace-nowrap ${invalid ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'}`}>Age: {age}{invalid && ' (18-65)'}</div>}
@@ -854,7 +878,7 @@ export default function LoanDetailsPage() {
                       <FormItem><FormLabel>NID</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="financialGuarantorNidExpiry" render={({ field }) => (
-                      <FormItem><FormLabel>NID Expiry Date</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
+                      <FormItem><FormLabel>NID Expiry Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="financialGuarantorPhone" render={({ field }) => (
                       <FormItem><FormLabel>Phone</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
@@ -899,7 +923,7 @@ export default function LoanDetailsPage() {
                       const age = calcAge(field.value || "");
                       const invalid = age !== null && (age < 18 || age > 65);
                       return (
-                        <FormItem><FormLabel>Date of Birth</FormLabel>
+                        <FormItem><FormLabel>Date of Birth {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel>
                           <div className="flex gap-2 items-center">
                             <FormControl><Input type="date" disabled={!isEditing} className="flex-1" {...field} data-testid="input-fin-guarantor2-dob" /></FormControl>
                             {age !== null && age >= 0 && <div className={`h-9 px-3 flex items-center rounded-md text-sm font-medium whitespace-nowrap ${invalid ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'}`}>Age: {age}{invalid && ' (18-65)'}</div>}
@@ -911,7 +935,7 @@ export default function LoanDetailsPage() {
                       <FormItem><FormLabel>NID</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-fin-guarantor2-nid" /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="financialGuarantor2NidExpiry" render={({ field }) => (
-                      <FormItem><FormLabel>NID Expiry Date</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-fin-guarantor2-nid-expiry" /></FormControl><FormMessage /></FormItem>
+                      <FormItem><FormLabel>NID Expiry Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-fin-guarantor2-nid-expiry" /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="financialGuarantor2Phone" render={({ field }) => (
                       <FormItem><FormLabel>Phone</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-fin-guarantor2-phone" /></FormControl><FormMessage /></FormItem>
@@ -956,7 +980,7 @@ export default function LoanDetailsPage() {
                       const age = calcAge(field.value || "");
                       const invalid = age !== null && (age < 18 || age > 65);
                       return (
-                        <FormItem><FormLabel>Date of Birth</FormLabel>
+                        <FormItem><FormLabel>Date of Birth {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel>
                           <div className="flex gap-2 items-center">
                             <FormControl><Input type="date" disabled={!isEditing} className="flex-1" {...field} /></FormControl>
                             {age !== null && age >= 0 && <div className={`h-9 px-3 flex items-center rounded-md text-sm font-medium whitespace-nowrap ${invalid ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'}`}>Age: {age}{invalid && ' (18-65)'}</div>}
@@ -968,7 +992,7 @@ export default function LoanDetailsPage() {
                       <FormItem><FormLabel>NID</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="familyGuarantorNidExpiry" render={({ field }) => (
-                      <FormItem><FormLabel>NID Expiry Date</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
+                      <FormItem><FormLabel>NID Expiry Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="familyGuarantorPhone" render={({ field }) => (
                       <FormItem><FormLabel>Phone</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>

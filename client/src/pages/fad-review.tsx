@@ -51,7 +51,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Branch, FinanceOfficer } from "@shared/schema";
-import { cn } from "@/lib/utils";
+import { cn, toPersianDate, calculateAge } from "@/lib/utils";
 
 type LoanWithDetails = {
   id: string;
@@ -87,6 +87,8 @@ const fadReviewSchema = z.object({
   firstName: z.string().min(1, "Name is required"),
   lastName: z.string().optional(),
   fatherName: z.string().optional(),
+  fullNameDari: z.string().optional(),
+  fatherNameDari: z.string().optional(),
   gender: z.string().optional(),
   nationalId: z.string().optional(),
   nidExpiryDate: z.string().optional(),
@@ -257,6 +259,8 @@ export default function FadReviewPage() {
         firstName: d.customer?.firstName || "",
         lastName: d.customer?.lastName || "",
         fatherName: d.customer?.fatherName || "",
+        fullNameDari: d.customer?.fullNameDari || "",
+        fatherNameDari: d.customer?.fatherNameDari || "",
         gender: d.customer?.gender || "male",
         nationalId: d.customer?.nationalId || "",
         nidExpiryDate: d.customer?.nidExpiryDate || "",
@@ -552,6 +556,12 @@ export default function FadReviewPage() {
                     <FormField control={form.control} name="fatherName" render={({ field }) => (
                       <FormItem><FormLabel>Father's Name</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-fatherName" /></FormControl><FormMessage /></FormItem>
                     )} />
+                    <FormField control={form.control} name="fullNameDari" render={({ field }) => (
+                      <FormItem><FormLabel>Full Name (Dari)</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-fullNameDari" dir="rtl" /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="fatherNameDari" render={({ field }) => (
+                      <FormItem><FormLabel>Father's Name (Dari)</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-fatherNameDari" dir="rtl" /></FormControl><FormMessage /></FormItem>
+                    )} />
                     <FormField control={form.control} name="gender" render={({ field }) => (
                       <FormItem><FormLabel>Gender</FormLabel>
                         <Select disabled={!isEditing} onValueChange={field.onChange} value={field.value}>
@@ -563,7 +573,7 @@ export default function FadReviewPage() {
                       <FormItem><FormLabel>National ID</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-nationalId" /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="nidExpiryDate" render={({ field }) => (
-                      <FormItem><FormLabel>NID Expiry Date</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-nidExpiryDate" /></FormControl><FormMessage /></FormItem>
+                      <FormItem><FormLabel>NID Expiry Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-nidExpiryDate" /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="dateOfBirth" render={({ field }) => {
                       const calculateAge = (dob: string) => {
@@ -579,7 +589,7 @@ export default function FadReviewPage() {
                       };
                       const age = calculateAge(field.value || "");
                       return (
-                        <FormItem><FormLabel>Date of Birth</FormLabel>
+                        <FormItem><FormLabel>Date of Birth {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel>
                           <div className="flex gap-2 items-center">
                             <FormControl><Input type="date" disabled={!isEditing} className="flex-1" {...field} data-testid="input-dateOfBirth" /></FormControl>
                             {age !== null && age >= 0 && (
@@ -802,10 +812,10 @@ export default function FadReviewPage() {
                       <FormItem><FormLabel>License President</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-licensePresident" /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="licenseRegisterDate" render={({ field }) => (
-                      <FormItem><FormLabel>Register Date</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-licenseRegister" /></FormControl><FormMessage /></FormItem>
+                      <FormItem><FormLabel>Register Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-licenseRegister" /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="licenseExpiryDate" render={({ field }) => (
-                      <FormItem><FormLabel>Expiry Date</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-licenseExpiry" /></FormControl><FormMessage /></FormItem>
+                      <FormItem><FormLabel>Expiry Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-licenseExpiry" /></FormControl><FormMessage /></FormItem>
                     )} />
                   </div>
                 </CardContent>
@@ -832,7 +842,7 @@ export default function FadReviewPage() {
                       <FormItem><FormLabel>Owner NID</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-collateralNid" /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="collateralOwnerNidExpiry" render={({ field }) => (
-                      <FormItem><FormLabel>Owner NID Expiry Date</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-collateralOwnerNidExpiry" /></FormControl><FormMessage /></FormItem>
+                      <FormItem><FormLabel>Owner NID Expiry Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-collateralOwnerNidExpiry" /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="collateralType" render={({ field }) => (
                       <FormItem><FormLabel>Type</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-collateralType" /></FormControl><FormMessage /></FormItem>
@@ -879,7 +889,7 @@ export default function FadReviewPage() {
                         const age = calcAge(field.value || "");
                         const invalid = age !== null && (age < 18 || age > 65);
                         return (
-                          <FormItem><FormLabel>Date of Birth</FormLabel>
+                          <FormItem><FormLabel>Date of Birth {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel>
                             <div className="flex gap-2 items-center">
                               <FormControl><Input type="date" disabled={!isEditing} className="flex-1" {...field} data-testid="input-finGuarantorDob" /></FormControl>
                               {age !== null && age >= 0 && <div className={`h-9 px-3 flex items-center rounded-md text-sm font-medium whitespace-nowrap ${invalid ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'}`} data-testid="text-finGuarantorAge">Age: {age}{invalid && ' (18-65)'}</div>}
@@ -891,7 +901,7 @@ export default function FadReviewPage() {
                         <FormItem><FormLabel>National ID</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-finGuarantorNid" /></FormControl><FormMessage /></FormItem>
                       )} />
                       <FormField control={form.control} name="financialGuarantorNidExpiry" render={({ field }) => (
-                        <FormItem><FormLabel>NID Expiry Date</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-finGuarantorNidExpiry" /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>NID Expiry Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-finGuarantorNidExpiry" /></FormControl><FormMessage /></FormItem>
                       )} />
                       <FormField control={form.control} name="financialGuarantorPhone" render={({ field }) => (
                         <FormItem><FormLabel>Phone</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-finGuarantorPhone" /></FormControl><FormMessage /></FormItem>
@@ -935,7 +945,7 @@ export default function FadReviewPage() {
                         const age = calcAge(field.value || "");
                         const invalid = age !== null && (age < 18 || age > 65);
                         return (
-                          <FormItem><FormLabel>Date of Birth</FormLabel>
+                          <FormItem><FormLabel>Date of Birth {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel>
                             <div className="flex gap-2 items-center">
                               <FormControl><Input type="date" disabled={!isEditing} className="flex-1" {...field} data-testid="input-finGuarantor2Dob" /></FormControl>
                               {age !== null && age >= 0 && <div className={`h-9 px-3 flex items-center rounded-md text-sm font-medium whitespace-nowrap ${invalid ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'}`} data-testid="text-finGuarantor2Age">Age: {age}{invalid && ' (18-65)'}</div>}
@@ -947,7 +957,7 @@ export default function FadReviewPage() {
                         <FormItem><FormLabel>National ID</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-finGuarantor2Nid" /></FormControl><FormMessage /></FormItem>
                       )} />
                       <FormField control={form.control} name="financialGuarantor2NidExpiry" render={({ field }) => (
-                        <FormItem><FormLabel>NID Expiry Date</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-finGuarantor2NidExpiry" /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>NID Expiry Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-finGuarantor2NidExpiry" /></FormControl><FormMessage /></FormItem>
                       )} />
                       <FormField control={form.control} name="financialGuarantor2Phone" render={({ field }) => (
                         <FormItem><FormLabel>Phone</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-finGuarantor2Phone" /></FormControl><FormMessage /></FormItem>
@@ -1003,7 +1013,7 @@ export default function FadReviewPage() {
                         const age = calcAge(field.value || "");
                         const invalid = age !== null && (age < 18 || age > 65);
                         return (
-                          <FormItem><FormLabel>Date of Birth</FormLabel>
+                          <FormItem><FormLabel>Date of Birth {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel>
                             <div className="flex gap-2 items-center">
                               <FormControl><Input type="date" disabled={!isEditing} className="flex-1" {...field} data-testid="input-famGuarantorDob" /></FormControl>
                               {age !== null && age >= 0 && <div className={`h-9 px-3 flex items-center rounded-md text-sm font-medium whitespace-nowrap ${invalid ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'}`} data-testid="text-famGuarantorAge">Age: {age}{invalid && ' (18-65)'}</div>}
@@ -1015,7 +1025,7 @@ export default function FadReviewPage() {
                         <FormItem><FormLabel>National ID</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-famGuarantorNid" /></FormControl><FormMessage /></FormItem>
                       )} />
                       <FormField control={form.control} name="familyGuarantorNidExpiry" render={({ field }) => (
-                        <FormItem><FormLabel>NID Expiry Date</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-famGuarantorNidExpiry" /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>NID Expiry Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-famGuarantorNidExpiry" /></FormControl><FormMessage /></FormItem>
                       )} />
                       <FormField control={form.control} name="familyGuarantorPhone" render={({ field }) => (
                         <FormItem><FormLabel>Phone</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-famGuarantorPhone" /></FormControl><FormMessage /></FormItem>

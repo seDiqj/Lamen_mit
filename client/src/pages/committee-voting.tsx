@@ -42,7 +42,7 @@ import {
   ExternalLink
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import { formatCurrency, cn } from "@/lib/utils";
+import { formatCurrency, cn, toPersianDate, calculateAge } from "@/lib/utils";
 import type { FundingSource } from "@shared/schema";
 
 type LoanWithDetails = {
@@ -270,6 +270,38 @@ export default function CommitteeVotingPage() {
     </div>
   );
 
+  const renderDateViewField = (label: string, rawDate: string | null | undefined, formattedDate?: string) => {
+    const persian = toPersianDate(rawDate);
+    return (
+      <div className="space-y-1">
+        <Label className="text-xs text-muted-foreground">{label} {persian && <span className="text-blue-500 text-xs font-normal ml-1">({persian})</span>}</Label>
+        <div className="h-9 px-3 py-2 bg-muted/50 rounded-md text-sm border">
+          {formattedDate || formatDate(rawDate || "") || "-"}
+        </div>
+      </div>
+    );
+  };
+
+  const renderDobViewField = (label: string, rawDate: string | null | undefined) => {
+    const persian = toPersianDate(rawDate);
+    const age = calculateAge(rawDate || "");
+    return (
+      <div className="space-y-1">
+        <Label className="text-xs text-muted-foreground">{label} {persian && <span className="text-blue-500 text-xs font-normal ml-1">({persian})</span>}</Label>
+        <div className="flex gap-2 items-center">
+          <div className="h-9 px-3 py-2 bg-muted/50 rounded-md text-sm border flex-1">
+            {formatDate(rawDate || "") || "-"}
+          </div>
+          {age !== null && (
+            <div className="h-9 px-3 flex items-center bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-md text-sm font-medium whitespace-nowrap">
+              Age: {age}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   if (selectedLoanId) {
     if (isLoadingDetails) {
       return (
@@ -336,11 +368,12 @@ export default function CommitteeVotingPage() {
                   {renderViewField("First Name", loanDetails?.customer?.firstName)}
                   {renderViewField("Last Name", loanDetails?.customer?.lastName)}
                   {renderViewField("Father's Name", loanDetails?.customer?.fatherName)}
+                  {renderViewField("Full Name (Dari)", loanDetails?.customer?.fullNameDari)}
+                  {renderViewField("Father's Name (Dari)", loanDetails?.customer?.fatherNameDari)}
                   {renderViewField("Gender", loanDetails?.customer?.gender)}
                   {renderViewField("National ID", loanDetails?.customer?.nationalId)}
-                  {renderViewField("NID Expiry Date", formatDate(loanDetails?.customer?.nidExpiryDate))}
-                  {renderViewField("Date of Birth", formatDate(loanDetails?.customer?.dateOfBirth))}
-                  {renderViewField("Age", loanDetails?.customer?.age)}
+                  {renderDateViewField("NID Expiry Date", loanDetails?.customer?.nidExpiryDate)}
+                  {renderDobViewField("Date of Birth", loanDetails?.customer?.dateOfBirth)}
                   {renderViewField("Place of Birth", loanDetails?.customer?.placeOfBirth)}
                   {renderViewField("Phone Number", loanDetails?.customer?.phoneNumber)}
                   {renderViewField("Second Phone", loanDetails?.customer?.secondPhoneNumber)}
@@ -407,7 +440,7 @@ export default function CommitteeVotingPage() {
                   {renderViewField("Sector", loanDetails?.loan?.sector)}
                   {renderViewField("Business Description", loanDetails?.loan?.businessDescription)}
                   {renderViewField("Financing Purpose", loanDetails?.loan?.financingPurpose)}
-                  {renderViewField("Request Date", formatDate(loanDetails?.loan?.requestDate))}
+                  {renderDateViewField("Request Date", loanDetails?.loan?.requestDate)}
                   {renderViewField("Request Amount", formatCurrency(parseFloat(loanDetails?.loan?.requestAmount || "0")))}
                   {renderViewField("Principal Amount", formatCurrency(parseFloat(loanDetails?.loan?.principleAmount || "0")))}
                   {renderViewField("Duration (Months)", loanDetails?.loan?.financingDurationMonths)}
@@ -484,8 +517,8 @@ export default function CommitteeVotingPage() {
                       {renderViewField("License Type", loanDetails?.license?.licenseType)}
                       {renderViewField("License Number", loanDetails?.license?.licenseNumber)}
                       {renderViewField("President", loanDetails?.license?.president)}
-                      {renderViewField("Register Date", formatDate(loanDetails?.license?.registerDate))}
-                      {renderViewField("Expiry Date", formatDate(loanDetails?.license?.expiryDate))}
+                      {renderDateViewField("Register Date", loanDetails?.license?.registerDate)}
+                      {renderDateViewField("Expiry Date", loanDetails?.license?.expiryDate)}
                     </div>
                   </>
                 )}
@@ -501,7 +534,7 @@ export default function CommitteeVotingPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {renderViewField("Owner Name", loanDetails?.collateral?.ownerName)}
                   {renderViewField("Owner National ID", loanDetails?.collateral?.ownerNationalId)}
-                  {renderViewField("Owner NID Expiry", formatDate(loanDetails?.collateral?.ownerNidExpiryDate))}
+                  {renderDateViewField("Owner NID Expiry", loanDetails?.collateral?.ownerNidExpiryDate)}
                   {renderViewField("Collateral Type", loanDetails?.collateral?.collateralType)}
                   {renderViewField("Title Deed Number", loanDetails?.collateral?.titleDeedNumber)}
                   {renderViewField("Province", loanDetails?.collateral?.province)}
@@ -535,10 +568,9 @@ export default function CommitteeVotingPage() {
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             {renderViewField("Full Name", g.fullName)}
                             {renderViewField("Father Name", g.fatherName)}
-                            {renderViewField("Date of Birth", g.dateOfBirth)}
-                            {renderViewField("Age", g.age)}
+                            {renderDobViewField("Date of Birth", g.dateOfBirth)}
                             {renderViewField("National ID", g.nationalId)}
-                            {renderViewField("NID Expiry Date", g.nidExpiryDate)}
+                            {renderDateViewField("NID Expiry Date", g.nidExpiryDate)}
                             {renderViewField("Phone", g.phoneNumber)}
                             {renderViewField("Relationship", g.relationshipWithCustomer)}
                             {renderViewField("Home Address", g.homeAddress)}

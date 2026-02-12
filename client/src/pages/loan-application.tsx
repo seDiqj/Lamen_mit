@@ -17,13 +17,15 @@ import {
   Camera, Upload, X, File
 } from "lucide-react";
 import type { Branch, FinanceOfficer, FundingSource, Sector, Business, Province, District, LicenseType } from "@shared/schema";
-import { cn } from "@/lib/utils";
+import { cn, toPersianDate } from "@/lib/utils";
 
 const loanApplicationSchema = z.object({
   customerNo: z.string().optional(),
   firstName: z.string().min(1, "Name is required"),
   lastName: z.string().optional(),
   fatherName: z.string().optional(),
+  fullNameDari: z.string().optional(),
+  fatherNameDari: z.string().optional(),
   gender: z.string().optional(),
   nationalId: z.string().optional(),
   nidExpiryDate: z.string().optional(),
@@ -395,6 +397,20 @@ export default function LoanApplicationPage() {
                       <FormMessage />
                     </FormItem>
                   )} />
+                  <FormField control={form.control} name="fullNameDari" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs">Full Name (Dari)</FormLabel>
+                      <FormControl><Input placeholder="نام مکمل" className="h-9" {...field} data-testid="input-fullNameDari" dir="rtl" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="fatherNameDari" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs">Father's Name (Dari)</FormLabel>
+                      <FormControl><Input placeholder="نام پدر" className="h-9" {...field} data-testid="input-fatherNameDari" dir="rtl" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
                   <FormField control={form.control} name="gender" render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-xs">Gender</FormLabel>
@@ -419,7 +435,7 @@ export default function LoanApplicationPage() {
                   )} />
                   <FormField control={form.control} name="nidExpiryDate" render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-xs">NID Expiry Date</FormLabel>
+                      <FormLabel className="text-xs">NID Expiry Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel>
                       <FormControl><Input type="date" className="h-9" {...field} data-testid="input-nid-expiry" /></FormControl>
                       <FormMessage />
                     </FormItem>
@@ -439,7 +455,7 @@ export default function LoanApplicationPage() {
                     const age = calculateAge(field.value || "");
                     return (
                       <FormItem>
-                        <FormLabel className="text-xs">Date of Birth</FormLabel>
+                        <FormLabel className="text-xs">Date of Birth {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel>
                         <div className="flex gap-2 items-center">
                           <FormControl><Input type="date" className="h-9 flex-1" {...field} data-testid="input-dob" /></FormControl>
                           {age !== null && age >= 0 && (
@@ -778,7 +794,7 @@ export default function LoanApplicationPage() {
                   )} />
                   <FormField control={form.control} name="requestDate" render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-xs">Request Date</FormLabel>
+                      <FormLabel className="text-xs">Request Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel>
                       <FormControl><Input type="date" className="h-9" {...field} data-testid="input-request-date" /></FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1014,14 +1030,14 @@ export default function LoanApplicationPage() {
                     )} />
                     <FormField control={form.control} name="licenseRegisterDate" render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-xs">Register Date</FormLabel>
+                        <FormLabel className="text-xs">Register Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel>
                         <FormControl><Input type="date" className="h-9" {...field} data-testid="input-license-register-date" /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )} />
                     <FormField control={form.control} name="licenseExpiryDate" render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-xs">Expiry Date</FormLabel>
+                        <FormLabel className="text-xs">Expiry Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel>
                         <FormControl><Input type="date" className="h-9" {...field} data-testid="input-license-expiry-date" /></FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1064,7 +1080,7 @@ export default function LoanApplicationPage() {
                   )} />
                   <FormField control={form.control} name="collateralOwnerNidExpiry" render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-xs">Owner NID Expiry Date</FormLabel>
+                      <FormLabel className="text-xs">Owner NID Expiry Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel>
                       <FormControl><Input type="date" className="h-9" {...field} data-testid="input-collateral-nid-expiry" /></FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1162,7 +1178,7 @@ export default function LoanApplicationPage() {
                     )} />
                     <FormField control={form.control} name="financialGuarantorNidExpiry" render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-xs">NID Expiry Date</FormLabel>
+                        <FormLabel className="text-xs">NID Expiry Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel>
                         <FormControl><Input type="date" className="h-9" {...field} data-testid="input-fin-guarantor-nid-expiry" /></FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1183,7 +1199,7 @@ export default function LoanApplicationPage() {
                       const isInvalidAge = age !== null && (age < 18 || age > 65);
                       return (
                         <FormItem>
-                          <FormLabel className="text-xs">Date of Birth</FormLabel>
+                          <FormLabel className="text-xs">Date of Birth {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel>
                           <div className="flex gap-2 items-center">
                             <FormControl><Input type="date" className="h-9 flex-1" {...field} data-testid="input-fin-guarantor-dob" /></FormControl>
                             {age !== null && age >= 0 && (
@@ -1289,7 +1305,7 @@ export default function LoanApplicationPage() {
                     )} />
                     <FormField control={form.control} name="financialGuarantor2NidExpiry" render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-xs">NID Expiry Date</FormLabel>
+                        <FormLabel className="text-xs">NID Expiry Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel>
                         <FormControl><Input type="date" className="h-9" {...field} data-testid="input-fin-guarantor2-nid-expiry" /></FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1310,7 +1326,7 @@ export default function LoanApplicationPage() {
                       const isInvalidAge = age !== null && (age < 18 || age > 65);
                       return (
                         <FormItem>
-                          <FormLabel className="text-xs">Date of Birth</FormLabel>
+                          <FormLabel className="text-xs">Date of Birth {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel>
                           <div className="flex gap-2 items-center">
                             <FormControl><Input type="date" className="h-9 flex-1" {...field} data-testid="input-fin-guarantor2-dob" /></FormControl>
                             {age !== null && age >= 0 && (
@@ -1416,7 +1432,7 @@ export default function LoanApplicationPage() {
                     )} />
                     <FormField control={form.control} name="familyGuarantorNidExpiry" render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-xs">NID Expiry Date</FormLabel>
+                        <FormLabel className="text-xs">NID Expiry Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel>
                         <FormControl><Input type="date" className="h-9" {...field} data-testid="input-fam-guarantor-nid-expiry" /></FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1437,7 +1453,7 @@ export default function LoanApplicationPage() {
                       const isInvalidAge = age !== null && (age < 18 || age > 65);
                       return (
                         <FormItem>
-                          <FormLabel className="text-xs">Date of Birth</FormLabel>
+                          <FormLabel className="text-xs">Date of Birth {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel>
                           <div className="flex gap-2 items-center">
                             <FormControl><Input type="date" className="h-9 flex-1" {...field} data-testid="input-fam-guarantor-dob" /></FormControl>
                             {age !== null && age >= 0 && (
