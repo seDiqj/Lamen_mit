@@ -2055,11 +2055,15 @@ export class DatabaseStorage implements IStorage {
     for (const cat of parResults) {
       if (cat.loanIds.size > 0) {
         const loanIdsArr = Array.from(cat.loanIds);
-        const loanAmtResult = await db.execute(sql`
-          SELECT COALESCE(SUM(COALESCE(l.principle_amount::numeric, l.request_amount::numeric, 0)), 0) as amount
-          FROM loans l WHERE l.id = ANY(${loanIdsArr})
-        `);
-        cat.totalAmount = parseFloat((loanAmtResult.rows[0] as any)?.amount) || 0;
+        try {
+          const loanAmtResult = await db.execute(sql`
+            SELECT COALESCE(SUM(COALESCE(l.principle_amount::numeric, l.request_amount::numeric, 0)), 0) as amount
+            FROM loans l WHERE l.id = ANY(${sql`ARRAY[${sql.join(loanIdsArr.map(id => sql`${id}`), sql`, `)}]`})
+          `);
+          cat.totalAmount = parseFloat((loanAmtResult.rows[0] as any)?.amount) || 0;
+        } catch (err) {
+          console.error(`[PAR] Error fetching loan amounts for category ${cat.category}:`, err);
+        }
       }
     }
 
