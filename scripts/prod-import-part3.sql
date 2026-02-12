@@ -1516,12 +1516,12 @@ INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_
 INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_amount, credit_amount) VALUES ('d27be472-0575-4162-bb65-12d0229d98af', 'db95853d-fb4a-45e6-8752-014e56195e3e', (SELECT id FROM accounts WHERE account_code = '10100'), 'Laon paid to Mr. Zabihullah Hashemi as Musharakah for 12 months on 50% profit sharing on 4 installments in Chicken Farming,', '0.00', '130000.00');
 INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_amount, credit_amount) VALUES ('0669f957-7b41-4736-8610-e5908f1e4a27', 'dbee6926-3616-4194-9a0b-2c100e1a7146', (SELECT id FROM accounts WHERE account_code = '40500'), 'Discount received on the purchased assets', '0.00', '3140.00');
 INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_amount, credit_amount) VALUES ('3ed46191-6752-4dbe-bcf9-041f909ac2d1', 'dbee6926-3616-4194-9a0b-2c100e1a7146', (SELECT id FROM accounts WHERE account_code = '17301'), 'Paid for the purchase of furniture for HQ third floor', '153140.00', '0.00');
-INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_amount, credit_amount) VALUES ('07251e3c-108a-4dd3-83cf-52bc34b5fdfa', 'dbee6926-3616-4194-9a0b-2c100e1a7146', (SELECT id FROM accounts WHERE account_code = '10101'), 'Paid for the purchase of furniture for HQ third floor
+INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_amount, credit_amount) VALUES ('07251e3c-108a-4dd3-83cf-52bc34b5fdfa', 'dbee6926-3616-4194-9a0b-2c100e1a7146', (SELECT id FROM accounts WHERE account_code = '10101'), 'Paid for the purchase of furniture for HQ third floor  and Discount received on the purchased assets', '0.00', '150000.00');
 INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_amount, credit_amount) VALUES ('bfc9adee-6364-4662-855b-e25f22fb4d18', 'dc0fe5c3-6936-4d4c-98c2-5f28ec0ad339', (SELECT id FROM accounts WHERE account_code = '12100'), 'Purchased asset for customer on loan', '0.00', '100000.00');
 INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_amount, credit_amount) VALUES ('a454e2a3-2222-49d6-822d-06a037e2dbcd', 'dc0fe5c3-6936-4d4c-98c2-5f28ec0ad339', (SELECT id FROM accounts WHERE account_code = '20900'), 'Cost occurred on purchased product on loan for customers', '0.00', '20000.00');
 INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_amount, credit_amount) VALUES ('729ef200-d728-4c8e-9358-e2dee38601a3', 'dc0fe5c3-6936-4d4c-98c2-5f28ec0ad339', (SELECT id FROM accounts WHERE account_code = '11000'), '', '120000.00', '0.00');
 INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_amount, credit_amount) VALUES ('7f5b6df3-0c89-483e-97de-c928d5b73327', 'dc5d104c-4fbc-4d24-a2b5-f377967b20b7', (SELECT id FROM accounts WHERE account_code = '11000'), 'Purchased a taxi for Mr. Ebadullah on Murabaha', '376704.00', '0.00');
-INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_amount, credit_amount) VALUES ('1d9738fa-897c-4a23-9274-b90939e314d3', 'dc5d104c-4fbc-4d24-a2b5-f377967b20b7', (SELECT id FROM accounts WHERE account_code = '12100'), 'Murabaha loan paid to Ebadullah by purchasing Toyota Crollah on monthly installements.
+INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_amount, credit_amount) VALUES ('1d9738fa-897c-4a23-9274-b90939e314d3', 'dc5d104c-4fbc-4d24-a2b5-f377967b20b7', (SELECT id FROM accounts WHERE account_code = '12100'), 'Murabaha loan paid to Ebadullah by purchasing Toyota Crollah on monthly installements.', '0.00', '345600.00');
 INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_amount, credit_amount) VALUES ('1d1cdc5e-c9dc-49e4-8a56-e7f80b67ddf1', 'dc5d104c-4fbc-4d24-a2b5-f377967b20b7', (SELECT id FROM accounts WHERE account_code = '20900'), '9% CGS  on the sale of the product.', '0.00', '31104.00');
 INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_amount, credit_amount) VALUES ('d7e0d083-5096-4338-a8bc-42baadae91d3', 'dc7b34ab-f39c-403f-8712-fb2444b51332', (SELECT id FROM accounts WHERE account_code = '17301'), 'Paid for purchase of AC 1800/BE Pipe, Installation for the new AC replaced and delivery fee (Added cost to JV 472 and 478)', '5000.00', '0.00');
 INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_amount, credit_amount) VALUES ('7f5be686-b900-4cd4-81ce-73fbe742af57', 'dc7b34ab-f39c-403f-8712-fb2444b51332', (SELECT id FROM accounts WHERE account_code = '10101'), 'Paid for purchase of AC 1800/BE Pipe, Installation for the new AC replaced and delivery fee (Added cost to JV 472 and 478)', '0.00', '5000.00');
@@ -1932,8 +1932,8 @@ INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_
 INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_amount, credit_amount) VALUES ('92ed42ab-752e-48a3-bfbb-00f042f81461', 'f45928fe-6065-405d-b264-6c66c846375c', (SELECT id FROM accounts WHERE account_code = '61102'), 'Paid for liquid Gas', '500.00', '0.00');
 INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_amount, credit_amount) VALUES ('20fb0a7a-54aa-454e-a967-0db01ded984d', 'f46b44c4-f83a-4064-9606-a18fedc2d057', (SELECT id FROM accounts WHERE account_code = '61108'), 'Paid for the day lunch and one bottle mineral water', '670.00', '0.00');
 INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_amount, credit_amount) VALUES ('2d5db1cd-2c2a-4062-880e-7fd12142901c', 'f46b44c4-f83a-4064-9606-a18fedc2d057', (SELECT id FROM accounts WHERE account_code = '10101'), 'Paid for the day lunch and one bottle mineral water', '0.00', '670.00');
-INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_amount, credit_amount) VALUES ('9a6d76a7-ea64-472e-a253-60c33fb5fa6d', 'f4a4da42-def4-40fc-9c0b-ed251f32c4d7', (SELECT id FROM accounts WHERE account_code = '20900'), 'Purchased inventory items ', '0.00', '63000.00');
-INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_amount, credit_amount) VALUES ('6548014c-c496-4650-9bf7-2a8624e5e447', 'f4a4da42-def4-40fc-9c0b-ed251f32c4d7', (SELECT id FROM accounts WHERE account_code = '12100'), 'Purchased inventory items ', '0.00', '350000.00');
+INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_amount, credit_amount) VALUES ('9a6d76a7-ea64-472e-a253-60c33fb5fa6d', 'f4a4da42-def4-40fc-9c0b-ed251f32c4d7', (SELECT id FROM accounts WHERE account_code = '20900'), 'Purchased inventory items', '0.00', '63000.00');
+INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_amount, credit_amount) VALUES ('6548014c-c496-4650-9bf7-2a8624e5e447', 'f4a4da42-def4-40fc-9c0b-ed251f32c4d7', (SELECT id FROM accounts WHERE account_code = '12100'), 'Purchased inventory items', '0.00', '350000.00');
 INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_amount, credit_amount) VALUES ('0649b8d0-2777-486b-84ac-5c4e11851b7d', 'f4a4da42-def4-40fc-9c0b-ed251f32c4d7', (SELECT id FROM accounts WHERE account_code = '11000'), '', '413000.00', '0.00');
 INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_amount, credit_amount) VALUES ('04e39d6c-4837-455d-b23d-07177e288f40', 'f4c6fd2b-7b62-44df-bc15-0bb3760310e8', (SELECT id FROM accounts WHERE account_code = '60601'), 'Paid for guards Friday lunch expense', '140.00', '0.00');
 INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_amount, credit_amount) VALUES ('7f6467e7-36a9-4ba5-b0ad-34c677c6ba39', 'f4c6fd2b-7b62-44df-bc15-0bb3760310e8', (SELECT id FROM accounts WHERE account_code = '10101'), 'Paid for guards Friday lunch expense', '0.00', '140.00');
@@ -2173,7 +2173,7 @@ INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_
 INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_amount, credit_amount) VALUES ('d222caab-10d1-42bc-82eb-9729c9565acf', 'fff5adc8-10e6-4b36-b847-a70899e58546', (SELECT id FROM accounts WHERE account_code = '10100'), 'Paid for purchase of vegetable for lunch', '0.00', '170.00');
 INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_amount, credit_amount) VALUES ('6627882d-4c52-4298-baa5-acff2d71945e', 'fff5adc8-10e6-4b36-b847-a70899e58546', (SELECT id FROM accounts WHERE account_code = '60601'), 'Paid for purchase of vegetable for lunch', '170.00', '0.00');
 
--- Step 5: Recalculate all account balances from journal lines
+-- Step 5: Recalculate all account balances
 UPDATE accounts SET current_balance = COALESCE(sub.balance, 0)
 FROM (
   SELECT a.id,
@@ -2189,10 +2189,4 @@ FROM (
   GROUP BY a.id
 ) sub
 WHERE accounts.id = sub.id;
-
 COMMIT;
-
--- Import complete!
-
-COMMIT;
--- Import complete!

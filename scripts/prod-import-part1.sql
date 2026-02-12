@@ -1,13 +1,6 @@
 BEGIN;
--- ============================================
--- LMI Journal Entries Import - Production
--- Generated: 2026-02-12T05:30:18.593Z
--- Entries: 1253
--- Lines: 4345
--- ============================================
 
-
--- Step 1: Add missing salary accounts (skip if already exist)
+-- Step 1: Add missing salary accounts
 INSERT INTO accounts (id, account_code, account_name, account_type, parent_id, is_active, is_system_account, normal_balance, opening_balance, current_balance) SELECT gen_random_uuid(), '20183', 'Almas Momand', 'liability', (SELECT id FROM accounts WHERE account_code = '20150'), true, false, 'credit', '0', '0' WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE account_code = '20183');
 INSERT INTO accounts (id, account_code, account_name, account_type, parent_id, is_active, is_system_account, normal_balance, opening_balance, current_balance) SELECT gen_random_uuid(), '20184', 'Seema Wardak', 'liability', (SELECT id FROM accounts WHERE account_code = '20150'), true, false, 'credit', '0', '0' WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE account_code = '20184');
 INSERT INTO accounts (id, account_code, account_name, account_type, parent_id, is_active, is_system_account, normal_balance, opening_balance, current_balance) SELECT gen_random_uuid(), '20185', 'Temor Shah Waris', 'liability', (SELECT id FROM accounts WHERE account_code = '20150'), true, false, 'credit', '0', '0' WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE account_code = '20185');
