@@ -249,29 +249,67 @@ export default function AccountStatement() {
           <CardTitle className="text-lg">Select Account & Period</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap items-end gap-4">
-            <div className="space-y-2 min-w-[300px]">
-              <Label>Account</Label>
-              <SearchableAccountSelect
-                accounts={accounts}
-                value={selectedAccount}
-                onValueChange={setSelectedAccount}
-                placeholder="Search by code or name..."
-                className="w-full"
-                data-testid="select-account"
-              />
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-medium text-muted-foreground">Quick:</span>
+              {[
+                { label: "1D", days: 1 },
+                { label: "2D", days: 2 },
+                { label: "1W", days: 7 },
+                { label: "2W", days: 14 },
+                { label: "1M", months: 1 },
+                { label: "3M", months: 3 },
+                { label: "6M", months: 6 },
+                { label: "1Y", months: 12 },
+                { label: "All", all: true },
+              ].map((opt) => (
+                <button
+                  key={opt.label}
+                  type="button"
+                  data-testid={`button-quick-${opt.label}`}
+                  className="px-3 py-1 text-xs font-medium rounded-full border border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-100 dark:bg-sky-900/30 dark:text-sky-300 dark:border-sky-700 dark:hover:bg-sky-900/50 transition-colors"
+                  onClick={() => {
+                    const end = new Date();
+                    const endStr = end.toISOString().split("T")[0];
+                    setEndDate(endStr);
+                    if (opt.all) {
+                      setStartDate("2000-01-01");
+                    } else {
+                      const start = new Date();
+                      if (opt.months) start.setMonth(start.getMonth() - opt.months);
+                      if (opt.days) start.setDate(start.getDate() - opt.days);
+                      setStartDate(start.toISOString().split("T")[0]);
+                    }
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
-            <div className="space-y-2">
-              <Label>Start Date</Label>
-              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} data-testid="input-start-date" />
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="space-y-2 min-w-[300px]">
+                <Label>Account</Label>
+                <SearchableAccountSelect
+                  accounts={accounts}
+                  value={selectedAccount}
+                  onValueChange={setSelectedAccount}
+                  placeholder="Search by code or name..."
+                  className="w-full"
+                  data-testid="select-account"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Start Date</Label>
+                <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} data-testid="input-start-date" />
+              </div>
+              <div className="space-y-2">
+                <Label>End Date</Label>
+                <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} data-testid="input-end-date" />
+              </div>
+              <Button onClick={fetchStatement} disabled={!selectedAccount || isLoading} data-testid="button-generate">
+                {isLoading ? "Loading..." : "Generate Statement"}
+              </Button>
             </div>
-            <div className="space-y-2">
-              <Label>End Date</Label>
-              <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} data-testid="input-end-date" />
-            </div>
-            <Button onClick={fetchStatement} disabled={!selectedAccount || isLoading} data-testid="button-generate">
-              {isLoading ? "Loading..." : "Generate Statement"}
-            </Button>
           </div>
         </CardContent>
       </Card>
