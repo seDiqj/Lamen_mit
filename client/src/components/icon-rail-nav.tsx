@@ -101,6 +101,8 @@ const PAGE_URL_TO_NAME: Record<string, string> = {
   "/income-statement": "income-statement",
   "/balance-sheet": "balance-sheet",
   "/cash-flow-statement": "cash-flow-statement",
+  "/loan-classification": "loan-classification",
+  "/dab-report": "dab-report",
   "/accounting-dashboard": "accounting-dashboard",
   "/hr/dashboard": "hr-dashboard",
   "/hr/org-structure": "hr-org-structure",
@@ -217,6 +219,7 @@ export function IconRailNav({ children }: IconRailNavProps) {
         { title: "Balance Sheet", url: "/balance-sheet", icon: FileText, iconColor: "text-cyan-500" },
         { title: "Cash Flow Statement", url: "/cash-flow-statement", icon: ArrowDownUp, iconColor: "text-indigo-500" },
         { title: "Loan Classification", url: "/loan-classification", icon: BarChart3, iconColor: "text-orange-500" },
+        { title: "DAB Report", url: "/dab-report", icon: Building2, iconColor: "text-emerald-600" },
       ],
     },
     {

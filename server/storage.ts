@@ -255,6 +255,9 @@ export interface IStorage {
   // Loan Classification Report
   getLoanClassificationReport(): Promise<any>;
 
+  // DAB Report
+  getDABNotesToFinancialStatements(): Promise<any>;
+
   // Citizen Balance Statement helpers
   getLoansByCustomer(customerId: string): Promise<any[]>;
   getDisbursementByLoan(loanId: string): Promise<any>;
@@ -1707,6 +1710,211 @@ export class DatabaseStorage implements IStorage {
     };
 
     return { categories, totals };
+  }
+
+  async getDABNotesToFinancialStatements(): Promise<any> {
+    const allAccounts = await db.select().from(accounts).where(eq(accounts.isActive, true));
+    const accountMap: Record<string, number> = {};
+    for (const acc of allAccounts) {
+      accountMap[acc.accountCode] = Number(acc.currentBalance) || 0;
+    }
+
+    const sumByPrefix = (prefix: string): number => {
+      let total = 0;
+      for (const acc of allAccounts) {
+        if (acc.accountCode.startsWith(prefix)) {
+          total += Number(acc.currentBalance) || 0;
+        }
+      }
+      return total;
+    };
+
+    const sumCodes = (...codes: string[]): number => {
+      return codes.reduce((sum, code) => sum + (accountMap[code] || 0), 0);
+    };
+
+    const cashOnHand = sumByPrefix('101');
+    const cashAtBank = sumByPrefix('102');
+    const totalCashAndEquiv = cashOnHand + cashAtBank;
+
+    const currentLoansResult = await db.execute(sql`
+      SELECT 
+        COUNT(l.id) as customer_count,
+        COALESCE(SUM(COALESCE(l.principle_amount::numeric, 0)), 0) as principle_outstanding
+      FROM loans l
+      WHERE l.status IN ('disbursed', 'active')
+        AND COALESCE(l.financing_duration_months, 0) <= 12
+    `);
+    const currentLoans = (currentLoansResult.rows as any[])[0] || {};
+    const currentFinanceReceivable = parseFloat(currentLoans.principle_outstanding) || 0;
+    const currentCustomers = parseInt(currentLoans.customer_count) || 0;
+    const currentAllowance = 0;
+    const netCurrentFinanceReceivable = currentFinanceReceivable - currentAllowance;
+
+    const prepaidRent = accountMap['13100'] || 0;
+    const prepaidLicence = 0;
+    const otherPrepaid = 0;
+    const totalPrepaid = prepaidRent + prepaidLicence + otherPrepaid;
+
+    const propVehiclesEquipCost = sumCodes('17101', '17201', '17301', '17501');
+    const accumDepreciation = sumCodes('17102', '17202', '17302', '17502');
+    const totalTangibleFixed = propVehiclesEquipCost + accumDepreciation;
+    const annualImpairmentReview = 0;
+    const netTangibleFixed = totalTangibleFixed + annualImpairmentReview;
+
+    const software = accountMap['15200'] || 0;
+    const intellectualProperty = accountMap['15100'] || 0;
+    const accumAmortization = accountMap['15300'] || 0;
+    const totalIntangible = software + intellectualProperty + accumAmortization;
+    const intangibleImpairment = 0;
+    const netIntangible = totalIntangible + intangibleImpairment;
+
+    const longLoansResult = await db.execute(sql`
+      SELECT 
+        COUNT(l.id) as customer_count,
+        COALESCE(SUM(COALESCE(l.principle_amount::numeric, 0)), 0) as principle_outstanding
+      FROM loans l
+      WHERE l.status IN ('disbursed', 'active')
+        AND COALESCE(l.financing_duration_months, 0) > 12
+    `);
+    const longLoans = (longLoansResult.rows as any[])[0] || {};
+    const longFinanceReceivable = parseFloat(longLoans.principle_outstanding) || 0;
+    const longCustomers = parseInt(longLoans.customer_count) || 0;
+    const longAllowance = 0;
+    const netLongFinanceReceivable = longFinanceReceivable - longAllowance;
+
+    const incomeAccounts = allAccounts.filter(a => a.accountType === 'income');
+    const expenseAccounts = allAccounts.filter(a => a.accountType === 'expense');
+    const totalIncome = incomeAccounts.reduce((s, a) => s + Math.abs(Number(a.currentBalance) || 0), 0);
+    const totalExpenses = expenseAccounts.reduce((s, a) => s + Math.abs(Number(a.currentBalance) || 0), 0);
+    const currentMonthPL = totalIncome - totalExpenses;
+    const priorPeriodPL = 0;
+    const priorPeriodErrors = 0;
+    const dividendPaid = accountMap['30400'] || 0;
+    const netRetainedEarnings = priorPeriodPL + priorPeriodErrors + currentMonthPL - Math.abs(dividendPaid);
+
+    const tradePayables = accountMap['20100'] || 0;
+    const taxPayables = sumByPrefix('21');
+    let accruedSalaries = 0;
+    for (const acc of allAccounts) {
+      if (acc.accountCode.startsWith('201') && acc.accountCode !== '20100') {
+        accruedSalaries += Math.abs(Number(acc.currentBalance) || 0);
+      }
+    }
+    const otherCurrentLiabilities = 0;
+    const totalPayables = Math.abs(tradePayables) + Math.abs(taxPayables) + accruedSalaries + otherCurrentLiabilities;
+
+    const deferredTaxLiab = 0;
+    const pensionLiab = 0;
+    const longTermProvisions = 0;
+    const otherNonCurrentLiab = 0;
+    const totalNonCurrentLiab = deferredTaxLiab + pensionLiab + longTermProvisions + otherNonCurrentLiab;
+
+    return {
+      header: {
+        title: "Da Afghanistan Bank",
+        subtitle: "Non-Banking Financial Institutions Supervision Directorate General",
+        section: "Follow up and Offsite Supervision Section",
+        reportName: "Notes to the Financial Statements",
+        currency: "Afghani",
+        frequency: "Monthly",
+      },
+      notes: [
+        {
+          noteNumber: 1,
+          title: "Note 1 – Cash and Cash Equivalents",
+          lines: [
+            { code: "1.1", item: "Cash at Hand", amount: cashOnHand, source: "BS", sourceDetail: "Closing of 10100 Cash on Hand (Starting of 101 account Code)" },
+            { code: "1.2", item: "Cash at Bank", amount: cashAtBank, source: "BS", sourceDetail: "Closing of 10200 Cash at Bank (Starting of 102 account code)" },
+            { code: "1.3", item: "Total Cash and Cash Equivalents", amount: totalCashAndEquiv, isTotal: true },
+          ],
+        },
+        {
+          noteNumber: 2,
+          title: "Note 2 – Current Portion of Finance Receivables",
+          lines: [
+            { code: "2.1", item: "Current Portion of Finance Receivables", amount: currentFinanceReceivable, customers: currentCustomers, sourceDetail: "Principle Outstanding of Current Category" },
+            { code: "2.2", item: "Allowance", amount: currentAllowance, customers: currentCustomers, sourceDetail: "" },
+            { code: "2.3", item: "Net Current Portion of Finance Receivables", amount: netCurrentFinanceReceivable, isTotal: true },
+          ],
+        },
+        {
+          noteNumber: 3,
+          title: "Note 3 – Prepaid Expenses",
+          lines: [
+            { code: "3.1", item: "Prepaid Rent Expense", amount: prepaidRent, source: "BS", sourceDetail: "Balance of 13100 Account Code" },
+            { code: "3.2", item: "Prepaid Licence Fee", amount: prepaidLicence, source: "BS" },
+            { code: "3.3", item: "Other Prepaid Expenses", amount: otherPrepaid, source: "BS" },
+            { code: "3.4", item: "Total Prepaid Expenses", amount: totalPrepaid, isTotal: true },
+          ],
+        },
+        {
+          noteNumber: 4,
+          title: "Note 4 – Property, Vehicles, and Office Equipment",
+          lines: [
+            { code: "4.1", item: "Property, Vehicles, and Office Equipment", amount: propVehiclesEquipCost, source: "BS", sourceDetail: "Total of 17101, 17201, 17301, 17501" },
+            { code: "4.2", item: "Accumulated Depreciation", amount: accumDepreciation, source: "BS", sourceDetail: "Total of 17102, 17202, 17302, 17502" },
+            { code: "4.3", item: "Total Tangible Fixed Assets", amount: totalTangibleFixed, isTotal: true },
+            { code: "4.4", item: "Annual Impairment Review", amount: annualImpairmentReview },
+            { code: "4.5", item: "Net Tangible Fixed Assets", amount: netTangibleFixed, isTotal: true },
+          ],
+        },
+        {
+          noteNumber: 5,
+          title: "Note 5 – Intangible Assets",
+          lines: [
+            { code: "5.1", item: "Software (Developed or Purchased)", amount: software, source: "BS", sourceDetail: "Balance of 15200 Account Code" },
+            { code: "5.2", item: "Intellectual Property (Trademarks, Patents etc)", amount: intellectualProperty, source: "BS", sourceDetail: "Balance of 15100 Account Code" },
+            { code: "5.3", item: "Accumulated Amortization", amount: accumAmortization, source: "BS", sourceDetail: "Balance of Account Code 15300" },
+            { code: "5.4", item: "Total Intangible Fixed Assets", amount: totalIntangible, isTotal: true },
+            { code: "5.5", item: "Annual Impairment Review", amount: intangibleImpairment },
+            { code: "5.6", item: "Net Intangible Assets", amount: netIntangible, isTotal: true },
+          ],
+        },
+        {
+          noteNumber: 6,
+          title: "Note 6 – Long-Term Portion of Finance Receivables",
+          lines: [
+            { code: "6.1", item: "Long term Portion of Finance Receivables", amount: longFinanceReceivable, customers: longCustomers, sourceDetail: "Principle Outstanding of Long Category" },
+            { code: "6.2", item: "Allowance", amount: longAllowance, customers: longCustomers },
+            { code: "6.3", item: "Net Long-Term Portion of Finance Receivables", amount: netLongFinanceReceivable, isTotal: true },
+          ],
+        },
+        {
+          noteNumber: 7,
+          title: "Note 7 – Retained Earnings",
+          lines: [
+            { code: "7.1", item: "Accumulated Profits or Losses from Prior Periods", amount: priorPeriodPL, source: "IS", sourceDetail: "Profit and Loss of Previous Month" },
+            { code: "7.2", item: "Adjustments for Prior Period Errors", amount: priorPeriodErrors, source: "IS" },
+            { code: "7.3", item: "Profit or (Loss) for Current month", amount: currentMonthPL, source: "IS", sourceDetail: "Profit and Loss of Current Month" },
+            { code: "7.4", item: "Dividend Paid", amount: dividendPaid, sourceDetail: "Balance of 30400 Account Code" },
+            { code: "7.5", item: "Net Retained Earnings", amount: netRetainedEarnings, isTotal: true },
+          ],
+        },
+        {
+          noteNumber: 8,
+          title: "Note 8 – Payables",
+          lines: [
+            { code: "8.1", item: "Trade Payables", amount: Math.abs(tradePayables), source: "BS", sourceDetail: "20100 Account Code Balance" },
+            { code: "8.2", item: "Tax Payables", amount: Math.abs(taxPayables), source: "BS", sourceDetail: "Balance of all Accounts Starting with 21" },
+            { code: "8.3", item: "Accrued Salaries and Wages", amount: accruedSalaries, source: "BS", sourceDetail: "Balance of all Accounts Starting with 201" },
+            { code: "8.4", item: "Other Current Liabilities", amount: otherCurrentLiabilities, source: "BS" },
+            { code: "8.5", item: "Total Payables", amount: totalPayables, isTotal: true },
+          ],
+        },
+        {
+          noteNumber: 9,
+          title: "Note 9 – Non-Current Liabilities",
+          lines: [
+            { code: "9.1", item: "Deferred Tax Liabilities", amount: deferredTaxLiab },
+            { code: "9.2", item: "Pension liabilities", amount: pensionLiab },
+            { code: "9.3", item: "Long-Term Provisions (for regulatory or legal matters)", amount: longTermProvisions },
+            { code: "9.4", item: "Other Non-Current liabilities", amount: otherNonCurrentLiab },
+            { code: "9.5", item: "Total Non-Current Liabilities", amount: totalNonCurrentLiab, isTotal: true },
+          ],
+        },
+      ],
+    };
   }
 
   // Activity Logs
