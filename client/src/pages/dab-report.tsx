@@ -63,7 +63,7 @@ function NotesToFinancialStatements() {
     rows.push(["", "Currency", data.header.currency]);
     rows.push(["", "Frequency", data.header.frequency]);
     rows.push([]);
-    rows.push(["Line Code", "Items", "Amount", "Customers", "Source of Data"]);
+    rows.push(["Line Code", "Items", "Amount", "Source of Data"]);
 
     data.notes.forEach((note) => {
       rows.push([]);
@@ -73,7 +73,6 @@ function NotesToFinancialStatements() {
           line.code,
           line.item,
           line.amount,
-          line.customers ?? "",
           line.sourceDetail || line.source || "",
         ]);
       });
@@ -112,22 +111,20 @@ function NotesToFinancialStatements() {
           line.code,
           line.item,
           formatCurrency(line.amount),
-          line.customers != null ? line.customers.toString() : "",
           line.sourceDetail || line.source || "",
         ]);
       });
 
       autoTable(doc, {
-        head: [[{ content: note.title, colSpan: 5, styles: { halign: "left", fillColor: [34, 120, 74], textColor: 255, fontStyle: "bold" } }]],
+        head: [[{ content: note.title, colSpan: 4, styles: { halign: "left", fillColor: [34, 120, 74], textColor: 255, fontStyle: "bold" } }]],
         body: rows,
         startY,
         styles: { fontSize: 7, cellPadding: 1.5 },
         columnStyles: {
-          0: { cellWidth: 12 },
-          1: { cellWidth: 65 },
-          2: { cellWidth: 30, halign: "right" },
-          3: { cellWidth: 22, halign: "right" },
-          4: { cellWidth: 55 },
+          0: { cellWidth: 15 },
+          1: { cellWidth: 75 },
+          2: { cellWidth: 35, halign: "right" },
+          3: { cellWidth: 60 },
         },
         didParseCell: (hookData: any) => {
           if (hookData.section === "body") {
@@ -199,7 +196,7 @@ function NotesToFinancialStatements() {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-green-700">
-                      <TableHead colSpan={5} className="text-white font-bold text-xs py-1.5">
+                      <TableHead colSpan={4} className="text-white font-bold text-xs py-1.5">
                         {note.title}
                       </TableHead>
                     </TableRow>
@@ -207,7 +204,6 @@ function NotesToFinancialStatements() {
                       <TableHead className="w-16 text-xs">Code</TableHead>
                       <TableHead className="text-xs">Items</TableHead>
                       <TableHead className="text-right text-xs w-32">Amount</TableHead>
-                      <TableHead className="text-right text-xs w-24">Customers</TableHead>
                       <TableHead className="text-xs w-48">Source of Data</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -221,7 +217,6 @@ function NotesToFinancialStatements() {
                         <TableCell className="text-xs py-1.5">{line.code}</TableCell>
                         <TableCell className="text-xs py-1.5">{line.item}</TableCell>
                         <TableCell className="text-right text-xs py-1.5">{formatCurrency(line.amount)}</TableCell>
-                        <TableCell className="text-right text-xs py-1.5">{line.customers ?? ""}</TableCell>
                         <TableCell className="text-xs py-1.5 text-muted-foreground">{line.sourceDetail || line.source || ""}</TableCell>
                       </TableRow>
                     ))}
