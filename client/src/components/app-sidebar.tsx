@@ -115,6 +115,7 @@ const PAGE_URL_TO_NAME: Record<string, string> = {
   "/income-statement": "income-statement",
   "/balance-sheet": "balance-sheet",
   "/cash-flow-statement": "cash-flow-statement",
+  "/loan-classification": "loan-classification",
   "/accounting-dashboard": "accounting-dashboard",
   "/hr/dashboard": "hr-dashboard",
   "/hr/org-structure": "hr-org-structure",
@@ -206,6 +207,7 @@ export function AppSidebar() {
         { title: "Income Statement", url: "/income-statement", icon: TrendingUp, iconColor: "text-green-500" },
         { title: "Balance Sheet", url: "/balance-sheet", icon: FileText, iconColor: "text-cyan-500" },
         { title: "Cash Flow Statement", url: "/cash-flow-statement", icon: ArrowDownUp, iconColor: "text-indigo-500" },
+        { title: "Loan Classification", url: "/loan-classification", icon: BarChart3, iconColor: "text-orange-500" },
       ],
     },
     {
@@ -281,6 +283,7 @@ export function AppSidebar() {
         { title: "Income Statement", url: "/income-statement", icon: TrendingUp, iconColor: "text-green-500" },
         { title: "Balance Sheet", url: "/balance-sheet", icon: FileText, iconColor: "text-cyan-500" },
         { title: "Cash Flow Statement", url: "/cash-flow-statement", icon: ArrowDownUp, iconColor: "text-indigo-500" },
+        { title: "Loan Classification", url: "/loan-classification", icon: BarChart3, iconColor: "text-orange-500" },
       ],
     },
     {
@@ -359,6 +362,7 @@ export function AppSidebar() {
         { title: "Income Statement", url: "/income-statement", icon: TrendingUp, iconColor: "text-green-500" },
         { title: "Balance Sheet", url: "/balance-sheet", icon: FileText, iconColor: "text-cyan-500" },
         { title: "Cash Flow Statement", url: "/cash-flow-statement", icon: ArrowDownUp, iconColor: "text-indigo-500" },
+        { title: "Loan Classification", url: "/loan-classification", icon: BarChart3, iconColor: "text-orange-500" },
       ],
     },
     {

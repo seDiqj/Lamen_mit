@@ -252,6 +252,9 @@ export interface IStorage {
   getCollectionInstallments(filters: { filter?: string; branch?: string; officer?: string; search?: string; page?: number; limit?: number }): Promise<{ installments: any[]; total: number; summary: any }>;
   recordPartialPayment(id: string, amount: number): Promise<Installment>;
 
+  // Loan Classification Report
+  getLoanClassificationReport(): Promise<any>;
+
   // Citizen Balance Statement helpers
   getLoansByCustomer(customerId: string): Promise<any[]>;
   getDisbursementByLoan(loanId: string): Promise<any>;
@@ -1642,6 +1645,68 @@ export class DatabaseStorage implements IStorage {
       .returning();
 
     return updated;
+  }
+
+  async getLoanClassificationReport(): Promise<any> {
+    const loanResult = await db.execute(sql`
+      SELECT 
+        CASE WHEN COALESCE(l.financing_duration_months, 0) <= 12 THEN 'Current' ELSE 'Long' END as category,
+        COUNT(l.id) as no_of_loans,
+        COALESCE(SUM(COALESCE(l.principle_amount::numeric, 0)), 0) as total_principle,
+        COALESCE(SUM(COALESCE(l.profit::numeric, 0)), 0) as total_profit,
+        COALESCE(SUM(COALESCE(l.principle_amount::numeric, 0) + COALESCE(l.profit::numeric, 0)), 0) as total
+      FROM loans l
+      WHERE l.status IN ('disbursed', 'active')
+      GROUP BY category
+      ORDER BY CASE WHEN COALESCE(l.financing_duration_months, 0) <= 12 THEN 0 ELSE 1 END
+    `);
+
+    const collectionResult = await db.execute(sql`
+      SELECT 
+        CASE WHEN COALESCE(l.financing_duration_months, 0) <= 12 THEN 'Current' ELSE 'Long' END as category,
+        COALESCE(SUM(CASE WHEN i.is_paid = true THEN COALESCE(i.principle_amount::numeric, 0) ELSE 0 END), 0) as total_p_collection,
+        COALESCE(SUM(CASE WHEN i.is_paid = true THEN COALESCE(i.margin_amount::numeric, 0) ELSE 0 END), 0) as total_margin,
+        COALESCE(SUM(CASE WHEN i.is_paid = true THEN COALESCE(i.total_amount::numeric, 0) ELSE 0 END), 0) as total_collection
+      FROM loans l
+      LEFT JOIN installments i ON i.loan_id = l.id
+      WHERE l.status IN ('disbursed', 'active')
+      GROUP BY category
+    `);
+
+    const collectionMap: Record<string, any> = {};
+    for (const row of collectionResult.rows as any[]) {
+      collectionMap[row.category] = row;
+    }
+
+    const categories = (loanResult.rows as any[]).map(row => {
+      const col = collectionMap[row.category] || {};
+      const totalAmount = parseFloat(row.total) || 0;
+      const totalCol = parseFloat(col.total_collection) || 0;
+      return {
+        category: row.category,
+        noOfLoans: parseInt(row.no_of_loans) || 0,
+        totalPrinciple: parseFloat(row.total_principle) || 0,
+        totalProfit: parseFloat(row.total_profit) || 0,
+        total: totalAmount,
+        totalPCollection: parseFloat(col.total_p_collection) || 0,
+        totalMargin: parseFloat(col.total_margin) || 0,
+        totalCollection: totalCol,
+        totalReceivable: totalAmount - totalCol,
+      };
+    });
+
+    const totals = {
+      noOfLoans: categories.reduce((s, c) => s + c.noOfLoans, 0),
+      totalPrinciple: categories.reduce((s, c) => s + c.totalPrinciple, 0),
+      totalProfit: categories.reduce((s, c) => s + c.totalProfit, 0),
+      total: categories.reduce((s, c) => s + c.total, 0),
+      totalPCollection: categories.reduce((s, c) => s + c.totalPCollection, 0),
+      totalMargin: categories.reduce((s, c) => s + c.totalMargin, 0),
+      totalCollection: categories.reduce((s, c) => s + c.totalCollection, 0),
+      totalReceivable: categories.reduce((s, c) => s + c.totalReceivable, 0),
+    };
+
+    return { categories, totals };
   }
 
   // Activity Logs

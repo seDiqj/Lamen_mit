@@ -2559,6 +2559,17 @@ export async function registerRoutes(
     }
   });
 
+  // ===== LOAN CLASSIFICATION REPORT =====
+  app.get("/api/reports/loan-classification", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
+    try {
+      const data = await storage.getLoanClassificationReport();
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching loan classification report:", error);
+      res.status(500).json({ message: "Failed to fetch loan classification report" });
+    }
+  });
+
   // ===== REPORTS =====
   app.get("/api/reports", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
     try {

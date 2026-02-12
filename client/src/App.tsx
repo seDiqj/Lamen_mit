@@ -38,6 +38,7 @@ import TrialBalancePage from "@/pages/trial-balance";
 import IncomeStatementPage from "@/pages/income-statement";
 import BalanceSheetPage from "@/pages/balance-sheet";
 import CashFlowStatementPage from "@/pages/cash-flow-statement";
+import LoanClassificationPage from "@/pages/loan-classification";
 import LookupPage from "@/pages/lookup";
 import ParCategoriesPage from "@/pages/par-categories";
 import DisbursementTargetsPage from "@/pages/disbursement-targets";
@@ -173,6 +174,7 @@ function AppRoutes() {
         <Route path="/income-statement" component={IncomeStatementPage} />
         <Route path="/balance-sheet" component={BalanceSheetPage} />
         <Route path="/cash-flow-statement" component={CashFlowStatementPage} />
+        <Route path="/loan-classification" component={LoanClassificationPage} />
         <Route path="/accounting-dashboard" component={AccountingDashboardPage} />
         <Route path="/hr/dashboard" component={HRDashboardPage} />
         <Route path="/hr/org-structure" component={HROrgStructurePage} />
