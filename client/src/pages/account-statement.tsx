@@ -177,6 +177,18 @@ export default function AccountStatement() {
       ]);
     });
 
+    const totalDebit = statement.transactions.reduce((sum, tx) => sum + Number(tx.debitAmount), 0);
+    const totalCredit = statement.transactions.reduce((sum, tx) => sum + Number(tx.creditAmount), 0);
+    tableData.push([
+      "",
+      "",
+      "",
+      { content: "Total", styles: { fontStyle: "bold", halign: "right" } },
+      { content: formatCurrency(totalDebit.toString()).replace("AFN", "").trim(), styles: { fontStyle: "bold" } },
+      { content: formatCurrency(totalCredit.toString()).replace("AFN", "").trim(), styles: { fontStyle: "bold" } },
+      ""
+    ]);
+
     tableData.push([
       "",
       "",
@@ -371,6 +383,16 @@ export default function AccountStatement() {
                     </TableCell>
                   </TableRow>
                 )}
+                <TableRow className="bg-muted/20 font-semibold border-t-2">
+                  <TableCell colSpan={4} className="text-right">Total</TableCell>
+                  <TableCell className="text-right font-mono">
+                    {formatCurrency(statement.transactions.reduce((sum, tx) => sum + Number(tx.debitAmount), 0).toString())}
+                  </TableCell>
+                  <TableCell className="text-right font-mono">
+                    {formatCurrency(statement.transactions.reduce((sum, tx) => sum + Number(tx.creditAmount), 0).toString())}
+                  </TableCell>
+                  <TableCell></TableCell>
+                </TableRow>
                 <TableRow className="bg-muted/30 font-semibold">
                   <TableCell colSpan={6}>Closing Balance</TableCell>
                   <TableCell className="text-right font-mono">{formatCurrency(statement.closingBalance.toString())}</TableCell>
