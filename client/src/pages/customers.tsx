@@ -84,45 +84,68 @@ export default function CustomersPage() {
     enabled: !!loanDialogCustomer,
   });
 
-  const exportToExcel = () => {
-    if (!data?.customers) return;
-    const rows = data.customers.map((c) => ({
-      "Customer Name": `${c.firstName || ""} ${c.lastName || ""}`.trim(),
-      "Customer No": c.customerNo || "",
-      "National ID": c.nationalId || "",
-      "Phone": c.phoneNumber || "",
-      "District": c.district || "",
-      "Active Loans": c.activeLoans || 0,
-    }));
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Customers");
-    XLSX.writeFile(wb, "customers.xlsx");
+  const [exporting, setExporting] = useState(false);
+
+  const fetchAllCustomers = async (): Promise<CustomerWithLoans[]> => {
+    const params = new URLSearchParams();
+    if (search) params.set("search", search);
+    params.set("page", "1");
+    params.set("limit", "10000");
+    const res = await fetch(`/api/customers?${params.toString()}`, { credentials: "include" });
+    if (!res.ok) throw new Error("Failed to fetch customers for export");
+    const result = await res.json();
+    return result.customers;
   };
 
-  const exportToPDF = () => {
-    if (!data?.customers) return;
-    const doc = new jsPDF();
-    doc.setFontSize(16);
-    doc.text("Customer List", 14, 15);
-    doc.setFontSize(10);
-    doc.text(`Exported: ${new Date().toLocaleDateString()}`, 14, 22);
-    const rows = data.customers.map((c) => [
-      `${c.firstName || ""} ${c.lastName || ""}`.trim(),
-      c.customerNo || "-",
-      c.nationalId || "-",
-      c.phoneNumber || "-",
-      c.district || "-",
-      String(c.activeLoans || 0),
-    ]);
-    autoTable(doc, {
-      head: [["Customer Name", "Customer No", "National ID", "Phone", "District", "Active Loans"]],
-      body: rows,
-      startY: 28,
-      styles: { fontSize: 9 },
-      headStyles: { fillColor: [109, 40, 217] },
-    });
-    doc.save("customers.pdf");
+  const exportToExcel = async () => {
+    setExporting(true);
+    try {
+      const customers = await fetchAllCustomers();
+      const rows = customers.map((c) => ({
+        "Customer Name": `${c.firstName || ""} ${c.lastName || ""}`.trim(),
+        "Customer No": c.customerNo || "",
+        "National ID": c.nationalId || "",
+        "Phone": c.phoneNumber || "",
+        "District": c.district || "",
+        "Active Loans": c.activeLoans || 0,
+      }));
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Customers");
+      XLSX.writeFile(wb, "customers.xlsx");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const exportToPDF = async () => {
+    setExporting(true);
+    try {
+      const customers = await fetchAllCustomers();
+      const doc = new jsPDF();
+      doc.setFontSize(16);
+      doc.text("Customer List", 14, 15);
+      doc.setFontSize(10);
+      doc.text(`Exported: ${new Date().toLocaleDateString()}`, 14, 22);
+      const rows = customers.map((c) => [
+        `${c.firstName || ""} ${c.lastName || ""}`.trim(),
+        c.customerNo || "-",
+        c.nationalId || "-",
+        c.phoneNumber || "-",
+        c.district || "-",
+        String(c.activeLoans || 0),
+      ]);
+      autoTable(doc, {
+        head: [["Customer Name", "Customer No", "National ID", "Phone", "District", "Active Loans"]],
+        body: rows,
+        startY: 28,
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [109, 40, 217] },
+      });
+      doc.save("customers.pdf");
+    } finally {
+      setExporting(false);
+    }
   };
 
   const getInitials = (firstName?: string | null, lastName?: string | null) => {
@@ -183,19 +206,21 @@ export default function CustomersPage() {
                 variant="outline"
                 className="text-emerald-700 dark:text-emerald-400 border-emerald-500/40"
                 onClick={exportToExcel}
+                disabled={exporting || isLoading}
                 data-testid="button-export-excel"
               >
                 <FileSpreadsheet className="mr-2 h-4 w-4" />
-                Excel
+                {exporting ? "Exporting..." : "Excel"}
               </Button>
               <Button
                 variant="outline"
                 className="text-red-700 dark:text-red-400 border-red-500/40"
                 onClick={exportToPDF}
+                disabled={exporting || isLoading}
                 data-testid="button-export-pdf"
               >
                 <File className="mr-2 h-4 w-4" />
-                PDF
+                {exporting ? "Exporting..." : "PDF"}
               </Button>
             </div>
           </div>
