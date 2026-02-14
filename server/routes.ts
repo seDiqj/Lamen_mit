@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
 import { customers, loans } from "@shared/schema";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import bcrypt from "bcrypt";
 import session from "express-session";
@@ -974,8 +974,30 @@ export async function registerRoutes(
         page ? parseInt(page as string) : 1,
         limit ? parseInt(limit as string) : 10
       );
+
+      const customerIds = result.customers.map(c => c.id);
+      let activeLoanCounts: Record<string, number> = {};
+      if (customerIds.length > 0) {
+        const loanCountResult = await db.execute(sql`
+          SELECT customer_id, COUNT(*) as active_count
+          FROM loans
+          WHERE customer_id = ANY(${customerIds})
+            AND status IN ('disbursed', 'active')
+          GROUP BY customer_id
+        `);
+        for (const row of loanCountResult.rows as any[]) {
+          activeLoanCounts[row.customer_id] = parseInt(row.active_count) || 0;
+        }
+      }
+
+      const customersWithLoans = result.customers.map(c => ({
+        ...c,
+        activeLoans: activeLoanCounts[c.id] || 0,
+      }));
+
       res.json({
-        ...result,
+        customers: customersWithLoans,
+        total: result.total,
         page: page ? parseInt(page as string) : 1,
         totalPages: Math.ceil(result.total / (limit ? parseInt(limit as string) : 10)),
       });
