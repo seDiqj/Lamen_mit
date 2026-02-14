@@ -1,6 +1,6 @@
 import { db } from "./db";
 import bcrypt from "bcrypt";
-import { eq, and, like, or, desc, asc, sql, count, gt, gte, lte, isNull, inArray } from "drizzle-orm";
+import { eq, and, like, ilike, or, desc, asc, sql, count, gt, gte, lte, isNull, inArray } from "drizzle-orm";
 import {
   users,
   userRoles,
@@ -810,10 +810,11 @@ export class DatabaseStorage implements IStorage {
 
     if (search) {
       const searchCondition = or(
-        like(customers.firstName, `%${search}%`),
-        like(customers.lastName, `%${search}%`),
-        like(customers.customerNo, `%${search}%`),
-        like(customers.phoneNumber, `%${search}%`)
+        ilike(customers.firstName, `%${search}%`),
+        ilike(customers.lastName, `%${search}%`),
+        ilike(customers.customerNo, `%${search}%`),
+        ilike(customers.nationalId, `%${search}%`),
+        ilike(customers.phoneNumber, `%${search}%`)
       );
       baseQuery = baseQuery.where(searchCondition) as typeof baseQuery;
       countQuery = countQuery.where(searchCondition) as typeof countQuery;
