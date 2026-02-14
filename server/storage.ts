@@ -279,6 +279,7 @@ export interface IStorage {
   // Dashboard Stats
   getDashboardStats(): Promise<any>;
   getBranchStats(): Promise<any[]>;
+  getFundingSourceBranchStats(): Promise<any[]>;
   
   // Reports
   getReportData(period: string): Promise<any>;
@@ -2089,6 +2090,59 @@ export class DatabaseStorage implements IStorage {
       const totalCollected = parseFloat(row.total_collected) || 0;
       const totalPortfolio = parseFloat(row.total_portfolio) || 0;
       return {
+        branchName: row.branch_name || 'Unknown',
+        loanCount: parseInt(row.loan_count) || 0,
+        customerCount: parseInt(row.customer_count) || 0,
+        totalDisbursed: parseFloat(row.total_disbursed) || 0,
+        totalCollected,
+        outstandingBalance: totalPortfolio - totalCollected,
+      };
+    });
+  }
+
+  async getFundingSourceBranchStats(): Promise<any[]> {
+    const result = await db.execute(sql`
+      SELECT 
+        COALESCE(fs.name, 'Unknown') as funding_source_name,
+        COALESCE(b.name, 'Unknown') as branch_name,
+        COUNT(DISTINCT l.id) as loan_count,
+        COUNT(DISTINCT l.customer_id) as customer_count,
+        COALESCE(SUM(COALESCE(l.principle_amount, l.request_amount)::numeric), 0) as total_disbursed,
+        COALESCE(SUM(CASE WHEN l.total_receivable IS NOT NULL THEN l.total_receivable::numeric ELSE COALESCE(l.principle_amount, l.request_amount)::numeric END), 0) as total_portfolio
+      FROM loans l
+      LEFT JOIN branches b ON l.branch_id = b.id
+      LEFT JOIN funding_sources fs ON l.funding_source_id = fs.id
+      WHERE l.status IN ('disbursed', 'active', 'completed')
+      GROUP BY fs.id, fs.name, b.id, b.name
+      ORDER BY fs.name, b.name
+    `);
+
+    const collectionResult = await db.execute(sql`
+      SELECT 
+        COALESCE(fs.name, 'Unknown') as funding_source_name,
+        COALESCE(b.name, 'Unknown') as branch_name,
+        COALESCE(SUM(COALESCE(i.paid_amount::numeric, 0)), 0) as total_collected
+      FROM installments i
+      JOIN loans l ON i.loan_id = l.id
+      LEFT JOIN branches b ON l.branch_id = b.id
+      LEFT JOIN funding_sources fs ON l.funding_source_id = fs.id
+      WHERE l.status IN ('disbursed', 'active', 'completed')
+        AND i.is_paid = true
+      GROUP BY fs.name, b.name
+    `);
+
+    const collectionMap: Record<string, number> = {};
+    for (const row of collectionResult.rows as any[]) {
+      const key = `${row.funding_source_name}|${row.branch_name}`;
+      collectionMap[key] = parseFloat(row.total_collected) || 0;
+    }
+
+    return (result.rows as any[]).map(row => {
+      const key = `${row.funding_source_name}|${row.branch_name}`;
+      const totalCollected = collectionMap[key] || 0;
+      const totalPortfolio = parseFloat(row.total_portfolio) || 0;
+      return {
+        fundingSourceName: row.funding_source_name || 'Unknown',
         branchName: row.branch_name || 'Unknown',
         loanCount: parseInt(row.loan_count) || 0,
         customerCount: parseInt(row.customer_count) || 0,

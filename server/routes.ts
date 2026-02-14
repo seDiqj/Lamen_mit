@@ -413,6 +413,16 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/dashboard/funding-source-branch-stats", isAuthenticated, async (req, res) => {
+    try {
+      const stats = await storage.getFundingSourceBranchStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching funding source branch stats:", error);
+      res.status(500).json({ message: "Failed to fetch funding source branch stats" });
+    }
+  });
+
   // ===== BRANCHES =====
   app.get("/api/branches", isAuthenticated, async (req, res) => {
     try {

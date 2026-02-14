@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/use-auth";
 import { formatDate } from "@/lib/date-utils";
 import {
@@ -72,6 +73,16 @@ type DashboardStats = {
 };
 
 type BranchStats = {
+  branchName: string;
+  loanCount: number;
+  customerCount: number;
+  totalDisbursed: number;
+  totalCollected: number;
+  outstandingBalance: number;
+};
+
+type FundingSourceBranchStats = {
+  fundingSourceName: string;
   branchName: string;
   loanCount: number;
   customerCount: number;
@@ -270,6 +281,10 @@ export default function Dashboard() {
 
   const { data: branchStats, isLoading: branchLoading } = useQuery<BranchStats[]>({
     queryKey: ["/api/dashboard/branch-stats"],
+  });
+
+  const { data: fundingSourceStats, isLoading: fundingSourceLoading } = useQuery<FundingSourceBranchStats[]>({
+    queryKey: ["/api/dashboard/funding-source-branch-stats"],
   });
 
   const { data: loansData, isLoading: loansLoading } = useQuery<{ loans: LoanListItem[]; total: number }>({
@@ -484,90 +499,219 @@ export default function Dashboard() {
               <Building2 className="h-5 w-5 text-white" />
             </div>
             <div>
-              <CardTitle className="text-lg font-semibold">Summary by Branch</CardTitle>
-              <p className="text-sm text-muted-foreground">Portfolio breakdown by branch</p>
+              <CardTitle className="text-lg font-semibold" data-testid="text-portfolio-summary-title">Portfolio Summary</CardTitle>
+              <p className="text-sm text-muted-foreground">Breakdown by funding source and branch</p>
             </div>
           </div>
-          <Badge variant="outline" className="bg-teal-500/10 text-teal-700 dark:text-teal-400 border-teal-500/30">
-            {branchStats?.length || 0} Branches
-          </Badge>
         </CardHeader>
         <CardContent>
-          {branchLoading ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-16 w-full" />
-              ))}
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b bg-muted/30">
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-muted-foreground">Branch</th>
-                    <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">No. of Financings</th>
-                    <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">No. of Customers</th>
-                    <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Total Disbursed</th>
-                    <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Total Collected</th>
-                    <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Outstanding Balance</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(branchStats || []).map((branch, idx) => (
-                    <tr key={branch.branchName} className={`border-b last:border-0 hover:bg-muted/30 transition-colors ${idx % 2 === 0 ? 'bg-background' : 'bg-muted/10'}`}>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-teal-400 to-emerald-500 flex items-center justify-center text-xs font-bold text-white shadow">
-                            {branch.branchName.substring(0, 2).toUpperCase()}
-                          </div>
-                          <span className="font-medium">{branch.branchName}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <Badge variant="outline" className="bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30">
-                          {branch.loanCount}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <Badge variant="outline" className="bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/30">
-                          {branch.customerCount}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3 text-right font-medium text-emerald-600 dark:text-emerald-400">
-                        {formatCurrency(branch.totalDisbursed)}
-                      </td>
-                      <td className="px-4 py-3 text-right font-medium text-green-600 dark:text-green-400">
-                        {formatCurrency(branch.totalCollected)}
-                      </td>
-                      <td className="px-4 py-3 text-right font-semibold text-amber-600 dark:text-amber-400">
-                        {formatCurrency(branch.outstandingBalance)}
-                      </td>
-                    </tr>
+          <Tabs defaultValue="funding-source" className="w-full">
+            <TabsList className="mb-4">
+              <TabsTrigger value="funding-source" data-testid="tab-funding-source">Summary by Funding Source</TabsTrigger>
+              <TabsTrigger value="branch" data-testid="tab-branch">Summary by Branch</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="funding-source">
+              {fundingSourceLoading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-16 w-full" />
                   ))}
-                  {(!branchStats || branchStats.length === 0) && (
-                    <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
-                        <Building2 className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
-                        <p>No branch data available</p>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-                {branchStats && branchStats.length > 0 && (
-                  <tfoot>
-                    <tr className="bg-muted/50 font-semibold">
-                      <td className="px-4 py-3">Total</td>
-                      <td className="px-4 py-3 text-right">{branchStats.reduce((sum, b) => sum + b.loanCount, 0)}</td>
-                      <td className="px-4 py-3 text-right">{branchStats.reduce((sum, b) => sum + b.customerCount, 0)}</td>
-                      <td className="px-4 py-3 text-right text-emerald-600 dark:text-emerald-400">{formatCurrency(branchStats.reduce((sum, b) => sum + b.totalDisbursed, 0))}</td>
-                      <td className="px-4 py-3 text-right text-green-600 dark:text-green-400">{formatCurrency(branchStats.reduce((sum, b) => sum + b.totalCollected, 0))}</td>
-                      <td className="px-4 py-3 text-right text-amber-600 dark:text-amber-400">{formatCurrency(branchStats.reduce((sum, b) => sum + b.outstandingBalance, 0))}</td>
-                    </tr>
-                  </tfoot>
-                )}
-              </table>
-            </div>
-          )}
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full" data-testid="table-funding-source-stats">
+                    <thead>
+                      <tr className="border-b bg-muted/30">
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-muted-foreground">Funding Source</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-muted-foreground">Branch</th>
+                        <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">No. of Financings</th>
+                        <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">No. of Customers</th>
+                        <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Total Disbursed</th>
+                        <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Total Collected</th>
+                        <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Outstanding Balance</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(() => {
+                        const stats = fundingSourceStats || [];
+                        const grouped: Record<string, FundingSourceBranchStats[]> = {};
+                        stats.forEach(s => {
+                          if (!grouped[s.fundingSourceName]) grouped[s.fundingSourceName] = [];
+                          grouped[s.fundingSourceName].push(s);
+                        });
+                        let rowIdx = 0;
+                        return Object.entries(grouped).map(([fsName, rows]) => {
+                          const fsTotal = {
+                            loanCount: rows.reduce((s, r) => s + r.loanCount, 0),
+                            customerCount: rows.reduce((s, r) => s + r.customerCount, 0),
+                            totalDisbursed: rows.reduce((s, r) => s + r.totalDisbursed, 0),
+                            totalCollected: rows.reduce((s, r) => s + r.totalCollected, 0),
+                            outstandingBalance: rows.reduce((s, r) => s + r.outstandingBalance, 0),
+                          };
+                          return (
+                            <>{rows.map((row, i) => {
+                              const currentIdx = rowIdx++;
+                              return (
+                                <tr key={`${fsName}-${row.branchName}`} className={`border-b last:border-0 hover:bg-muted/30 transition-colors ${currentIdx % 2 === 0 ? 'bg-background' : 'bg-muted/10'}`}>
+                                  {i === 0 && (
+                                    <td className="px-4 py-3 font-medium" rowSpan={rows.length}>
+                                      <div className="flex items-center gap-3">
+                                        <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-xs font-bold text-white shadow">
+                                          {fsName.substring(0, 2).toUpperCase()}
+                                        </div>
+                                        <span>{fsName}</span>
+                                      </div>
+                                    </td>
+                                  )}
+                                  <td className="px-4 py-3">
+                                    <div className="flex items-center gap-2">
+                                      <div className="h-6 w-6 rounded bg-gradient-to-br from-teal-400 to-emerald-500 flex items-center justify-center text-[10px] font-bold text-white">
+                                        {row.branchName.substring(0, 2).toUpperCase()}
+                                      </div>
+                                      <span className="text-sm">{row.branchName}</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3 text-right">
+                                    <Badge variant="outline" className="bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30">
+                                      {row.loanCount}
+                                    </Badge>
+                                  </td>
+                                  <td className="px-4 py-3 text-right">
+                                    <Badge variant="outline" className="bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/30">
+                                      {row.customerCount}
+                                    </Badge>
+                                  </td>
+                                  <td className="px-4 py-3 text-right font-medium text-emerald-600 dark:text-emerald-400">
+                                    {formatCurrency(row.totalDisbursed)}
+                                  </td>
+                                  <td className="px-4 py-3 text-right font-medium text-green-600 dark:text-green-400">
+                                    {formatCurrency(row.totalCollected)}
+                                  </td>
+                                  <td className="px-4 py-3 text-right font-semibold text-amber-600 dark:text-amber-400">
+                                    {formatCurrency(row.outstandingBalance)}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                            {rows.length > 1 && (
+                              <tr className="bg-muted/30 border-b">
+                                <td className="px-4 py-2 text-right text-sm font-semibold text-muted-foreground" colSpan={2}>Subtotal</td>
+                                <td className="px-4 py-2 text-right text-sm font-semibold">{fsTotal.loanCount}</td>
+                                <td className="px-4 py-2 text-right text-sm font-semibold">{fsTotal.customerCount}</td>
+                                <td className="px-4 py-2 text-right text-sm font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(fsTotal.totalDisbursed)}</td>
+                                <td className="px-4 py-2 text-right text-sm font-semibold text-green-600 dark:text-green-400">{formatCurrency(fsTotal.totalCollected)}</td>
+                                <td className="px-4 py-2 text-right text-sm font-semibold text-amber-600 dark:text-amber-400">{formatCurrency(fsTotal.outstandingBalance)}</td>
+                              </tr>
+                            )}
+                            </>
+                          );
+                        });
+                      })()}
+                      {(!fundingSourceStats || fundingSourceStats.length === 0) && (
+                        <tr>
+                          <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                            <Building2 className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
+                            <p>No funding source data available</p>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                    {fundingSourceStats && fundingSourceStats.length > 0 && (
+                      <tfoot>
+                        <tr className="bg-muted/50 font-semibold">
+                          <td className="px-4 py-3" colSpan={2}>Grand Total</td>
+                          <td className="px-4 py-3 text-right">{fundingSourceStats.reduce((sum, b) => sum + b.loanCount, 0)}</td>
+                          <td className="px-4 py-3 text-right">{fundingSourceStats.reduce((sum, b) => sum + b.customerCount, 0)}</td>
+                          <td className="px-4 py-3 text-right text-emerald-600 dark:text-emerald-400">{formatCurrency(fundingSourceStats.reduce((sum, b) => sum + b.totalDisbursed, 0))}</td>
+                          <td className="px-4 py-3 text-right text-green-600 dark:text-green-400">{formatCurrency(fundingSourceStats.reduce((sum, b) => sum + b.totalCollected, 0))}</td>
+                          <td className="px-4 py-3 text-right text-amber-600 dark:text-amber-400">{formatCurrency(fundingSourceStats.reduce((sum, b) => sum + b.outstandingBalance, 0))}</td>
+                        </tr>
+                      </tfoot>
+                    )}
+                  </table>
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="branch">
+              {branchLoading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-16 w-full" />
+                  ))}
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full" data-testid="table-branch-stats">
+                    <thead>
+                      <tr className="border-b bg-muted/30">
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-muted-foreground">Branch</th>
+                        <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">No. of Financings</th>
+                        <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">No. of Customers</th>
+                        <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Total Disbursed</th>
+                        <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Total Collected</th>
+                        <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Outstanding Balance</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(branchStats || []).map((branch, idx) => (
+                        <tr key={branch.branchName} className={`border-b last:border-0 hover:bg-muted/30 transition-colors ${idx % 2 === 0 ? 'bg-background' : 'bg-muted/10'}`}>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-3">
+                              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-teal-400 to-emerald-500 flex items-center justify-center text-xs font-bold text-white shadow">
+                                {branch.branchName.substring(0, 2).toUpperCase()}
+                              </div>
+                              <span className="font-medium">{branch.branchName}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <Badge variant="outline" className="bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30">
+                              {branch.loanCount}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <Badge variant="outline" className="bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/30">
+                              {branch.customerCount}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3 text-right font-medium text-emerald-600 dark:text-emerald-400">
+                            {formatCurrency(branch.totalDisbursed)}
+                          </td>
+                          <td className="px-4 py-3 text-right font-medium text-green-600 dark:text-green-400">
+                            {formatCurrency(branch.totalCollected)}
+                          </td>
+                          <td className="px-4 py-3 text-right font-semibold text-amber-600 dark:text-amber-400">
+                            {formatCurrency(branch.outstandingBalance)}
+                          </td>
+                        </tr>
+                      ))}
+                      {(!branchStats || branchStats.length === 0) && (
+                        <tr>
+                          <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                            <Building2 className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
+                            <p>No branch data available</p>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                    {branchStats && branchStats.length > 0 && (
+                      <tfoot>
+                        <tr className="bg-muted/50 font-semibold">
+                          <td className="px-4 py-3">Total</td>
+                          <td className="px-4 py-3 text-right">{branchStats.reduce((sum, b) => sum + b.loanCount, 0)}</td>
+                          <td className="px-4 py-3 text-right">{branchStats.reduce((sum, b) => sum + b.customerCount, 0)}</td>
+                          <td className="px-4 py-3 text-right text-emerald-600 dark:text-emerald-400">{formatCurrency(branchStats.reduce((sum, b) => sum + b.totalDisbursed, 0))}</td>
+                          <td className="px-4 py-3 text-right text-green-600 dark:text-green-400">{formatCurrency(branchStats.reduce((sum, b) => sum + b.totalCollected, 0))}</td>
+                          <td className="px-4 py-3 text-right text-amber-600 dark:text-amber-400">{formatCurrency(branchStats.reduce((sum, b) => sum + b.outstandingBalance, 0))}</td>
+                        </tr>
+                      </tfoot>
+                    )}
+                  </table>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
 
