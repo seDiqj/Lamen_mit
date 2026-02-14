@@ -37,6 +37,7 @@ const customerFormSchema = z.object({
   lastName: z.string().optional(),
   fatherName: z.string().optional(),
   gender: z.enum(["male", "female", "other"]).optional(),
+  maritalStatus: z.string().optional(),
   nationalId: z.string().optional(),
   placeOfBirth: z.string().optional(),
   age: z.coerce.number().optional(),
@@ -70,6 +71,7 @@ export function NewCustomerDialog({ open, onOpenChange }: NewCustomerDialogProps
       lastName: "",
       fatherName: "",
       gender: undefined,
+      maritalStatus: undefined,
       nationalId: "",
       placeOfBirth: "",
       age: undefined,
@@ -190,6 +192,30 @@ export function NewCustomerDialog({ open, onOpenChange }: NewCustomerDialogProps
                         <SelectItem value="male">Male</SelectItem>
                         <SelectItem value="female">Female</SelectItem>
                         <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="maritalStatus"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Marital Status</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-maritalStatus">
+                          <SelectValue placeholder="Select marital status" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="single">Single</SelectItem>
+                        <SelectItem value="married">Married</SelectItem>
+                        <SelectItem value="divorced">Divorced</SelectItem>
+                        <SelectItem value="widowed">Widowed</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />

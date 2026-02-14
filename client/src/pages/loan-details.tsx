@@ -35,6 +35,7 @@ const loanDetailsSchema = z.object({
   fullNameDari: z.string().optional(),
   fatherNameDari: z.string().optional(),
   gender: z.string().optional(),
+  maritalStatus: z.string().optional(),
   nationalId: z.string().optional(),
   nidExpiryDate: z.string().optional(),
   dateOfBirth: z.string().optional(),
@@ -246,6 +247,7 @@ export default function LoanDetailsPage() {
         fullNameDari: d.customer?.fullNameDari ?? "",
         fatherNameDari: d.customer?.fatherNameDari ?? "",
         gender: d.customer?.gender ?? "male",
+        maritalStatus: d.customer?.maritalStatus ?? "",
         nationalId: d.customer?.nationalId ?? "",
         nidExpiryDate: d.customer?.nidExpiryDate ?? "",
         dateOfBirth: d.customer?.dateOfBirth ?? "",
@@ -587,6 +589,18 @@ export default function LoanDetailsPage() {
                       <Select disabled={!isEditing} onValueChange={field.onChange} value={field.value}>
                         <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                         <SelectContent><SelectItem value="male">Male</SelectItem><SelectItem value="female">Female</SelectItem></SelectContent>
+                      </Select><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name="maritalStatus" render={({ field }) => (
+                    <FormItem><FormLabel>Marital Status</FormLabel>
+                      <Select disabled={!isEditing} onValueChange={field.onChange} value={field.value}>
+                        <FormControl><SelectTrigger data-testid="select-maritalStatus"><SelectValue placeholder="Select marital status" /></SelectTrigger></FormControl>
+                        <SelectContent>
+                          <SelectItem value="single">Single</SelectItem>
+                          <SelectItem value="married">Married</SelectItem>
+                          <SelectItem value="divorced">Divorced</SelectItem>
+                          <SelectItem value="widowed">Widowed</SelectItem>
+                        </SelectContent>
                       </Select><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="nationalId" render={({ field }) => (

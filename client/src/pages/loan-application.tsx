@@ -27,6 +27,7 @@ const loanApplicationSchema = z.object({
   fullNameDari: z.string().optional(),
   fatherNameDari: z.string().optional(),
   gender: z.string().optional(),
+  maritalStatus: z.string().optional(),
   nationalId: z.string().optional(),
   nidExpiryDate: z.string().optional(),
   dateOfBirth: z.string().optional(),
@@ -186,6 +187,7 @@ export default function LoanApplicationPage() {
     resolver: zodResolver(loanApplicationSchema),
     defaultValues: {
       gender: "male",
+      maritalStatus: "",
       requestDate: new Date().toISOString().split("T")[0],
     },
   });
@@ -202,6 +204,7 @@ export default function LoanApplicationPage() {
         fullNameDari: prefilledCustomer.fullNameDari || "",
         fatherNameDari: prefilledCustomer.fatherNameDari || "",
         gender: prefilledCustomer.gender || "male",
+        maritalStatus: prefilledCustomer.maritalStatus || "",
         nationalId: prefilledCustomer.nationalId || "",
         nidExpiryDate: prefilledCustomer.nidExpiryDate || "",
         dateOfBirth: prefilledCustomer.dateOfBirth || "",
@@ -478,6 +481,23 @@ export default function LoanApplicationPage() {
                         <SelectContent>
                           <SelectItem value="male">Male</SelectItem>
                           <SelectItem value="female">Female</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="maritalStatus" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs">Marital Status</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger className="h-9" data-testid="select-maritalStatus"><SelectValue placeholder="Select marital status" /></SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="single">Single</SelectItem>
+                          <SelectItem value="married">Married</SelectItem>
+                          <SelectItem value="divorced">Divorced</SelectItem>
+                          <SelectItem value="widowed">Widowed</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />

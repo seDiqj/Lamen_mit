@@ -104,6 +104,7 @@ export const customers = pgTable("customers", {
   fullNameDari: varchar("full_name_dari", { length: 255 }),
   fatherNameDari: varchar("father_name_dari", { length: 255 }),
   gender: genderEnum("gender"),
+  maritalStatus: varchar("marital_status", { length: 50 }),
   nationalId: varchar("national_id", { length: 100 }),
   dateOfBirth: date("date_of_birth"),
   placeOfBirth: varchar("place_of_birth", { length: 255 }),
