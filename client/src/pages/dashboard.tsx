@@ -541,8 +541,8 @@ export default function Dashboard() {
                         <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">No. of Financings</th>
                         <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">No. of Customers</th>
                         <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Total Disbursed</th>
-                        <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Total Collected</th>
                         <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Total Portfolio</th>
+                        <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Total Collected</th>
                         <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Outstanding Balance</th>
                       </tr>
                     </thead>
@@ -598,11 +598,11 @@ export default function Dashboard() {
                                   <td className="px-4 py-3 text-right font-medium text-emerald-600 dark:text-emerald-400">
                                     {formatCurrency(row.totalDisbursed)}
                                   </td>
-                                  <td className="px-4 py-3 text-right font-medium text-green-600 dark:text-green-400">
-                                    {formatCurrency(row.totalCollected)}
-                                  </td>
                                   <td className="px-4 py-3 text-right font-medium text-blue-600 dark:text-blue-400">
                                     {formatCurrency(row.totalPortfolio)}
+                                  </td>
+                                  <td className="px-4 py-3 text-right font-medium text-green-600 dark:text-green-400">
+                                    {formatCurrency(row.totalCollected)}
                                   </td>
                                   <td className="px-4 py-3 text-right font-semibold text-amber-600 dark:text-amber-400">
                                     {formatCurrency(row.outstandingBalance)}
@@ -615,8 +615,8 @@ export default function Dashboard() {
                                 <td className="px-4 py-2 text-right text-sm font-semibold">{fsTotal.loanCount}</td>
                                 <td className="px-4 py-2 text-right text-sm font-semibold">{fsTotal.customerCount}</td>
                                 <td className="px-4 py-2 text-right text-sm font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(fsTotal.totalDisbursed)}</td>
-                                <td className="px-4 py-2 text-right text-sm font-semibold text-green-600 dark:text-green-400">{formatCurrency(fsTotal.totalCollected)}</td>
                                 <td className="px-4 py-2 text-right text-sm font-semibold text-blue-600 dark:text-blue-400">{formatCurrency(fsTotal.totalPortfolio)}</td>
+                                <td className="px-4 py-2 text-right text-sm font-semibold text-green-600 dark:text-green-400">{formatCurrency(fsTotal.totalCollected)}</td>
                                 <td className="px-4 py-2 text-right text-sm font-semibold text-amber-600 dark:text-amber-400">{formatCurrency(fsTotal.outstandingBalance)}</td>
                               </tr>
                             )}
@@ -640,8 +640,8 @@ export default function Dashboard() {
                           <td className="px-4 py-3 text-right">{fundingSourceStats.reduce((sum, b) => sum + b.loanCount, 0)}</td>
                           <td className="px-4 py-3 text-right">{fundingSourceStats.reduce((sum, b) => sum + b.customerCount, 0)}</td>
                           <td className="px-4 py-3 text-right text-emerald-600 dark:text-emerald-400">{formatCurrency(fundingSourceStats.reduce((sum, b) => sum + b.totalDisbursed, 0))}</td>
-                          <td className="px-4 py-3 text-right text-green-600 dark:text-green-400">{formatCurrency(fundingSourceStats.reduce((sum, b) => sum + b.totalCollected, 0))}</td>
                           <td className="px-4 py-3 text-right text-blue-600 dark:text-blue-400">{formatCurrency(fundingSourceStats.reduce((sum, b) => sum + b.totalPortfolio, 0))}</td>
+                          <td className="px-4 py-3 text-right text-green-600 dark:text-green-400">{formatCurrency(fundingSourceStats.reduce((sum, b) => sum + b.totalCollected, 0))}</td>
                           <td className="px-4 py-3 text-right text-amber-600 dark:text-amber-400">{formatCurrency(fundingSourceStats.reduce((sum, b) => sum + b.outstandingBalance, 0))}</td>
                         </tr>
                       </tfoot>
@@ -667,8 +667,8 @@ export default function Dashboard() {
                         <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">No. of Financings</th>
                         <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">No. of Customers</th>
                         <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Total Disbursed</th>
-                        <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Total Collected</th>
                         <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Total Portfolio</th>
+                        <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Total Collected</th>
                         <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Outstanding Balance</th>
                       </tr>
                     </thead>
@@ -696,11 +696,11 @@ export default function Dashboard() {
                           <td className="px-4 py-3 text-right font-medium text-emerald-600 dark:text-emerald-400">
                             {formatCurrency(branch.totalDisbursed)}
                           </td>
-                          <td className="px-4 py-3 text-right font-medium text-green-600 dark:text-green-400">
-                            {formatCurrency(branch.totalCollected)}
-                          </td>
                           <td className="px-4 py-3 text-right font-medium text-blue-600 dark:text-blue-400">
                             {formatCurrency(branch.totalPortfolio)}
+                          </td>
+                          <td className="px-4 py-3 text-right font-medium text-green-600 dark:text-green-400">
+                            {formatCurrency(branch.totalCollected)}
                           </td>
                           <td className="px-4 py-3 text-right font-semibold text-amber-600 dark:text-amber-400">
                             {formatCurrency(branch.outstandingBalance)}
@@ -723,8 +723,8 @@ export default function Dashboard() {
                           <td className="px-4 py-3 text-right">{branchStats.reduce((sum, b) => sum + b.loanCount, 0)}</td>
                           <td className="px-4 py-3 text-right">{branchStats.reduce((sum, b) => sum + b.customerCount, 0)}</td>
                           <td className="px-4 py-3 text-right text-emerald-600 dark:text-emerald-400">{formatCurrency(branchStats.reduce((sum, b) => sum + b.totalDisbursed, 0))}</td>
-                          <td className="px-4 py-3 text-right text-green-600 dark:text-green-400">{formatCurrency(branchStats.reduce((sum, b) => sum + b.totalCollected, 0))}</td>
                           <td className="px-4 py-3 text-right text-blue-600 dark:text-blue-400">{formatCurrency(branchStats.reduce((sum, b) => sum + b.totalPortfolio, 0))}</td>
+                          <td className="px-4 py-3 text-right text-green-600 dark:text-green-400">{formatCurrency(branchStats.reduce((sum, b) => sum + b.totalCollected, 0))}</td>
                           <td className="px-4 py-3 text-right text-amber-600 dark:text-amber-400">{formatCurrency(branchStats.reduce((sum, b) => sum + b.outstandingBalance, 0))}</td>
                         </tr>
                       </tfoot>
