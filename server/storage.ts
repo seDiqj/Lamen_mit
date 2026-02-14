@@ -2095,6 +2095,7 @@ export class DatabaseStorage implements IStorage {
         customerCount: parseInt(row.customer_count) || 0,
         totalDisbursed: parseFloat(row.total_disbursed) || 0,
         totalCollected,
+        totalPortfolio,
         outstandingBalance: totalPortfolio - totalCollected,
       };
     });
@@ -2148,6 +2149,7 @@ export class DatabaseStorage implements IStorage {
         customerCount: parseInt(row.customer_count) || 0,
         totalDisbursed: parseFloat(row.total_disbursed) || 0,
         totalCollected,
+        totalPortfolio,
         outstandingBalance: totalPortfolio - totalCollected,
       };
     });

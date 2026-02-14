@@ -78,6 +78,7 @@ type BranchStats = {
   customerCount: number;
   totalDisbursed: number;
   totalCollected: number;
+  totalPortfolio: number;
   outstandingBalance: number;
 };
 
@@ -88,8 +89,20 @@ type FundingSourceBranchStats = {
   customerCount: number;
   totalDisbursed: number;
   totalCollected: number;
+  totalPortfolio: number;
   outstandingBalance: number;
 };
+
+const FUNDING_SOURCE_COLORS = [
+  { bg: 'bg-blue-50 dark:bg-blue-950/30', subtotal: 'bg-blue-100/60 dark:bg-blue-900/30' },
+  { bg: 'bg-emerald-50 dark:bg-emerald-950/30', subtotal: 'bg-emerald-100/60 dark:bg-emerald-900/30' },
+  { bg: 'bg-amber-50 dark:bg-amber-950/30', subtotal: 'bg-amber-100/60 dark:bg-amber-900/30' },
+  { bg: 'bg-purple-50 dark:bg-purple-950/30', subtotal: 'bg-purple-100/60 dark:bg-purple-900/30' },
+  { bg: 'bg-rose-50 dark:bg-rose-950/30', subtotal: 'bg-rose-100/60 dark:bg-rose-900/30' },
+  { bg: 'bg-cyan-50 dark:bg-cyan-950/30', subtotal: 'bg-cyan-100/60 dark:bg-cyan-900/30' },
+  { bg: 'bg-orange-50 dark:bg-orange-950/30', subtotal: 'bg-orange-100/60 dark:bg-orange-900/30' },
+  { bg: 'bg-indigo-50 dark:bg-indigo-950/30', subtotal: 'bg-indigo-100/60 dark:bg-indigo-900/30' },
+];
 
 type LoanListItem = {
   id: string;
@@ -529,6 +542,7 @@ export default function Dashboard() {
                         <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">No. of Customers</th>
                         <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Total Disbursed</th>
                         <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Total Collected</th>
+                        <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Total Portfolio</th>
                         <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Outstanding Balance</th>
                       </tr>
                     </thead>
@@ -540,20 +554,19 @@ export default function Dashboard() {
                           if (!grouped[s.fundingSourceName]) grouped[s.fundingSourceName] = [];
                           grouped[s.fundingSourceName].push(s);
                         });
-                        let rowIdx = 0;
-                        return Object.entries(grouped).map(([fsName, rows]) => {
+                        return Object.entries(grouped).map(([fsName, rows], groupIdx) => {
+                          const colorSet = FUNDING_SOURCE_COLORS[groupIdx % FUNDING_SOURCE_COLORS.length];
                           const fsTotal = {
                             loanCount: rows.reduce((s, r) => s + r.loanCount, 0),
                             customerCount: rows.reduce((s, r) => s + r.customerCount, 0),
                             totalDisbursed: rows.reduce((s, r) => s + r.totalDisbursed, 0),
                             totalCollected: rows.reduce((s, r) => s + r.totalCollected, 0),
+                            totalPortfolio: rows.reduce((s, r) => s + r.totalPortfolio, 0),
                             outstandingBalance: rows.reduce((s, r) => s + r.outstandingBalance, 0),
                           };
                           return (
-                            <>{rows.map((row, i) => {
-                              const currentIdx = rowIdx++;
-                              return (
-                                <tr key={`${fsName}-${row.branchName}`} className={`border-b last:border-0 hover:bg-muted/30 transition-colors ${currentIdx % 2 === 0 ? 'bg-background' : 'bg-muted/10'}`}>
+                            <>{rows.map((row, i) => (
+                                <tr key={`${fsName}-${row.branchName}`} className={`border-b last:border-0 transition-colors ${colorSet.bg}`}>
                                   {i === 0 && (
                                     <td className="px-4 py-3 font-medium" rowSpan={rows.length}>
                                       <div className="flex items-center gap-3">
@@ -588,19 +601,22 @@ export default function Dashboard() {
                                   <td className="px-4 py-3 text-right font-medium text-green-600 dark:text-green-400">
                                     {formatCurrency(row.totalCollected)}
                                   </td>
+                                  <td className="px-4 py-3 text-right font-medium text-blue-600 dark:text-blue-400">
+                                    {formatCurrency(row.totalPortfolio)}
+                                  </td>
                                   <td className="px-4 py-3 text-right font-semibold text-amber-600 dark:text-amber-400">
                                     {formatCurrency(row.outstandingBalance)}
                                   </td>
                                 </tr>
-                              );
-                            })}
+                              ))}
                             {rows.length > 1 && (
-                              <tr className="bg-muted/30 border-b">
+                              <tr className={`border-b ${colorSet.subtotal}`}>
                                 <td className="px-4 py-2 text-right text-sm font-semibold text-muted-foreground" colSpan={2}>Subtotal</td>
                                 <td className="px-4 py-2 text-right text-sm font-semibold">{fsTotal.loanCount}</td>
                                 <td className="px-4 py-2 text-right text-sm font-semibold">{fsTotal.customerCount}</td>
                                 <td className="px-4 py-2 text-right text-sm font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(fsTotal.totalDisbursed)}</td>
                                 <td className="px-4 py-2 text-right text-sm font-semibold text-green-600 dark:text-green-400">{formatCurrency(fsTotal.totalCollected)}</td>
+                                <td className="px-4 py-2 text-right text-sm font-semibold text-blue-600 dark:text-blue-400">{formatCurrency(fsTotal.totalPortfolio)}</td>
                                 <td className="px-4 py-2 text-right text-sm font-semibold text-amber-600 dark:text-amber-400">{formatCurrency(fsTotal.outstandingBalance)}</td>
                               </tr>
                             )}
@@ -610,7 +626,7 @@ export default function Dashboard() {
                       })()}
                       {(!fundingSourceStats || fundingSourceStats.length === 0) && (
                         <tr>
-                          <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                          <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
                             <Building2 className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
                             <p>No funding source data available</p>
                           </td>
@@ -625,6 +641,7 @@ export default function Dashboard() {
                           <td className="px-4 py-3 text-right">{fundingSourceStats.reduce((sum, b) => sum + b.customerCount, 0)}</td>
                           <td className="px-4 py-3 text-right text-emerald-600 dark:text-emerald-400">{formatCurrency(fundingSourceStats.reduce((sum, b) => sum + b.totalDisbursed, 0))}</td>
                           <td className="px-4 py-3 text-right text-green-600 dark:text-green-400">{formatCurrency(fundingSourceStats.reduce((sum, b) => sum + b.totalCollected, 0))}</td>
+                          <td className="px-4 py-3 text-right text-blue-600 dark:text-blue-400">{formatCurrency(fundingSourceStats.reduce((sum, b) => sum + b.totalPortfolio, 0))}</td>
                           <td className="px-4 py-3 text-right text-amber-600 dark:text-amber-400">{formatCurrency(fundingSourceStats.reduce((sum, b) => sum + b.outstandingBalance, 0))}</td>
                         </tr>
                       </tfoot>
@@ -651,6 +668,7 @@ export default function Dashboard() {
                         <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">No. of Customers</th>
                         <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Total Disbursed</th>
                         <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Total Collected</th>
+                        <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Total Portfolio</th>
                         <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Outstanding Balance</th>
                       </tr>
                     </thead>
@@ -681,6 +699,9 @@ export default function Dashboard() {
                           <td className="px-4 py-3 text-right font-medium text-green-600 dark:text-green-400">
                             {formatCurrency(branch.totalCollected)}
                           </td>
+                          <td className="px-4 py-3 text-right font-medium text-blue-600 dark:text-blue-400">
+                            {formatCurrency(branch.totalPortfolio)}
+                          </td>
                           <td className="px-4 py-3 text-right font-semibold text-amber-600 dark:text-amber-400">
                             {formatCurrency(branch.outstandingBalance)}
                           </td>
@@ -688,7 +709,7 @@ export default function Dashboard() {
                       ))}
                       {(!branchStats || branchStats.length === 0) && (
                         <tr>
-                          <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                          <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
                             <Building2 className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
                             <p>No branch data available</p>
                           </td>
@@ -703,6 +724,7 @@ export default function Dashboard() {
                           <td className="px-4 py-3 text-right">{branchStats.reduce((sum, b) => sum + b.customerCount, 0)}</td>
                           <td className="px-4 py-3 text-right text-emerald-600 dark:text-emerald-400">{formatCurrency(branchStats.reduce((sum, b) => sum + b.totalDisbursed, 0))}</td>
                           <td className="px-4 py-3 text-right text-green-600 dark:text-green-400">{formatCurrency(branchStats.reduce((sum, b) => sum + b.totalCollected, 0))}</td>
+                          <td className="px-4 py-3 text-right text-blue-600 dark:text-blue-400">{formatCurrency(branchStats.reduce((sum, b) => sum + b.totalPortfolio, 0))}</td>
                           <td className="px-4 py-3 text-right text-amber-600 dark:text-amber-400">{formatCurrency(branchStats.reduce((sum, b) => sum + b.outstandingBalance, 0))}</td>
                         </tr>
                       </tfoot>
