@@ -978,15 +978,21 @@ export async function registerRoutes(
       const customerIds = result.customers.map(c => c.id);
       let activeLoanCounts: Record<string, number> = {};
       if (customerIds.length > 0) {
-        const loanCountResult = await db.execute(sql`
-          SELECT customer_id, COUNT(*) as active_count
-          FROM loans
-          WHERE customer_id = ANY(${customerIds})
-            AND status IN ('disbursed', 'active')
-          GROUP BY customer_id
-        `);
-        for (const row of loanCountResult.rows as any[]) {
-          activeLoanCounts[row.customer_id] = parseInt(row.active_count) || 0;
+        const loanCountResult = await db
+          .select({
+            customerId: loans.customerId,
+            activeCount: sql<number>`count(*)`,
+          })
+          .from(loans)
+          .where(
+            and(
+              inArray(loans.customerId, customerIds),
+              inArray(loans.status, ['disbursed', 'active'])
+            )
+          )
+          .groupBy(loans.customerId);
+        for (const row of loanCountResult) {
+          activeLoanCounts[row.customerId] = Number(row.activeCount) || 0;
         }
       }
 
