@@ -208,13 +208,13 @@ export default function CustomersPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1 flex-wrap">
-                          <Button variant="ghost" size="icon" asChild data-testid={`button-view-customer-${customer.id}`}>
+                          <Button variant="ghost" size="icon" className="text-blue-600 dark:text-blue-400" asChild data-testid={`button-view-customer-${customer.id}`}>
                             <Link href={`/customers/${customer.id}`}>
                               <Eye className="h-4 w-4" />
                             </Link>
                           </Button>
                           {(roleData?.role === "manager" || roleData?.role === "admin") && (
-                            <Button variant="ghost" size="icon" asChild data-testid={`button-edit-customer-${customer.id}`}>
+                            <Button variant="ghost" size="icon" className="text-amber-600 dark:text-amber-400" asChild data-testid={`button-edit-customer-${customer.id}`}>
                               <Link href={`/customers/${customer.id}/edit`}>
                                 <Edit className="h-4 w-4" />
                               </Link>
@@ -223,6 +223,7 @@ export default function CustomersPage() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            className="text-violet-600 dark:text-violet-400"
                             onClick={() => setLoanDialogCustomer(customer)}
                             data-testid={`button-loan-details-${customer.id}`}
                             title="Loan Details"
@@ -232,6 +233,7 @@ export default function CustomersPage() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            className="text-emerald-600 dark:text-emerald-400"
                             asChild
                             data-testid={`button-add-financing-${customer.id}`}
                             title="Add Financing"
