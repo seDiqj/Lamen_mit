@@ -228,68 +228,94 @@ export default function CollectionsPage() {
     payMutation.mutate({ id: selectedInstallment.id, amount });
   };
 
-  const exportToExcel = () => {
-    if (!data?.installments) return;
-    const rows = data.installments.map((inst) => {
-      const status = getDaysStatus(inst.dueDate);
-      const daysOverdue = status.isOverdue ? status.days : 0;
-      return {
-        "Financing ID": inst.loanApplicationId,
-        "Customer": inst.customerName,
-        "Branch": inst.branchName,
-        "Officer": inst.financeOfficerName || "-",
-        "Inst. #": inst.installmentNumber,
-        "Due Date": inst.dueDate,
-        "Principal": parseFloat(inst.principleAmount || "0"),
-        "Profit": parseFloat(inst.marginAmount || "0"),
-        "Total Amount": parseFloat(inst.totalAmount || "0"),
-        "Paid Amount": parseFloat(inst.paidAmount || "0"),
-        "Remaining": parseFloat(inst.totalAmount || "0") - parseFloat(inst.paidAmount || "0"),
-        "Status": status.label,
-        "PAR Bucket": getParBucket(daysOverdue),
-      };
-    });
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Collections");
-    XLSX.writeFile(wb, "collections_report.xlsx");
+  const [exporting, setExporting] = useState(false);
+
+  const fetchAllCollections = async (): Promise<CollectionInstallment[]> => {
+    const params = new URLSearchParams();
+    params.set("filter", filter);
+    if (branch !== "all") params.set("branch", branch);
+    if (officer !== "all") params.set("officer", officer);
+    if (search) params.set("search", search);
+    params.set("page", "1");
+    params.set("limit", "100000");
+    const res = await fetch(`/api/collections?${params.toString()}`, { credentials: "include" });
+    if (!res.ok) throw new Error("Failed to fetch collections for export");
+    const result = await res.json();
+    return result.installments;
   };
 
-  const exportToPDF = () => {
-    if (!data?.installments) return;
-    const doc = new jsPDF({ orientation: "landscape" });
-    doc.setFontSize(16);
-    doc.text("Lamen Microfinance - Collections Report", 14, 15);
-    doc.setFontSize(10);
-    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 22);
+  const exportToExcel = async () => {
+    setExporting(true);
+    try {
+      const allInstallments = await fetchAllCollections();
+      const rows = allInstallments.map((inst) => {
+        const status = getDaysStatus(inst.dueDate);
+        const daysOverdue = status.isOverdue ? status.days : 0;
+        return {
+          "Financing ID": inst.loanApplicationId,
+          "Customer": inst.customerName,
+          "Branch": inst.branchName,
+          "Officer": inst.financeOfficerName || "-",
+          "Inst. #": inst.installmentNumber,
+          "Due Date": inst.dueDate,
+          "Principal": parseFloat(inst.principleAmount || "0"),
+          "Profit": parseFloat(inst.marginAmount || "0"),
+          "Total Amount": parseFloat(inst.totalAmount || "0"),
+          "Paid Amount": parseFloat(inst.paidAmount || "0"),
+          "Remaining": parseFloat(inst.totalAmount || "0") - parseFloat(inst.paidAmount || "0"),
+          "Status": status.label,
+          "PAR Bucket": getParBucket(daysOverdue),
+        };
+      });
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Collections");
+      XLSX.writeFile(wb, "collections_report.xlsx");
+    } finally {
+      setExporting(false);
+    }
+  };
 
-    const rows = data.installments.map((inst) => {
-      const status = getDaysStatus(inst.dueDate);
-      const remaining = parseFloat(inst.totalAmount || "0") - parseFloat(inst.paidAmount || "0");
-      return [
-        inst.loanApplicationId,
-        inst.customerName,
-        inst.branchName || "-",
-        inst.financeOfficerName || "-",
-        `#${inst.installmentNumber}`,
-        inst.dueDate,
-        formatCurrency(inst.totalAmount),
-        formatCurrency(inst.paidAmount),
-        formatCurrency(remaining),
-        status.label,
-        getParBucket(status.isOverdue ? status.days : 0),
-      ];
-    });
+  const exportToPDF = async () => {
+    setExporting(true);
+    try {
+      const allInstallments = await fetchAllCollections();
+      const doc = new jsPDF({ orientation: "landscape" });
+      doc.setFontSize(16);
+      doc.text("Lamen Microfinance - Collections Report", 14, 15);
+      doc.setFontSize(10);
+      doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 22);
 
-    autoTable(doc, {
-      head: [["Financing", "Customer", "Branch", "Officer", "Inst.", "Due Date", "Total", "Paid", "Remaining", "Status", "PAR"]],
-      body: rows,
-      startY: 28,
-      styles: { fontSize: 7 },
-      headStyles: { fillColor: [34, 120, 74] },
-    });
+      const rows = allInstallments.map((inst) => {
+        const status = getDaysStatus(inst.dueDate);
+        const remaining = parseFloat(inst.totalAmount || "0") - parseFloat(inst.paidAmount || "0");
+        return [
+          inst.loanApplicationId,
+          inst.customerName,
+          inst.branchName || "-",
+          inst.financeOfficerName || "-",
+          `#${inst.installmentNumber}`,
+          inst.dueDate,
+          formatCurrency(inst.totalAmount),
+          formatCurrency(inst.paidAmount),
+          formatCurrency(remaining),
+          status.label,
+          getParBucket(status.isOverdue ? status.days : 0),
+        ];
+      });
 
-    doc.save("collections_report.pdf");
+      autoTable(doc, {
+        head: [["Financing", "Customer", "Branch", "Officer", "Inst.", "Due Date", "Total", "Paid", "Remaining", "Status", "PAR"]],
+        body: rows,
+        startY: 28,
+        styles: { fontSize: 7 },
+        headStyles: { fillColor: [34, 120, 74] },
+      });
+
+      doc.save("collections_report.pdf");
+    } finally {
+      setExporting(false);
+    }
   };
 
   const summary = data?.summary;
@@ -304,13 +330,13 @@ export default function CollectionsPage() {
           <p className="text-sm text-muted-foreground">Manage upcoming payments and record collections</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <Button size="sm" onClick={exportToExcel} data-testid="button-export-excel" className="bg-green-600 text-white border-green-600 hover-elevate">
+          <Button size="sm" onClick={exportToExcel} disabled={exporting || isLoading} data-testid="button-export-excel" className="bg-green-600 text-white border-green-600 hover-elevate">
             <FileSpreadsheet className="h-4 w-4 mr-1" />
-            Excel
+            {exporting ? "Exporting..." : "Excel"}
           </Button>
-          <Button size="sm" onClick={exportToPDF} data-testid="button-export-pdf" className="bg-red-600 text-white border-red-600 hover-elevate">
+          <Button size="sm" onClick={exportToPDF} disabled={exporting || isLoading} data-testid="button-export-pdf" className="bg-red-600 text-white border-red-600 hover-elevate">
             <Download className="h-4 w-4 mr-1" />
-            PDF
+            {exporting ? "Exporting..." : "PDF"}
           </Button>
         </div>
       </div>
