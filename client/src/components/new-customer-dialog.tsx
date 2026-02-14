@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -29,6 +29,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Save } from "lucide-react";
+import type { Province, District } from "@shared/schema";
 
 const customerFormSchema = z.object({
   customerNo: z.string().min(1, "Customer number is required"),
@@ -40,6 +41,7 @@ const customerFormSchema = z.object({
   placeOfBirth: z.string().optional(),
   age: z.coerce.number().optional(),
   homeAddress: z.string().optional(),
+  province: z.string().optional(),
   district: z.string().optional(),
   phoneNumber: z.string().optional(),
   secondPhoneNumber: z.string().optional(),
@@ -57,6 +59,9 @@ export function NewCustomerDialog({ open, onOpenChange }: NewCustomerDialogProps
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  const { data: provincesData = [] } = useQuery<Province[]>({ queryKey: ["/api/provinces"] });
+  const { data: districtsData = [] } = useQuery<(District & { provinceName?: string })[]>({ queryKey: ["/api/districts"] });
+
   const form = useForm<CustomerFormValues>({
     resolver: zodResolver(customerFormSchema),
     defaultValues: {
@@ -69,6 +74,7 @@ export function NewCustomerDialog({ open, onOpenChange }: NewCustomerDialogProps
       placeOfBirth: "",
       age: undefined,
       homeAddress: "",
+      province: "",
       district: "",
       phoneNumber: "",
       secondPhoneNumber: "",
@@ -277,16 +283,65 @@ export function NewCustomerDialog({ open, onOpenChange }: NewCustomerDialogProps
 
               <FormField
                 control={form.control}
-                name="district"
+                name="province"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>District</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="Enter district" data-testid="input-district" />
-                    </FormControl>
+                    <FormLabel>Province</FormLabel>
+                    <Select
+                      onValueChange={(value) => {
+                        const prov = provincesData.find(p => p.id.toString() === value);
+                        field.onChange(prov?.name || "");
+                        form.setValue("district", "");
+                      }}
+                      value={provincesData.find(p => p.name === field.value)?.id.toString() || ""}
+                    >
+                      <FormControl>
+                        <SelectTrigger data-testid="select-province">
+                          <SelectValue placeholder="Select province" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {provincesData.map((prov) => (
+                          <SelectItem key={prov.id} value={prov.id.toString()}>{prov.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
+              />
+              <FormField
+                control={form.control}
+                name="district"
+                render={({ field }) => {
+                  const selectedProvince = provincesData.find(p => p.name === form.watch("province"));
+                  const filteredDistricts = districtsData.filter(d => d.provinceId === selectedProvince?.id);
+                  return (
+                    <FormItem>
+                      <FormLabel>District</FormLabel>
+                      <Select
+                        onValueChange={(value) => {
+                          const dist = filteredDistricts.find(d => d.id.toString() === value);
+                          field.onChange(dist?.name || "");
+                        }}
+                        value={filteredDistricts.find(d => d.name === field.value)?.id.toString() || ""}
+                        disabled={!selectedProvince}
+                      >
+                        <FormControl>
+                          <SelectTrigger data-testid="select-district">
+                            <SelectValue placeholder={selectedProvince ? "Select district" : "Select province first"} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {filteredDistricts.map((dist) => (
+                            <SelectItem key={dist.id} value={dist.id.toString()}>{dist.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
               />
 
               <FormField

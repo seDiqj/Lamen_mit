@@ -1606,6 +1606,7 @@ export async function registerRoutes(
           placeOfBirth: data.placeOfBirth,
           age: data.age,
           homeAddress: data.homeAddress,
+          province: data.province,
           district: data.district,
           phoneNumber: data.phoneNumber,
           secondPhoneNumber: data.secondPhoneNumber,
@@ -1643,6 +1644,7 @@ export async function registerRoutes(
           village: data.businessVillage,
           detailedAddress: data.businessDetailedAddress,
           yearsOfExperience: data.businessYearsOfExperience,
+          monthlyIncomeAmount: data.businessMonthlyIncomeAmount ? String(data.businessMonthlyIncomeAmount) : null,
           sector: data.sector,
           businessType: data.businessDescription,
         });
@@ -1870,6 +1872,7 @@ export async function registerRoutes(
           dateOfBirth: str(data.dateOfBirth),
           placeOfBirth: str(data.placeOfBirth),
           homeAddress: str(data.homeAddress),
+          province: str(data.province),
           district: str(data.district),
           phoneNumber: str(data.phoneNumber),
           secondPhoneNumber: str(data.secondPhoneNumber),
@@ -1924,6 +1927,7 @@ export async function registerRoutes(
           village: str(data.businessVillage),
           detailedAddress: str(data.businessDetailedAddress),
           yearsOfExperience: num(data.businessYearsOfExperience),
+          monthlyIncomeAmount: data.businessMonthlyIncomeAmount ? String(data.businessMonthlyIncomeAmount) : null,
         };
 
         if (business) {

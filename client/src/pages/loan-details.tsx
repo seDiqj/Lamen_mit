@@ -19,7 +19,7 @@ import {
   XCircle, AlertTriangle, CheckCircle2, Clock, Camera, ExternalLink,
   Upload, X, File
 } from "lucide-react";
-import type { Branch, FinanceOfficer, FundingSource } from "@shared/schema";
+import type { Branch, FinanceOfficer, FundingSource, Province, District } from "@shared/schema";
 import { cn, toPersianDate, calculateAge } from "@/lib/utils";
 
 const optNum = z.preprocess(
@@ -41,6 +41,7 @@ const loanDetailsSchema = z.object({
   placeOfBirth: z.string().optional(),
   age: optNum,
   homeAddress: z.string().optional(),
+  province: z.string().optional(),
   district: z.string().optional(),
   phoneNumber: z.string().optional(),
   secondPhoneNumber: z.string().optional(),
@@ -70,6 +71,7 @@ const loanDetailsSchema = z.object({
   businessVillage: z.string().optional(),
   businessDetailedAddress: z.string().optional(),
   businessYearsOfExperience: optNum,
+  businessMonthlyIncomeAmount: optNum,
   licenseType: z.string().optional(),
   licensePresident: z.string().optional(),
   licenseNumber: z.string().optional(),
@@ -156,6 +158,8 @@ export default function LoanDetailsPage() {
 
   const { data: branches = [] } = useQuery<Branch[]>({ queryKey: ["/api/branches"] });
   const { data: financeOfficers = [] } = useQuery<FinanceOfficer[]>({ queryKey: ["/api/finance-officers"] });
+  const { data: provincesData = [] } = useQuery<Province[]>({ queryKey: ["/api/provinces"] });
+  const { data: districtsData = [] } = useQuery<(District & { provinceName?: string })[]>({ queryKey: ["/api/districts"] });
   const { data: fundingSources = [] } = useQuery<FundingSource[]>({ queryKey: ["/api/funding-sources"] });
 
   const { data: loanData, isLoading } = useQuery({
@@ -247,6 +251,7 @@ export default function LoanDetailsPage() {
         dateOfBirth: d.customer?.dateOfBirth ?? "",
         placeOfBirth: d.customer?.placeOfBirth ?? "",
         homeAddress: d.customer?.homeAddress ?? "",
+        province: d.customer?.province ?? "",
         district: d.customer?.district ?? "",
         phoneNumber: d.customer?.phoneNumber ?? "",
         secondPhoneNumber: d.customer?.secondPhoneNumber ?? "",
@@ -276,6 +281,7 @@ export default function LoanDetailsPage() {
         businessVillage: d.business?.village ?? "",
         businessDetailedAddress: d.business?.detailedAddress ?? "",
         businessYearsOfExperience: toNum(d.business?.yearsOfExperience),
+        businessMonthlyIncomeAmount: toNum(d.business?.monthlyIncomeAmount),
         licenseType: d.license?.licenseType ?? "",
         licensePresident: d.license?.president ?? "",
         licenseNumber: d.license?.licenseNumber ?? "",
@@ -612,9 +618,37 @@ export default function LoanDetailsPage() {
                   <FormField control={form.control} name="homeAddress" render={({ field }) => (
                     <FormItem><FormLabel>Home Address</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
-                  <FormField control={form.control} name="district" render={({ field }) => (
-                    <FormItem><FormLabel>District</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormField control={form.control} name="province" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Province</FormLabel>
+                      <Select onValueChange={(value) => {
+                        const prov = provincesData.find(p => p.id.toString() === value);
+                        field.onChange(prov?.name || "");
+                        form.setValue("district", "");
+                      }} value={provincesData.find(p => p.name === field.value)?.id.toString() || ""} disabled={!isEditing}>
+                        <FormControl><SelectTrigger data-testid="select-customer-province"><SelectValue placeholder="Select province" /></SelectTrigger></FormControl>
+                        <SelectContent>{provincesData.map((p) => (<SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>))}</SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
                   )} />
+                  <FormField control={form.control} name="district" render={({ field }) => {
+                    const selProv = provincesData.find(p => p.name === form.watch("province"));
+                    const filtDist = districtsData.filter(d => d.provinceId === selProv?.id);
+                    return (
+                      <FormItem>
+                        <FormLabel>District</FormLabel>
+                        <Select onValueChange={(value) => {
+                          const dist = filtDist.find(d => d.id.toString() === value);
+                          field.onChange(dist?.name || "");
+                        }} value={filtDist.find(d => d.name === field.value)?.id.toString() || ""} disabled={!isEditing || !selProv}>
+                          <FormControl><SelectTrigger data-testid="select-customer-district"><SelectValue placeholder={selProv ? "Select district" : "Select province first"} /></SelectTrigger></FormControl>
+                          <SelectContent>{filtDist.map((d) => (<SelectItem key={d.id} value={d.id.toString()}>{d.name}</SelectItem>))}</SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }} />
                   <FormField control={form.control} name="phoneNumber" render={({ field }) => (
                     <FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
@@ -888,6 +922,9 @@ export default function LoanDetailsPage() {
                     )} />
                     <FormField control={form.control} name="businessYearsOfExperience" render={({ field }) => (
                       <FormItem><FormLabel>Years of Experience</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="businessMonthlyIncomeAmount" render={({ field }) => (
+                      <FormItem><FormLabel>Monthly Income Amount</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
                     )} />
                   </div>
                 </div>
