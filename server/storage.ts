@@ -1798,7 +1798,8 @@ export class DatabaseStorage implements IStorage {
     const taxPayables = sumByPrefix('21');
     let accruedSalaries = 0;
     for (const acc of allAccounts) {
-      if (acc.accountCode.startsWith('201') && acc.accountCode !== '20100') {
+      const code = parseInt(acc.accountCode);
+      if (!isNaN(code) && code >= 20150 && code < 20800) {
         accruedSalaries += Math.abs(Number(acc.currentBalance) || 0);
       }
     }
@@ -1898,7 +1899,7 @@ export class DatabaseStorage implements IStorage {
           lines: [
             { code: "8.1", item: "Trade Payables", amount: Math.abs(tradePayables), source: "BS", sourceDetail: "20100 Account Code Balance" },
             { code: "8.2", item: "Tax Payables", amount: Math.abs(taxPayables), source: "BS", sourceDetail: "Balance of all Accounts Starting with 21" },
-            { code: "8.3", item: "Accrued Salaries and Wages", amount: accruedSalaries, source: "BS", sourceDetail: "Balance of all Accounts Starting with 201" },
+            { code: "8.3", item: "Accrued Salaries and Wages", amount: accruedSalaries, source: "BS", sourceDetail: "Balance of Accounts >= 20150 and < 20800" },
             { code: "8.4", item: "Other Current Liabilities", amount: otherCurrentLiabilities, source: "BS" },
             { code: "8.5", item: "Total Payables", amount: totalPayables, isTotal: true },
           ],
