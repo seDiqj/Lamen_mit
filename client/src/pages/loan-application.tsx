@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -146,6 +146,9 @@ const documentTypes = [
 
 export default function LoanApplicationPage() {
   const [, navigate] = useLocation();
+  const searchString = useSearch();
+  const searchParams = new URLSearchParams(searchString);
+  const prefilledCustomerId = searchParams.get("customerId");
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [currentStep, setCurrentStep] = useState(1);
@@ -155,6 +158,7 @@ export default function LoanApplicationPage() {
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const [newDocType, setNewDocType] = useState("");
   const [newDocName, setNewDocName] = useState("");
+  const [customerPrefilled, setCustomerPrefilled] = useState(false);
 
   const { data: branches = [] } = useQuery<Branch[]>({ queryKey: ["/api/branches"] });
   const { data: financeOfficers = [] } = useQuery<FinanceOfficer[]>({ queryKey: ["/api/finance-officers/active"] });
@@ -165,6 +169,17 @@ export default function LoanApplicationPage() {
   const { data: districts = [] } = useQuery<(District & { provinceName?: string })[]>({ queryKey: ["/api/districts"] });
   const { data: licenseTypes = [] } = useQuery<LicenseType[]>({ queryKey: ["/api/license-types"] });
 
+  const { data: prefilledCustomer } = useQuery<any>({
+    queryKey: ["/api/customers", prefilledCustomerId],
+    queryFn: async () => {
+      if (!prefilledCustomerId) return null;
+      const res = await fetch(`/api/customers/${prefilledCustomerId}`, { credentials: "include" });
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!prefilledCustomerId,
+  });
+
   const form = useForm<LoanApplicationFormData>({
     resolver: zodResolver(loanApplicationSchema),
     defaultValues: {
@@ -172,6 +187,40 @@ export default function LoanApplicationPage() {
       requestDate: new Date().toISOString().split("T")[0],
     },
   });
+
+  useEffect(() => {
+    if (prefilledCustomer && !customerPrefilled) {
+      setCustomerPrefilled(true);
+      form.reset({
+        ...form.getValues(),
+        customerNo: prefilledCustomer.customerNo || "",
+        firstName: prefilledCustomer.firstName || "",
+        lastName: prefilledCustomer.lastName || "",
+        fatherName: prefilledCustomer.fatherName || "",
+        fullNameDari: prefilledCustomer.fullNameDari || "",
+        fatherNameDari: prefilledCustomer.fatherNameDari || "",
+        gender: prefilledCustomer.gender || "male",
+        nationalId: prefilledCustomer.nationalId || "",
+        nidExpiryDate: prefilledCustomer.nidExpiryDate || "",
+        dateOfBirth: prefilledCustomer.dateOfBirth || "",
+        placeOfBirth: prefilledCustomer.placeOfBirth || "",
+        age: prefilledCustomer.age || undefined,
+        homeAddress: prefilledCustomer.homeAddress || "",
+        district: prefilledCustomer.district || "",
+        phoneNumber: prefilledCustomer.phoneNumber || "",
+        secondPhoneNumber: prefilledCustomer.secondPhoneNumber || "",
+        numberOfDependents: prefilledCustomer.numberOfDependents || undefined,
+        directMaleDependent: prefilledCustomer.directMaleDependent || undefined,
+        directFemaleDependent: prefilledCustomer.directFemaleDependent || undefined,
+        indirectMaleDependent: prefilledCustomer.indirectMaleDependent || undefined,
+        indirectFemaleDependent: prefilledCustomer.indirectFemaleDependent || undefined,
+        requestDate: new Date().toISOString().split("T")[0],
+      });
+      if (prefilledCustomer.photoUrl) {
+        setCustomerPhoto({ url: prefilledCustomer.photoUrl, name: "Customer Photo" });
+      }
+    }
+  }, [prefilledCustomer, customerPrefilled, form]);
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -238,6 +287,7 @@ export default function LoanApplicationPage() {
     mutationFn: async (data: LoanApplicationFormData) => {
       const response = await apiRequest("POST", "/api/loan-applications", {
         ...data,
+        existingCustomerId: prefilledCustomerId || undefined,
         customerPhoto: customerPhoto?.url,
         documents,
       });
@@ -305,7 +355,11 @@ export default function LoanApplicationPage() {
             <h1 className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
               New Loan Application
             </h1>
-            <p className="text-xs text-muted-foreground">Step {currentStep} of 5</p>
+            <p className="text-xs text-muted-foreground">
+              {prefilledCustomer
+                ? `For: ${prefilledCustomer.firstName} ${prefilledCustomer.lastName || ""} ${prefilledCustomer.customerNo ? `(${prefilledCustomer.customerNo})` : ""}`
+                : `Step ${currentStep} of 5`}
+            </p>
           </div>
         </div>
       </div>

@@ -1080,6 +1080,16 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/customers/:id/loans", isAuthenticated, async (req, res) => {
+    try {
+      const customerLoans = await storage.getLoansByCustomer(req.params.id);
+      res.json(customerLoans);
+    } catch (error) {
+      console.error("Error fetching customer loans:", error);
+      res.status(500).json({ message: "Failed to fetch customer loans" });
+    }
+  });
+
   // ===== LOANS =====
   app.get("/api/loans", isAuthenticated, async (req, res) => {
     try {
@@ -1518,7 +1528,8 @@ export async function registerRoutes(
       const data = req.body;
 
       // Duplicate check: prevent creating a new application if same national ID already has a pending/active loan
-      if (data.nationalId) {
+      // Skip this check when adding financing for an existing customer (they intentionally want a new loan)
+      if (data.nationalId && !data.existingCustomerId) {
         const existingCustomers = await db.select().from(customers).where(eq(customers.nationalId, data.nationalId));
         if (existingCustomers.length > 0) {
           const customerIds = existingCustomers.map(c => c.id);
@@ -1538,7 +1549,14 @@ export async function registerRoutes(
       
       // Create or find customer
       let customerId: string;
-      if (data.customerNo) {
+      if (data.existingCustomerId) {
+        const existingCustomer = await storage.getCustomer(data.existingCustomerId);
+        if (existingCustomer) {
+          customerId = existingCustomer.id;
+        } else {
+          return res.status(400).json({ message: "Customer not found" });
+        }
+      } else if (data.customerNo) {
         const existingCustomer = await storage.getCustomerByNo(data.customerNo);
         if (existingCustomer) {
           customerId = existingCustomer.id;

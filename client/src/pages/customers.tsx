@@ -16,6 +16,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Search,
   Download,
   Eye,
@@ -24,6 +30,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Users,
+  FileText,
+  Plus,
+  ExternalLink,
 } from "lucide-react";
 import type { Customer } from "@shared/schema";
 
@@ -36,6 +45,7 @@ export default function CustomersPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const limit = 10;
+  const [loanDialogCustomer, setLoanDialogCustomer] = useState<CustomerWithLoans | null>(null);
 
   const { data, isLoading } = useQuery<{
     customers: CustomerWithLoans[];
@@ -59,15 +69,42 @@ export default function CustomersPage() {
     queryKey: ["/api/user/role"],
   });
 
+  const { data: customerLoans = [], isLoading: loansLoading } = useQuery<any[]>({
+    queryKey: ["/api/customers", loanDialogCustomer?.id, "loans"],
+    queryFn: async () => {
+      if (!loanDialogCustomer?.id) return [];
+      const res = await fetch(`/api/customers/${loanDialogCustomer.id}/loans`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch loans");
+      return res.json();
+    },
+    enabled: !!loanDialogCustomer,
+  });
+
   const getInitials = (firstName?: string | null, lastName?: string | null) => {
     const first = firstName?.[0] || "";
     const last = lastName?.[0] || "";
     return (first + last).toUpperCase() || "?";
   };
 
+  const getStatusBadge = (status: string) => {
+    const statusConfig: Record<string, { label: string; className: string }> = {
+      pending: { label: "Pending", className: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/30" },
+      pending_fad_review: { label: "FAD Review", className: "bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/30" },
+      pending_risk_review: { label: "Risk Review", className: "bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/30" },
+      pending_committee_review: { label: "Committee", className: "bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-500/30" },
+      approved: { label: "Approved", className: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30" },
+      disbursed: { label: "Disbursed", className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30" },
+      active: { label: "Active", className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30" },
+      completed: { label: "Completed", className: "bg-muted text-muted-foreground" },
+      rejected: { label: "Rejected", className: "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30" },
+      risk_compliance_review: { label: "Risk Review", className: "bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/30" },
+    };
+    const config = statusConfig[status] || { label: status, className: "bg-muted text-muted-foreground" };
+    return <Badge variant="outline" className={config.className}>{config.label}</Badge>;
+  };
+
   return (
     <div className="space-y-6">
-      {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg">
@@ -170,7 +207,7 @@ export default function CustomersPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
+                        <div className="flex items-center justify-end gap-1 flex-wrap">
                           <Button variant="ghost" size="icon" asChild data-testid={`button-view-customer-${customer.id}`}>
                             <Link href={`/customers/${customer.id}`}>
                               <Eye className="h-4 w-4" />
@@ -183,6 +220,26 @@ export default function CustomersPage() {
                               </Link>
                             </Button>
                           )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setLoanDialogCustomer(customer)}
+                            data-testid={`button-loan-details-${customer.id}`}
+                            title="Loan Details"
+                          >
+                            <FileText className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            asChild
+                            data-testid={`button-add-financing-${customer.id}`}
+                            title="Add Financing"
+                          >
+                            <Link href={`/loan-application?customerId=${customer.id}`}>
+                              <Plus className="h-4 w-4" />
+                            </Link>
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -229,6 +286,93 @@ export default function CustomersPage() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!loanDialogCustomer} onOpenChange={(open) => { if (!open) setLoanDialogCustomer(null); }}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2" data-testid="text-loan-dialog-title">
+              <FileText className="h-5 w-5 text-primary" />
+              Loan Details - {loanDialogCustomer?.firstName} {loanDialogCustomer?.lastName}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="flex items-center gap-4 p-3 rounded-md bg-muted/30">
+              <Avatar className="h-10 w-10 ring-2 ring-violet-500/20">
+                <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-white text-sm font-semibold">
+                  {getInitials(loanDialogCustomer?.firstName, loanDialogCustomer?.lastName)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1">
+                <div className="font-medium">{loanDialogCustomer?.firstName} {loanDialogCustomer?.lastName}</div>
+                <div className="text-sm text-muted-foreground">
+                  {loanDialogCustomer?.customerNo && <span className="mr-3">No: {loanDialogCustomer.customerNo}</span>}
+                  {loanDialogCustomer?.nationalId && <span>NID: {loanDialogCustomer.nationalId}</span>}
+                </div>
+              </div>
+              <Button variant="outline" size="sm" asChild data-testid="button-add-financing-dialog">
+                <Link href={`/loan-application?customerId=${loanDialogCustomer?.id}`}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Financing
+                </Link>
+              </Button>
+            </div>
+
+            {loansLoading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-12 w-full" />
+                ))}
+              </div>
+            ) : customerLoans.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/30 hover:bg-muted/30">
+                    <TableHead className="font-semibold">Application ID</TableHead>
+                    <TableHead className="font-semibold">Product</TableHead>
+                    <TableHead className="font-semibold">Amount</TableHead>
+                    <TableHead className="font-semibold">Duration</TableHead>
+                    <TableHead className="font-semibold">Status</TableHead>
+                    <TableHead className="text-right font-semibold">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {customerLoans.map((loan: any) => (
+                    <TableRow key={loan.id} data-testid={`row-loan-${loan.id}`}>
+                      <TableCell className="font-mono text-sm text-primary font-medium">
+                        {loan.applicationId || "-"}
+                      </TableCell>
+                      <TableCell>{loan.productName || "-"}</TableCell>
+                      <TableCell>
+                        {loan.requestAmount ? Number(loan.requestAmount).toLocaleString() : "-"}
+                      </TableCell>
+                      <TableCell>
+                        {loan.financingDurationMonths ? `${loan.financingDurationMonths} months` : "-"}
+                      </TableCell>
+                      <TableCell>
+                        {getStatusBadge(loan.status)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="sm" asChild data-testid={`button-view-loan-${loan.id}`}>
+                          <Link href={`/loans/${loan.id}`}>
+                            <ExternalLink className="h-4 w-4 mr-1" />
+                            View
+                          </Link>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="text-center py-8">
+                <FileText className="h-10 w-10 mx-auto text-muted-foreground/30 mb-2" />
+                <p className="text-muted-foreground">No loans found for this customer</p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
