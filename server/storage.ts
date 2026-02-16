@@ -3817,6 +3817,43 @@ export class DatabaseStorage implements IStorage {
     const allIncomeAccounts = await db.select().from(accounts).where(eq(accounts.accountType, 'income'));
     const allExpenseAccounts = await db.select().from(accounts).where(eq(accounts.accountType, 'expense'));
 
+    const allAccountIds = [...allIncomeAccounts, ...allExpenseAccounts].map(a => a.id);
+
+    const periodBalances: Record<string, number> = {};
+
+    if (allAccountIds.length > 0) {
+      const balanceRows = await db
+        .select({
+          accountId: journalLines.accountId,
+          totalDebit: sql<string>`COALESCE(SUM(CAST(${journalLines.debitAmount} AS numeric)), 0)`,
+          totalCredit: sql<string>`COALESCE(SUM(CAST(${journalLines.creditAmount} AS numeric)), 0)`,
+        })
+        .from(journalLines)
+        .leftJoin(journalEntries, eq(journalLines.journalEntryId, journalEntries.id))
+        .where(
+          and(
+            eq(journalEntries.isPosted, true),
+            inArray(journalLines.accountId, allAccountIds),
+            gte(journalEntries.entryDate, startDate),
+            lte(journalEntries.entryDate, endDate)
+          )
+        )
+        .groupBy(journalLines.accountId);
+
+      for (const row of balanceRows) {
+        const debit = Number(row.totalDebit || 0);
+        const credit = Number(row.totalCredit || 0);
+        periodBalances[row.accountId] = credit - debit;
+      }
+    }
+
+    const getBalance = (accountId: string, accountType: string) => {
+      const net = periodBalances[accountId] || 0;
+      if (accountType === 'income') return Math.abs(net);
+      if (accountType === 'expense') return Math.abs(net);
+      return Math.abs(net);
+    };
+
     const buildGroup = (accs: typeof allIncomeAccounts) => {
       const parentAccounts = accs.filter(a => !a.parentId);
       const childAccounts = accs.filter(a => a.parentId);
@@ -3826,9 +3863,9 @@ export class DatabaseStorage implements IStorage {
         const childrenWithAmounts = children.map(c => ({
           accountCode: c.accountCode,
           accountName: c.accountName,
-          amount: Math.abs(Number(c.currentBalance || 0)),
+          amount: getBalance(c.id, c.accountType),
         }));
-        const parentOwnAmount = Math.abs(Number(parent.currentBalance || 0));
+        const parentOwnAmount = getBalance(parent.id, parent.accountType);
         const childrenTotal = childrenWithAmounts.reduce((s, c) => s + c.amount, 0);
         const total = children.length > 0 ? childrenTotal + parentOwnAmount : parentOwnAmount;
         return {
