@@ -3814,30 +3814,61 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getIncomeStatement(startDate: string, endDate: string): Promise<any> {
-    const incomeAccounts = await db.select().from(accounts).where(eq(accounts.accountType, 'income'));
-    const expenseAccounts = await db.select().from(accounts).where(eq(accounts.accountType, 'expense'));
-    
-    const income = incomeAccounts.map(acc => ({
-      accountCode: acc.accountCode,
-      accountName: acc.accountName,
-      amount: Math.abs(Number(acc.currentBalance || 0)),
-    }));
-    
-    const expenses = expenseAccounts.map(acc => ({
-      accountCode: acc.accountCode,
-      accountName: acc.accountName,
-      amount: Math.abs(Number(acc.currentBalance || 0)),
-    }));
-    
-    const totalIncome = income.reduce((sum, i) => sum + i.amount, 0);
-    const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
-    
+    const allIncomeAccounts = await db.select().from(accounts).where(eq(accounts.accountType, 'income'));
+    const allExpenseAccounts = await db.select().from(accounts).where(eq(accounts.accountType, 'expense'));
+
+    const buildGroup = (accs: typeof allIncomeAccounts) => {
+      const parentAccounts = accs.filter(a => !a.parentId);
+      const childAccounts = accs.filter(a => a.parentId);
+
+      return parentAccounts.map(parent => {
+        const children = childAccounts.filter(c => c.parentId === parent.id);
+        const childrenWithAmounts = children.map(c => ({
+          accountCode: c.accountCode,
+          accountName: c.accountName,
+          amount: Math.abs(Number(c.currentBalance || 0)),
+        }));
+        const parentOwnAmount = Math.abs(Number(parent.currentBalance || 0));
+        const childrenTotal = childrenWithAmounts.reduce((s, c) => s + c.amount, 0);
+        const total = children.length > 0 ? childrenTotal + parentOwnAmount : parentOwnAmount;
+        return {
+          accountCode: parent.accountCode,
+          accountName: parent.accountName,
+          parentAmount: parentOwnAmount,
+          total,
+          children: childrenWithAmounts,
+        };
+      });
+    };
+
+    const operatingIncomeAccounts = allIncomeAccounts.filter(a => a.accountCode.startsWith('5'));
+    const otherIncomeAccounts = allIncomeAccounts.filter(a => !a.accountCode.startsWith('5'));
+    const costOfSalesAccounts = allExpenseAccounts.filter(a => a.accountCode.startsWith('51'));
+    const expenseOnlyAccounts = allExpenseAccounts.filter(a => !a.accountCode.startsWith('51'));
+
+    const incomeGroups = buildGroup(operatingIncomeAccounts);
+    const costOfSalesGroups = buildGroup(costOfSalesAccounts);
+    const otherIncomeGroups = buildGroup(otherIncomeAccounts);
+    const expenseGroups = buildGroup(expenseOnlyAccounts);
+
+    const totalIncome = incomeGroups.reduce((s, g) => s + g.total, 0);
+    const totalCostOfSales = costOfSalesGroups.reduce((s, g) => s + g.total, 0);
+    const grossProfit = totalIncome - totalCostOfSales;
+    const totalOtherIncome = otherIncomeGroups.reduce((s, g) => s + g.total, 0);
+    const totalExpenses = expenseGroups.reduce((s, g) => s + g.total, 0);
+    const netIncome = grossProfit + totalOtherIncome - totalExpenses;
+
     return {
-      income,
-      expenses,
+      incomeGroups,
+      costOfSalesGroups,
+      otherIncomeGroups,
+      expenseGroups,
       totalIncome,
+      totalCostOfSales,
+      grossProfit,
+      totalOtherIncome,
       totalExpenses,
-      netIncome: totalIncome - totalExpenses,
+      netIncome,
       period: { startDate, endDate },
     };
   }

@@ -3,33 +3,160 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableRow,
-} from "@/components/ui/table";
-import { TrendingUp, TrendingDown, FileSpreadsheet, FileText } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { ChevronDown, ChevronRight, FileSpreadsheet, FileText, TrendingUp } from "lucide-react";
 import { formatDate } from "@/lib/date-utils";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-type AccountItem = {
+type AccountChild = {
   accountCode: string;
   accountName: string;
   amount: number;
 };
 
+type AccountGroup = {
+  accountCode: string;
+  accountName: string;
+  parentAmount: number;
+  total: number;
+  children: AccountChild[];
+};
+
 type IncomeStatementData = {
-  income: AccountItem[];
-  expenses: AccountItem[];
+  incomeGroups: AccountGroup[];
+  costOfSalesGroups: AccountGroup[];
+  otherIncomeGroups: AccountGroup[];
+  expenseGroups: AccountGroup[];
   totalIncome: number;
+  totalCostOfSales: number;
+  grossProfit: number;
+  totalOtherIncome: number;
   totalExpenses: number;
   netIncome: number;
   period: { startDate: string; endDate: string };
 };
+
+function formatAFN(amount: number): string {
+  const formatted = amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return formatted;
+}
+
+function formatAFNTotal(amount: number): string {
+  const formatted = amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `AFN${formatted}`;
+}
+
+function CollapsibleSection({ 
+  title, 
+  groups, 
+  totalLabel, 
+  totalAmount, 
+  defaultOpen = true,
+  level = 0,
+}: { 
+  title: string; 
+  groups: AccountGroup[]; 
+  totalLabel: string; 
+  totalAmount: number; 
+  defaultOpen?: boolean;
+  level?: number;
+}) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(groups.map(g => g.accountCode)));
+
+  const toggleGroup = (code: string) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(code)) next.delete(code);
+      else next.add(code);
+      return next;
+    });
+  };
+
+  const paddingLeft = level * 16;
+
+  return (
+    <div className="border-b border-border/50 last:border-b-0">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center gap-1 w-full text-left py-1.5 font-semibold text-sm hover-elevate px-2"
+        style={{ paddingLeft: `${paddingLeft + 4}px` }}
+        data-testid={`button-toggle-${title.toLowerCase().replace(/\s+/g, '-')}`}
+      >
+        {isOpen ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
+        <span>{title}</span>
+      </button>
+      {isOpen && (
+        <div>
+          {groups.map((group) => {
+            const hasChildren = group.children.length > 0;
+            const isGroupOpen = expandedGroups.has(group.accountCode);
+
+            return (
+              <div key={group.accountCode}>
+                {hasChildren ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => toggleGroup(group.accountCode)}
+                      className="flex items-center gap-1 w-full text-left py-1 text-sm font-medium hover-elevate px-2"
+                      style={{ paddingLeft: `${paddingLeft + 24}px` }}
+                      data-testid={`button-toggle-group-${group.accountCode}`}
+                    >
+                      {isGroupOpen ? <ChevronDown className="h-3.5 w-3.5 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0" />}
+                      <span className="font-semibold">{group.accountCode} {group.accountName}</span>
+                    </button>
+                    {isGroupOpen && (
+                      <div>
+                        {group.children.map((child) => (
+                          <div
+                            key={child.accountCode}
+                            className="flex items-center justify-between py-1 text-sm px-2"
+                            style={{ paddingLeft: `${paddingLeft + 56}px` }}
+                            data-testid={`row-account-${child.accountCode}`}
+                          >
+                            <span>{child.accountCode} {child.accountName}</span>
+                            <span className="font-mono text-right min-w-[120px]" data-testid={`text-amount-${child.accountCode}`}>{formatAFN(child.amount)}</span>
+                          </div>
+                        ))}
+                        <div
+                          className="flex items-center justify-between py-1 text-sm font-semibold bg-muted/30 px-2"
+                          style={{ paddingLeft: `${paddingLeft + 56}px` }}
+                          data-testid={`row-total-${group.accountCode}`}
+                        >
+                          <span>Total for {group.accountCode} {group.accountName}</span>
+                          <span className="font-mono text-right min-w-[120px]">{formatAFNTotal(group.total)}</span>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div
+                    className="flex items-center justify-between py-1 text-sm px-2"
+                    style={{ paddingLeft: `${paddingLeft + 44}px` }}
+                    data-testid={`row-account-${group.accountCode}`}
+                  >
+                    <span>{group.accountCode} {group.accountName}</span>
+                    <span className="font-mono text-right min-w-[120px]" data-testid={`text-amount-${group.accountCode}`}>{formatAFN(group.total)}</span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          <div
+            className="flex items-center justify-between py-1.5 text-sm font-bold bg-muted/50 border-t border-border/50 px-2"
+            style={{ paddingLeft: `${paddingLeft + 24}px` }}
+          >
+            <span>{totalLabel}</span>
+            <span className="font-mono text-right min-w-[120px]">{formatAFNTotal(totalAmount)}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function IncomeStatement() {
   const [startDate, setStartDate] = useState(() => {
@@ -59,44 +186,39 @@ export default function IncomeStatement() {
     if (!data) return;
 
     const exportData: any[] = [];
-    
-    exportData.push({ "Account Code": "", "Account Name": "INCOME", "Amount (AFN)": "" });
-    data.income.forEach(item => {
-      exportData.push({
-        "Account Code": item.accountCode,
-        "Account Name": item.accountName,
-        "Amount (AFN)": item.amount,
+
+    const addSection = (title: string, groups: AccountGroup[], totalLabel: string, totalAmount: number) => {
+      exportData.push({ "Account Code": "", "Account Name": title, "Amount (AFN)": "" });
+      groups.forEach(group => {
+        if (group.children.length > 0) {
+          exportData.push({ "Account Code": group.accountCode, "Account Name": group.accountName, "Amount (AFN)": "" });
+          group.children.forEach(child => {
+            exportData.push({ "Account Code": child.accountCode, "Account Name": `  ${child.accountName}`, "Amount (AFN)": child.amount });
+          });
+          exportData.push({ "Account Code": "", "Account Name": `Total for ${group.accountCode} ${group.accountName}`, "Amount (AFN)": group.total });
+        } else {
+          exportData.push({ "Account Code": group.accountCode, "Account Name": group.accountName, "Amount (AFN)": group.total });
+        }
       });
-    });
-    exportData.push({ "Account Code": "", "Account Name": "Total Income", "Amount (AFN)": data.totalIncome });
-    
+      exportData.push({ "Account Code": "", "Account Name": totalLabel, "Amount (AFN)": totalAmount });
+      exportData.push({ "Account Code": "", "Account Name": "", "Amount (AFN)": "" });
+    };
+
+    addSection("INCOME", data.incomeGroups, "Total for Income", data.totalIncome);
+    addSection("COST OF SALES", data.costOfSalesGroups, "Total for Cost of Sales", data.totalCostOfSales);
+    exportData.push({ "Account Code": "", "Account Name": "Gross Profit", "Amount (AFN)": data.grossProfit });
     exportData.push({ "Account Code": "", "Account Name": "", "Amount (AFN)": "" });
-    exportData.push({ "Account Code": "", "Account Name": "EXPENSES", "Amount (AFN)": "" });
-    data.expenses.forEach(item => {
-      exportData.push({
-        "Account Code": item.accountCode,
-        "Account Name": item.accountName,
-        "Amount (AFN)": item.amount,
-      });
-    });
-    exportData.push({ "Account Code": "", "Account Name": "Total Expenses", "Amount (AFN)": data.totalExpenses });
-    
-    exportData.push({ "Account Code": "", "Account Name": "", "Amount (AFN)": "" });
-    exportData.push({ 
-      "Account Code": "", 
-      "Account Name": data.netIncome >= 0 ? "NET INCOME" : "NET LOSS", 
-      "Amount (AFN)": Math.abs(data.netIncome) 
-    });
+    addSection("OTHER INCOME", data.otherIncomeGroups, "Total for Other Income", data.totalOtherIncome);
+    addSection("EXPENSES", data.expenseGroups, "Total for Expenses", data.totalExpenses);
+    exportData.push({ "Account Code": "", "Account Name": data.netIncome >= 0 ? "Net Profit" : "Net Loss", "Amount (AFN)": data.netIncome });
 
     const ws = XLSX.utils.json_to_sheet(exportData);
-    ws["!cols"] = [{ wch: 15 }, { wch: 45 }, { wch: 20 }];
-
+    ws["!cols"] = [{ wch: 15 }, { wch: 50 }, { wch: 20 }];
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Income Statement");
-
+    XLSX.utils.book_append_sheet(wb, ws, "Profit and Loss");
     const startStr = startDate.replace(/-/g, "");
     const endStr = endDate.replace(/-/g, "");
-    XLSX.writeFile(wb, `Income_Statement_${startStr}_to_${endStr}.xlsx`);
+    XLSX.writeFile(wb, `Profit_and_Loss_${startStr}_to_${endStr}.xlsx`);
   };
 
   const handleExportPDF = () => {
@@ -104,72 +226,56 @@ export default function IncomeStatement() {
 
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
-    doc.setFontSize(18);
+    doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
-    doc.text("Lamen Microfinance Institution", 105, 20, { align: "center" });
-
-    doc.setFontSize(14);
-    doc.text("Income Statement", 105, 30, { align: "center" });
-
+    doc.text("Profit and Loss", 105, 18, { align: "center" });
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    doc.text(`Period: ${formatDate(startDate)} to ${formatDate(endDate)}`, 105, 38, { align: "center" });
-
-    doc.setFontSize(9);
-    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 105, 44, { align: "center" });
+    doc.text("Lamen Microfinance Institution (LMI)", 105, 25, { align: "center" });
+    doc.text(`${formatDate(startDate)}-${formatDate(endDate)}`, 105, 31, { align: "center" });
 
     const tableData: any[] = [];
-    
-    tableData.push([{ content: "INCOME", colSpan: 3, styles: { fontStyle: "bold", fillColor: [220, 252, 231] } }]);
-    data.income.forEach(item => {
-      tableData.push([
-        item.accountCode,
-        item.accountName,
-        formatCurrency(item.amount.toString()).replace("AFN", "").trim()
-      ]);
-    });
-    tableData.push([
-      "",
-      { content: "Total Income", styles: { fontStyle: "bold" } },
-      { content: formatCurrency(data.totalIncome.toString()).replace("AFN", "").trim(), styles: { fontStyle: "bold", fillColor: [220, 252, 231] } }
-    ]);
 
-    tableData.push(["", "", ""]);
-    tableData.push([{ content: "EXPENSES", colSpan: 3, styles: { fontStyle: "bold", fillColor: [254, 243, 199] } }]);
-    data.expenses.forEach(item => {
-      tableData.push([
-        item.accountCode,
-        item.accountName,
-        formatCurrency(item.amount.toString()).replace("AFN", "").trim()
-      ]);
-    });
-    tableData.push([
-      "",
-      { content: "Total Expenses", styles: { fontStyle: "bold" } },
-      { content: formatCurrency(data.totalExpenses.toString()).replace("AFN", "").trim(), styles: { fontStyle: "bold", fillColor: [254, 243, 199] } }
-    ]);
+    const addPDFSection = (title: string, groups: AccountGroup[], totalLabel: string, totalAmount: number) => {
+      tableData.push([{ content: title, colSpan: 3, styles: { fontStyle: "bold", fillColor: [240, 240, 240] } }]);
+      groups.forEach(group => {
+        if (group.children.length > 0) {
+          tableData.push([{ content: `${group.accountCode} ${group.accountName}`, colSpan: 2, styles: { fontStyle: "bold" } }, ""]);
+          group.children.forEach(child => {
+            tableData.push(["", `${child.accountCode} ${child.accountName}`, { content: formatAFN(child.amount), styles: { halign: "right" } }]);
+          });
+          tableData.push(["", { content: `Total for ${group.accountCode} ${group.accountName}`, styles: { fontStyle: "bold" } }, { content: formatAFNTotal(group.total), styles: { fontStyle: "bold", halign: "right" } }]);
+        } else {
+          tableData.push(["", `${group.accountCode} ${group.accountName}`, { content: formatAFN(group.total), styles: { halign: "right" } }]);
+        }
+      });
+      tableData.push([{ content: totalLabel, colSpan: 2, styles: { fontStyle: "bold" } }, { content: formatAFNTotal(totalAmount), styles: { fontStyle: "bold", halign: "right" } }]);
+    };
 
+    addPDFSection("Income", data.incomeGroups, "Total for Income", data.totalIncome);
     tableData.push(["", "", ""]);
-    const netLabel = data.netIncome >= 0 ? "NET INCOME" : "NET LOSS";
-    const netColor = data.netIncome >= 0 ? [220, 252, 231] : [254, 202, 202];
-    tableData.push([
-      "",
-      { content: netLabel, styles: { fontStyle: "bold" } },
-      { content: formatCurrency(Math.abs(data.netIncome).toString()).replace("AFN", "").trim(), styles: { fontStyle: "bold", fillColor: netColor } }
-    ]);
+    addPDFSection("Cost of Sales", data.costOfSalesGroups, "Total for Cost of Sales", data.totalCostOfSales);
+    tableData.push([{ content: "Gross Profit", colSpan: 2, styles: { fontStyle: "bold" } }, { content: formatAFNTotal(data.grossProfit), styles: { fontStyle: "bold", halign: "right" } }]);
+    tableData.push(["", "", ""]);
+    addPDFSection("Other Income", data.otherIncomeGroups, "Total for Other Income", data.totalOtherIncome);
+    tableData.push(["", "", ""]);
+    addPDFSection("Expenses", data.expenseGroups, "Total for Expenses", data.totalExpenses);
+    tableData.push(["", "", ""]);
+    const netLabel = data.netIncome >= 0 ? "Net Profit" : "Net Loss";
+    tableData.push([{ content: netLabel, colSpan: 2, styles: { fontStyle: "bold", fillColor: data.netIncome >= 0 ? [220, 252, 231] : [254, 202, 202] } }, { content: formatAFNTotal(data.netIncome), styles: { fontStyle: "bold", halign: "right", fillColor: data.netIncome >= 0 ? [220, 252, 231] : [254, 202, 202] } }]);
 
     autoTable(doc, {
-      startY: 50,
-      head: [["Account Code", "Account Name", "Amount (AFN)"]],
+      startY: 36,
+      head: [["", "Account", "Total"]],
       body: tableData,
       theme: "grid",
-      headStyles: { fillColor: [34, 139, 34], textColor: [255, 255, 255], fontStyle: "bold", halign: "center" },
+      headStyles: { fillColor: [80, 80, 80], textColor: [255, 255, 255], fontStyle: "bold", halign: "center" },
       columnStyles: {
-        0: { halign: "left", cellWidth: 30 },
-        1: { halign: "left", cellWidth: 100 },
-        2: { halign: "right", cellWidth: 40 },
+        0: { cellWidth: 10 },
+        1: { cellWidth: 120 },
+        2: { cellWidth: 40, halign: "right" },
       },
-      styles: { fontSize: 9, cellPadding: 2 },
+      styles: { fontSize: 8, cellPadding: 1.5 },
     });
 
     const pageCount = doc.getNumberOfPages();
@@ -183,7 +289,7 @@ export default function IncomeStatement() {
 
     const startStr = startDate.replace(/-/g, "");
     const endStr = endDate.replace(/-/g, "");
-    doc.save(`Income_Statement_${startStr}_to_${endStr}.pdf`);
+    doc.save(`Profit_and_Loss_${startStr}_to_${endStr}.pdf`);
   };
 
   return (
@@ -273,70 +379,55 @@ export default function IncomeStatement() {
 
       {data && (
         <Card className="print:shadow-none">
-          <CardHeader className="border-b">
-            <CardTitle className="text-xl">Income Statement</CardTitle>
-            <p className="text-muted-foreground text-sm">
-              For the period {formatDate(startDate)} to {formatDate(endDate)}
-            </p>
+          <CardHeader className="border-b text-center pb-3">
+            <CardTitle className="text-xl font-bold">Profit and Loss</CardTitle>
+            <p className="text-muted-foreground text-sm">Lamen Microfinance Institution (LMI)</p>
+            <p className="text-muted-foreground text-sm">{formatDate(startDate)}-{formatDate(endDate)}</p>
           </CardHeader>
-          <CardContent className="pt-4 space-y-6">
-            <div>
-              <h3 className="font-semibold text-green-600 flex items-center gap-2 mb-3">
-                <TrendingUp className="h-4 w-4" /> Income
-              </h3>
-              <Table>
-                <TableBody>
-                  {data.income.length > 0 ? data.income.map((item, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell className="font-mono w-28">{item.accountCode}</TableCell>
-                      <TableCell>{item.accountName}</TableCell>
-                      <TableCell className="text-right font-mono w-40">{formatCurrency(item.amount.toString())}</TableCell>
-                    </TableRow>
-                  )) : (
-                    <TableRow>
-                      <TableCell colSpan={3} className="text-center text-muted-foreground py-4">No income recorded</TableCell>
-                    </TableRow>
-                  )}
-                  <TableRow className="bg-green-50 dark:bg-green-950/30 font-semibold">
-                    <TableCell colSpan={2}>Total Income</TableCell>
-                    <TableCell className="text-right font-mono">{formatCurrency(data.totalIncome.toString())}</TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
+          <CardContent className="pt-2 pb-4 px-0">
+            <div className="flex items-center justify-between px-4 py-1.5 border-b border-border font-semibold text-sm">
+              <span>Account</span>
+              <span>Total</span>
             </div>
 
-            <div>
-              <h3 className="font-semibold text-orange-600 flex items-center gap-2 mb-3">
-                <TrendingDown className="h-4 w-4" /> Expenses
-              </h3>
-              <Table>
-                <TableBody>
-                  {data.expenses.length > 0 ? data.expenses.map((item, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell className="font-mono w-28">{item.accountCode}</TableCell>
-                      <TableCell>{item.accountName}</TableCell>
-                      <TableCell className="text-right font-mono w-40">{formatCurrency(item.amount.toString())}</TableCell>
-                    </TableRow>
-                  )) : (
-                    <TableRow>
-                      <TableCell colSpan={3} className="text-center text-muted-foreground py-4">No expenses recorded</TableCell>
-                    </TableRow>
-                  )}
-                  <TableRow className="bg-orange-50 dark:bg-orange-950/30 font-semibold">
-                    <TableCell colSpan={2}>Total Expenses</TableCell>
-                    <TableCell className="text-right font-mono">{formatCurrency(data.totalExpenses.toString())}</TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
+            <CollapsibleSection
+              title="Income"
+              groups={data.incomeGroups}
+              totalLabel="Total for Income"
+              totalAmount={data.totalIncome}
+            />
+
+            <CollapsibleSection
+              title="Cost of Sales"
+              groups={data.costOfSalesGroups}
+              totalLabel="Total for Cost of Sales"
+              totalAmount={data.totalCostOfSales}
+            />
+
+            <div className="flex items-center justify-between px-4 py-2 font-bold text-sm bg-muted/60 border-b border-border/50" data-testid="row-gross-profit">
+              <span>Gross Profit</span>
+              <span className="font-mono" data-testid="text-gross-profit">{formatAFNTotal(data.grossProfit)}</span>
             </div>
 
-            <div className={`p-4 rounded-lg ${data.netIncome >= 0 ? 'bg-green-100 dark:bg-green-950/50' : 'bg-red-100 dark:bg-red-950/50'}`}>
-              <div className="flex items-center justify-between">
-                <span className="text-lg font-semibold">Net {data.netIncome >= 0 ? 'Income' : 'Loss'}</span>
-                <span className={`text-2xl font-bold ${data.netIncome >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {formatCurrency(Math.abs(data.netIncome).toString())}
-                </span>
-              </div>
+            <CollapsibleSection
+              title="Other Income"
+              groups={data.otherIncomeGroups}
+              totalLabel="Total for Other Income"
+              totalAmount={data.totalOtherIncome}
+            />
+
+            <CollapsibleSection
+              title="Expenses"
+              groups={data.expenseGroups}
+              totalLabel="Total for Expenses"
+              totalAmount={data.totalExpenses}
+            />
+
+            <div className={`flex items-center justify-between px-4 py-3 font-bold text-base border-t-2 ${data.netIncome >= 0 ? 'bg-green-50 dark:bg-green-950/30 border-green-300 dark:border-green-800' : 'bg-red-50 dark:bg-red-950/30 border-red-300 dark:border-red-800'}`} data-testid="row-net-income">
+              <span>Net {data.netIncome >= 0 ? 'Profit' : 'Loss'}</span>
+              <span className={`font-mono ${data.netIncome >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
+                {formatAFNTotal(data.netIncome)}
+              </span>
             </div>
           </CardContent>
         </Card>
