@@ -51,6 +51,11 @@ type Branch = {
   name: string;
 };
 
+type FundingSource = {
+  id: string;
+  name: string;
+};
+
 export default function LoanDisbursementReport() {
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
@@ -59,6 +64,7 @@ export default function LoanDisbursementReport() {
   });
   const [endDate, setEndDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [branchId, setBranchId] = useState("all");
+  const [fundingSourceId, setFundingSourceId] = useState("all");
   const [data, setData] = useState<DisbursementRow[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -66,11 +72,16 @@ export default function LoanDisbursementReport() {
     queryKey: ["/api/branches"],
   });
 
+  const { data: fundingSourcesData } = useQuery<FundingSource[]>({
+    queryKey: ["/api/funding-sources"],
+  });
+
   const fetchReport = async () => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams({ startDate, endDate });
       if (branchId !== "all") params.append("branchId", branchId);
+      if (fundingSourceId !== "all") params.append("fundingSourceId", fundingSourceId);
       const res = await fetch(`/api/reports/loan-disbursement?${params}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch");
       const result = await res.json();
@@ -230,6 +241,20 @@ export default function LoanDisbursementReport() {
                   <SelectItem value="all">All Branches</SelectItem>
                   {branchesData?.map((b) => (
                     <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Funding Source</Label>
+              <Select value={fundingSourceId} onValueChange={setFundingSourceId}>
+                <SelectTrigger className="w-[200px]" data-testid="select-funding-source">
+                  <SelectValue placeholder="Select Funding Source" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Sources</SelectItem>
+                  {fundingSourcesData?.map((fs) => (
+                    <SelectItem key={fs.id} value={fs.id}>{fs.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

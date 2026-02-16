@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { customers, loans, disbursements, branches, financeOfficers, installments } from "@shared/schema";
+import { customers, loans, disbursements, branches, financeOfficers, installments, fundingSources as fundingSourcesTable } from "@shared/schema";
 import { eq, and, inArray, sql, gte, lte, desc } from "drizzle-orm";
 import { z } from "zod";
 import bcrypt from "bcrypt";
@@ -3609,7 +3609,7 @@ export async function registerRoutes(
 
   app.get("/api/reports/loan-disbursement", isAuthenticated, async (req, res) => {
     try {
-      const { startDate, endDate, branchId } = req.query;
+      const { startDate, endDate, branchId, fundingSourceId } = req.query;
       if (!startDate || !endDate) {
         return res.status(400).json({ message: "startDate and endDate are required" });
       }
@@ -3621,6 +3621,9 @@ export async function registerRoutes(
       if (branchId && branchId !== "all") {
         conditions.push(eq(loans.branchId, branchId as string));
       }
+      if (fundingSourceId && fundingSourceId !== "all") {
+        conditions.push(eq(loans.fundingSourceId, fundingSourceId as string));
+      }
 
       const results = await db
         .select({
@@ -3630,6 +3633,7 @@ export async function registerRoutes(
           officerName: financeOfficers.name,
           productName: loans.productName,
           branchName: branches.name,
+          fundingSourceName: fundingSourcesTable.name,
           financingCycle: loans.financingCycle,
           financingDurationMonths: loans.financingDurationMonths,
           disbursementDate: disbursements.disbursementDate,
@@ -3646,6 +3650,7 @@ export async function registerRoutes(
         .innerJoin(customers, eq(loans.customerId, customers.id))
         .leftJoin(branches, eq(loans.branchId, branches.id))
         .leftJoin(financeOfficers, eq(loans.financeOfficerId, financeOfficers.id))
+        .leftJoin(fundingSourcesTable, eq(loans.fundingSourceId, fundingSourcesTable.id))
         .where(and(...conditions))
         .orderBy(desc(disbursements.disbursementDate));
 
@@ -3673,6 +3678,7 @@ export async function registerRoutes(
         officerName: row.officerName || "",
         productName: row.productName || "",
         branchName: row.branchName || "",
+        fundingSourceName: row.fundingSourceName || "",
         financingCycle: row.financingCycle || 0,
         financingDurationMonths: row.financingDurationMonths || 0,
         disbursementDate: row.disbursementDate,
