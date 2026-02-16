@@ -297,31 +297,31 @@ export default function LoanDisbursementReport() {
             ) : (
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-center w-12">#</TableHead>
-                    <TableHead>Customer Name</TableHead>
-                    <TableHead>Application ID</TableHead>
-                    <TableHead>Financing Officer</TableHead>
-                    <TableHead>Product</TableHead>
-                    <TableHead>Branch</TableHead>
-                    <TableHead className="text-center">Cycle</TableHead>
-                    <TableHead className="text-center">Months</TableHead>
-                    <TableHead>Disb. Date</TableHead>
-                    <TableHead>Province</TableHead>
-                    <TableHead>District</TableHead>
-                    <TableHead className="text-right">Disb Amt</TableHead>
-                    <TableHead className="text-right">Principle</TableHead>
-                    <TableHead className="text-right">Margin Amt</TableHead>
-                    <TableHead className="text-right">Total Paid</TableHead>
-                    <TableHead className="text-right">Outstanding</TableHead>
-                    <TableHead className="text-center">Delay Days</TableHead>
-                    <TableHead>Mobile</TableHead>
-                    <TableHead>Tel 2</TableHead>
+                  <TableRow className="bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]">
+                    <TableHead className="text-center w-12 text-primary-foreground font-semibold">#</TableHead>
+                    <TableHead className="text-primary-foreground font-semibold">Customer Name</TableHead>
+                    <TableHead className="text-primary-foreground font-semibold">Application ID</TableHead>
+                    <TableHead className="text-primary-foreground font-semibold">Financing Officer</TableHead>
+                    <TableHead className="text-primary-foreground font-semibold">Product</TableHead>
+                    <TableHead className="text-primary-foreground font-semibold">Branch</TableHead>
+                    <TableHead className="text-center text-primary-foreground font-semibold">Cycle</TableHead>
+                    <TableHead className="text-center text-primary-foreground font-semibold">Months</TableHead>
+                    <TableHead className="text-primary-foreground font-semibold">Disb. Date</TableHead>
+                    <TableHead className="text-primary-foreground font-semibold">Province</TableHead>
+                    <TableHead className="text-primary-foreground font-semibold">District</TableHead>
+                    <TableHead className="text-right text-primary-foreground font-semibold">Disb Amt</TableHead>
+                    <TableHead className="text-right text-primary-foreground font-semibold">Principle</TableHead>
+                    <TableHead className="text-right text-primary-foreground font-semibold">Margin Amt</TableHead>
+                    <TableHead className="text-right text-primary-foreground font-semibold">Total Paid</TableHead>
+                    <TableHead className="text-right text-primary-foreground font-semibold">Outstanding</TableHead>
+                    <TableHead className="text-center text-primary-foreground font-semibold">Delay Days</TableHead>
+                    <TableHead className="text-primary-foreground font-semibold">Mobile</TableHead>
+                    <TableHead className="text-primary-foreground font-semibold">Tel 2</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {data.map((row, idx) => (
-                    <TableRow key={idx} data-testid={`row-disbursement-${idx}`}>
+                    <TableRow key={idx} data-testid={`row-disbursement-${idx}`} className={idx % 2 === 0 ? "bg-muted/30" : ""}>
                       <TableCell className="text-center font-mono">{idx + 1}</TableCell>
                       <TableCell data-testid={`text-customer-name-${idx}`}>{row.customerName}</TableCell>
                       <TableCell className="font-mono">{row.applicationId}</TableCell>
