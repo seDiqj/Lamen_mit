@@ -2,8 +2,8 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { customers, loans } from "@shared/schema";
-import { eq, and, inArray, sql } from "drizzle-orm";
+import { customers, loans, disbursements, branches, financeOfficers, installments } from "@shared/schema";
+import { eq, and, inArray, sql, gte, lte, desc } from "drizzle-orm";
 import { z } from "zod";
 import bcrypt from "bcrypt";
 import session from "express-session";
@@ -3604,6 +3604,92 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching cash flow statement:", error);
       res.status(500).json({ message: "Failed to fetch cash flow statement" });
+    }
+  });
+
+  app.get("/api/reports/loan-disbursement", isAuthenticated, async (req, res) => {
+    try {
+      const { startDate, endDate, branchId } = req.query;
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "startDate and endDate are required" });
+      }
+
+      const conditions: any[] = [
+        gte(disbursements.disbursementDate, startDate as string),
+        lte(disbursements.disbursementDate, endDate as string),
+      ];
+      if (branchId && branchId !== "all") {
+        conditions.push(eq(loans.branchId, branchId as string));
+      }
+
+      const results = await db
+        .select({
+          customerId: customers.customerNo,
+          customerName: sql<string>`CONCAT(${customers.firstName}, ' ', ${customers.lastName})`,
+          applicationId: loans.applicationId,
+          officerName: financeOfficers.name,
+          productName: loans.productName,
+          branchName: branches.name,
+          financingCycle: loans.financingCycle,
+          financingDurationMonths: loans.financingDurationMonths,
+          disbursementDate: disbursements.disbursementDate,
+          province: customers.province,
+          district: customers.district,
+          principleAmount: loans.principleAmount,
+          outstandingPortfolio: loans.outstandingPortfolio,
+          phoneNumber: customers.phoneNumber,
+          secondPhoneNumber: customers.secondPhoneNumber,
+          loanId: loans.id,
+        })
+        .from(disbursements)
+        .innerJoin(loans, eq(disbursements.loanId, loans.id))
+        .innerJoin(customers, eq(loans.customerId, customers.id))
+        .leftJoin(branches, eq(loans.branchId, branches.id))
+        .leftJoin(financeOfficers, eq(loans.financeOfficerId, financeOfficers.id))
+        .where(and(...conditions))
+        .orderBy(desc(disbursements.disbursementDate));
+
+      const loanIds = results.map(r => r.loanId).filter(Boolean);
+      const delayMap: Record<string, number> = {};
+      if (loanIds.length > 0) {
+        const today = new Date().toISOString().split("T")[0];
+        const delayRows = await db
+          .select({
+            loanId: installments.loanId,
+            maxDelay: sql<number>`MAX(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate} < ${today} THEN (${today}::date - ${installments.dueDate}::date) ELSE 0 END)`,
+          })
+          .from(installments)
+          .where(inArray(installments.loanId, loanIds))
+          .groupBy(installments.loanId);
+        for (const dr of delayRows) {
+          delayMap[dr.loanId] = Number(dr.maxDelay || 0);
+        }
+      }
+
+      const enriched = results.map((row) => ({
+        customerId: row.customerId,
+        customerName: row.customerName,
+        applicationId: row.applicationId,
+        officerName: row.officerName || "",
+        productName: row.productName || "",
+        branchName: row.branchName || "",
+        financingCycle: row.financingCycle || 0,
+        financingDurationMonths: row.financingDurationMonths || 0,
+        disbursementDate: row.disbursementDate,
+        province: row.province || "",
+        district: row.district || "",
+        disbursedAmount: Number(row.principleAmount || 0),
+        principleAmount: Number(row.principleAmount || 0),
+        outstandingPortfolio: Number(row.outstandingPortfolio || 0),
+        delayDays: delayMap[row.loanId] || 0,
+        phoneNumber: row.phoneNumber || "",
+        secondPhoneNumber: row.secondPhoneNumber || "",
+      }));
+
+      res.json(enriched);
+    } catch (error) {
+      console.error("Error fetching loan disbursement report:", error);
+      res.status(500).json({ message: "Failed to fetch loan disbursement report" });
     }
   });
 

@@ -59,6 +59,7 @@ import HRRecruitmentPage from "@/pages/hr/recruitment";
 import HRPerformancePage from "@/pages/hr/performance";
 import HRTrainingPage from "@/pages/hr/training";
 import HRBenefitsPage from "@/pages/hr/benefits";
+import LoanDisbursementReportPage from "@/pages/loan-disbursement-report";
 import CollectionsPage from "@/pages/collections";
 import CitizenBalanceStatementPage from "@/pages/citizen-balance-statement";
 import InstallmentManagementPage from "@/pages/installment-management";
@@ -156,6 +157,7 @@ function AppRoutes() {
         <Route path="/committee-voting" component={CommitteeVotingPage} />
         <Route path="/disbursements" component={DisbursementsPage} />
         <Route path="/reports" component={ReportsPage} />
+        <Route path="/loan-disbursement-report" component={LoanDisbursementReportPage} />
         <Route path="/citizen-balance-statement" component={CitizenBalanceStatementPage} />
         <Route path="/par-report" component={ParReportPage} />
         <Route path="/branches" component={BranchesPage} />

@@ -91,6 +91,7 @@ const PAGE_URL_TO_NAME: Record<string, string> = {
   "/reports": "reports",
   "/citizen-balance-statement": "citizen-balance-statement",
   "/par-report": "par-report",
+  "/loan-disbursement-report": "loan-disbursement-report",
   "/activity": "activity-logs",
   "/settings": "settings",
   "/payments": "payments",
@@ -234,6 +235,7 @@ export function AppSidebar() {
       items: [
         { title: "Analytics", url: "/reports", icon: BarChart3, iconColor: "text-amber-500" },
         { title: "Balance Statement", url: "/citizen-balance-statement", icon: ClipboardCheck, iconColor: "text-green-500" },
+        { title: "Loan Disbursement", url: "/loan-disbursement-report", icon: Banknote, iconColor: "text-teal-500" },
         { title: "PAR Report", url: "/par-report", icon: AlertTriangle, iconColor: "text-red-500" },
       ],
     },
@@ -311,6 +313,7 @@ export function AppSidebar() {
       items: [
         { title: "Analytics", url: "/reports", icon: BarChart3, iconColor: "text-amber-500" },
         { title: "Balance Statement", url: "/citizen-balance-statement", icon: ClipboardCheck, iconColor: "text-green-500" },
+        { title: "Loan Disbursement", url: "/loan-disbursement-report", icon: Banknote, iconColor: "text-teal-500" },
       ],
     },
   ];
@@ -391,6 +394,7 @@ export function AppSidebar() {
       items: [
         { title: "Analytics", url: "/reports", icon: BarChart3, iconColor: "text-amber-500" },
         { title: "Balance Statement", url: "/citizen-balance-statement", icon: ClipboardCheck, iconColor: "text-green-500" },
+        { title: "Loan Disbursement", url: "/loan-disbursement-report", icon: Banknote, iconColor: "text-teal-500" },
         { title: "PAR Report", url: "/par-report", icon: AlertTriangle, iconColor: "text-red-500" },
         { title: "Activity Log", url: "/activity", icon: Activity, iconColor: "text-lime-500" },
       ],
