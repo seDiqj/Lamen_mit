@@ -3849,8 +3849,8 @@ export class DatabaseStorage implements IStorage {
 
     const getBalance = (accountId: string, accountType: string) => {
       const net = periodBalances[accountId] || 0;
-      if (accountType === 'income') return Math.abs(net);
-      if (accountType === 'expense') return Math.abs(net);
+      if (accountType === 'income') return net;
+      if (accountType === 'expense') return -net;
       return Math.abs(net);
     };
 
