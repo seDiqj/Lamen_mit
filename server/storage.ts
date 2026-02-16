@@ -1003,6 +1003,16 @@ export class DatabaseStorage implements IStorage {
         fundingSourceId: loans.fundingSourceId,
         customerName: sql<string>`CONCAT(${customers.firstName}, ' ', ${customers.lastName})`,
         branchName: branches.name,
+        disbursementDate: sql<string>`(
+          SELECT d.disbursement_date FROM disbursements d 
+          WHERE d.loan_id = ${loans.id} 
+          ORDER BY d.disbursement_date DESC LIMIT 1
+        )`,
+        reviewComments: sql<string>`(
+          SELECT fr.comments FROM fad_reviews fr 
+          WHERE fr.loan_id = ${loans.id} 
+          ORDER BY fr.created_at DESC LIMIT 1
+        )`,
       })
       .from(loans)
       .leftJoin(customers, eq(loans.customerId, customers.id))

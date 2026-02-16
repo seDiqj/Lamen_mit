@@ -35,6 +35,7 @@ import {
   ArrowUp,
   ArrowDown,
   FileSpreadsheet,
+  MessageCircle,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -48,6 +49,8 @@ type LoanWithDetails = Loan & {
   officerName?: string;
   principleAmount?: string | null;
   fundingSourceId?: string | null;
+  disbursementDate?: string | null;
+  reviewComments?: string | null;
 };
 
 function getStatusBadge(status: string) {
@@ -229,7 +232,9 @@ export default function LoansPage() {
       "Amount": loan.principleAmount || loan.requestAmount || 0,
       "Duration": loan.financingDurationMonths ? `${loan.financingDurationMonths} months` : "-",
       "Request Date": formatDateLocal(loan.requestDate),
+      "Disbursement Date": loan.disbursementDate ? formatDateLocal(loan.disbursementDate) : "Not Disbursed",
       "Status": getStatusLabel(loan.status || "pending"),
+      "Comments": loan.reviewComments || "-",
     }));
   };
 
@@ -241,7 +246,7 @@ export default function LoansPage() {
       if (!exportData.length) return;
       const ws = XLSX.utils.json_to_sheet(exportData);
       ws["!cols"] = [
-        { wch: 18 }, { wch: 25 }, { wch: 18 }, { wch: 15 }, { wch: 14 }, { wch: 16 }, { wch: 18 },
+        { wch: 18 }, { wch: 25 }, { wch: 18 }, { wch: 15 }, { wch: 14 }, { wch: 16 }, { wch: 16 }, { wch: 18 }, { wch: 30 },
       ];
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Loans");
@@ -268,7 +273,7 @@ export default function LoansPage() {
       const now = new Date();
       doc.text(`Date: ${formatDateLocal(now)}`, 250, 14);
 
-      const headers = ["Application ID", "Customer", "Product", "Amount", "Duration", "Request Date", "Status"];
+      const headers = ["Application ID", "Customer", "Product", "Amount", "Duration", "Request Date", "Disb. Date", "Status", "Comments"];
       const body = exportData.map((row) => [
         row["Application ID"],
         row["Customer"],
@@ -276,7 +281,9 @@ export default function LoansPage() {
         typeof row["Amount"] === "number" ? formatCurrency(row["Amount"]) : String(row["Amount"]),
         row["Duration"],
         row["Request Date"],
+        row["Disbursement Date"],
         row["Status"],
+        row["Comments"],
       ]);
 
       autoTable(doc, {
@@ -487,6 +494,9 @@ export default function LoansPage() {
                       {getSortIcon("requestDate")}
                     </div>
                   </TableHead>
+                  <TableHead className="font-semibold" data-testid="header-disbursement-date">
+                    Disbursement Date
+                  </TableHead>
                   <TableHead 
                     className="font-semibold cursor-pointer select-none hover:bg-muted/50 transition-colors"
                     onClick={() => handleSort("status")}
@@ -497,6 +507,9 @@ export default function LoansPage() {
                       {getSortIcon("status")}
                     </div>
                   </TableHead>
+                  <TableHead className="font-semibold" data-testid="header-comments">
+                    Comments
+                  </TableHead>
                   <TableHead className="text-right font-semibold">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -504,7 +517,7 @@ export default function LoansPage() {
                 {isLoading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
-                      {Array.from({ length: 8 }).map((_, j) => (
+                      {Array.from({ length: 10 }).map((_, j) => (
                         <TableCell key={j}>
                           <Skeleton className="h-4 w-full" />
                         </TableCell>
@@ -538,9 +551,30 @@ export default function LoansPage() {
                       </TableCell>
                       <TableCell className="text-muted-foreground">{formatDateLocal(loan.requestDate)}</TableCell>
                       <TableCell>
+                        {loan.disbursementDate ? (
+                          <span className="text-muted-foreground">{formatDateLocal(loan.disbursementDate)}</span>
+                        ) : (
+                          <Badge variant="outline" className="bg-muted/50 text-muted-foreground">
+                            Not Disbursed
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
                         <Badge variant="outline" className={getStatusBadge(loan.status || "pending")}>
                           {getStatusLabel(loan.status || "pending")}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {loan.reviewComments && (loan.status === "returned" || loan.status === "rejected" || loan.status === "pending") ? (
+                          <div className="flex items-start gap-1 max-w-[200px]">
+                            <MessageCircle className="h-4 w-4 text-rose-500 mt-0.5 flex-shrink-0" />
+                            <span className="text-sm text-rose-600 dark:text-rose-400 line-clamp-2" data-testid={`text-review-comment-${loan.id}`}>
+                              {loan.reviewComments}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
@@ -562,7 +596,7 @@ export default function LoansPage() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-12">
+                    <TableCell colSpan={10} className="text-center py-12">
                       <FileText className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
                       <p className="text-muted-foreground">No loans found</p>
                     </TableCell>
