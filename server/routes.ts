@@ -1552,7 +1552,7 @@ export async function registerRoutes(
           const existingLoans = await db.select().from(loans).where(
             and(
               inArray(loans.customerId, customerIds),
-              inArray(loans.status, ['pending', 'pending_fad_review', 'pending_risk_review', 'pending_committee_review', 'approved', 'active'])
+              inArray(loans.status, ['pending', 'returned', 'pending_fad_review', 'pending_risk_review', 'pending_committee_review', 'approved', 'active'])
             )
           );
           if (existingLoans.length > 0) {
@@ -2074,6 +2074,11 @@ export async function registerRoutes(
         }
       }
 
+      if (loan.status === "returned") {
+        await storage.updateLoan(loan.id, { status: "pending" });
+        await logActivity(req, "resubmit_loan", "loan", loan.id, `Resubmitted returned loan application: ${loan.applicationId}`);
+      }
+
       await logActivity(req, "update_loan_application", "loan", loan.id, `Updated loan application: ${loan.applicationId}`);
       res.json({ message: "Loan application updated successfully" });
     } catch (error) {
@@ -2326,7 +2331,7 @@ export async function registerRoutes(
         await storage.updateLoan(loanId, { status: "risk_compliance_review" });
         await logActivity(req, "fad_approve", "loan", loanId, `FAD approved - forwarded to Risk Compliance review`);
       } else {
-        await storage.updateLoan(loanId, { status: "pending" });
+        await storage.updateLoan(loanId, { status: "returned" });
         await logActivity(req, "fad_reject", "loan", loanId, `FAD rejected - sent back to Finance Officer - ${comments}`);
       }
 

@@ -53,6 +53,7 @@ type LoanWithDetails = Loan & {
 function getStatusBadge(status: string) {
   const styles: Record<string, string> = {
     pending: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30",
+    returned: "bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-500/30",
     committee_review: "bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/30",
     approved: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30",
     rejected: "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30",
@@ -67,6 +68,7 @@ function getStatusBadge(status: string) {
 function getStatusLabel(status: string) {
   const labels: Record<string, string> = {
     pending: "Pending FAD Review",
+    returned: "Returned by FAD",
     committee_review: "Committee Review",
     approved: "Approved",
     rejected: "Rejected",
@@ -387,6 +389,7 @@ export default function LoansPage() {
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="pending">Pending FAD Review</SelectItem>
+                  <SelectItem value="returned">Returned by FAD</SelectItem>
                   <SelectItem value="committee_review">Committee Review</SelectItem>
                   <SelectItem value="approved">Approved</SelectItem>
                   <SelectItem value="rejected">Rejected</SelectItem>

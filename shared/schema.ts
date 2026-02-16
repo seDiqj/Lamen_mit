@@ -9,7 +9,7 @@ export * from "./models/auth";
 // Enums
 export const userRoleEnum = pgEnum("user_role", ["user", "fad", "risk_compliance", "cfo", "coo", "ceo", "sharia", "manager", "admin", "finance_officer"]);
 export const genderEnum = pgEnum("gender", ["male", "female", "other"]);
-export const loanStatusEnum = pgEnum("loan_status", ["pending", "data_quality_review", "risk_compliance_review", "committee_review", "approved", "rejected", "disbursed", "active", "completed", "defaulted"]);
+export const loanStatusEnum = pgEnum("loan_status", ["pending", "returned", "data_quality_review", "risk_compliance_review", "committee_review", "approved", "rejected", "disbursed", "active", "completed", "defaulted"]);
 export const voteStatusEnum = pgEnum("vote_status", ["pending", "approved", "rejected"]);
 
 // User Roles - extends the auth users with role information
