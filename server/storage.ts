@@ -3923,16 +3923,19 @@ export class DatabaseStorage implements IStorage {
       amount: Number(acc.currentBalance || 0),
     }));
     
-    const liabilities = liabilityAccounts.map(acc => ({
-      accountCode: acc.accountCode,
-      accountName: acc.accountName,
-      amount: Math.abs(Number(acc.currentBalance || 0)),
-    }));
+    const liabilities = liabilityAccounts.map(acc => {
+      const balance = Number(acc.currentBalance || 0);
+      return {
+        accountCode: acc.accountCode,
+        accountName: acc.accountName,
+        amount: balance,
+      };
+    });
     
     const equity = equityAccounts.map(acc => ({
       accountCode: acc.accountCode,
       accountName: acc.accountName,
-      amount: Math.abs(Number(acc.currentBalance || 0)),
+      amount: Number(acc.currentBalance || 0),
     }));
     
     // Calculate net income from income and expense accounts
