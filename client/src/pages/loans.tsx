@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Table,
   TableBody,
@@ -566,12 +567,19 @@ export default function LoansPage() {
                       </TableCell>
                       <TableCell>
                         {loan.reviewComments && (loan.status === "returned" || loan.status === "rejected" || loan.status === "pending") ? (
-                          <div className="flex items-start gap-1 max-w-[200px]">
-                            <MessageCircle className="h-4 w-4 text-rose-500 mt-0.5 flex-shrink-0" />
-                            <span className="text-sm text-rose-600 dark:text-rose-400 line-clamp-2" data-testid={`text-review-comment-${loan.id}`}>
-                              {loan.reviewComments}
-                            </span>
-                          </div>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="flex items-start gap-1 max-w-[200px] cursor-pointer">
+                                <MessageCircle className="h-4 w-4 text-rose-500 mt-0.5 flex-shrink-0" />
+                                <span className="text-sm text-rose-600 dark:text-rose-400 line-clamp-2" data-testid={`text-review-comment-${loan.id}`}>
+                                  {loan.reviewComments}
+                                </span>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-[400px] whitespace-normal">
+                              <p className="text-sm">{loan.reviewComments}</p>
+                            </TooltipContent>
+                          </Tooltip>
                         ) : (
                           <span className="text-muted-foreground">-</span>
                         )}
