@@ -3640,7 +3640,7 @@ export async function registerRoutes(
           province: customers.province,
           district: customers.district,
           principleAmount: loans.principleAmount,
-          outstandingPortfolio: loans.outstandingPortfolio,
+          totalReceivable: loans.totalReceivable,
           phoneNumber: customers.phoneNumber,
           secondPhoneNumber: customers.secondPhoneNumber,
           loanId: loans.id,
@@ -3656,41 +3656,50 @@ export async function registerRoutes(
 
       const loanIds = results.map(r => r.loanId).filter(Boolean);
       const delayMap: Record<string, number> = {};
+      const paidMap: Record<string, number> = {};
       if (loanIds.length > 0) {
         const today = new Date().toISOString().split("T")[0];
-        const delayRows = await db
+        const aggRows = await db
           .select({
             loanId: installments.loanId,
             maxDelay: sql<number>`MAX(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate} < ${today} THEN (${today}::date - ${installments.dueDate}::date) ELSE 0 END)`,
+            totalPaid: sql<number>`COALESCE(SUM(${installments.paidAmount}), 0)`,
           })
           .from(installments)
           .where(inArray(installments.loanId, loanIds))
           .groupBy(installments.loanId);
-        for (const dr of delayRows) {
+        for (const dr of aggRows) {
           delayMap[dr.loanId] = Number(dr.maxDelay || 0);
+          paidMap[dr.loanId] = Number(dr.totalPaid || 0);
         }
       }
 
-      const enriched = results.map((row) => ({
-        customerId: row.customerId,
-        customerName: row.customerName,
-        applicationId: row.applicationId,
-        officerName: row.officerName || "",
-        productName: row.productName || "",
-        branchName: row.branchName || "",
-        fundingSourceName: row.fundingSourceName || "",
-        financingCycle: row.financingCycle || 0,
-        financingDurationMonths: row.financingDurationMonths || 0,
-        disbursementDate: row.disbursementDate,
-        province: row.province || "",
-        district: row.district || "",
-        disbursedAmount: Number(row.principleAmount || 0),
-        principleAmount: Number(row.principleAmount || 0),
-        outstandingPortfolio: Number(row.outstandingPortfolio || 0),
-        delayDays: delayMap[row.loanId] || 0,
-        phoneNumber: row.phoneNumber || "",
-        secondPhoneNumber: row.secondPhoneNumber || "",
-      }));
+      const enriched = results.map((row) => {
+        const principal = Number(row.principleAmount || 0);
+        const totalReceivable = Number(row.totalReceivable || 0);
+        const totalPaid = paidMap[row.loanId] || 0;
+        const outstanding = Math.max(totalReceivable - totalPaid, 0);
+        return {
+          customerId: row.customerId,
+          customerName: row.customerName,
+          applicationId: row.applicationId,
+          officerName: row.officerName || "",
+          productName: row.productName || "",
+          branchName: row.branchName || "",
+          fundingSourceName: row.fundingSourceName || "",
+          financingCycle: row.financingCycle || 0,
+          financingDurationMonths: row.financingDurationMonths || 0,
+          disbursementDate: row.disbursementDate,
+          province: row.province || "",
+          district: row.district || "",
+          disbursedAmount: principal,
+          principleAmount: principal,
+          outstandingPortfolio: outstanding,
+          delayDays: delayMap[row.loanId] || 0,
+          phoneNumber: row.phoneNumber || "",
+          secondPhoneNumber: row.secondPhoneNumber || "",
+        };
+      });
 
       res.json(enriched);
     } catch (error) {
