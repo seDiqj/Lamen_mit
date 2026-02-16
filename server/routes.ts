@@ -3640,6 +3640,7 @@ export async function registerRoutes(
           province: customers.province,
           district: customers.district,
           principleAmount: loans.principleAmount,
+          profit: loans.profit,
           totalReceivable: loans.totalReceivable,
           phoneNumber: customers.phoneNumber,
           secondPhoneNumber: customers.secondPhoneNumber,
@@ -3676,11 +3677,11 @@ export async function registerRoutes(
 
       const enriched = results.map((row) => {
         const principal = Number(row.principleAmount || 0);
+        const marginAmount = Number(row.profit || 0);
         const totalReceivable = Number(row.totalReceivable || 0);
         const totalPaid = paidMap[row.loanId] || 0;
         const outstanding = Math.max(totalReceivable - totalPaid, 0);
         return {
-          customerId: row.customerId,
           customerName: row.customerName,
           applicationId: row.applicationId,
           officerName: row.officerName || "",
@@ -3694,6 +3695,8 @@ export async function registerRoutes(
           district: row.district || "",
           disbursedAmount: principal,
           principleAmount: principal,
+          marginAmount,
+          totalPaid,
           outstandingPortfolio: outstanding,
           delayDays: delayMap[row.loanId] || 0,
           phoneNumber: row.phoneNumber || "",

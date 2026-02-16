@@ -27,7 +27,6 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 type DisbursementRow = {
-  customerId: string;
   customerName: string;
   applicationId: string;
   officerName: string;
@@ -40,6 +39,8 @@ type DisbursementRow = {
   district: string;
   disbursedAmount: number;
   principleAmount: number;
+  marginAmount: number;
+  totalPaid: number;
   outstandingPortfolio: number;
   delayDays: number;
   phoneNumber: string;
@@ -100,7 +101,6 @@ export default function LoanDisbursementReport() {
 
     const exportData = data.map((row, idx) => ({
       "Serial": idx + 1,
-      "Customer ID": row.customerId || "",
       "Customer Name": row.customerName || "",
       "Application ID": row.applicationId || "",
       "Financing Officer": row.officerName || "",
@@ -113,6 +113,8 @@ export default function LoanDisbursementReport() {
       "District": row.district || "",
       "Disb Amt": row.disbursedAmount,
       "Principle": row.principleAmount,
+      "Margin Amt": row.marginAmount,
+      "Total Paid": row.totalPaid,
       "Outstanding": row.outstandingPortfolio,
       "Delay Days": row.delayDays,
       "Mobile": row.phoneNumber || "",
@@ -121,10 +123,10 @@ export default function LoanDisbursementReport() {
 
     const ws = XLSX.utils.json_to_sheet(exportData);
     ws["!cols"] = [
-      { wch: 6 }, { wch: 14 }, { wch: 20 }, { wch: 16 }, { wch: 18 },
+      { wch: 6 }, { wch: 20 }, { wch: 16 }, { wch: 18 },
       { wch: 10 }, { wch: 15 }, { wch: 6 }, { wch: 10 }, { wch: 12 },
       { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
-      { wch: 10 }, { wch: 14 }, { wch: 14 },
+      { wch: 14 }, { wch: 14 }, { wch: 10 }, { wch: 14 }, { wch: 14 },
     ];
 
     const wb = XLSX.utils.book_new();
@@ -153,7 +155,6 @@ export default function LoanDisbursementReport() {
 
     const tableData = data.map((row, idx) => [
       idx + 1,
-      row.customerId || "",
       row.customerName || "",
       row.applicationId || "",
       row.officerName || "",
@@ -166,6 +167,8 @@ export default function LoanDisbursementReport() {
       row.district || "",
       row.disbursedAmount.toLocaleString(),
       row.principleAmount.toLocaleString(),
+      row.marginAmount.toLocaleString(),
+      row.totalPaid.toLocaleString(),
       row.outstandingPortfolio.toLocaleString(),
       row.delayDays,
       row.phoneNumber || "",
@@ -174,17 +177,19 @@ export default function LoanDisbursementReport() {
 
     autoTable(doc, {
       startY: 38,
-      head: [["#", "Cust ID", "Customer Name", "App ID", "Officer", "Product", "Branch", "Cycle", "Months", "Disb. Date", "Province", "District", "Disb Amt", "Principle", "Outstanding", "Delay", "Mobile", "Tel 2"]],
+      head: [["#", "Customer Name", "App ID", "Officer", "Product", "Branch", "Cycle", "Months", "Disb. Date", "Province", "District", "Disb Amt", "Principle", "Margin Amt", "Total Paid", "Outstanding", "Delay", "Mobile", "Tel 2"]],
       body: tableData,
       theme: "grid",
       headStyles: { fillColor: [34, 87, 122], textColor: [255, 255, 255], fontStyle: "bold", halign: "center", fontSize: 6 },
       styles: { fontSize: 6, cellPadding: 1.5 },
       columnStyles: {
         0: { halign: "center", cellWidth: 8 },
+        11: { halign: "right" },
         12: { halign: "right" },
         13: { halign: "right" },
         14: { halign: "right" },
-        15: { halign: "center" },
+        15: { halign: "right" },
+        16: { halign: "center" },
       },
     });
 
@@ -294,7 +299,6 @@ export default function LoanDisbursementReport() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="text-center w-12">#</TableHead>
-                    <TableHead>Customer ID</TableHead>
                     <TableHead>Customer Name</TableHead>
                     <TableHead>Application ID</TableHead>
                     <TableHead>Financing Officer</TableHead>
@@ -307,6 +311,8 @@ export default function LoanDisbursementReport() {
                     <TableHead>District</TableHead>
                     <TableHead className="text-right">Disb Amt</TableHead>
                     <TableHead className="text-right">Principle</TableHead>
+                    <TableHead className="text-right">Margin Amt</TableHead>
+                    <TableHead className="text-right">Total Paid</TableHead>
                     <TableHead className="text-right">Outstanding</TableHead>
                     <TableHead className="text-center">Delay Days</TableHead>
                     <TableHead>Mobile</TableHead>
@@ -317,7 +323,6 @@ export default function LoanDisbursementReport() {
                   {data.map((row, idx) => (
                     <TableRow key={idx} data-testid={`row-disbursement-${idx}`}>
                       <TableCell className="text-center font-mono">{idx + 1}</TableCell>
-                      <TableCell className="font-mono" data-testid={`text-customer-id-${idx}`}>{row.customerId}</TableCell>
                       <TableCell data-testid={`text-customer-name-${idx}`}>{row.customerName}</TableCell>
                       <TableCell className="font-mono">{row.applicationId}</TableCell>
                       <TableCell>{row.officerName}</TableCell>
@@ -330,6 +335,8 @@ export default function LoanDisbursementReport() {
                       <TableCell>{row.district}</TableCell>
                       <TableCell className="text-right font-mono">{formatCurrency(row.disbursedAmount.toString())}</TableCell>
                       <TableCell className="text-right font-mono">{formatCurrency(row.principleAmount.toString())}</TableCell>
+                      <TableCell className="text-right font-mono">{formatCurrency(row.marginAmount.toString())}</TableCell>
+                      <TableCell className="text-right font-mono">{formatCurrency(row.totalPaid.toString())}</TableCell>
                       <TableCell className="text-right font-mono">{formatCurrency(row.outstandingPortfolio.toString())}</TableCell>
                       <TableCell className={`text-center font-mono ${row.delayDays > 0 ? "text-red-600 font-semibold" : ""}`}>{row.delayDays}</TableCell>
                       <TableCell>{row.phoneNumber}</TableCell>
