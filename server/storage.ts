@@ -3623,7 +3623,7 @@ export class DatabaseStorage implements IStorage {
     }
     
     const entries = await query
-      .orderBy(desc(journalEntries.entryDate), desc(journalEntries.createdAt))
+      .orderBy(desc(journalEntries.entryNumber))
       .limit(limit)
       .offset(offset);
     
