@@ -222,7 +222,7 @@ export interface IStorage {
   deleteCustomerDocument(id: string): Promise<void>;
   
   // Loans
-  getLoans(filters: { search?: string; status?: string; page?: number; limit?: number }): Promise<{ loans: any[]; total: number }>;
+  getLoans(filters: { search?: string; status?: string; financeOfficerId?: string; page?: number; limit?: number; userId?: string }): Promise<{ loans: any[]; total: number }>;
   getLoansWithDetails(filters: { status?: string }): Promise<any[]>;
   getLoan(id: string): Promise<Loan | undefined>;
   getPendingLoans(search?: string): Promise<any[]>;

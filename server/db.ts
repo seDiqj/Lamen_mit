@@ -35,4 +35,19 @@ export async function runMigrations() {
   } catch (err) {
     console.log("FAD-rejected loan fix:", (err as Error).message);
   }
+
+  try {
+    const backfillResult = await pool.query(`
+      UPDATE loans SET created_by = al.user_id
+      FROM activity_logs al
+      WHERE al.entity_id = loans.id::text 
+      AND al.action = 'create_loan_application'
+      AND loans.created_by IS NULL
+    `);
+    if (backfillResult.rowCount && backfillResult.rowCount > 0) {
+      console.log(`Backfilled createdBy for ${backfillResult.rowCount} loans from activity logs`);
+    }
+  } catch (err) {
+    console.log("Loan createdBy backfill:", (err as Error).message);
+  }
 }
