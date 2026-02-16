@@ -3297,32 +3297,75 @@ export async function registerRoutes(
         });
       }
       
-      // Revenue by source
-      const revenueBySource = [
-        { source: "Murabaha Income", amount: Math.round(totalRevenue * 0.65), percentage: 65 },
-        { source: "Service Fees", amount: Math.round(totalRevenue * 0.15), percentage: 15 },
-        { source: "Late Payment Fees", amount: Math.round(totalRevenue * 0.08), percentage: 8 },
-        { source: "Other Income", amount: Math.round(totalRevenue * 0.12), percentage: 12 },
-      ];
+      // Helper: find top-level parent for an account
+      function findTopParent(acc: any, allAccounts: any[]): any {
+        if (!acc.parentId) return acc;
+        const parent = allAccounts.find(a => a.id === acc.parentId);
+        if (!parent) return acc;
+        return findTopParent(parent, allAccounts);
+      }
+
+      // Revenue by source - from actual income accounts grouped by top-level parent
+      const incomeGroupMap = new Map<string, { name: string; amount: number }>();
+      for (const acc of incomeAccounts) {
+        const bal = Number(acc.currentBalance || 0);
+        if (bal === 0) continue;
+        const hasChildren = incomeAccounts.some(c => c.parentId === acc.id);
+        if (hasChildren) continue;
+        const topParent = findTopParent(acc, incomeAccounts);
+        const key = topParent.id;
+        const existing = incomeGroupMap.get(key);
+        if (existing) {
+          existing.amount += bal;
+        } else {
+          incomeGroupMap.set(key, { name: topParent.accountName, amount: bal });
+        }
+      }
+      const incomeGroupArr = Array.from(incomeGroupMap.values())
+        .filter(item => item.amount > 0)
+        .sort((a, b) => b.amount - a.amount);
+      const actualIncomeTotal = incomeGroupArr.reduce((sum, item) => sum + item.amount, 0);
+      const revenueBySource = incomeGroupArr.map(item => ({
+        source: item.name,
+        amount: Math.round(item.amount),
+        percentage: actualIncomeTotal > 0 ? Math.round((item.amount / actualIncomeTotal) * 1000) / 10 : 0,
+      }));
       
-      // Expense breakdown by category
-      const expenseCategories = [
-        { category: "Personnel", amount: Math.round(totalExpenses * 0.45), percentage: 45, trend: -2.3 },
-        { category: "Administrative", amount: Math.round(totalExpenses * 0.15), percentage: 15, trend: 5.1 },
-        { category: "Rent & Utilities", amount: Math.round(totalExpenses * 0.12), percentage: 12, trend: 0 },
-        { category: "Operations", amount: Math.round(totalExpenses * 0.10), percentage: 10, trend: 3.2 },
-        { category: "Marketing", amount: Math.round(totalExpenses * 0.08), percentage: 8, trend: -8.5 },
-        { category: "Other", amount: Math.round(totalExpenses * 0.10), percentage: 10, trend: 1.5 },
-      ];
+      // Expense breakdown by category - from actual expense accounts grouped by top-level parent
+      const expenseGroupMap = new Map<string, { name: string; amount: number }>();
+      for (const acc of expenseAccounts) {
+        const bal = Math.abs(Number(acc.currentBalance || 0));
+        if (bal === 0) continue;
+        const hasChildren = expenseAccounts.some(c => c.parentId === acc.id);
+        if (hasChildren) continue;
+        const topParent = findTopParent(acc, expenseAccounts);
+        const key = topParent.id;
+        const existing = expenseGroupMap.get(key);
+        if (existing) {
+          existing.amount += bal;
+        } else {
+          expenseGroupMap.set(key, { name: topParent.accountName, amount: bal });
+        }
+      }
+      const expenseGroupArr = Array.from(expenseGroupMap.values())
+        .filter(item => item.amount > 0)
+        .sort((a, b) => b.amount - a.amount);
+      const actualExpenseTotal = expenseGroupArr.reduce((sum, item) => sum + item.amount, 0);
+      const expenseCategories = expenseGroupArr.map(item => ({
+        category: item.name,
+        amount: Math.round(item.amount),
+        percentage: actualExpenseTotal > 0 ? Math.round((item.amount / actualExpenseTotal) * 1000) / 10 : 0,
+        trend: 0,
+      }));
       
-      // Expense by department
-      const expenseByDepartment = [
-        { department: "Operations", amount: Math.round(totalExpenses * 0.35), percentage: 35 },
-        { department: "Administration", amount: Math.round(totalExpenses * 0.25), percentage: 25 },
-        { department: "Finance", amount: Math.round(totalExpenses * 0.20), percentage: 20 },
-        { department: "IT", amount: Math.round(totalExpenses * 0.12), percentage: 12 },
-        { department: "HR", amount: Math.round(totalExpenses * 0.08), percentage: 8 },
-      ];
+      // Expense by department - derived from top-level expense groups
+      const expenseByDepartment = expenseGroupArr
+        .slice(0, 8)
+        .map(item => ({
+          department: item.name,
+          amount: Math.round(item.amount),
+          percentage: actualExpenseTotal > 0 ? Math.round((item.amount / actualExpenseTotal) * 1000) / 10 : 0,
+        }));
       
       // Budget vs Actual
       const budgetAnalysis = {
