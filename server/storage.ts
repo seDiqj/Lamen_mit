@@ -3937,12 +3937,53 @@ export class DatabaseStorage implements IStorage {
       accountName: acc.accountName,
       amount: Number(acc.currentBalance || 0),
     }));
-    
-    // Calculate net income from income and expense accounts
-    // Income accounts have credit balances (negative in our system), expense have debit balances (positive)
-    const totalIncome = incomeAccounts.reduce((sum, acc) => sum + Math.abs(Number(acc.currentBalance || 0)), 0);
-    const totalExpenses = expenseAccounts.reduce((sum, acc) => sum + Math.abs(Number(acc.currentBalance || 0)), 0);
-    const netIncome = totalIncome - totalExpenses;
+
+    const asOfYear = new Date(asOfDate).getFullYear();
+    const priorYearEnd = `${asOfYear - 1}-12-31`;
+    const currentYearStart = `${asOfYear}-01-01`;
+
+    const plAccountIds = [...incomeAccounts, ...expenseAccounts].map(a => a.id);
+
+    const computePL = async (fromDate: string | null, toDate: string) => {
+      if (plAccountIds.length === 0) return 0;
+      const conditions = [
+        eq(journalEntries.isPosted, true),
+        inArray(journalLines.accountId, plAccountIds),
+        lte(journalEntries.entryDate, toDate),
+      ];
+      if (fromDate) {
+        conditions.push(gte(journalEntries.entryDate, fromDate));
+      }
+      const rows = await db
+        .select({
+          accountId: journalLines.accountId,
+          totalDebit: sql<string>`COALESCE(SUM(CAST(${journalLines.debitAmount} AS numeric)), 0)`,
+          totalCredit: sql<string>`COALESCE(SUM(CAST(${journalLines.creditAmount} AS numeric)), 0)`,
+        })
+        .from(journalLines)
+        .leftJoin(journalEntries, eq(journalLines.journalEntryId, journalEntries.id))
+        .where(and(...conditions))
+        .groupBy(journalLines.accountId);
+
+      let totalInc = 0;
+      let totalExp = 0;
+      for (const row of rows) {
+        const credit = Number(row.totalCredit || 0);
+        const debit = Number(row.totalDebit || 0);
+        const acc = [...incomeAccounts, ...expenseAccounts].find(a => a.id === row.accountId);
+        if (!acc) continue;
+        if (acc.accountType === 'income') {
+          totalInc += (credit - debit);
+        } else {
+          totalExp += (debit - credit);
+        }
+      }
+      return totalInc - totalExp;
+    };
+
+    const retainedEarnings = await computePL(null, priorYearEnd);
+    const currentPeriodNetIncome = await computePL(currentYearStart, asOfDate);
+    const netIncome = retainedEarnings + currentPeriodNetIncome;
     
     const totalAssets = assets.reduce((sum, a) => sum + a.amount, 0);
     const totalLiabilities = liabilities.reduce((sum, l) => sum + l.amount, 0);
@@ -3953,9 +3994,9 @@ export class DatabaseStorage implements IStorage {
       assets,
       liabilities,
       equity,
+      retainedEarnings,
+      currentPeriodNetIncome,
       netIncome,
-      totalIncome,
-      totalExpenses,
       totalAssets,
       totalLiabilities,
       totalEquity,

@@ -27,6 +27,8 @@ type BalanceSheetData = {
   assets: AccountItem[];
   liabilities: AccountItem[];
   equity: AccountItem[];
+  retainedEarnings: number;
+  currentPeriodNetIncome: number;
   netIncome: number;
   totalAssets: number;
   totalLiabilities: number;
@@ -90,11 +92,18 @@ export default function BalanceSheet() {
         "Amount (AFN)": item.amount,
       });
     });
-    if (data.netIncome !== 0) {
+    if (data.retainedEarnings !== 0) {
       exportData.push({
         "Account Code": "",
-        "Account Name": data.netIncome >= 0 ? "Current Period Net Income" : "Current Period Net Loss",
-        "Amount (AFN)": data.netIncome,
+        "Account Name": "Retained Earnings",
+        "Amount (AFN)": data.retainedEarnings,
+      });
+    }
+    if (data.currentPeriodNetIncome !== 0) {
+      exportData.push({
+        "Account Code": "",
+        "Account Name": data.currentPeriodNetIncome >= 0 ? "Current Period Net Income" : "Current Period Net Loss",
+        "Amount (AFN)": data.currentPeriodNetIncome,
       });
     }
     exportData.push({ "Account Code": "", "Account Name": "Total Equity", "Amount (AFN)": data.totalEquity });
@@ -171,13 +180,22 @@ export default function BalanceSheet() {
         formatCurrency(item.amount.toString()).replace("AFN", "").trim()
       ]);
     });
-    if (data.netIncome !== 0) {
-      const netIncomeLabel = data.netIncome >= 0 ? "Current Period Net Income" : "Current Period Net Loss";
-      const fillColor = data.netIncome >= 0 ? [220, 252, 231] : [254, 226, 226];
+    if (data.retainedEarnings !== 0) {
+      const reLabel = "Retained Earnings";
+      const reFillColor = data.retainedEarnings >= 0 ? [219, 234, 254] : [254, 215, 170];
+      tableData.push([
+        "",
+        { content: reLabel, styles: { fontStyle: "italic" } },
+        { content: formatCurrency(Math.abs(data.retainedEarnings).toString()).replace("AFN", "").trim() + (data.retainedEarnings < 0 ? " (Loss)" : ""), styles: { fillColor: reFillColor } }
+      ]);
+    }
+    if (data.currentPeriodNetIncome !== 0) {
+      const netIncomeLabel = data.currentPeriodNetIncome >= 0 ? "Current Period Net Income" : "Current Period Net Loss";
+      const fillColor = data.currentPeriodNetIncome >= 0 ? [220, 252, 231] : [254, 226, 226];
       tableData.push([
         "",
         { content: netIncomeLabel, styles: { fontStyle: "italic" } },
-        { content: formatCurrency(Math.abs(data.netIncome).toString()).replace("AFN", "").trim(), styles: { fillColor } }
+        { content: formatCurrency(Math.abs(data.currentPeriodNetIncome).toString()).replace("AFN", "").trim() + (data.currentPeriodNetIncome < 0 ? " (Loss)" : ""), styles: { fillColor } }
       ]);
     }
     tableData.push([
@@ -344,15 +362,25 @@ export default function BalanceSheet() {
                       <TableCell colSpan={3} className="text-center text-muted-foreground py-2 text-sm">No equity recorded</TableCell>
                     </TableRow>
                   )}
-                  {data.netIncome !== 0 && (
-                    <TableRow className={data.netIncome >= 0 ? "bg-green-50 dark:bg-green-950/30" : "bg-red-50 dark:bg-red-950/30"}>
+                  {data.retainedEarnings !== 0 && (
+                    <TableRow className={data.retainedEarnings >= 0 ? "bg-blue-50 dark:bg-blue-950/30" : "bg-orange-50 dark:bg-orange-950/30"} data-testid="row-retained-earnings">
+                      <TableCell className="font-mono w-24"></TableCell>
+                      <TableCell className="italic">Retained Earnings</TableCell>
+                      <TableCell className={`text-right font-mono ${data.retainedEarnings >= 0 ? "text-blue-600" : "text-orange-600"}`} data-testid="text-retained-earnings">
+                        {formatCurrency(Math.abs(data.retainedEarnings).toString())}
+                        {data.retainedEarnings < 0 && " (Loss)"}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {data.currentPeriodNetIncome !== 0 && (
+                    <TableRow className={data.currentPeriodNetIncome >= 0 ? "bg-green-50 dark:bg-green-950/30" : "bg-red-50 dark:bg-red-950/30"} data-testid="row-current-period-net-income">
                       <TableCell className="font-mono w-24"></TableCell>
                       <TableCell className="italic">
-                        {data.netIncome >= 0 ? "Current Period Net Income" : "Current Period Net Loss"}
+                        {data.currentPeriodNetIncome >= 0 ? "Current Period Net Income" : "Current Period Net Loss"}
                       </TableCell>
-                      <TableCell className={`text-right font-mono ${data.netIncome >= 0 ? "text-green-600" : "text-red-600"}`}>
-                        {formatCurrency(Math.abs(data.netIncome).toString())}
-                        {data.netIncome < 0 && " (Loss)"}
+                      <TableCell className={`text-right font-mono ${data.currentPeriodNetIncome >= 0 ? "text-green-600" : "text-red-600"}`} data-testid="text-current-period-net-income">
+                        {formatCurrency(Math.abs(data.currentPeriodNetIncome).toString())}
+                        {data.currentPeriodNetIncome < 0 && " (Loss)"}
                       </TableCell>
                     </TableRow>
                   )}
