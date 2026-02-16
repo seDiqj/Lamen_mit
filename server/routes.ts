@@ -1086,6 +1086,16 @@ export async function registerRoutes(
     }
   });
 
+  app.delete("/api/customer-documents/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.deleteCustomerDocument(req.params.id);
+      res.json({ message: "Document deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting customer document:", error);
+      res.status(500).json({ message: "Failed to delete document" });
+    }
+  });
+
   app.get("/api/customers/:id/loans", isAuthenticated, async (req, res) => {
     try {
       const customerLoans = await storage.getLoansByCustomer(req.params.id);

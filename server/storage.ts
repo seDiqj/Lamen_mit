@@ -219,6 +219,7 @@ export interface IStorage {
   updateCustomer(id: string, data: Partial<InsertCustomer>): Promise<Customer>;
   getCustomerDocuments(customerId: string): Promise<CustomerDocument[]>;
   createCustomerDocument(data: InsertCustomerDocument): Promise<CustomerDocument>;
+  deleteCustomerDocument(id: string): Promise<void>;
   
   // Loans
   getLoans(filters: { search?: string; status?: string; page?: number; limit?: number }): Promise<{ loans: any[]; total: number }>;
@@ -856,6 +857,10 @@ export class DatabaseStorage implements IStorage {
   async createCustomerDocument(data: InsertCustomerDocument): Promise<CustomerDocument> {
     const [document] = await db.insert(customerDocuments).values(data).returning();
     return document;
+  }
+
+  async deleteCustomerDocument(id: string): Promise<void> {
+    await db.delete(customerDocuments).where(eq(customerDocuments.id, id));
   }
 
   // Customer Businesses

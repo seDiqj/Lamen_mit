@@ -17,7 +17,7 @@ import {
   User, FileText, Building2, Shield, Users, UserCheck, 
   ChevronLeft, ChevronRight, Save, ArrowLeft, Loader2, Check, Eye, Edit2,
   XCircle, AlertTriangle, CheckCircle2, Clock, Camera, ExternalLink,
-  Upload, X, File
+  Upload, X, File, Trash2
 } from "lucide-react";
 import type { Branch, FinanceOfficer, FundingSource, Province, District } from "@shared/schema";
 import { cn, toPersianDate, calculateAge } from "@/lib/utils";
@@ -352,6 +352,20 @@ export default function LoanDetailsPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/loan-applications", loanId] });
       queryClient.invalidateQueries({ queryKey: ["/api/loans"] });
       setIsEditing(false);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteDocumentMutation = useMutation({
+    mutationFn: async (docId: string) => {
+      const response = await apiRequest("DELETE", `/api/customer-documents/${docId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Document deleted successfully" });
+      queryClient.invalidateQueries({ queryKey: ["/api/loan-applications", loanId] });
     },
     onError: (error: Error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -729,6 +743,18 @@ export default function LoanDetailsPage() {
                                 <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
                                   <ExternalLink className="h-3.5 w-3.5" />
                                 </a>
+                              )}
+                              {isEditing && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="text-destructive"
+                                  data-testid={`button-delete-doc-${doc.id}`}
+                                  disabled={deleteDocumentMutation.isPending}
+                                  onClick={() => deleteDocumentMutation.mutate(doc.id)}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
                               )}
                             </div>
                           ))}

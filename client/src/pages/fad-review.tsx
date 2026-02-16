@@ -50,7 +50,8 @@ import {
   ExternalLink,
   Upload,
   X,
-  File
+  File,
+  Trash2
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Branch, FinanceOfficer } from "@shared/schema";
@@ -458,6 +459,20 @@ export default function FadReviewPage() {
     },
   });
 
+  const deleteDocumentMutation = useMutation({
+    mutationFn: async (docId: string) => {
+      const response = await apiRequest("DELETE", `/api/customer-documents/${docId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Document deleted successfully" });
+      queryClient.invalidateQueries({ queryKey: ["/api/loan-applications", selectedLoanId] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
   const handleStartReview = (loanId: string) => {
     setSelectedLoanId(loanId);
     setCurrentStep(1);
@@ -729,6 +744,18 @@ export default function FadReviewPage() {
                                   <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
                                     <ExternalLink className="h-3.5 w-3.5" />
                                   </a>
+                                )}
+                                {isEditing && (
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="text-destructive"
+                                    data-testid={`button-delete-doc-${doc.id}`}
+                                    disabled={deleteDocumentMutation.isPending}
+                                    onClick={() => deleteDocumentMutation.mutate(doc.id)}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
                                 )}
                               </div>
                             ))}
