@@ -1107,15 +1107,19 @@ export async function registerRoutes(
   });
 
   // ===== LOANS =====
-  app.get("/api/loans", isAuthenticated, async (req, res) => {
+  app.get("/api/loans", isAuthenticated, async (req: any, res) => {
     try {
       const { search, status, financeOfficerId, page, limit } = req.query;
+      const userId = req.session.userId;
+      const userRole = await storage.getUserRole(userId);
+      const role = userRole?.role || "user";
       const result = await storage.getLoans({
         search: search as string | undefined,
         status: status as string | undefined,
         financeOfficerId: financeOfficerId as string | undefined,
         page: page ? parseInt(page as string) : 1,
         limit: limit ? parseInt(limit as string) : 10,
+        userId: role === "user" ? userId : undefined,
       });
       res.json({
         ...result,
@@ -1529,7 +1533,7 @@ export async function registerRoutes(
 
   app.post("/api/loans", isAuthenticated, requireRole("manager", "admin"), async (req: any, res) => {
     try {
-      const loan = await storage.createLoan(req.body);
+      const loan = await storage.createLoan({ ...req.body, createdBy: req.session.userId });
       await logActivity(req, "create_loan", "loan", loan.id, `Created loan: ${loan.applicationId}`);
       res.status(201).json(loan);
     } catch (error) {
@@ -1724,6 +1728,7 @@ export async function registerRoutes(
         principleAmount: data.principleAmount?.toString(),
         marginRate: data.marginRate?.toString(),
         status: "pending",
+        createdBy: req.session.userId,
       });
 
       // Create collateral if provided

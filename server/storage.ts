@@ -949,9 +949,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Loans
-  async getLoans(filters: { search?: string; status?: string; financeOfficerId?: string; page?: number; limit?: number }): Promise<{ loans: any[]; total: number }> {
-    const { search, status, financeOfficerId, page = 1, limit = 10 } = filters;
+  async getLoans(filters: { search?: string; status?: string; financeOfficerId?: string; page?: number; limit?: number; userId?: string }): Promise<{ loans: any[]; total: number }> {
+    const { search, status, financeOfficerId, page = 1, limit = 10, userId } = filters;
     const offset = (page - 1) * limit;
+
+    let userFilter = undefined;
+    if (userId) {
+      const officerRecords = await db.select({ id: financeOfficers.id }).from(financeOfficers).where(eq(financeOfficers.userId, userId));
+      const officerIds = officerRecords.map(o => o.id);
+      if (officerIds.length > 0) {
+        userFilter = or(
+          eq(loans.createdBy, userId),
+          inArray(loans.financeOfficerId, officerIds)
+        );
+      } else {
+        userFilter = eq(loans.createdBy, userId);
+      }
+    }
 
     const whereConditions = and(
       status && status !== "all" ? eq(loans.status, status as any) : undefined,
@@ -962,7 +976,8 @@ export class DatabaseStorage implements IStorage {
             like(customers.firstName, `%${search}%`),
             like(customers.lastName, `%${search}%`)
           )
-        : undefined
+        : undefined,
+      userFilter
     );
 
     const results = await db

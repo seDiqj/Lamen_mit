@@ -194,6 +194,7 @@ export const loans = pgTable("loans", {
   totalCollection: decimal("total_collection", { precision: 15, scale: 2 }),
   outstandingPortfolio: decimal("outstanding_portfolio", { precision: 15, scale: 2 }),
   status: loanStatusEnum("status").default("pending"),
+  createdBy: varchar("created_by"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
