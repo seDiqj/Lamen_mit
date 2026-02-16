@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -57,6 +57,12 @@ type FundingSource = {
   name: string;
 };
 
+type BranchGroup = {
+  branchName: string;
+  rows: DisbursementRow[];
+  subtotal: { disbursedAmount: number; principleAmount: number; marginAmount: number; totalPaid: number; outstandingPortfolio: number };
+};
+
 export default function LoanDisbursementReport() {
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
@@ -96,32 +102,115 @@ export default function LoanDisbursementReport() {
 
   const selectedBranchName = branchId === "all" ? "All Branches" : branchesData?.find(b => b.id === branchId)?.name || "";
 
+  const { branchGroups, grandTotal } = useMemo(() => {
+    if (!data || data.length === 0) return { branchGroups: [], grandTotal: { disbursedAmount: 0, principleAmount: 0, marginAmount: 0, totalPaid: 0, outstandingPortfolio: 0 } };
+
+    const sorted = [...data].sort((a, b) => (a.branchName || "").localeCompare(b.branchName || ""));
+
+    const groupMap = new Map<string, DisbursementRow[]>();
+    for (const row of sorted) {
+      const key = row.branchName || "Unknown";
+      if (!groupMap.has(key)) groupMap.set(key, []);
+      groupMap.get(key)!.push(row);
+    }
+
+    const groups: BranchGroup[] = [];
+    const gt = { disbursedAmount: 0, principleAmount: 0, marginAmount: 0, totalPaid: 0, outstandingPortfolio: 0 };
+
+    for (const [branchName, rows] of Array.from(groupMap.entries())) {
+      const subtotal = { disbursedAmount: 0, principleAmount: 0, marginAmount: 0, totalPaid: 0, outstandingPortfolio: 0 };
+      for (const r of rows) {
+        subtotal.disbursedAmount += r.disbursedAmount;
+        subtotal.principleAmount += r.principleAmount;
+        subtotal.marginAmount += r.marginAmount;
+        subtotal.totalPaid += r.totalPaid;
+        subtotal.outstandingPortfolio += r.outstandingPortfolio;
+      }
+      gt.disbursedAmount += subtotal.disbursedAmount;
+      gt.principleAmount += subtotal.principleAmount;
+      gt.marginAmount += subtotal.marginAmount;
+      gt.totalPaid += subtotal.totalPaid;
+      gt.outstandingPortfolio += subtotal.outstandingPortfolio;
+      groups.push({ branchName, rows, subtotal });
+    }
+
+    return { branchGroups: groups, grandTotal: gt };
+  }, [data]);
+
   const handleExportExcel = () => {
     if (!data) return;
 
-    const exportData = data.map((row, idx) => ({
-      "Serial": idx + 1,
-      "Customer Name": row.customerName || "",
-      "Application ID": row.applicationId || "",
-      "Financing Officer": row.officerName || "",
-      "Product": row.productName || "",
-      "Branch": row.branchName || "",
-      "Cycle": row.financingCycle || "",
-      "Financing Months": row.financingDurationMonths || "",
-      "Disb. Date": row.disbursementDate ? formatDate(row.disbursementDate) : "",
-      "Province": row.province || "",
-      "District": row.district || "",
-      "Disb Amt": row.disbursedAmount,
-      "Principle": row.principleAmount,
-      "Margin Amt": row.marginAmount,
-      "Total Paid": row.totalPaid,
-      "Outstanding": row.outstandingPortfolio,
-      "Delay Days": row.delayDays,
-      "Mobile": row.phoneNumber || "",
-      "Tel 2": row.secondPhoneNumber || "",
-    }));
+    const rows: Record<string, string | number>[] = [];
+    let serial = 1;
+    for (const group of branchGroups) {
+      for (const row of group.rows) {
+        rows.push({
+          "Serial": serial++,
+          "Customer Name": row.customerName || "",
+          "Application ID": row.applicationId || "",
+          "Financing Officer": row.officerName || "",
+          "Product": row.productName || "",
+          "Branch": row.branchName || "",
+          "Cycle": row.financingCycle || "",
+          "Financing Months": row.financingDurationMonths || "",
+          "Disb. Date": row.disbursementDate ? formatDate(row.disbursementDate) : "",
+          "Province": row.province || "",
+          "District": row.district || "",
+          "Disb Amt": row.disbursedAmount,
+          "Principle": row.principleAmount,
+          "Margin Amt": row.marginAmount,
+          "Total Paid": row.totalPaid,
+          "Outstanding": row.outstandingPortfolio,
+          "Delay Days": row.delayDays,
+          "Mobile": row.phoneNumber || "",
+          "Tel 2": row.secondPhoneNumber || "",
+        });
+      }
+      rows.push({
+        "Serial": "",
+        "Customer Name": "",
+        "Application ID": "",
+        "Financing Officer": "",
+        "Product": "",
+        "Branch": `Subtotal - ${group.branchName}`,
+        "Cycle": "",
+        "Financing Months": "",
+        "Disb. Date": "",
+        "Province": "",
+        "District": "",
+        "Disb Amt": group.subtotal.disbursedAmount,
+        "Principle": group.subtotal.principleAmount,
+        "Margin Amt": group.subtotal.marginAmount,
+        "Total Paid": group.subtotal.totalPaid,
+        "Outstanding": group.subtotal.outstandingPortfolio,
+        "Delay Days": "",
+        "Mobile": "",
+        "Tel 2": "",
+      });
+    }
+    rows.push({
+      "Serial": "",
+      "Customer Name": "",
+      "Application ID": "",
+      "Financing Officer": "",
+      "Product": "",
+      "Branch": "Grand Total",
+      "Cycle": "",
+      "Financing Months": "",
+      "Disb. Date": "",
+      "Province": "",
+      "District": "",
+      "Disb Amt": grandTotal.disbursedAmount,
+      "Principle": grandTotal.principleAmount,
+      "Margin Amt": grandTotal.marginAmount,
+      "Total Paid": grandTotal.totalPaid,
+      "Outstanding": grandTotal.outstandingPortfolio,
+      "Delay Days": "",
+      "Mobile": "",
+      "Tel 2": "",
+    });
 
-    const ws = XLSX.utils.json_to_sheet(exportData);
+    const ws = XLSX.utils.json_to_sheet(rows);
     ws["!cols"] = [
       { wch: 6 }, { wch: 20 }, { wch: 16 }, { wch: 18 },
       { wch: 10 }, { wch: 15 }, { wch: 6 }, { wch: 10 }, { wch: 12 },
@@ -153,26 +242,50 @@ export default function LoanDisbursementReport() {
     doc.setFontSize(9);
     doc.text(`Generated: ${new Date().toLocaleDateString()}`, 148, 34, { align: "center" });
 
-    const tableData = data.map((row, idx) => [
-      idx + 1,
-      row.customerName || "",
-      row.applicationId || "",
-      row.officerName || "",
-      row.productName || "",
-      row.branchName || "",
-      row.financingCycle || "",
-      row.financingDurationMonths || "",
-      row.disbursementDate ? formatDate(row.disbursementDate) : "",
-      row.province || "",
-      row.district || "",
-      row.disbursedAmount.toLocaleString(),
-      row.principleAmount.toLocaleString(),
-      row.marginAmount.toLocaleString(),
-      row.totalPaid.toLocaleString(),
-      row.outstandingPortfolio.toLocaleString(),
-      row.delayDays,
-      row.phoneNumber || "",
-      row.secondPhoneNumber || "",
+    const tableData: any[][] = [];
+    let serial = 1;
+    for (const group of branchGroups) {
+      for (const row of group.rows) {
+        tableData.push([
+          serial++,
+          row.customerName || "",
+          row.applicationId || "",
+          row.officerName || "",
+          row.productName || "",
+          row.branchName || "",
+          row.financingCycle || "",
+          row.financingDurationMonths || "",
+          row.disbursementDate ? formatDate(row.disbursementDate) : "",
+          row.province || "",
+          row.district || "",
+          row.disbursedAmount.toLocaleString(),
+          row.principleAmount.toLocaleString(),
+          row.marginAmount.toLocaleString(),
+          row.totalPaid.toLocaleString(),
+          row.outstandingPortfolio.toLocaleString(),
+          row.delayDays,
+          row.phoneNumber || "",
+          row.secondPhoneNumber || "",
+        ]);
+      }
+      tableData.push([
+        "", "", "", "", "", `Subtotal - ${group.branchName}`, "", "", "", "", "",
+        group.subtotal.disbursedAmount.toLocaleString(),
+        group.subtotal.principleAmount.toLocaleString(),
+        group.subtotal.marginAmount.toLocaleString(),
+        group.subtotal.totalPaid.toLocaleString(),
+        group.subtotal.outstandingPortfolio.toLocaleString(),
+        "", "", "",
+      ]);
+    }
+    tableData.push([
+      "", "", "", "", "", "Grand Total", "", "", "", "", "",
+      grandTotal.disbursedAmount.toLocaleString(),
+      grandTotal.principleAmount.toLocaleString(),
+      grandTotal.marginAmount.toLocaleString(),
+      grandTotal.totalPaid.toLocaleString(),
+      grandTotal.outstandingPortfolio.toLocaleString(),
+      "", "", "",
     ]);
 
     autoTable(doc, {
@@ -190,6 +303,18 @@ export default function LoanDisbursementReport() {
         14: { halign: "right" },
         15: { halign: "right" },
         16: { halign: "center" },
+      },
+      didParseCell: (hookData: any) => {
+        if (hookData.section === "body") {
+          const rowData = hookData.row.raw as any[];
+          if (rowData && typeof rowData[5] === "string" && (rowData[5].startsWith("Subtotal") || rowData[5] === "Grand Total")) {
+            hookData.cell.styles.fontStyle = "bold";
+            hookData.cell.styles.fillColor = rowData[5] === "Grand Total" ? [34, 87, 122] : [220, 230, 240];
+            if (rowData[5] === "Grand Total") {
+              hookData.cell.styles.textColor = [255, 255, 255];
+            }
+          }
+        }
       },
     });
 
@@ -320,29 +445,55 @@ export default function LoanDisbursementReport() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data.map((row, idx) => (
-                    <TableRow key={idx} data-testid={`row-disbursement-${idx}`} className={idx % 2 === 0 ? "bg-muted/30" : ""}>
-                      <TableCell className="text-center font-mono">{idx + 1}</TableCell>
-                      <TableCell data-testid={`text-customer-name-${idx}`}>{row.customerName}</TableCell>
-                      <TableCell className="font-mono">{row.applicationId}</TableCell>
-                      <TableCell>{row.officerName}</TableCell>
-                      <TableCell>{row.productName}</TableCell>
-                      <TableCell>{row.branchName}</TableCell>
-                      <TableCell className="text-center">{row.financingCycle}</TableCell>
-                      <TableCell className="text-center">{row.financingDurationMonths}</TableCell>
-                      <TableCell>{row.disbursementDate ? formatDate(row.disbursementDate) : ""}</TableCell>
-                      <TableCell>{row.province}</TableCell>
-                      <TableCell>{row.district}</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency(row.disbursedAmount.toString())}</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency(row.principleAmount.toString())}</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency(row.marginAmount.toString())}</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency(row.totalPaid.toString())}</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency(row.outstandingPortfolio.toString())}</TableCell>
-                      <TableCell className={`text-center font-mono ${row.delayDays > 0 ? "text-red-600 font-semibold" : ""}`}>{row.delayDays}</TableCell>
-                      <TableCell>{row.phoneNumber}</TableCell>
-                      <TableCell>{row.secondPhoneNumber}</TableCell>
-                    </TableRow>
-                  ))}
+                  {(() => {
+                    let serial = 1;
+                    return branchGroups.map((group) => (
+                      <>
+                        {group.rows.map((row, idx) => (
+                          <TableRow key={`${group.branchName}-${idx}`} data-testid={`row-disbursement-${serial - 1 + idx}`} className={(serial - 1 + idx) % 2 === 0 ? "bg-muted/30" : ""}>
+                            <TableCell className="text-center font-mono">{serial + idx}</TableCell>
+                            <TableCell>{row.customerName}</TableCell>
+                            <TableCell className="font-mono">{row.applicationId}</TableCell>
+                            <TableCell>{row.officerName}</TableCell>
+                            <TableCell>{row.productName}</TableCell>
+                            <TableCell>{row.branchName}</TableCell>
+                            <TableCell className="text-center">{row.financingCycle}</TableCell>
+                            <TableCell className="text-center">{row.financingDurationMonths}</TableCell>
+                            <TableCell>{row.disbursementDate ? formatDate(row.disbursementDate) : ""}</TableCell>
+                            <TableCell>{row.province}</TableCell>
+                            <TableCell>{row.district}</TableCell>
+                            <TableCell className="text-right font-mono">{formatCurrency(row.disbursedAmount.toString())}</TableCell>
+                            <TableCell className="text-right font-mono">{formatCurrency(row.principleAmount.toString())}</TableCell>
+                            <TableCell className="text-right font-mono">{formatCurrency(row.marginAmount.toString())}</TableCell>
+                            <TableCell className="text-right font-mono">{formatCurrency(row.totalPaid.toString())}</TableCell>
+                            <TableCell className="text-right font-mono">{formatCurrency(row.outstandingPortfolio.toString())}</TableCell>
+                            <TableCell className={`text-center font-mono ${row.delayDays > 0 ? "text-red-600 font-semibold" : ""}`}>{row.delayDays}</TableCell>
+                            <TableCell>{row.phoneNumber}</TableCell>
+                            <TableCell>{row.secondPhoneNumber}</TableCell>
+                          </TableRow>
+                        ))}
+                        {(() => { serial += group.rows.length; return null; })()}
+                        <TableRow className="bg-blue-50 dark:bg-blue-950/30 font-semibold border-t-2 border-b-2 border-blue-200 dark:border-blue-800">
+                          <TableCell colSpan={11} className="text-right font-bold">Subtotal - {group.branchName}</TableCell>
+                          <TableCell className="text-right font-mono font-bold">{formatCurrency(group.subtotal.disbursedAmount.toString())}</TableCell>
+                          <TableCell className="text-right font-mono font-bold">{formatCurrency(group.subtotal.principleAmount.toString())}</TableCell>
+                          <TableCell className="text-right font-mono font-bold">{formatCurrency(group.subtotal.marginAmount.toString())}</TableCell>
+                          <TableCell className="text-right font-mono font-bold">{formatCurrency(group.subtotal.totalPaid.toString())}</TableCell>
+                          <TableCell className="text-right font-mono font-bold">{formatCurrency(group.subtotal.outstandingPortfolio.toString())}</TableCell>
+                          <TableCell colSpan={3}></TableCell>
+                        </TableRow>
+                      </>
+                    ));
+                  })()}
+                  <TableRow className="bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]">
+                    <TableCell colSpan={11} className="text-right font-bold text-primary-foreground text-base">Grand Total</TableCell>
+                    <TableCell className="text-right font-mono font-bold text-primary-foreground">{formatCurrency(grandTotal.disbursedAmount.toString())}</TableCell>
+                    <TableCell className="text-right font-mono font-bold text-primary-foreground">{formatCurrency(grandTotal.principleAmount.toString())}</TableCell>
+                    <TableCell className="text-right font-mono font-bold text-primary-foreground">{formatCurrency(grandTotal.marginAmount.toString())}</TableCell>
+                    <TableCell className="text-right font-mono font-bold text-primary-foreground">{formatCurrency(grandTotal.totalPaid.toString())}</TableCell>
+                    <TableCell className="text-right font-mono font-bold text-primary-foreground">{formatCurrency(grandTotal.outstandingPortfolio.toString())}</TableCell>
+                    <TableCell colSpan={3} className="text-primary-foreground"></TableCell>
+                  </TableRow>
                 </TableBody>
               </Table>
             )}
