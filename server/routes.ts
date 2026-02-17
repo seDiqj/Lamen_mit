@@ -4044,30 +4044,30 @@ export async function registerRoutes(
 
       if (loanIds.length > 0) {
         const today = new Date().toISOString().split("T")[0];
-        const todaySql = sql.raw(`'${today}'`);
-        const aggRows = await db
-          .select({
-            loanId: installments.loanId,
-            totalPaid: sql<number>`COALESCE(SUM(${installments.paidAmount}), 0)`,
-            outstandingInstallments: sql<number>`COUNT(CASE WHEN ${installments.isPaid} = false THEN 1 END)`,
-            lastPaymentDate: sql<string>`MAX(CASE WHEN ${installments.isPaid} = true THEN ${installments.paidDate} END)`,
-            maxDelayDays: sql<number>`MAX(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate} < ${todaySql} THEN (${todaySql}::date - ${installments.dueDate}::date) ELSE 0 END)`,
-            overdueAmount: sql<number>`COALESCE(SUM(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate} < ${todaySql} THEN ${installments.amount} ELSE 0 END), 0)`,
-            overdueDate: sql<string>`MIN(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate} < ${todaySql} THEN ${installments.dueDate} END)`,
-          })
-          .from(installments)
-          .where(inArray(installments.loanId, loanIds))
-          .groupBy(installments.loanId);
+        const aggRows = await db.execute(sql`
+          SELECT
+            ${installments.loanId} as "loanId",
+            COALESCE(SUM(${installments.paidAmount}), 0) as "totalPaid",
+            COUNT(CASE WHEN ${installments.isPaid} = false THEN 1 END) as "outstandingInstallments",
+            MAX(CASE WHEN ${installments.isPaid} = true THEN ${installments.paidDate}::text END) as "lastPaymentDate",
+            MAX(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate} < ${today}::date THEN (${today}::date - ${installments.dueDate}::date) ELSE 0 END) as "maxDelayDays",
+            COALESCE(SUM(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate} < ${today}::date THEN ${installments.amount} ELSE 0 END), 0) as "overdueAmount",
+            MIN(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate} < ${today}::date THEN ${installments.dueDate}::text END) as "overdueDate"
+          FROM ${installments}
+          WHERE ${installments.loanId} IN (${sql.join(loanIds.map(id => sql`${id}`), sql`, `)})
+          GROUP BY ${installments.loanId}
+        `);
 
-        for (const row of aggRows) {
-          installmentMap[row.loanId] = {
-            totalPaid: Number(row.totalPaid || 0),
-            principalPaid: Number(row.totalPaid || 0),
-            outstandingInstallments: Number(row.outstandingInstallments || 0),
-            lastPaymentDate: row.lastPaymentDate || null,
-            maxDelayDays: Number(row.maxDelayDays || 0),
-            overdueAmount: Number(row.overdueAmount || 0),
-            overdueDate: row.overdueDate || null,
+        for (const row of aggRows.rows) {
+          const r = row as any;
+          installmentMap[r.loanId] = {
+            totalPaid: Number(r.totalPaid || 0),
+            principalPaid: Number(r.totalPaid || 0),
+            outstandingInstallments: Number(r.outstandingInstallments || 0),
+            lastPaymentDate: r.lastPaymentDate || null,
+            maxDelayDays: Number(r.maxDelayDays || 0),
+            overdueAmount: Number(r.overdueAmount || 0),
+            overdueDate: r.overdueDate || null,
           };
         }
       }
