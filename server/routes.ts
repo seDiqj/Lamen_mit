@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
 import { customers, loans, disbursements, branches, financeOfficers, installments, fundingSources as fundingSourcesTable, collaterals, customerBusinesses, loanApprovals, guarantors } from "@shared/schema";
-import { eq, and, inArray, sql, gte, lte, desc } from "drizzle-orm";
+import { eq, and, or, inArray, sql, gte, lte, desc, isNull } from "drizzle-orm";
 import { z } from "zod";
 import bcrypt from "bcrypt";
 import session from "express-session";
@@ -3783,8 +3783,13 @@ export async function registerRoutes(
       }
 
       const conditions: any[] = [
-        gte(disbursements.disbursementDate, startDate as string),
-        lte(disbursements.disbursementDate, endDate as string),
+        or(
+          and(
+            gte(disbursements.disbursementDate, startDate as string),
+            lte(disbursements.disbursementDate, endDate as string),
+          ),
+          isNull(disbursements.disbursementDate),
+        ),
       ];
       if (branchId && branchId !== "all") {
         conditions.push(eq(loans.branchId, branchId as string));
@@ -3808,7 +3813,7 @@ export async function registerRoutes(
         })
         .from(collaterals)
         .innerJoin(loans, eq(collaterals.loanId, loans.id))
-        .innerJoin(disbursements, eq(loans.id, disbursements.loanId))
+        .leftJoin(disbursements, eq(loans.id, disbursements.loanId))
         .leftJoin(branches, eq(loans.branchId, branches.id))
         .where(and(...conditions))
         .orderBy(branches.name, loans.applicationId);
