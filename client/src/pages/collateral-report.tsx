@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { FileSpreadsheet, FileText, Shield } from "lucide-react";
+import { FileSpreadsheet, FileText } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { formatDate } from "@/lib/date-utils";
 import * as XLSX from "xlsx";
@@ -48,16 +48,10 @@ type FundingSource = {
   name: string;
 };
 
-type BranchGroup = {
-  branchName: string;
-  rows: CollateralRow[];
-  subtotal: { collateralValue: number };
-};
-
 export default function CollateralReport() {
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
-    d.setMonth(d.getMonth() - 1);
+    d.setFullYear(d.getFullYear() - 1);
     return d.toISOString().split("T")[0];
   });
   const [endDate, setEndDate] = useState(() => new Date().toISOString().split("T")[0]);
@@ -93,84 +87,24 @@ export default function CollateralReport() {
 
   const selectedBranchName = branchId === "all" ? "All Branches" : branchesData?.find(b => b.id === branchId)?.name || "";
 
-  const { branchGroups, grandTotal } = useMemo(() => {
-    if (!data || data.length === 0) return { branchGroups: [], grandTotal: { collateralValue: 0 } };
-
-    const sorted = [...data].sort((a, b) => (a.branchName || "").localeCompare(b.branchName || ""));
-
-    const groupMap = new Map<string, CollateralRow[]>();
-    for (const row of sorted) {
-      const key = row.branchName || "Unknown";
-      if (!groupMap.has(key)) groupMap.set(key, []);
-      groupMap.get(key)!.push(row);
-    }
-
-    const groups: BranchGroup[] = [];
-    const gt = { collateralValue: 0 };
-
-    for (const [branchName, rows] of Array.from(groupMap.entries())) {
-      const subtotal = { collateralValue: 0 };
-      for (const r of rows) {
-        subtotal.collateralValue += r.collateralValue;
-      }
-      gt.collateralValue += subtotal.collateralValue;
-      groups.push({ branchName, rows, subtotal });
-    }
-
-    return { branchGroups: groups, grandTotal: gt };
-  }, [data]);
-
   const handleExportExcel = () => {
     if (!data) return;
 
-    const rows: Record<string, string | number>[] = [];
-    let serial = 1;
-    for (const group of branchGroups) {
-      for (const row of group.rows) {
-        rows.push({
-          "Serial": serial++,
-          "Contract Code": row.contractCode || "",
-          "Collateral Code": row.collateralCode || "",
-          "Collateral Type": row.collateralType || "",
-          "Collateral Description": row.collateralDescription || "",
-          "Collateral Value": row.collateralValue,
-          "Currency": row.collateralCurrency || "",
-          "Valuation Date": row.valuationDate ? formatDate(row.valuationDate) : "",
-          "Branch": row.branchName || "",
-          "Owner Name": row.ownerName || "",
-        });
-      }
-      rows.push({
-        "Serial": "",
-        "Contract Code": "",
-        "Collateral Code": "",
-        "Collateral Type": "",
-        "Collateral Description": `Subtotal - ${group.branchName}`,
-        "Collateral Value": group.subtotal.collateralValue,
-        "Currency": "",
-        "Valuation Date": "",
-        "Branch": "",
-        "Owner Name": "",
-      });
-    }
-    rows.push({
-      "Serial": "",
-      "Contract Code": "",
-      "Collateral Code": "",
-      "Collateral Type": "",
-      "Collateral Description": "Grand Total",
-      "Collateral Value": grandTotal.collateralValue,
-      "Currency": "",
-      "Valuation Date": "",
-      "Branch": "",
-      "Owner Name": "",
-    });
+    const rows = data.map((row, idx) => ({
+      "#": idx + 1,
+      "ContractCode": row.contractCode || "",
+      "CollateralCode": row.collateralCode || "",
+      "CollateralType": row.collateralType || "",
+      "Collateral Description": row.collateralDescription || "",
+      "Collateral Value": row.collateralValue,
+      "Currency": row.collateralCurrency || "",
+      "Valuation Date": row.valuationDate ? formatDate(row.valuationDate) : "",
+    }));
 
     const ws = XLSX.utils.json_to_sheet(rows);
     ws["!cols"] = [
       { wch: 6 }, { wch: 18 }, { wch: 18 }, { wch: 16 },
       { wch: 22 }, { wch: 16 }, { wch: 10 }, { wch: 14 },
-      { wch: 15 }, { wch: 20 },
     ];
 
     const wb = XLSX.utils.book_new();
@@ -197,38 +131,20 @@ export default function CollateralReport() {
     doc.setFontSize(9);
     doc.text(`Generated: ${new Date().toLocaleDateString()}`, 148, 34, { align: "center" });
 
-    const tableData: any[][] = [];
-    let serial = 1;
-    for (const group of branchGroups) {
-      for (const row of group.rows) {
-        tableData.push([
-          serial++,
-          row.contractCode || "",
-          row.collateralCode || "",
-          row.collateralType || "",
-          row.collateralDescription || "",
-          row.collateralValue.toLocaleString(),
-          row.collateralCurrency || "",
-          row.valuationDate ? formatDate(row.valuationDate) : "",
-          row.branchName || "",
-          row.ownerName || "",
-        ]);
-      }
-      tableData.push([
-        "", "", "", "", `Subtotal - ${group.branchName}`,
-        group.subtotal.collateralValue.toLocaleString(),
-        "", "", "", "",
-      ]);
-    }
-    tableData.push([
-      "", "", "", "", "Grand Total",
-      grandTotal.collateralValue.toLocaleString(),
-      "", "", "", "",
+    const tableData = data.map((row, idx) => [
+      idx + 1,
+      row.contractCode || "",
+      row.collateralCode || "",
+      row.collateralType || "",
+      row.collateralDescription || "",
+      row.collateralValue.toLocaleString(),
+      row.collateralCurrency || "",
+      row.valuationDate ? formatDate(row.valuationDate) : "",
     ]);
 
     autoTable(doc, {
       startY: 38,
-      head: [["#", "Contract Code", "Collateral Code", "Type", "Description", "Value", "Currency", "Valuation Date", "Branch", "Owner Name"]],
+      head: [["#", "ContractCode", "CollateralCode", "CollateralType", "Description", "Value", "Currency", "Valuation Date"]],
       body: tableData,
       theme: "grid",
       headStyles: { fillColor: [34, 87, 122], textColor: [255, 255, 255], fontStyle: "bold", halign: "center", fontSize: 7 },
@@ -236,18 +152,6 @@ export default function CollateralReport() {
       columnStyles: {
         0: { halign: "center", cellWidth: 10 },
         5: { halign: "right" },
-      },
-      didParseCell: (hookData: any) => {
-        if (hookData.section === "body") {
-          const rowData = hookData.row.raw as any[];
-          if (rowData && typeof rowData[4] === "string" && (rowData[4].startsWith("Subtotal") || rowData[4] === "Grand Total")) {
-            hookData.cell.styles.fontStyle = "bold";
-            hookData.cell.styles.fillColor = rowData[4] === "Grand Total" ? [34, 87, 122] : [220, 230, 240];
-            if (rowData[4] === "Grand Total") {
-              hookData.cell.styles.textColor = [255, 255, 255];
-            }
-          }
-        }
       },
     });
 
@@ -356,36 +260,18 @@ export default function CollateralReport() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(() => {
-                    let serial = 1;
-                    return branchGroups.map((group) => (
-                      <>
-                        {group.rows.map((row, idx) => (
-                          <TableRow key={`${group.branchName}-${idx}`} data-testid={`row-collateral-${serial - 1 + idx}`} className={(serial - 1 + idx) % 2 === 0 ? "bg-muted/30" : ""}>
-                            <TableCell className="text-center font-mono">{serial + idx}</TableCell>
-                            <TableCell className="font-mono">{row.contractCode}</TableCell>
-                            <TableCell className="font-mono">{row.collateralCode}</TableCell>
-                            <TableCell>{row.collateralType}</TableCell>
-                            <TableCell>{row.collateralDescription}</TableCell>
-                            <TableCell className="text-right font-mono">{formatCurrency(row.collateralValue.toString())}</TableCell>
-                            <TableCell>{row.collateralCurrency}</TableCell>
-                            <TableCell>{row.valuationDate ? formatDate(row.valuationDate) : ""}</TableCell>
-                          </TableRow>
-                        ))}
-                        {(() => { serial += group.rows.length; return null; })()}
-                        <TableRow className="bg-blue-50 dark:bg-blue-950/30 font-semibold border-t-2 border-b-2 border-blue-200 dark:border-blue-800">
-                          <TableCell colSpan={5} className="text-right font-bold">Subtotal - {group.branchName}</TableCell>
-                          <TableCell className="text-right font-mono font-bold">{formatCurrency(group.subtotal.collateralValue.toString())}</TableCell>
-                          <TableCell colSpan={2}></TableCell>
-                        </TableRow>
-                      </>
-                    ));
-                  })()}
-                  <TableRow className="bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]">
-                    <TableCell colSpan={5} className="text-right font-bold text-primary-foreground text-base">Grand Total</TableCell>
-                    <TableCell className="text-right font-mono font-bold text-primary-foreground">{formatCurrency(grandTotal.collateralValue.toString())}</TableCell>
-                    <TableCell colSpan={2} className="text-primary-foreground"></TableCell>
-                  </TableRow>
+                  {data.map((row, idx) => (
+                    <TableRow key={idx} data-testid={`row-collateral-${idx}`} className={idx % 2 === 0 ? "bg-muted/30" : ""}>
+                      <TableCell className="text-center font-mono">{idx + 1}</TableCell>
+                      <TableCell className="font-mono">{row.contractCode}</TableCell>
+                      <TableCell className="font-mono">{row.collateralCode}</TableCell>
+                      <TableCell>{row.collateralType}</TableCell>
+                      <TableCell>{row.collateralDescription}</TableCell>
+                      <TableCell className="text-right font-mono">{formatCurrency(row.collateralValue.toString())}</TableCell>
+                      <TableCell>{row.collateralCurrency}</TableCell>
+                      <TableCell>{row.valuationDate ? formatDate(row.valuationDate) : ""}</TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             )}

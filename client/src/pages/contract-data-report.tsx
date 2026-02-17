@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { FileSpreadsheet, FileText, FileBarChart } from "lucide-react";
+import { FileSpreadsheet, FileText } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { formatDate } from "@/lib/date-utils";
 import * as XLSX from "xlsx";
@@ -79,25 +79,10 @@ type FundingSource = {
   name: string;
 };
 
-type BranchGroup = {
-  branchName: string;
-  rows: ContractDataRow[];
-  subtotal: {
-    amountOffered: number;
-    totalAmountDisbursed: number;
-    principleAmount: number;
-    marginAmount: number;
-    totalReceivable: number;
-    totalPaid: number;
-    principalOutstanding: number;
-    overdueAmount: number;
-  };
-};
-
 export default function ContractDataReport() {
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
-    d.setMonth(d.getMonth() - 1);
+    d.setFullYear(d.getFullYear() - 1);
     return d.toISOString().split("T")[0];
   });
   const [endDate, setEndDate] = useState(() => new Date().toISOString().split("T")[0]);
@@ -133,164 +118,44 @@ export default function ContractDataReport() {
 
   const selectedBranchName = branchId === "all" ? "All Branches" : branchesData?.find(b => b.id === branchId)?.name || "";
 
-  const { branchGroups, grandTotal } = useMemo(() => {
-    const emptyTotal = { amountOffered: 0, totalAmountDisbursed: 0, principleAmount: 0, marginAmount: 0, totalReceivable: 0, totalPaid: 0, principalOutstanding: 0, overdueAmount: 0 };
-    if (!data || data.length === 0) return { branchGroups: [], grandTotal: emptyTotal };
-
-    const sorted = [...data].sort((a, b) => (a.branchName || "").localeCompare(b.branchName || ""));
-
-    const groupMap = new Map<string, ContractDataRow[]>();
-    for (const row of sorted) {
-      const key = row.branchName || "Unknown";
-      if (!groupMap.has(key)) groupMap.set(key, []);
-      groupMap.get(key)!.push(row);
-    }
-
-    const groups: BranchGroup[] = [];
-    const gt = { ...emptyTotal };
-
-    for (const [branchName, rows] of Array.from(groupMap.entries())) {
-      const subtotal = { amountOffered: 0, totalAmountDisbursed: 0, principleAmount: 0, marginAmount: 0, totalReceivable: 0, totalPaid: 0, principalOutstanding: 0, overdueAmount: 0 };
-      for (const r of rows) {
-        subtotal.amountOffered += r.amountOffered || 0;
-        subtotal.totalAmountDisbursed += r.totalAmountDisbursed || 0;
-        subtotal.principleAmount += r.principleAmount || 0;
-        subtotal.marginAmount += r.marginAmount || 0;
-        subtotal.totalReceivable += r.totalReceivable || 0;
-        subtotal.totalPaid += r.totalPaid || 0;
-        subtotal.principalOutstanding += r.principalOutstanding || 0;
-        subtotal.overdueAmount += r.overdueAmount || 0;
-      }
-      gt.amountOffered += subtotal.amountOffered;
-      gt.totalAmountDisbursed += subtotal.totalAmountDisbursed;
-      gt.principleAmount += subtotal.principleAmount;
-      gt.marginAmount += subtotal.marginAmount;
-      gt.totalReceivable += subtotal.totalReceivable;
-      gt.totalPaid += subtotal.totalPaid;
-      gt.principalOutstanding += subtotal.principalOutstanding;
-      gt.overdueAmount += subtotal.overdueAmount;
-      groups.push({ branchName, rows, subtotal });
-    }
-
-    return { branchGroups: groups, grandTotal: gt };
-  }, [data]);
-
   const handleExportExcel = () => {
     if (!data) return;
 
-    const rows: Record<string, string | number>[] = [];
-    let serial = 1;
-    for (const group of branchGroups) {
-      for (const row of group.rows) {
-        rows.push({
-          "#": serial++,
-          "ContractCode": row.applicationId || "",
-          "Branch": row.branchName || "",
-          "Loan Status": row.loanStatus || "",
-          "Loan Date": row.requestDate ? formatDate(row.requestDate) : "",
-          "CustomerID": row.customerId || "",
-          "Customer Name": row.customerName || "",
-          "SignedContractDate": row.signedContractDate ? formatDate(row.signedContractDate) : "",
-          "PaymentFrequency": row.paymentFrequency || "",
-          "AmountOffered": row.amountOffered || 0,
-          "CurrencyOfContract": row.currency || "AFN",
-          "MaturityDate": row.maturityDate ? formatDate(row.maturityDate) : "",
-          "TotalAmountDisbursed": row.totalAmountDisbursed || 0,
-          "Currency": row.currency || "AFN",
-          "Principle": row.principleAmount || 0,
-          "Margin%": row.marginRate || 0,
-          "Margin": row.marginAmount || 0,
-          "TotalReceivable": row.totalReceivable || 0,
-          "InstallmentAmount": row.installmentAmount || 0,
-          "ContractDurationMonths": row.financingDurationMonths || 0,
-          "NumberOfInstallments": row.numberOfInstallments || 0,
-          "FirstInstallmentDate": row.firstInstallmentDate ? formatDate(row.firstInstallmentDate) : "",
-          "DisbursementDate": row.disbursementDate ? formatDate(row.disbursementDate) : "",
-          "TotalPaid": row.totalPaid || 0,
-          "PrincipalOutstanding": row.principalOutstanding || 0,
-          "OutstandingInstallments": row.outstandingInstallments || 0,
-          "LastPaymentDate": row.lastPaymentDate ? formatDate(row.lastPaymentDate) : "",
-          "NumberOfDaysInArrears": row.numberOfDaysInArrears || 0,
-          "OverdueAmount": row.overdueAmount || 0,
-          "OverdueDate": row.overdueDate ? formatDate(row.overdueDate) : "",
-          "Restructured": row.restructured || "",
-          "DenOfR": 0,
-          "Sector": row.sector || "",
-        });
-      }
-      const subtotalRow: Record<string, string | number> = {
-        "#": "",
-        "ContractCode": "",
-        "Branch": `Subtotal - ${group.branchName}`,
-        "Loan Status": "",
-        "Loan Date": "",
-        "CustomerID": "",
-        "Customer Name": "",
-        "SignedContractDate": "",
-        "PaymentFrequency": "",
-        "AmountOffered": group.subtotal.amountOffered,
-        "CurrencyOfContract": "",
-        "MaturityDate": "",
-        "TotalAmountDisbursed": group.subtotal.totalAmountDisbursed,
-        "Currency": "",
-        "Principle": group.subtotal.principleAmount,
-        "Margin%": "",
-        "Margin": group.subtotal.marginAmount,
-        "TotalReceivable": group.subtotal.totalReceivable,
-        "InstallmentAmount": "",
-        "ContractDurationMonths": "",
-        "NumberOfInstallments": "",
-        "FirstInstallmentDate": "",
-        "DisbursementDate": "",
-        "TotalPaid": group.subtotal.totalPaid,
-        "PrincipalOutstanding": group.subtotal.principalOutstanding,
-        "OutstandingInstallments": "",
-        "LastPaymentDate": "",
-        "NumberOfDaysInArrears": "",
-        "OverdueAmount": group.subtotal.overdueAmount,
-        "OverdueDate": "",
-        "Restructured": "",
-        "DenOfR": "",
-        "Sector": "",
-      };
-      rows.push(subtotalRow);
-    }
-    const grandTotalRow: Record<string, string | number> = {
-      "#": "",
-      "ContractCode": "",
-      "Branch": "Grand Total",
-      "Loan Status": "",
-      "Loan Date": "",
-      "CustomerID": "",
-      "Customer Name": "",
-      "SignedContractDate": "",
-      "PaymentFrequency": "",
-      "AmountOffered": grandTotal.amountOffered,
-      "CurrencyOfContract": "",
-      "MaturityDate": "",
-      "TotalAmountDisbursed": grandTotal.totalAmountDisbursed,
-      "Currency": "",
-      "Principle": grandTotal.principleAmount,
-      "Margin%": "",
-      "Margin": grandTotal.marginAmount,
-      "TotalReceivable": grandTotal.totalReceivable,
-      "InstallmentAmount": "",
-      "ContractDurationMonths": "",
-      "NumberOfInstallments": "",
-      "FirstInstallmentDate": "",
-      "DisbursementDate": "",
-      "TotalPaid": grandTotal.totalPaid,
-      "PrincipalOutstanding": grandTotal.principalOutstanding,
-      "OutstandingInstallments": "",
-      "LastPaymentDate": "",
-      "NumberOfDaysInArrears": "",
-      "OverdueAmount": grandTotal.overdueAmount,
-      "OverdueDate": "",
-      "Restructured": "",
-      "DenOfR": "",
-      "Sector": "",
-    };
-    rows.push(grandTotalRow);
+    const rows = data.map((row, idx) => ({
+      "#": idx + 1,
+      "ContractCode": row.applicationId || "",
+      "Branch": row.branchName || "",
+      "Loan Status": row.loanStatus || "",
+      "Loan Date": row.requestDate ? formatDate(row.requestDate) : "",
+      "CustomerID": row.customerId || "",
+      "Customer Name": row.customerName || "",
+      "SignedContractDate": row.signedContractDate ? formatDate(row.signedContractDate) : "",
+      "PaymentFrequency": row.paymentFrequency || "",
+      "AmountOffered": row.amountOffered || 0,
+      "CurrencyOfContract": row.currency || "AFN",
+      "MaturityDate": row.maturityDate ? formatDate(row.maturityDate) : "",
+      "TotalAmountDisbursed": row.totalAmountDisbursed || 0,
+      "Currency": row.currency || "AFN",
+      "Principle": row.principleAmount || 0,
+      "Margin%": row.marginRate || 0,
+      "Margin": row.marginAmount || 0,
+      "TotalReceivable": row.totalReceivable || 0,
+      "InstallmentAmount": row.installmentAmount || 0,
+      "ContractDurationMonths": row.financingDurationMonths || 0,
+      "NumberOfInstallments": row.numberOfInstallments || 0,
+      "FirstInstallmentDate": row.firstInstallmentDate ? formatDate(row.firstInstallmentDate) : "",
+      "DisbursementDate": row.disbursementDate ? formatDate(row.disbursementDate) : "",
+      "TotalPaid": row.totalPaid || 0,
+      "PrincipalOutstanding": row.principalOutstanding || 0,
+      "OutstandingInstallments": row.outstandingInstallments || 0,
+      "LastPaymentDate": row.lastPaymentDate ? formatDate(row.lastPaymentDate) : "",
+      "NumberOfDaysInArrears": row.numberOfDaysInArrears || 0,
+      "OverdueAmount": row.overdueAmount || 0,
+      "OverdueDate": row.overdueDate ? formatDate(row.overdueDate) : "",
+      "Restructured": row.restructured || "",
+      "DenOfR": 0,
+      "Sector": row.sector || "",
+    }));
 
     const ws = XLSX.utils.json_to_sheet(rows);
     ws["!cols"] = [
@@ -327,79 +192,45 @@ export default function ContractDataReport() {
     doc.setFontSize(9);
     doc.text(`Generated: ${new Date().toLocaleDateString()}`, 148, 34, { align: "center" });
 
-    const tableData: any[][] = [];
-    let serial = 1;
-    for (const group of branchGroups) {
-      for (const row of group.rows) {
-        tableData.push([
-          serial++,
-          row.applicationId || "",
-          row.branchName || "",
-          row.loanStatus || "",
-          row.requestDate ? formatDate(row.requestDate) : "",
-          row.customerId || "",
-          row.customerName || "",
-          row.signedContractDate ? formatDate(row.signedContractDate) : "",
-          row.paymentFrequency || "",
-          (row.amountOffered || 0).toLocaleString(),
-          row.currency || "AFN",
-          row.maturityDate ? formatDate(row.maturityDate) : "",
-          (row.totalAmountDisbursed || 0).toLocaleString(),
-          row.currency || "AFN",
-          (row.principleAmount || 0).toLocaleString(),
-          row.marginRate || 0,
-          (row.marginAmount || 0).toLocaleString(),
-          (row.totalReceivable || 0).toLocaleString(),
-          (row.installmentAmount || 0).toLocaleString(),
-          row.financingDurationMonths || 0,
-          row.numberOfInstallments || 0,
-          row.firstInstallmentDate ? formatDate(row.firstInstallmentDate) : "",
-          row.disbursementDate ? formatDate(row.disbursementDate) : "",
-          (row.totalPaid || 0).toLocaleString(),
-          (row.principalOutstanding || 0).toLocaleString(),
-          row.outstandingInstallments || 0,
-          row.lastPaymentDate ? formatDate(row.lastPaymentDate) : "",
-          row.numberOfDaysInArrears || 0,
-          (row.overdueAmount || 0).toLocaleString(),
-          row.overdueDate ? formatDate(row.overdueDate) : "",
-          row.restructured || "",
-          0,
-          row.sector || "",
-        ]);
-      }
-      tableData.push([
-        "", "", `Subtotal - ${group.branchName}`, "", "", "", "", "", "",
-        group.subtotal.amountOffered.toLocaleString(), "", "",
-        group.subtotal.totalAmountDisbursed.toLocaleString(), "",
-        group.subtotal.principleAmount.toLocaleString(), "",
-        group.subtotal.marginAmount.toLocaleString(),
-        group.subtotal.totalReceivable.toLocaleString(),
-        "", "", "", "", "",
-        group.subtotal.totalPaid.toLocaleString(),
-        group.subtotal.principalOutstanding.toLocaleString(),
-        "", "", "",
-        group.subtotal.overdueAmount.toLocaleString(),
-        "", "", "", "",
-      ]);
-    }
-    tableData.push([
-      "", "", "Grand Total", "", "", "", "", "", "",
-      grandTotal.amountOffered.toLocaleString(), "", "",
-      grandTotal.totalAmountDisbursed.toLocaleString(), "",
-      grandTotal.principleAmount.toLocaleString(), "",
-      grandTotal.marginAmount.toLocaleString(),
-      grandTotal.totalReceivable.toLocaleString(),
-      "", "", "", "", "",
-      grandTotal.totalPaid.toLocaleString(),
-      grandTotal.principalOutstanding.toLocaleString(),
-      "", "", "",
-      grandTotal.overdueAmount.toLocaleString(),
-      "", "", "", "",
+    const tableData = data.map((row, idx) => [
+      idx + 1,
+      row.applicationId || "",
+      row.branchName || "",
+      row.loanStatus || "",
+      row.requestDate ? formatDate(row.requestDate) : "",
+      row.customerId || "",
+      row.customerName || "",
+      row.signedContractDate ? formatDate(row.signedContractDate) : "",
+      row.paymentFrequency || "",
+      (row.amountOffered || 0).toLocaleString(),
+      row.currency || "AFN",
+      row.maturityDate ? formatDate(row.maturityDate) : "",
+      (row.totalAmountDisbursed || 0).toLocaleString(),
+      row.currency || "AFN",
+      (row.principleAmount || 0).toLocaleString(),
+      row.marginRate || 0,
+      (row.marginAmount || 0).toLocaleString(),
+      (row.totalReceivable || 0).toLocaleString(),
+      (row.installmentAmount || 0).toLocaleString(),
+      row.financingDurationMonths || 0,
+      row.numberOfInstallments || 0,
+      row.firstInstallmentDate ? formatDate(row.firstInstallmentDate) : "",
+      row.disbursementDate ? formatDate(row.disbursementDate) : "",
+      (row.totalPaid || 0).toLocaleString(),
+      (row.principalOutstanding || 0).toLocaleString(),
+      row.outstandingInstallments || 0,
+      row.lastPaymentDate ? formatDate(row.lastPaymentDate) : "",
+      row.numberOfDaysInArrears || 0,
+      (row.overdueAmount || 0).toLocaleString(),
+      row.overdueDate ? formatDate(row.overdueDate) : "",
+      row.restructured || "",
+      0,
+      row.sector || "",
     ]);
 
     autoTable(doc, {
       startY: 38,
-      head: [["#", "ContractCode", "Branch", "Loan Status", "Loan Date", "CustomerID", "Customer Name", "SignedContractDate", "PaymentFreq", "AmountOffered", "Currency", "MaturityDate", "TotalDisbursed", "Currency", "Principle", "Margin%", "Margin", "TotalReceivable", "InstallmentAmt", "Duration", "Installments", "1stInstDate", "DisbDate", "TotalPaid", "PrincipalOut", "OutInstall", "LastPayDate", "DaysArrears", "OverdueAmt", "OverdueDate", "Restructured", "DenOfR", "Sector"]],
+      head: [["#", "ContractCode", "Branch", "Status", "Loan Date", "CustomerID", "Customer", "SignedDate", "PayFreq", "AmtOffered", "Ccy", "Maturity", "TotalDisb", "Ccy", "Principle", "Margin%", "Margin", "TotalRecv", "InstAmt", "Duration", "NumInst", "1stInstDate", "DisbDate", "TotalPaid", "PrinOut", "OutInst", "LastPay", "DaysArr", "OverdueAmt", "OverdueDate", "Restruct", "DenOfR", "Sector"]],
       body: tableData,
       theme: "grid",
       headStyles: { fillColor: [34, 87, 122], textColor: [255, 255, 255], fontStyle: "bold", halign: "center", fontSize: 5 },
@@ -409,25 +240,12 @@ export default function ContractDataReport() {
         9: { halign: "right" },
         12: { halign: "right" },
         14: { halign: "right" },
-        15: { halign: "right" },
         16: { halign: "right" },
         17: { halign: "right" },
         18: { halign: "right" },
         23: { halign: "right" },
         24: { halign: "right" },
         28: { halign: "right" },
-      },
-      didParseCell: (hookData: any) => {
-        if (hookData.section === "body") {
-          const rowData = hookData.row.raw as any[];
-          if (rowData && typeof rowData[2] === "string" && (rowData[2].startsWith("Subtotal") || rowData[2] === "Grand Total")) {
-            hookData.cell.styles.fontStyle = "bold";
-            hookData.cell.styles.fillColor = rowData[2] === "Grand Total" ? [34, 87, 122] : [220, 230, 240];
-            if (rowData[2] === "Grand Total") {
-              hookData.cell.styles.textColor = [255, 255, 255];
-            }
-          }
-        }
       },
     });
 
@@ -561,85 +379,43 @@ export default function ContractDataReport() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(() => {
-                    let serial = 1;
-                    return branchGroups.map((group) => (
-                      <>
-                        {group.rows.map((row, idx) => (
-                          <TableRow key={`${group.branchName}-${idx}`} data-testid={`row-contract-${serial - 1 + idx}`} className={(serial - 1 + idx) % 2 === 0 ? "bg-muted/30" : ""}>
-                            <TableCell className="text-center font-mono">{serial + idx}</TableCell>
-                            <TableCell className="font-mono">{row.applicationId}</TableCell>
-                            <TableCell>{row.branchName}</TableCell>
-                            <TableCell>{row.loanStatus}</TableCell>
-                            <TableCell>{row.requestDate ? formatDate(row.requestDate) : ""}</TableCell>
-                            <TableCell className="font-mono">{row.customerId}</TableCell>
-                            <TableCell>{row.customerName}</TableCell>
-                            <TableCell>{row.signedContractDate ? formatDate(row.signedContractDate) : ""}</TableCell>
-                            <TableCell>{row.paymentFrequency}</TableCell>
-                            <TableCell className="text-right font-mono">{formatCurrency((row.amountOffered || 0).toString())}</TableCell>
-                            <TableCell>{row.currency || "AFN"}</TableCell>
-                            <TableCell>{row.maturityDate ? formatDate(row.maturityDate) : ""}</TableCell>
-                            <TableCell className="text-right font-mono">{formatCurrency((row.totalAmountDisbursed || 0).toString())}</TableCell>
-                            <TableCell>{row.currency || "AFN"}</TableCell>
-                            <TableCell className="text-right font-mono">{formatCurrency((row.principleAmount || 0).toString())}</TableCell>
-                            <TableCell className="text-right font-mono">{row.marginRate || 0}</TableCell>
-                            <TableCell className="text-right font-mono">{formatCurrency((row.marginAmount || 0).toString())}</TableCell>
-                            <TableCell className="text-right font-mono">{formatCurrency((row.totalReceivable || 0).toString())}</TableCell>
-                            <TableCell className="text-right font-mono">{formatCurrency((row.installmentAmount || 0).toString())}</TableCell>
-                            <TableCell className="text-center">{row.financingDurationMonths}</TableCell>
-                            <TableCell className="text-center">{row.numberOfInstallments}</TableCell>
-                            <TableCell>{row.firstInstallmentDate ? formatDate(row.firstInstallmentDate) : ""}</TableCell>
-                            <TableCell>{row.disbursementDate ? formatDate(row.disbursementDate) : ""}</TableCell>
-                            <TableCell className="text-right font-mono">{formatCurrency((row.totalPaid || 0).toString())}</TableCell>
-                            <TableCell className="text-right font-mono">{formatCurrency((row.principalOutstanding || 0).toString())}</TableCell>
-                            <TableCell className="text-center">{row.outstandingInstallments}</TableCell>
-                            <TableCell>{row.lastPaymentDate ? formatDate(row.lastPaymentDate) : ""}</TableCell>
-                            <TableCell className={`text-center font-mono ${(row.numberOfDaysInArrears || 0) > 0 ? "text-red-600 font-semibold" : ""}`}>{row.numberOfDaysInArrears || 0}</TableCell>
-                            <TableCell className="text-right font-mono">{formatCurrency((row.overdueAmount || 0).toString())}</TableCell>
-                            <TableCell>{row.overdueDate ? formatDate(row.overdueDate) : ""}</TableCell>
-                            <TableCell>{row.restructured}</TableCell>
-                            <TableCell className="text-center">0</TableCell>
-                            <TableCell>{row.sector}</TableCell>
-                          </TableRow>
-                        ))}
-                        {(() => { serial += group.rows.length; return null; })()}
-                        <TableRow className="bg-blue-50 dark:bg-blue-950/30 font-semibold border-t-2 border-b-2 border-blue-200 dark:border-blue-800">
-                          <TableCell colSpan={9} className="text-right font-bold">Subtotal - {group.branchName}</TableCell>
-                          <TableCell className="text-right font-mono font-bold">{formatCurrency(group.subtotal.amountOffered.toString())}</TableCell>
-                          <TableCell colSpan={2}></TableCell>
-                          <TableCell className="text-right font-mono font-bold">{formatCurrency(group.subtotal.totalAmountDisbursed.toString())}</TableCell>
-                          <TableCell></TableCell>
-                          <TableCell className="text-right font-mono font-bold">{formatCurrency(group.subtotal.principleAmount.toString())}</TableCell>
-                          <TableCell></TableCell>
-                          <TableCell className="text-right font-mono font-bold">{formatCurrency(group.subtotal.marginAmount.toString())}</TableCell>
-                          <TableCell className="text-right font-mono font-bold">{formatCurrency(group.subtotal.totalReceivable.toString())}</TableCell>
-                          <TableCell colSpan={5}></TableCell>
-                          <TableCell className="text-right font-mono font-bold">{formatCurrency(group.subtotal.totalPaid.toString())}</TableCell>
-                          <TableCell className="text-right font-mono font-bold">{formatCurrency(group.subtotal.principalOutstanding.toString())}</TableCell>
-                          <TableCell colSpan={3}></TableCell>
-                          <TableCell className="text-right font-mono font-bold">{formatCurrency(group.subtotal.overdueAmount.toString())}</TableCell>
-                          <TableCell colSpan={4}></TableCell>
-                        </TableRow>
-                      </>
-                    ));
-                  })()}
-                  <TableRow className="bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]">
-                    <TableCell colSpan={9} className="text-right font-bold text-primary-foreground text-base">Grand Total</TableCell>
-                    <TableCell className="text-right font-mono font-bold text-primary-foreground">{formatCurrency(grandTotal.amountOffered.toString())}</TableCell>
-                    <TableCell colSpan={2} className="text-primary-foreground"></TableCell>
-                    <TableCell className="text-right font-mono font-bold text-primary-foreground">{formatCurrency(grandTotal.totalAmountDisbursed.toString())}</TableCell>
-                    <TableCell className="text-primary-foreground"></TableCell>
-                    <TableCell className="text-right font-mono font-bold text-primary-foreground">{formatCurrency(grandTotal.principleAmount.toString())}</TableCell>
-                    <TableCell className="text-primary-foreground"></TableCell>
-                    <TableCell className="text-right font-mono font-bold text-primary-foreground">{formatCurrency(grandTotal.marginAmount.toString())}</TableCell>
-                    <TableCell className="text-right font-mono font-bold text-primary-foreground">{formatCurrency(grandTotal.totalReceivable.toString())}</TableCell>
-                    <TableCell colSpan={5} className="text-primary-foreground"></TableCell>
-                    <TableCell className="text-right font-mono font-bold text-primary-foreground">{formatCurrency(grandTotal.totalPaid.toString())}</TableCell>
-                    <TableCell className="text-right font-mono font-bold text-primary-foreground">{formatCurrency(grandTotal.principalOutstanding.toString())}</TableCell>
-                    <TableCell colSpan={3} className="text-primary-foreground"></TableCell>
-                    <TableCell className="text-right font-mono font-bold text-primary-foreground">{formatCurrency(grandTotal.overdueAmount.toString())}</TableCell>
-                    <TableCell colSpan={4} className="text-primary-foreground"></TableCell>
-                  </TableRow>
+                  {data.map((row, idx) => (
+                    <TableRow key={idx} data-testid={`row-contract-${idx}`} className={idx % 2 === 0 ? "bg-muted/30" : ""}>
+                      <TableCell className="text-center font-mono">{idx + 1}</TableCell>
+                      <TableCell className="font-mono">{row.applicationId}</TableCell>
+                      <TableCell>{row.branchName}</TableCell>
+                      <TableCell>{row.loanStatus}</TableCell>
+                      <TableCell>{row.requestDate ? formatDate(row.requestDate) : ""}</TableCell>
+                      <TableCell className="font-mono">{row.customerId}</TableCell>
+                      <TableCell>{row.customerName}</TableCell>
+                      <TableCell>{row.signedContractDate ? formatDate(row.signedContractDate) : ""}</TableCell>
+                      <TableCell>{row.paymentFrequency}</TableCell>
+                      <TableCell className="text-right font-mono">{formatCurrency((row.amountOffered || 0).toString())}</TableCell>
+                      <TableCell>{row.currency || "AFN"}</TableCell>
+                      <TableCell>{row.maturityDate ? formatDate(row.maturityDate) : ""}</TableCell>
+                      <TableCell className="text-right font-mono">{formatCurrency((row.totalAmountDisbursed || 0).toString())}</TableCell>
+                      <TableCell>{row.currency || "AFN"}</TableCell>
+                      <TableCell className="text-right font-mono">{formatCurrency((row.principleAmount || 0).toString())}</TableCell>
+                      <TableCell className="text-right font-mono">{row.marginRate || 0}</TableCell>
+                      <TableCell className="text-right font-mono">{formatCurrency((row.marginAmount || 0).toString())}</TableCell>
+                      <TableCell className="text-right font-mono">{formatCurrency((row.totalReceivable || 0).toString())}</TableCell>
+                      <TableCell className="text-right font-mono">{formatCurrency((row.installmentAmount || 0).toString())}</TableCell>
+                      <TableCell className="text-center">{row.financingDurationMonths}</TableCell>
+                      <TableCell className="text-center">{row.numberOfInstallments}</TableCell>
+                      <TableCell>{row.firstInstallmentDate ? formatDate(row.firstInstallmentDate) : ""}</TableCell>
+                      <TableCell>{row.disbursementDate ? formatDate(row.disbursementDate) : ""}</TableCell>
+                      <TableCell className="text-right font-mono">{formatCurrency((row.totalPaid || 0).toString())}</TableCell>
+                      <TableCell className="text-right font-mono">{formatCurrency((row.principalOutstanding || 0).toString())}</TableCell>
+                      <TableCell className="text-center">{row.outstandingInstallments}</TableCell>
+                      <TableCell>{row.lastPaymentDate ? formatDate(row.lastPaymentDate) : ""}</TableCell>
+                      <TableCell className="text-center">{row.numberOfDaysInArrears}</TableCell>
+                      <TableCell className="text-right font-mono">{formatCurrency((row.overdueAmount || 0).toString())}</TableCell>
+                      <TableCell>{row.overdueDate ? formatDate(row.overdueDate) : ""}</TableCell>
+                      <TableCell>{row.restructured}</TableCell>
+                      <TableCell className="text-center">0</TableCell>
+                      <TableCell>{row.sector}</TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             )}
