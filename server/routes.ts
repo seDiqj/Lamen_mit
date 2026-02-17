@@ -3820,7 +3820,7 @@ export async function registerRoutes(
         collateralDescription: "NA",
         collateralValue: Number(row.purchasePrice || 0),
         collateralCurrency: "AFN",
-        valuationDate: new Date().toISOString().split("T")[0],
+        valuationDate: row.createdAt ? new Date(row.createdAt).toISOString().split("T")[0] : "",
         branchName: row.branchName || "",
         ownerName: row.ownerName || "",
       }));
