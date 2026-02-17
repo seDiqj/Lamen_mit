@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { customers, loans, disbursements, branches, financeOfficers, installments, fundingSources as fundingSourcesTable } from "@shared/schema";
+import { customers, loans, disbursements, branches, financeOfficers, installments, fundingSources as fundingSourcesTable, collaterals, customerBusinesses, loanApprovals, guarantors } from "@shared/schema";
 import { eq, and, inArray, sql, gte, lte, desc } from "drizzle-orm";
 import { z } from "zod";
 import bcrypt from "bcrypt";
@@ -3771,6 +3771,213 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching loan disbursement report:", error);
       res.status(500).json({ message: "Failed to fetch loan disbursement report" });
+    }
+  });
+
+  // Collateral Report
+  app.get("/api/reports/collateral", isAuthenticated, async (req, res) => {
+    try {
+      const { startDate, endDate, branchId, fundingSourceId } = req.query;
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "startDate and endDate are required" });
+      }
+
+      const conditions: any[] = [
+        gte(disbursements.disbursementDate, startDate as string),
+        lte(disbursements.disbursementDate, endDate as string),
+      ];
+      if (branchId && branchId !== "all") {
+        conditions.push(eq(loans.branchId, branchId as string));
+      }
+      if (fundingSourceId && fundingSourceId !== "all") {
+        conditions.push(eq(loans.fundingSourceId, fundingSourceId as string));
+      }
+
+      const results = await db
+        .select({
+          contractCode: loans.applicationId,
+          collateralCode: collaterals.ownerNationalId,
+          collateralType: collaterals.collateralType,
+          purchasePrice: collaterals.purchasedPrice,
+          marketPrice: collaterals.marketPrice,
+          branchName: branches.name,
+          ownerName: collaterals.ownerName,
+          province: collaterals.province,
+          district: collaterals.district,
+          createdAt: collaterals.createdAt,
+        })
+        .from(collaterals)
+        .innerJoin(loans, eq(collaterals.loanId, loans.id))
+        .innerJoin(disbursements, eq(loans.id, disbursements.loanId))
+        .leftJoin(branches, eq(loans.branchId, branches.id))
+        .where(and(...conditions))
+        .orderBy(branches.name, loans.applicationId);
+
+      const enriched = results.map(row => ({
+        contractCode: row.contractCode || "",
+        collateralCode: row.collateralCode || "",
+        collateralType: row.collateralType || "",
+        collateralDescription: "NA",
+        collateralValue: Number(row.purchasePrice || 0),
+        collateralCurrency: "AFN",
+        valuationDate: new Date().toISOString().split("T")[0],
+        branchName: row.branchName || "",
+        ownerName: row.ownerName || "",
+      }));
+
+      res.json(enriched);
+    } catch (error) {
+      console.error("Error fetching collateral report:", error);
+      res.status(500).json({ message: "Failed to fetch collateral report" });
+    }
+  });
+
+  // Contract Data Report
+  app.get("/api/reports/contract-data", isAuthenticated, async (req, res) => {
+    try {
+      const { startDate, endDate, branchId, fundingSourceId } = req.query;
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "startDate and endDate are required" });
+      }
+
+      const conditions: any[] = [
+        gte(disbursements.disbursementDate, startDate as string),
+        lte(disbursements.disbursementDate, endDate as string),
+      ];
+      if (branchId && branchId !== "all") {
+        conditions.push(eq(loans.branchId, branchId as string));
+      }
+      if (fundingSourceId && fundingSourceId !== "all") {
+        conditions.push(eq(loans.fundingSourceId, fundingSourceId as string));
+      }
+
+      const results = await db
+        .select({
+          applicationId: loans.applicationId,
+          branchName: branches.name,
+          loanStatus: loans.status,
+          requestDate: loans.requestDate,
+          customerId: customers.customerNo,
+          customerName: sql<string>`CONCAT(${customers.firstName}, ' ', ${customers.lastName})`,
+          disbursementDate: disbursements.disbursementDate,
+          paymentFrequency: sql<string>`'Monthly'`,
+          requestAmount: loans.requestAmount,
+          principleAmount: loans.principleAmount,
+          marginRate: loans.marginRate,
+          profit: loans.profit,
+          totalReceivable: loans.totalReceivable,
+          installmentAmount: loans.installmentAmount,
+          financingDurationMonths: loans.financingDurationMonths,
+          numberOfInstallments: loans.numberOfInstallments,
+          maturityDate: disbursements.maturityDate,
+          firstInstallmentDate: disbursements.firstInstallmentDate,
+          productName: loans.productName,
+          fundingSourceName: fundingSourcesTable.name,
+          financingCycle: loans.financingCycle,
+          sector: loans.sector,
+          province: customers.province,
+          district: customers.district,
+          loanId: loans.id,
+          phoneNumber: customers.phoneNumber,
+          nationalId: customers.nationalId,
+          gender: customers.gender,
+          gracePeriod: loans.gracePeriod,
+        })
+        .from(disbursements)
+        .innerJoin(loans, eq(disbursements.loanId, loans.id))
+        .innerJoin(customers, eq(loans.customerId, customers.id))
+        .leftJoin(branches, eq(loans.branchId, branches.id))
+        .leftJoin(fundingSourcesTable, eq(loans.fundingSourceId, fundingSourcesTable.id))
+        .where(and(...conditions))
+        .orderBy(branches.name, desc(disbursements.disbursementDate));
+
+      const loanIds = results.map(r => r.loanId).filter(Boolean);
+      const installmentMap: Record<string, { totalPaid: number; principalPaid: number; outstandingInstallments: number; lastPaymentDate: string | null; maxDelayDays: number; overdueAmount: number; overdueDate: string | null }> = {};
+
+      if (loanIds.length > 0) {
+        const today = new Date().toISOString().split("T")[0];
+        const aggRows = await db
+          .select({
+            loanId: installments.loanId,
+            totalPaid: sql<number>`COALESCE(SUM(${installments.paidAmount}), 0)`,
+            outstandingInstallments: sql<number>`COUNT(CASE WHEN ${installments.isPaid} = false THEN 1 END)`,
+            lastPaymentDate: sql<string>`MAX(CASE WHEN ${installments.isPaid} = true THEN ${installments.paidDate} END)`,
+            maxDelayDays: sql<number>`MAX(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate} < ${today} THEN (${today}::date - ${installments.dueDate}::date) ELSE 0 END)`,
+            overdueAmount: sql<number>`COALESCE(SUM(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate} < ${today} THEN ${installments.amount} ELSE 0 END), 0)`,
+            overdueDate: sql<string>`MIN(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate} < ${today} THEN ${installments.dueDate} END)`,
+          })
+          .from(installments)
+          .where(inArray(installments.loanId, loanIds))
+          .groupBy(installments.loanId);
+
+        for (const row of aggRows) {
+          installmentMap[row.loanId] = {
+            totalPaid: Number(row.totalPaid || 0),
+            principalPaid: Number(row.totalPaid || 0),
+            outstandingInstallments: Number(row.outstandingInstallments || 0),
+            lastPaymentDate: row.lastPaymentDate || null,
+            maxDelayDays: Number(row.maxDelayDays || 0),
+            overdueAmount: Number(row.overdueAmount || 0),
+            overdueDate: row.overdueDate || null,
+          };
+        }
+      }
+
+      const enriched = results.map(row => {
+        const inst = installmentMap[row.loanId] || { totalPaid: 0, principalPaid: 0, outstandingInstallments: 0, lastPaymentDate: null, maxDelayDays: 0, overdueAmount: 0, overdueDate: null };
+        const totalReceivable = Number(row.totalReceivable || 0);
+        const outstanding = Math.max(totalReceivable - inst.totalPaid, 0);
+        const principalAmt = Number(row.principleAmount || 0);
+        const marginAmt = Number(row.profit || 0);
+
+        return {
+          applicationId: row.applicationId || "",
+          branchName: row.branchName || "",
+          loanStatus: row.loanStatus || "",
+          requestDate: row.requestDate || "",
+          customerId: row.customerId || "",
+          customerName: row.customerName || "",
+          signedContractDate: row.disbursementDate || "",
+          paymentFrequency: "Monthly",
+          amountOffered: Number(row.requestAmount || 0),
+          currency: "AFN",
+          maturityDate: row.maturityDate || "",
+          totalAmountDisbursed: principalAmt,
+          principleAmount: principalAmt,
+          marginRate: Number(row.marginRate || 0),
+          marginAmount: marginAmt,
+          totalReceivable,
+          installmentAmount: Number(row.installmentAmount || 0),
+          numberOfInstallments: Number(row.numberOfInstallments || 0),
+          financingDurationMonths: Number(row.financingDurationMonths || 0),
+          firstInstallmentDate: row.firstInstallmentDate || "",
+          disbursementDate: row.disbursementDate || "",
+          productName: row.productName || "",
+          fundingSourceName: row.fundingSourceName || "",
+          financingCycle: Number(row.financingCycle || 0),
+          sector: row.sector || "",
+          province: row.province || "",
+          district: row.district || "",
+          phoneNumber: row.phoneNumber || "",
+          nationalId: row.nationalId || "",
+          gender: row.gender || "",
+          gracePeriod: Number(row.gracePeriod || 0),
+          totalPaid: inst.totalPaid,
+          principalOutstanding: outstanding,
+          outstandingInstallments: inst.outstandingInstallments,
+          lastPaymentDate: inst.lastPaymentDate || "",
+          numberOfDaysInArrears: inst.maxDelayDays,
+          overdueAmount: inst.overdueAmount,
+          overdueDate: inst.overdueDate || "",
+          restructured: "No",
+          writtenOff: 0,
+        };
+      });
+
+      res.json(enriched);
+    } catch (error) {
+      console.error("Error fetching contract data report:", error);
+      res.status(500).json({ message: "Failed to fetch contract data report" });
     }
   });
 

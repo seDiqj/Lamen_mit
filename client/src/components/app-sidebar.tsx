@@ -54,6 +54,7 @@ import {
   ClipboardCheck,
   Target,
   ArrowDownUp,
+  FileBarChart,
 } from "lucide-react";
 import lamenLogo from "@assets/LamenLogo_1769936371528.jpeg";
 import {
@@ -92,6 +93,8 @@ const PAGE_URL_TO_NAME: Record<string, string> = {
   "/citizen-balance-statement": "citizen-balance-statement",
   "/par-report": "par-report",
   "/loan-disbursement-report": "loan-disbursement-report",
+  "/collateral-report": "collateral-report",
+  "/contract-data-report": "contract-data-report",
   "/activity": "activity-logs",
   "/settings": "settings",
   "/payments": "payments",
@@ -236,6 +239,8 @@ export function AppSidebar() {
         { title: "Analytics", url: "/reports", icon: BarChart3, iconColor: "text-amber-500" },
         { title: "Balance Statement", url: "/citizen-balance-statement", icon: ClipboardCheck, iconColor: "text-green-500" },
         { title: "Loan Disbursement", url: "/loan-disbursement-report", icon: Banknote, iconColor: "text-teal-500" },
+        { title: "Collateral Report", url: "/collateral-report", icon: Shield, iconColor: "text-indigo-500" },
+        { title: "Contract Data", url: "/contract-data-report", icon: FileBarChart, iconColor: "text-purple-500" },
         { title: "PAR Report", url: "/par-report", icon: AlertTriangle, iconColor: "text-red-500" },
       ],
     },
@@ -314,6 +319,8 @@ export function AppSidebar() {
         { title: "Analytics", url: "/reports", icon: BarChart3, iconColor: "text-amber-500" },
         { title: "Balance Statement", url: "/citizen-balance-statement", icon: ClipboardCheck, iconColor: "text-green-500" },
         { title: "Loan Disbursement", url: "/loan-disbursement-report", icon: Banknote, iconColor: "text-teal-500" },
+        { title: "Collateral Report", url: "/collateral-report", icon: Shield, iconColor: "text-indigo-500" },
+        { title: "Contract Data", url: "/contract-data-report", icon: FileBarChart, iconColor: "text-purple-500" },
       ],
     },
   ];
@@ -395,6 +402,8 @@ export function AppSidebar() {
         { title: "Analytics", url: "/reports", icon: BarChart3, iconColor: "text-amber-500" },
         { title: "Balance Statement", url: "/citizen-balance-statement", icon: ClipboardCheck, iconColor: "text-green-500" },
         { title: "Loan Disbursement", url: "/loan-disbursement-report", icon: Banknote, iconColor: "text-teal-500" },
+        { title: "Collateral Report", url: "/collateral-report", icon: Shield, iconColor: "text-indigo-500" },
+        { title: "Contract Data", url: "/contract-data-report", icon: FileBarChart, iconColor: "text-purple-500" },
         { title: "PAR Report", url: "/par-report", icon: AlertTriangle, iconColor: "text-red-500" },
         { title: "Activity Log", url: "/activity", icon: Activity, iconColor: "text-lime-500" },
       ],
