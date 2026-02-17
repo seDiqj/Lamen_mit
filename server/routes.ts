@@ -4044,15 +4044,16 @@ export async function registerRoutes(
 
       if (loanIds.length > 0) {
         const today = new Date().toISOString().split("T")[0];
+        const todayLit = sql.raw(`'${today}'`);
         const aggRows = await db.execute(sql`
           SELECT
             ${installments.loanId} as "loanId",
             COALESCE(SUM(${installments.paidAmount}), 0) as "totalPaid",
             COUNT(CASE WHEN ${installments.isPaid} = false THEN 1 END) as "outstandingInstallments",
-            MAX(CASE WHEN ${installments.isPaid} = true THEN ${installments.paidDate}::text END) as "lastPaymentDate",
-            MAX(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate} < ${today}::date THEN (${today}::date - ${installments.dueDate}::date) ELSE 0 END) as "maxDelayDays",
-            COALESCE(SUM(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate} < ${today}::date THEN ${installments.amount} ELSE 0 END), 0) as "overdueAmount",
-            MIN(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate} < ${today}::date THEN ${installments.dueDate}::text END) as "overdueDate"
+            MAX(CASE WHEN ${installments.isPaid} = true THEN CAST(${installments.paidDate} AS text) END) as "lastPaymentDate",
+            MAX(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate} < CAST(${todayLit} AS date) THEN (CAST(${todayLit} AS date) - CAST(${installments.dueDate} AS date)) ELSE 0 END) as "maxDelayDays",
+            COALESCE(SUM(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate} < CAST(${todayLit} AS date) THEN ${installments.amount} ELSE 0 END), 0) as "overdueAmount",
+            MIN(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate} < CAST(${todayLit} AS date) THEN CAST(${installments.dueDate} AS text) END) as "overdueDate"
           FROM ${installments}
           WHERE ${installments.loanId} IN (${sql.join(loanIds.map(id => sql`${id}`), sql`, `)})
           GROUP BY ${installments.loanId}
