@@ -445,28 +445,17 @@ export default function ContractDataReport() {
   };
 
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-teal-500/10 rounded-lg">
-            <FileBarChart className="h-6 w-6 text-teal-500" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold" data-testid="text-page-title">Contract Data Report</h1>
-            <p className="text-muted-foreground text-sm">View contract data by branch and date range</p>
-          </div>
+    <div className="flex flex-col gap-4">
+      {data && data.length > 0 && (
+        <div className="flex items-center justify-end gap-2">
+          <Button onClick={handleExportExcel} className="gap-2 bg-green-600 text-white" data-testid="button-export-excel-contract">
+            <FileSpreadsheet className="h-4 w-4" /> Excel
+          </Button>
+          <Button onClick={handleExportPDF} className="gap-2 bg-red-600 text-white" data-testid="button-export-pdf-contract">
+            <FileText className="h-4 w-4" /> PDF
+          </Button>
         </div>
-        {data && data.length > 0 && (
-          <div className="flex items-center gap-2">
-            <Button onClick={handleExportExcel} className="gap-2 bg-green-600 text-white" data-testid="button-export-excel">
-              <FileSpreadsheet className="h-4 w-4" /> Excel
-            </Button>
-            <Button onClick={handleExportPDF} className="gap-2 bg-red-600 text-white" data-testid="button-export-pdf">
-              <FileText className="h-4 w-4" /> PDF
-            </Button>
-          </div>
-        )}
-      </div>
+      )}
 
       <Card>
         <CardHeader className="pb-3">
