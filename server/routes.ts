@@ -3984,8 +3984,13 @@ export async function registerRoutes(
       }
 
       const conditions: any[] = [
-        gte(disbursements.disbursementDate, startDate as string),
-        lte(disbursements.disbursementDate, endDate as string),
+        or(
+          and(
+            gte(disbursements.disbursementDate, startDate as string),
+            lte(disbursements.disbursementDate, endDate as string),
+          ),
+          isNull(disbursements.disbursementDate),
+        ),
       ];
       if (branchId && branchId !== "all") {
         conditions.push(eq(loans.branchId, branchId as string));
@@ -4026,9 +4031,9 @@ export async function registerRoutes(
           gender: customers.gender,
           gracePeriod: loans.gracePeriod,
         })
-        .from(disbursements)
-        .innerJoin(loans, eq(disbursements.loanId, loans.id))
+        .from(loans)
         .innerJoin(customers, eq(loans.customerId, customers.id))
+        .leftJoin(disbursements, eq(loans.id, disbursements.loanId))
         .leftJoin(branches, eq(loans.branchId, branches.id))
         .leftJoin(fundingSourcesTable, eq(loans.fundingSourceId, fundingSourcesTable.id))
         .where(and(...conditions))
