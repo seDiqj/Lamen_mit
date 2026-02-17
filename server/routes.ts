@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { customers, loans, disbursements, branches, financeOfficers, installments, fundingSources as fundingSourcesTable, collaterals, customerBusinesses, loanApprovals, guarantors } from "@shared/schema";
+import { customers, loans, disbursements, branches, financeOfficers, installments, fundingSources as fundingSourcesTable, collaterals, customerBusinesses, businessLicenses, loanApprovals, guarantors } from "@shared/schema";
 import { eq, and, or, inArray, sql, gte, lte, desc, isNull } from "drizzle-orm";
 import { z } from "zod";
 import bcrypt from "bcrypt";
@@ -3866,7 +3866,9 @@ export async function registerRoutes(
           contractCode: loans.applicationId,
           customerCode: customers.customerNo,
           firstName: customers.firstName,
+          firstNameDari: customers.fullNameDari,
           fatherName: customers.fatherName,
+          fatherNameDari: customers.fatherNameDari,
           lastName: customers.lastName,
           dateOfBirth: customers.dateOfBirth,
           gender: customers.gender,
@@ -3877,11 +3879,21 @@ export async function registerRoutes(
           phoneNumber: customers.phoneNumber,
           homeAddress: customers.homeAddress,
           branchName: branches.name,
+          businessName: customerBusinesses.businessName,
+          monthlyIncomeAmount: customerBusinesses.monthlyIncomeAmount,
+          businessProvince: customerBusinesses.province,
+          businessDistrict: customerBusinesses.district,
+          businessVillage: customerBusinesses.village,
+          businessDetailedAddress: customerBusinesses.detailedAddress,
+          licenseNumber: businessLicenses.licenseNumber,
+          licenseExpiryDate: businessLicenses.expiryDate,
         })
         .from(loans)
         .innerJoin(customers, eq(loans.customerId, customers.id))
         .leftJoin(disbursements, eq(loans.id, disbursements.loanId))
         .leftJoin(branches, eq(loans.branchId, branches.id))
+        .leftJoin(customerBusinesses, eq(customers.id, customerBusinesses.customerId))
+        .leftJoin(businessLicenses, eq(customerBusinesses.id, businessLicenses.customerBusinessId))
         .where(and(...conditions))
         .orderBy(branches.name, loans.applicationId);
 
@@ -3890,23 +3902,66 @@ export async function registerRoutes(
         const key = `${row.contractCode}-${row.customerCode}`;
         if (!uniqueMap.has(key)) {
           uniqueMap.set(key, {
-            contractCode: row.contractCode || "",
-            customerCode: row.customerCode || "",
-            individualOrEntity: "Individual",
-            firstName: row.firstName || "",
-            fatherName: row.fatherName || "",
-            grandFatherName: "",
-            lastName: row.lastName || "",
-            dateOfBirth: row.dateOfBirth || "",
-            gender: row.gender || "",
-            maritalStatus: row.maritalStatus || "",
-            nationalIdNumber: row.nationalId || "",
-            passportNumber: "",
-            province: row.province || "",
-            district: row.district || "",
-            phoneNumber: row.phoneNumber || "",
-            homeAddress: row.homeAddress || "",
-            branchName: row.branchName || "",
+            ContractCode: row.contractCode || "",
+            CustomerCode: row.customerCode || "",
+            PresentSurname: row.lastName || "",
+            PresentSurnameLocal: "",
+            BirthSurname: "",
+            FirstName: row.firstName || "",
+            FirstNameLocal: row.firstNameDari || "",
+            MiddleNames: "",
+            MiddleNamesLocal: "",
+            FullName: `${row.firstName || ""} ${row.lastName || ""}`.trim(),
+            FullNameLocal: row.firstNameDari || "",
+            Alias: "",
+            FathersName: row.fatherName || "",
+            FathersNameLocal: row.fatherNameDari || "",
+            ClassificationOfIndividual: "Individual",
+            Gender: row.gender || "",
+            DateOfBirth: row.dateOfBirth || "",
+            CountryOfBirth: "AF",
+            MaritalStatus: row.maritalStatus || "",
+            FateStatus: "Active",
+            SocialStatus: "Employed",
+            Residency: "Yes",
+            Citizenship: "AF",
+            Employment: "Other",
+            Education: "NotSpecified",
+            BusinessName: row.businessName || "",
+            "IncomeAvailable.Value": row.monthlyIncomeAmount ? Number(row.monthlyIncomeAmount) : "",
+            "IncomeAvailable.Currency": row.monthlyIncomeAmount ? "AFN" : "",
+            "MonthlyExpenses.Value": "",
+            "MonthlyExpenses.Currency": "",
+            NegativeStatusOfIndividual: "NoNegativeStatus",
+            "IdentificationNumbers.TaxNumber": "",
+            "IdentificationNumbers.TazkiraNumberNew": row.nationalId || "",
+            "IdentificationNumbers.PassportNumber": "",
+            "IdentificationNumbers.PassportIssuerCountry": "",
+            "IdentificationNumbers.DrivingLicenseNumber": "",
+            "IdentificationNumbers.TazkiraNumber": "",
+            "IdentificationNumbers.LabourCard": "",
+            "IdentificationNumbers.BusinessLicense": row.licenseNumber || "",
+            "IdentificationNumbers.BusinessLicenseExpirationDate": row.licenseExpiryDate || "",
+            "MainAddress.Street": "",
+            "MainAddress.NumberOfBuilding": "",
+            "MainAddress.City": "",
+            "MainAddress.PostalCode": "",
+            "MainAddress.Province": row.businessProvince || row.province || "",
+            "MainAddress.District": row.businessDistrict || row.district || "",
+            "MainAddress.Country": "AF",
+            "MainAddress.AddressLine": row.businessDetailedAddress || row.homeAddress || "",
+            "SecondaryAddress.Street": "",
+            "SecondaryAddress.NumberOfBuilding": "",
+            "SecondaryAddress.City": "",
+            "SecondaryAddress.PostalCodeLookup": "",
+            "SecondaryAddress.Province": "",
+            "SecondaryAddress.District": "",
+            "SecondaryAddress.Country": "",
+            "SecondaryAddress.AddressLine": "",
+            "Contacts.MobilePhone": row.phoneNumber || "",
+            "Contacts.Email": "",
+            "Contacts.WebPage": "",
+            "Contacts.Fax": "",
           });
         }
       }
