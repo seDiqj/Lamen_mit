@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, FileBarChart, FileText as FileTextIcon } from "lucide-react";
+import { Shield, FileBarChart, FileText as FileTextIcon, User, Users } from "lucide-react";
 import CollateralReport from "./collateral-report";
 import ContractDataReport from "./contract-data-report";
+import IndividualReport from "./individual-report";
+import SubjectRoleReport from "./subject-role-report";
 
 export default function DABReportsPage() {
   const [activeTab, setActiveTab] = useState("collateral");
@@ -20,14 +22,22 @@ export default function DABReportsPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2" data-testid="tabs-dab-reports">
+        <TabsList className="grid w-full max-w-2xl grid-cols-4" data-testid="tabs-dab-reports">
           <TabsTrigger value="collateral" className="gap-2" data-testid="tab-collateral">
             <Shield className="h-4 w-4" />
-            Collateral Report
+            Collateral
           </TabsTrigger>
           <TabsTrigger value="contract-data" className="gap-2" data-testid="tab-contract-data">
             <FileBarChart className="h-4 w-4" />
             Contract Data
+          </TabsTrigger>
+          <TabsTrigger value="individual" className="gap-2" data-testid="tab-individual">
+            <User className="h-4 w-4" />
+            Individual
+          </TabsTrigger>
+          <TabsTrigger value="subject-role" className="gap-2" data-testid="tab-subject-role">
+            <Users className="h-4 w-4" />
+            Subject Role
           </TabsTrigger>
         </TabsList>
 
@@ -37,6 +47,14 @@ export default function DABReportsPage() {
 
         <TabsContent value="contract-data" className="mt-4">
           <ContractDataReport />
+        </TabsContent>
+
+        <TabsContent value="individual" className="mt-4">
+          <IndividualReport />
+        </TabsContent>
+
+        <TabsContent value="subject-role" className="mt-4">
+          <SubjectRoleReport />
         </TabsContent>
       </Tabs>
     </div>

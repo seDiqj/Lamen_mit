@@ -3837,6 +3837,144 @@ export async function registerRoutes(
     }
   });
 
+  // Individual Report (DAB)
+  app.get("/api/reports/individual", isAuthenticated, async (req, res) => {
+    try {
+      const { startDate, endDate, branchId, fundingSourceId } = req.query;
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "startDate and endDate are required" });
+      }
+
+      const conditions: any[] = [
+        or(
+          and(
+            gte(disbursements.disbursementDate, startDate as string),
+            lte(disbursements.disbursementDate, endDate as string),
+          ),
+          isNull(disbursements.disbursementDate),
+        ),
+      ];
+      if (branchId && branchId !== "all") {
+        conditions.push(eq(loans.branchId, branchId as string));
+      }
+      if (fundingSourceId && fundingSourceId !== "all") {
+        conditions.push(eq(loans.fundingSourceId, fundingSourceId as string));
+      }
+
+      const results = await db
+        .select({
+          contractCode: loans.applicationId,
+          customerCode: customers.customerNo,
+          firstName: customers.firstName,
+          fatherName: customers.fatherName,
+          lastName: customers.lastName,
+          dateOfBirth: customers.dateOfBirth,
+          gender: customers.gender,
+          maritalStatus: customers.maritalStatus,
+          nationalId: customers.nationalId,
+          province: customers.province,
+          district: customers.district,
+          phoneNumber: customers.phoneNumber,
+          homeAddress: customers.homeAddress,
+          branchName: branches.name,
+        })
+        .from(loans)
+        .innerJoin(customers, eq(loans.customerId, customers.id))
+        .leftJoin(disbursements, eq(loans.id, disbursements.loanId))
+        .leftJoin(branches, eq(loans.branchId, branches.id))
+        .where(and(...conditions))
+        .orderBy(branches.name, loans.applicationId);
+
+      const uniqueMap = new Map<string, any>();
+      for (const row of results) {
+        const key = `${row.contractCode}-${row.customerCode}`;
+        if (!uniqueMap.has(key)) {
+          uniqueMap.set(key, {
+            contractCode: row.contractCode || "",
+            customerCode: row.customerCode || "",
+            individualOrEntity: "Individual",
+            firstName: row.firstName || "",
+            fatherName: row.fatherName || "",
+            grandFatherName: "",
+            lastName: row.lastName || "",
+            dateOfBirth: row.dateOfBirth || "",
+            gender: row.gender || "",
+            maritalStatus: row.maritalStatus || "",
+            nationalIdNumber: row.nationalId || "",
+            passportNumber: "",
+            province: row.province || "",
+            district: row.district || "",
+            phoneNumber: row.phoneNumber || "",
+            homeAddress: row.homeAddress || "",
+            branchName: row.branchName || "",
+          });
+        }
+      }
+
+      res.json(Array.from(uniqueMap.values()));
+    } catch (error) {
+      console.error("Error fetching individual report:", error);
+      res.status(500).json({ message: "Failed to fetch individual report" });
+    }
+  });
+
+  // Subject Role Report (DAB)
+  app.get("/api/reports/subject-role", isAuthenticated, async (req, res) => {
+    try {
+      const { startDate, endDate, branchId, fundingSourceId } = req.query;
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "startDate and endDate are required" });
+      }
+
+      const conditions: any[] = [
+        or(
+          and(
+            gte(disbursements.disbursementDate, startDate as string),
+            lte(disbursements.disbursementDate, endDate as string),
+          ),
+          isNull(disbursements.disbursementDate),
+        ),
+      ];
+      if (branchId && branchId !== "all") {
+        conditions.push(eq(loans.branchId, branchId as string));
+      }
+      if (fundingSourceId && fundingSourceId !== "all") {
+        conditions.push(eq(loans.fundingSourceId, fundingSourceId as string));
+      }
+
+      const results = await db
+        .select({
+          contractCode: loans.applicationId,
+          customerCode: customers.customerNo,
+          branchName: branches.name,
+        })
+        .from(loans)
+        .innerJoin(customers, eq(loans.customerId, customers.id))
+        .leftJoin(disbursements, eq(loans.id, disbursements.loanId))
+        .leftJoin(branches, eq(loans.branchId, branches.id))
+        .where(and(...conditions))
+        .orderBy(branches.name, loans.applicationId);
+
+      const uniqueMap = new Map<string, any>();
+      for (const row of results) {
+        const key = `${row.contractCode}-${row.customerCode}`;
+        if (!uniqueMap.has(key)) {
+          uniqueMap.set(key, {
+            contractCode: row.contractCode || "",
+            customerCode: row.customerCode || "",
+            roleOfCustomer: "MainDebtor",
+            branchName: row.branchName || "",
+          });
+        }
+      }
+
+      res.json(Array.from(uniqueMap.values()));
+    } catch (error) {
+      console.error("Error fetching subject role report:", error);
+      res.status(500).json({ message: "Failed to fetch subject role report" });
+    }
+  });
+
   // Contract Data Report
   app.get("/api/reports/contract-data", isAuthenticated, async (req, res) => {
     try {
