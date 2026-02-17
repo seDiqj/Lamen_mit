@@ -4044,15 +4044,16 @@ export async function registerRoutes(
 
       if (loanIds.length > 0) {
         const today = new Date().toISOString().split("T")[0];
+        const todaySql = sql.raw(`'${today}'`);
         const aggRows = await db
           .select({
             loanId: installments.loanId,
             totalPaid: sql<number>`COALESCE(SUM(${installments.paidAmount}), 0)`,
             outstandingInstallments: sql<number>`COUNT(CASE WHEN ${installments.isPaid} = false THEN 1 END)`,
             lastPaymentDate: sql<string>`MAX(CASE WHEN ${installments.isPaid} = true THEN ${installments.paidDate} END)`,
-            maxDelayDays: sql<number>`MAX(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate} < ${today} THEN (${today}::date - ${installments.dueDate}::date) ELSE 0 END)`,
-            overdueAmount: sql<number>`COALESCE(SUM(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate} < ${today} THEN ${installments.amount} ELSE 0 END), 0)`,
-            overdueDate: sql<string>`MIN(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate} < ${today} THEN ${installments.dueDate} END)`,
+            maxDelayDays: sql<number>`MAX(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate} < ${todaySql} THEN (${todaySql}::date - ${installments.dueDate}::date) ELSE 0 END)`,
+            overdueAmount: sql<number>`COALESCE(SUM(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate} < ${todaySql} THEN ${installments.amount} ELSE 0 END), 0)`,
+            overdueDate: sql<string>`MIN(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate} < ${todaySql} THEN ${installments.dueDate} END)`,
           })
           .from(installments)
           .where(inArray(installments.loanId, loanIds))
