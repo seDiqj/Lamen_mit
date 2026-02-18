@@ -1049,17 +1049,32 @@ export async function registerRoutes(
     }
   });
 
-  // ===== FILE UPLOADS =====
+  // ===== FILE UPLOADS (Object Storage) =====
+  const { ObjectStorageService } = await import("./replit_integrations/object_storage/objectStorage");
+  const uploadStorageService = new ObjectStorageService();
+
   app.post("/api/upload/photo", isAuthenticated, upload.single("photo"), async (req: any, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
       }
-      const fileUrl = `/uploads/${req.file.filename}`;
-      res.json({ url: fileUrl, filename: req.file.originalname });
+      const presignedUrl = await uploadStorageService.getObjectEntityUploadURL();
+      const fileBuffer = fs.readFileSync(req.file.path);
+      const putResponse = await fetch(presignedUrl, {
+        method: "PUT",
+        body: fileBuffer,
+        headers: { "Content-Type": req.file.mimetype || "application/octet-stream" },
+      });
+      if (!putResponse.ok) {
+        throw new Error("Failed to upload to object storage");
+      }
+      const objectPath = uploadStorageService.normalizeObjectEntityPath(presignedUrl);
+      res.json({ url: objectPath, filename: req.file.originalname });
     } catch (error) {
       console.error("Error uploading photo:", error);
       res.status(500).json({ message: "Failed to upload photo" });
+    } finally {
+      if (req.file?.path) try { fs.unlinkSync(req.file.path); } catch {}
     }
   });
 
@@ -1068,11 +1083,23 @@ export async function registerRoutes(
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
       }
-      const fileUrl = `/uploads/${req.file.filename}`;
-      res.json({ url: fileUrl, filename: req.file.originalname });
+      const presignedUrl = await uploadStorageService.getObjectEntityUploadURL();
+      const fileBuffer = fs.readFileSync(req.file.path);
+      const putResponse = await fetch(presignedUrl, {
+        method: "PUT",
+        body: fileBuffer,
+        headers: { "Content-Type": req.file.mimetype || "application/octet-stream" },
+      });
+      if (!putResponse.ok) {
+        throw new Error("Failed to upload to object storage");
+      }
+      const objectPath = uploadStorageService.normalizeObjectEntityPath(presignedUrl);
+      res.json({ url: objectPath, filename: req.file.originalname });
     } catch (error) {
       console.error("Error uploading document:", error);
       res.status(500).json({ message: "Failed to upload document" });
+    } finally {
+      if (req.file?.path) try { fs.unlinkSync(req.file.path); } catch {}
     }
   });
 

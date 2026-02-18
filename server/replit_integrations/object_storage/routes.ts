@@ -67,10 +67,14 @@ export function registerObjectStorageRoutes(app: Express): void {
    *
    * GET /objects/uploads/:id
    *
-   * This serves files from object storage. For public files, no auth needed.
-   * For protected files, add authentication middleware and ACL checks.
+   * Protected: requires authenticated session.
    */
-  app.get("/objects/uploads/:objectId", async (req, res) => {
+  app.get("/objects/uploads/:objectId", (req, res, next) => {
+    if (!(req.session as any)?.userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    next();
+  }, async (req, res) => {
     try {
       const objectPath = `/objects/uploads/${req.params.objectId}`;
       const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
