@@ -3690,54 +3690,56 @@ export class DatabaseStorage implements IStorage {
     const totalDebit = lines.reduce((sum, line) => sum + Number(line.debitAmount || 0), 0);
     const totalCredit = lines.reduce((sum, line) => sum + Number(line.creditAmount || 0), 0);
     
-    const [entry] = await db.insert(journalEntries).values({
-      ...header,
-      totalDebit: totalDebit.toString(),
-      totalCredit: totalCredit.toString(),
-    }).returning();
-    
-    for (const line of lines) {
-      await db.insert(journalLines).values({
-        ...line,
-        journalEntryId: entry.id,
-      });
-    }
-    
-    return entry;
+    return await db.transaction(async (tx) => {
+      const [entry] = await tx.insert(journalEntries).values({
+        ...header,
+        totalDebit: totalDebit.toString(),
+        totalCredit: totalCredit.toString(),
+      }).returning();
+      
+      for (const line of lines) {
+        await tx.insert(journalLines).values({
+          ...line,
+          journalEntryId: entry.id,
+          debitAmount: String(line.debitAmount || "0"),
+          creditAmount: String(line.creditAmount || "0"),
+        });
+      }
+      
+      return entry;
+    });
   }
 
   async updateJournalEntry(id: string, data: any): Promise<JournalEntry> {
     const { entryDate, description, reference, referenceType, totalDebit, totalCredit, lines } = data;
     
-    // Update the entry
-    const [entry] = await db.update(journalEntries)
-      .set({
-        entryDate,
-        description,
-        reference,
-        referenceType,
-        totalDebit,
-        totalCredit,
-        updatedAt: new Date(),
-      })
-      .where(eq(journalEntries.id, id))
-      .returning();
-    
-    // Delete existing lines
-    await db.delete(journalLines).where(eq(journalLines.journalEntryId, id));
-    
-    // Insert new lines
-    for (const line of lines) {
-      await db.insert(journalLines).values({
-        journalEntryId: id,
-        accountId: line.accountId,
-        description: line.description || null,
-        debitAmount: line.debitAmount || "0",
-        creditAmount: line.creditAmount || "0",
-      });
-    }
-    
-    return entry;
+    return await db.transaction(async (tx) => {
+      const [entry] = await tx.update(journalEntries)
+        .set({
+          entryDate,
+          description,
+          reference,
+          referenceType,
+          totalDebit,
+          totalCredit,
+        })
+        .where(eq(journalEntries.id, id))
+        .returning();
+      
+      await tx.delete(journalLines).where(eq(journalLines.journalEntryId, id));
+      
+      for (const line of lines) {
+        await tx.insert(journalLines).values({
+          journalEntryId: id,
+          accountId: line.accountId,
+          description: line.description || null,
+          debitAmount: String(line.debitAmount || "0"),
+          creditAmount: String(line.creditAmount || "0"),
+        });
+      }
+      
+      return entry;
+    });
   }
 
   async postJournalEntry(id: string, postedBy: string): Promise<void> {
@@ -3947,11 +3949,13 @@ export class DatabaseStorage implements IStorage {
     const incomeAccounts = await db.select().from(accounts).where(eq(accounts.accountType, 'income'));
     const expenseAccounts = await db.select().from(accounts).where(eq(accounts.accountType, 'expense'));
     
+    const sortByCode = (a: any, b: any) => (a.accountCode || "").localeCompare(b.accountCode || "", undefined, { numeric: true });
+
     const assets = assetAccounts.map(acc => ({
       accountCode: acc.accountCode,
       accountName: acc.accountName,
       amount: Number(acc.currentBalance || 0),
-    }));
+    })).sort(sortByCode);
     
     const liabilities = liabilityAccounts.map(acc => {
       const balance = Number(acc.currentBalance || 0);
@@ -3960,13 +3964,13 @@ export class DatabaseStorage implements IStorage {
         accountName: acc.accountName,
         amount: balance,
       };
-    });
+    }).sort(sortByCode);
     
     const equity = equityAccounts.map(acc => ({
       accountCode: acc.accountCode,
       accountName: acc.accountName,
       amount: Number(acc.currentBalance || 0),
-    }));
+    })).sort(sortByCode);
 
     const asOfYear = new Date(asOfDate).getFullYear();
     const priorYearEnd = `${asOfYear - 1}-12-31`;

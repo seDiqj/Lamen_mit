@@ -371,8 +371,8 @@ export default function JournalEntries() {
 
               <div className="flex justify-end gap-2 pt-4">
                 <Button type="button" variant="outline" onClick={() => { setDialogOpen(false); resetForm(); }}>Cancel</Button>
-                <Button type="submit" disabled={!isBalanced || createMutation.isPending} data-testid="button-submit-entry">
-                  Create Entry
+                <Button type="submit" disabled={!isBalanced || createMutation.isPending || updateMutation.isPending} data-testid="button-submit-entry">
+                  {editingEntry ? "Update Entry" : "Create Entry"}
                 </Button>
               </div>
             </form>
