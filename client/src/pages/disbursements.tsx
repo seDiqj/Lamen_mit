@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -61,6 +62,7 @@ type BulkResponse = {
 };
 
 export default function DisbursementsPage() {
+  const [, setLocation] = useLocation();
   const [search, setSearch] = useState("");
   const [selectedLoan, setSelectedLoan] = useState<ApprovedLoan | null>(null);
   const [showDisburseDialog, setShowDisburseDialog] = useState(false);
@@ -85,9 +87,10 @@ export default function DisbursementsPage() {
 
   const disburseMutation = useMutation({
     mutationFn: async (loanId: string) => {
-      return apiRequest("POST", `/api/loans/${loanId}/disburse`, {});
+      const res = await apiRequest("POST", `/api/loans/${loanId}/disburse`, {});
+      return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/loans/approved"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       toast({
@@ -95,7 +98,11 @@ export default function DisbursementsPage() {
         description: "The financing has been disbursed successfully.",
       });
       setShowDisburseDialog(false);
+      const customerId = data?.customerId;
       setSelectedLoan(null);
+      if (customerId) {
+        setLocation(`/citizen-balance-statement?customerId=${customerId}`);
+      }
     },
     onError: (error: Error) => {
       toast({

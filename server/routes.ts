@@ -2200,7 +2200,7 @@ export async function registerRoutes(
       });
       
       await logActivity(req, "disburse_loan", "loan", req.params.id, `Disbursed loan: ${loan.applicationId}`);
-      res.json({ message: "Loan disbursed successfully", installmentsCreated: result.installmentsCreated });
+      res.json({ message: "Loan disbursed successfully", installmentsCreated: result.installmentsCreated, customerId: loan.customerId });
     } catch (error) {
       console.error("Error disbursing loan:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
