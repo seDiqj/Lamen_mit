@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, FileBarChart, FileText as FileTextIcon, User, Users } from "lucide-react";
+import { Shield, FileBarChart, FileText as FileTextIcon, User, Users, UserCog } from "lucide-react";
 import CollateralReport from "./collateral-report";
 import ContractDataReport from "./contract-data-report";
 import IndividualReport from "./individual-report";
 import SubjectRoleReport from "./subject-role-report";
+import SystemUserListReport from "./system-user-list-report";
 
 export default function DABReportsPage() {
   const [activeTab, setActiveTab] = useState("collateral");
@@ -22,7 +23,7 @@ export default function DABReportsPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full max-w-2xl grid-cols-4" data-testid="tabs-dab-reports">
+        <TabsList className="grid w-full max-w-3xl grid-cols-5" data-testid="tabs-dab-reports">
           <TabsTrigger value="collateral" className="gap-2" data-testid="tab-collateral">
             <Shield className="h-4 w-4" />
             Collateral
@@ -38,6 +39,10 @@ export default function DABReportsPage() {
           <TabsTrigger value="subject-role" className="gap-2" data-testid="tab-subject-role">
             <Users className="h-4 w-4" />
             Subject Role
+          </TabsTrigger>
+          <TabsTrigger value="system-user-list" className="gap-2" data-testid="tab-system-user-list">
+            <UserCog className="h-4 w-4" />
+            System User List
           </TabsTrigger>
         </TabsList>
 
@@ -55,6 +60,10 @@ export default function DABReportsPage() {
 
         <TabsContent value="subject-role" className="mt-4">
           <SubjectRoleReport />
+        </TabsContent>
+
+        <TabsContent value="system-user-list" className="mt-4">
+          <SystemUserListReport />
         </TabsContent>
       </Tabs>
     </div>

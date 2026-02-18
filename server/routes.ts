@@ -2,7 +2,8 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { customers, loans, disbursements, branches, financeOfficers, installments, fundingSources as fundingSourcesTable, collaterals, customerBusinesses, businessLicenses, loanApprovals, guarantors } from "@shared/schema";
+import { customers, loans, disbursements, branches, financeOfficers, installments, fundingSources as fundingSourcesTable, collaterals, customerBusinesses, businessLicenses, loanApprovals, guarantors, userRoles } from "@shared/schema";
+import { users } from "@shared/models/auth";
 import { eq, and, or, inArray, sql, gte, lte, desc, isNull } from "drizzle-orm";
 import { z } from "zod";
 import bcrypt from "bcrypt";
@@ -4027,6 +4028,42 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching subject role report:", error);
       res.status(500).json({ message: "Failed to fetch subject role report" });
+    }
+  });
+
+  // System User List Report
+  app.get("/api/reports/system-user-list", isAuthenticated, async (req, res) => {
+    try {
+      const results = await db
+        .select({
+          id: users.id,
+          username: users.username,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          email: users.email,
+          createdAt: users.createdAt,
+          role: userRoles.role,
+          branchName: branches.name,
+        })
+        .from(users)
+        .leftJoin(userRoles, eq(users.id, userRoles.userId))
+        .leftJoin(financeOfficers, eq(users.id, financeOfficers.userId))
+        .leftJoin(branches, eq(financeOfficers.branchId, branches.id))
+        .orderBy(users.username);
+
+      const data = results.map((row) => ({
+        "User Name": row.username || `${row.firstName || ""} ${row.lastName || ""}`.trim() || "",
+        "User ID": row.id || "",
+        "Department": row.branchName || "",
+        "User Role": row.role || "user",
+        "User creation date": row.createdAt ? new Date(row.createdAt).toISOString().split("T")[0] : "",
+        "User Status": "Active",
+      }));
+
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching system user list report:", error);
+      res.status(500).json({ message: "Failed to fetch system user list report" });
     }
   });
 
