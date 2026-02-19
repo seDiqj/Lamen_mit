@@ -37,6 +37,15 @@ import {
 } from "lucide-react";
 import { formatCurrency, cn, toPersianDate, calculateAge } from "@/lib/utils";
 
+type CommitteeVote = {
+  id: string;
+  voterName: string;
+  voterRole: string;
+  vote: string;
+  comments: string;
+  votedAt: string;
+};
+
 type LoanWithFadReview = {
   loan: {
     id: string;
@@ -58,6 +67,7 @@ type LoanWithFadReview = {
     reviewerName: string;
     reviewedAt: string;
   } | null;
+  committeeVotes?: CommitteeVote[];
 };
 
 const steps = [
@@ -104,6 +114,16 @@ export default function RiskCompliancePage() {
     queryFn: async () => {
       const res = await fetch(`/api/fad-reviews/${selectedLoanId}`);
       if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!selectedLoanId,
+  });
+
+  const { data: committeeVotes = [] } = useQuery<CommitteeVote[]>({
+    queryKey: ["/api/committee/votes", selectedLoanId],
+    queryFn: async () => {
+      const res = await fetch(`/api/committee/votes/${selectedLoanId}`);
+      if (!res.ok) return [];
       return res.json();
     },
     enabled: !!selectedLoanId,
@@ -560,6 +580,39 @@ export default function RiskCompliancePage() {
                       )}
                     </div>
                   </div>
+
+                  {committeeVotes.length > 0 && (
+                    <div className="p-4 bg-amber-50 dark:bg-amber-950 rounded-lg" data-testid="section-committee-votes">
+                      <h4 className="font-semibold mb-3 text-amber-700 dark:text-amber-300">Voting Committee Feedback</h4>
+                      <div className="space-y-3">
+                        {committeeVotes.map((v) => (
+                          <div key={v.id} className="text-sm border-b border-amber-200 dark:border-amber-800 pb-2 last:border-0 last:pb-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{v.voterName}</span>
+                                <Badge variant="outline" className="text-xs">
+                                  {v.voterRole}
+                                </Badge>
+                              </div>
+                              <Badge
+                                variant="outline"
+                                className={v.vote === "approved"
+                                  ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
+                                  : "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
+                                }
+                              >
+                                {v.vote === "approved" ? "Approved" : "Rejected"}
+                              </Badge>
+                            </div>
+                            {v.comments && (
+                              <p className="text-xs text-muted-foreground mt-1" data-testid={`text-vote-comment-${v.id}`}>{v.comments}</p>
+                            )}
+                            <span className="text-[10px] text-muted-foreground">{formatDate(v.votedAt)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-4">

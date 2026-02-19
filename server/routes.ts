@@ -2392,7 +2392,7 @@ export async function registerRoutes(
       const loansWithInfo = await Promise.all(
         loans.map(async (loanData: any) => {
           const fadReview = await storage.getFadReviewByLoanId(loanData.id);
-          // Flatten loan data for frontend
+          const committeeVotes = await storage.getCommitteeVotesByLoanId(loanData.id);
           const loan = {
             id: loanData.id,
             applicationId: loanData.applicationId,
@@ -2405,7 +2405,7 @@ export async function registerRoutes(
             customerName: loanData.customer ? `${loanData.customer.firstName || ""} ${loanData.customer.lastName || ""}`.trim() : "-",
             branchName: loanData.branch?.name || "-",
           };
-          return { loan, fadReview };
+          return { loan, fadReview, committeeVotes };
         })
       );
       res.json(loansWithInfo);
