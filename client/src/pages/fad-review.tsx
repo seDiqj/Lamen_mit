@@ -256,6 +256,19 @@ export default function FadReviewPage() {
     enabled: !!selectedLoanId,
   });
 
+  const { data: reviewHistory } = useQuery<{
+    fadReviews: Array<{ id: string; status: string; comments: string; reviewerName: string; reviewedAt: string }>;
+    riskComplianceReviews: Array<{ id: string; status: string; comments: string; reviewerName: string; reviewedAt: string; riskScore: number }>;
+  }>({
+    queryKey: ["/api/loan-review-history", selectedLoanId],
+    queryFn: async () => {
+      const res = await fetch(`/api/loan-review-history/${selectedLoanId}`);
+      if (!res.ok) return { fadReviews: [], riskComplianceReviews: [] };
+      return res.json();
+    },
+    enabled: !!selectedLoanId,
+  });
+
   const form = useForm<FadReviewFormData>({
     resolver: zodResolver(fadReviewSchema),
     defaultValues: {},
@@ -1227,6 +1240,50 @@ export default function FadReviewPage() {
                           </div>
                         </div>
                       </div>
+
+                      {reviewHistory && (reviewHistory.riskComplianceReviews.length > 0 || reviewHistory.fadReviews.length > 0) && (
+                        <div className="space-y-3" data-testid="section-review-history">
+                          {reviewHistory.riskComplianceReviews.filter(r => r.status === "rejected").length > 0 && (
+                            <div className="p-4 bg-red-50 dark:bg-red-950 rounded-lg border border-red-200 dark:border-red-800">
+                              <h4 className="font-semibold mb-2 text-red-700 dark:text-red-300 flex items-center gap-2">
+                                <XCircle className="h-4 w-4" />
+                                Risk Compliance Rejection Comments
+                              </h4>
+                              <div className="space-y-2">
+                                {reviewHistory.riskComplianceReviews.filter(r => r.status === "rejected").map((r) => (
+                                  <div key={r.id} className="text-sm">
+                                    <p className="whitespace-pre-wrap text-red-800 dark:text-red-200" data-testid={`text-rc-comment-${r.id}`}>{r.comments}</p>
+                                    <span className="text-[10px] text-muted-foreground">
+                                      {r.reviewerName} - {new Date(r.reviewedAt).toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" })}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {reviewHistory.fadReviews.length > 0 && (
+                            <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                              <h4 className="font-semibold mb-2 text-blue-700 dark:text-blue-300">Previous FAD Reviews</h4>
+                              <div className="space-y-2">
+                                {reviewHistory.fadReviews.map((r) => (
+                                  <div key={r.id} className="text-sm border-b border-blue-200 dark:border-blue-800 pb-2 last:border-0 last:pb-0">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <Badge variant="outline" className={r.status === "approved" ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" : "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"}>
+                                        {r.status === "approved" ? "Approved" : "Rejected"}
+                                      </Badge>
+                                      <span className="text-[10px] text-muted-foreground">
+                                        {r.reviewerName} - {new Date(r.reviewedAt).toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" })}
+                                      </span>
+                                    </div>
+                                    {r.comments && <p className="text-xs text-muted-foreground" data-testid={`text-fad-comment-${r.id}`}>{r.comments}</p>}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     <div className="space-y-4">

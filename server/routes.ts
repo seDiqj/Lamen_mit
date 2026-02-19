@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { customers, loans, disbursements, branches, financeOfficers, installments, fundingSources as fundingSourcesTable, collaterals, customerBusinesses, businessLicenses, loanApprovals, guarantors, userRoles } from "@shared/schema";
+import { customers, loans, disbursements, branches, financeOfficers, installments, fundingSources as fundingSourcesTable, collaterals, customerBusinesses, businessLicenses, loanApprovals, guarantors, userRoles, fadReviews, riskComplianceReviews } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { eq, and, or, inArray, sql, gte, lte, desc, isNull } from "drizzle-orm";
 import { z } from "zod";
@@ -2382,6 +2382,18 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching FAD review:", error);
       res.status(500).json({ message: "Failed to fetch FAD review" });
+    }
+  });
+
+  app.get("/api/loan-review-history/:loanId", isAuthenticated, async (req, res) => {
+    try {
+      const loanId = req.params.loanId;
+      const fadReviewsAll = await db.select().from(fadReviews).where(eq(fadReviews.loanId, loanId)).orderBy(desc(fadReviews.createdAt));
+      const riskReviewsAll = await db.select().from(riskComplianceReviews).where(eq(riskComplianceReviews.loanId, loanId)).orderBy(desc(riskComplianceReviews.createdAt));
+      res.json({ fadReviews: fadReviewsAll, riskComplianceReviews: riskReviewsAll });
+    } catch (error) {
+      console.error("Error fetching loan review history:", error);
+      res.status(500).json({ message: "Failed to fetch review history" });
     }
   });
 
