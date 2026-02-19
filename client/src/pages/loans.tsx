@@ -566,7 +566,7 @@ export default function LoansPage() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {loan.reviewComments && (loan.status === "returned" || loan.status === "rejected" || loan.status === "pending") ? (
+                        {loan.reviewComments && (loan.status === "returned" || loan.status === "rejected" || loan.status === "pending" || loan.status === "data_quality_review" || loan.status === "risk_compliance_review") ? (
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <div className="flex items-start gap-1 max-w-[200px] cursor-pointer">

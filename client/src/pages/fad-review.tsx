@@ -55,7 +55,9 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Branch, FinanceOfficer } from "@shared/schema";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn, toPersianDate, calculateAge } from "@/lib/utils";
+import { MessageCircle } from "lucide-react";
 
 type LoanWithDetails = {
   id: string;
@@ -65,6 +67,7 @@ type LoanWithDetails = {
   financingDurationMonths: number;
   applicationDate: string;
   purpose: string;
+  reviewComments?: string | null;
   customer: {
     id: string;
     firstName: string;
@@ -1430,6 +1433,7 @@ export default function FadReviewPage() {
                   <TableHead>Duration</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Comments</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1468,6 +1472,25 @@ export default function FadReviewPage() {
                         : "-"}
                     </TableCell>
                     <TableCell>{getStatusBadge(loan.status)}</TableCell>
+                    <TableCell>
+                      {loan.reviewComments ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex items-start gap-1 max-w-[200px] cursor-pointer">
+                              <MessageCircle className="h-4 w-4 text-rose-500 mt-0.5 flex-shrink-0" />
+                              <span className="text-xs text-rose-600 dark:text-rose-400 line-clamp-2" data-testid={`text-fad-list-comment-${loan.id}`}>
+                                {loan.reviewComments}
+                              </span>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-[400px] whitespace-pre-wrap">
+                            <p className="text-sm">{loan.reviewComments}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right">
                       <Button
                         onClick={() => handleStartReview(loan.id)}
