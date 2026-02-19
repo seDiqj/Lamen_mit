@@ -1009,9 +1009,13 @@ export class DatabaseStorage implements IStorage {
           ORDER BY d.disbursement_date DESC LIMIT 1
         )`,
         reviewComments: sql<string>`(
-          SELECT fr.comments FROM fad_reviews fr 
-          WHERE fr.loan_id = ${loans.id} 
-          ORDER BY fr.created_at DESC LIMIT 1
+          SELECT sub.comments FROM (
+            SELECT fr.comments, fr.created_at FROM fad_reviews fr 
+            WHERE fr.loan_id = ${loans.id} AND fr.comments IS NOT NULL AND fr.comments != ''
+            UNION ALL
+            SELECT rc.comments, rc.created_at FROM risk_compliance_reviews rc 
+            WHERE rc.loan_id = ${loans.id} AND rc.comments IS NOT NULL AND rc.comments != ''
+          ) sub ORDER BY sub.created_at DESC LIMIT 1
         )`,
       })
       .from(loans)
