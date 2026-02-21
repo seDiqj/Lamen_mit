@@ -31,6 +31,19 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
@@ -39,8 +52,11 @@ import {
   Edit,
   Building2,
   MapPin,
+  ChevronsUpDown,
+  Check,
 } from "lucide-react";
-import type { Branch } from "@shared/schema";
+import { cn } from "@/lib/utils";
+import type { Branch, Account } from "@shared/schema";
 
 const branchFormSchema = z.object({
   name: z.string().min(1, "Branch name is required"),
@@ -56,9 +72,14 @@ export default function BranchesPage() {
   const [search, setSearch] = useState("");
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
   const [showDialog, setShowDialog] = useState(false);
+  const [accountPopoverOpen, setAccountPopoverOpen] = useState(false);
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  const { data: accountsList } = useQuery<Account[]>({
+    queryKey: ["/api/accounts"],
+  });
 
   const form = useForm<BranchFormData>({
     resolver: zodResolver(branchFormSchema),
@@ -218,7 +239,12 @@ export default function BranchesPage() {
                       </TableCell>
                       <TableCell>{branch.shortName || "-"}</TableCell>
                       <TableCell className="font-mono">{branch.code || "-"}</TableCell>
-                      <TableCell className="font-mono">{branch.accountCode || "-"}</TableCell>
+                      <TableCell className="font-mono">
+                        {branch.accountCode ? (() => {
+                          const acc = accountsList?.find(a => a.accountCode === branch.accountCode);
+                          return acc ? `${branch.accountCode} - ${acc.accountName}` : branch.accountCode;
+                        })() : "-"}
+                      </TableCell>
                       <TableCell>
                         {branch.address && (
                           <div className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -312,11 +338,54 @@ export default function BranchesPage() {
                 control={form.control}
                 name="accountCode"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="flex flex-col">
                     <FormLabel>Account Code (Disbursement)</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g. 10206" {...field} data-testid="input-branch-account-code" />
-                    </FormControl>
+                    <Popover open={accountPopoverOpen} onOpenChange={setAccountPopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={accountPopoverOpen}
+                            className={cn("w-full justify-between font-normal", !field.value && "text-muted-foreground")}
+                            data-testid="input-branch-account-code"
+                          >
+                            {field.value
+                              ? (() => {
+                                  const acc = accountsList?.find(a => a.accountCode === field.value);
+                                  return acc ? `${acc.accountCode} - ${acc.accountName}` : field.value;
+                                })()
+                              : "Select account..."}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[400px] p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder="Search by name or code..." />
+                          <CommandList>
+                            <CommandEmpty>No account found.</CommandEmpty>
+                            <CommandGroup>
+                              {accountsList?.filter(a => a.isActive).map(account => (
+                                <CommandItem
+                                  key={account.id}
+                                  value={`${account.accountCode} ${account.accountName}`}
+                                  onSelect={() => {
+                                    field.onChange(account.accountCode);
+                                    setAccountPopoverOpen(false);
+                                  }}
+                                  data-testid={`account-option-${account.accountCode}`}
+                                >
+                                  <Check className={cn("mr-2 h-4 w-4", field.value === account.accountCode ? "opacity-100" : "opacity-0")} />
+                                  <span className="font-mono mr-2">{account.accountCode}</span>
+                                  <span className="truncate">{account.accountName}</span>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                     <FormMessage />
                   </FormItem>
                 )}
