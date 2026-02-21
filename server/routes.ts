@@ -2835,7 +2835,7 @@ export async function registerRoutes(
           COALESCE(SUM(CASE WHEN i.due_date <= $1 AND i.is_paid = false THEN COALESCE(i.total_amount::numeric, 0) - COALESCE(i.paid_amount::numeric, 0) ELSE 0 END), 0) as due_till_current_month,
           COALESCE(SUM(CASE WHEN i.due_date < $2 AND i.is_paid = false THEN COALESCE(i.total_amount::numeric, 0) - COALESCE(i.paid_amount::numeric, 0) ELSE 0 END), 0) as overdue_till_date,
           COALESCE(SUM(CASE WHEN i.payment_date >= $3 AND i.payment_date <= $4 THEN COALESCE(i.paid_amount::numeric, 0) ELSE 0 END), 0) as collected_current_month,
-          COALESCE(SUM(CASE WHEN i.is_paid = false THEN COALESCE(i.total_amount::numeric, 0) - COALESCE(i.paid_amount::numeric, 0) ELSE 0 END), 0) as outstanding_till_date
+          COALESCE(SUM(CASE WHEN i.due_date >= $3 AND i.due_date <= $1 AND i.is_paid = false THEN COALESCE(i.total_amount::numeric, 0) - COALESCE(i.paid_amount::numeric, 0) ELSE 0 END), 0) as outstanding_current_month
         FROM installments i
         JOIN loans l ON i.loan_id = l.id
         WHERE l.status IN ('disbursed', 'active')
@@ -2846,7 +2846,7 @@ export async function registerRoutes(
         dueTillCurrentMonth: parseFloat(stats.due_till_current_month || "0"),
         overdueTillDate: parseFloat(stats.overdue_till_date || "0"),
         collectedCurrentMonth: parseFloat(stats.collected_current_month || "0"),
-        outstandingTillDate: parseFloat(stats.outstanding_till_date || "0"),
+        outstandingCurrentMonth: parseFloat(stats.outstanding_current_month || "0"),
       });
     } catch (error) {
       console.error("Error fetching payment stats:", error);

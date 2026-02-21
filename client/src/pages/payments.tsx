@@ -39,6 +39,9 @@ import {
   FileSpreadsheet,
   FileText,
   Wrench,
+  Hash,
+  Target,
+  BarChart3,
 } from "lucide-react";
 import type { Installment } from "@shared/schema";
 import * as XLSX from "xlsx";
@@ -158,7 +161,7 @@ export default function PaymentsPage() {
     dueTillCurrentMonth: number;
     overdueTillDate: number;
     collectedCurrentMonth: number;
-    outstandingTillDate: number;
+    outstandingCurrentMonth: number;
   }>({
     queryKey: ["/api/payment-stats"],
   });
@@ -586,8 +589,9 @@ export default function PaymentsPage() {
                 <Banknote className="h-6 w-6 text-amber-600 dark:text-amber-400" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Outstanding Till Date</p>
-                <p className="text-2xl font-bold text-amber-600 dark:text-amber-400" data-testid="text-outstanding-till-date">{formatCurrency(paymentStats?.outstandingTillDate || 0)}</p>
+                <p className="text-sm text-muted-foreground">Outstanding Current Month</p>
+                <p className="text-2xl font-bold text-amber-600 dark:text-amber-400" data-testid="text-outstanding-current-month">{formatCurrency(paymentStats?.outstandingCurrentMonth || 0)}</p>
+                <p className="text-xs text-muted-foreground">Unpaid dues this month</p>
               </div>
             </div>
           </CardContent>
@@ -746,24 +750,11 @@ export default function PaymentsPage() {
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                      <DollarSign className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                      <Hash className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">Total Disbursed</p>
-                      <p className="text-lg font-bold text-blue-700 dark:text-blue-400" data-testid="text-total-disbursed">{formatAFN(totalDisbursed)}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
-                      <TrendingUp className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Total Profit</p>
-                      <p className="text-lg font-bold text-purple-700 dark:text-purple-400" data-testid="text-total-profit">{formatAFN(totalProfit)}</p>
+                      <p className="text-xs text-muted-foreground">Active Loans</p>
+                      <p className="text-lg font-bold text-blue-700 dark:text-blue-400" data-testid="text-active-loans-count">{filteredLoans.length}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -775,8 +766,8 @@ export default function PaymentsPage() {
                       <Banknote className="h-5 w-5 text-primary" />
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">Total Portfolio</p>
-                      <p className="text-lg font-bold" data-testid="text-total-portfolio">{formatAFN(totalPortfolio)}</p>
+                      <p className="text-xs text-muted-foreground">Total Receivable</p>
+                      <p className="text-lg font-bold" data-testid="text-total-receivable">{formatAFN(totalPortfolio)}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -792,14 +783,14 @@ export default function PaymentsPage() {
                       <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">Total Repaid</p>
-                      <p className="text-lg font-bold text-green-700 dark:text-green-400" data-testid="text-total-repaid">{formatAFN(totalRepaidAll)}</p>
+                      <p className="text-xs text-muted-foreground">Total Collected</p>
+                      <p className="text-lg font-bold text-green-700 dark:text-green-400" data-testid="text-total-collected">{formatAFN(totalRepaidAll)}</p>
                     </div>
                   </div>
                   {repaidExpanded && (
                     <div className="mt-3 pt-3 border-t border-dashed space-y-1.5">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Principal Amount</span>
+                        <span className="text-muted-foreground">Principal</span>
                         <span className="font-semibold" data-testid="text-repaid-principal">{formatAFN(totalPrincipalRepaid)}</span>
                       </div>
                       <div className="flex items-center justify-between text-sm">
@@ -817,11 +808,26 @@ export default function PaymentsPage() {
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
-                      <TrendingUp className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                      <Target className="h-5 w-5 text-amber-600 dark:text-amber-400" />
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">Outstanding</p>
+                      <p className="text-xs text-muted-foreground">Outstanding Balance</p>
                       <p className="text-lg font-bold text-amber-700 dark:text-amber-400" data-testid="text-total-outstanding">{formatAFN(totalOutstanding)}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
+                      <BarChart3 className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Avg. Collection Rate</p>
+                      <p className="text-lg font-bold text-purple-700 dark:text-purple-400" data-testid="text-avg-progress">
+                        {totalPortfolio > 0 ? `${((totalRepaidAll / totalPortfolio) * 100).toFixed(1)}%` : "0%"}
+                      </p>
                     </div>
                   </div>
                 </CardContent>
