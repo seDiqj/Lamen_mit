@@ -248,7 +248,7 @@ export interface IStorage {
   getCommitteeVoteByLoanAndVoter(loanId: string, voterId: string): Promise<CommitteeVote | undefined>;
   
   // Installments
-  getInstallments(filters: { search?: string; page?: number; limit?: number }): Promise<{ installments: any[]; total: number }>;
+  getInstallments(filters: { search?: string; page?: number; limit?: number; currentMonthOnly?: boolean; paidOnly?: boolean }): Promise<{ installments: any[]; total: number }>;
   markInstallmentPaid(id: string): Promise<Installment>;
   getCollectionInstallments(filters: { filter?: string; branch?: string; officer?: string; search?: string; page?: number; limit?: number }): Promise<{ installments: any[]; total: number; summary: any }>;
   recordPartialPayment(id: string, amount: number): Promise<Installment>;
@@ -1387,11 +1387,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Installments
-  async getInstallments(filters: { search?: string; page?: number; limit?: number }): Promise<{ installments: any[]; total: number }> {
-    const { search, page = 1, limit = 10 } = filters;
+  async getInstallments(filters: { search?: string; page?: number; limit?: number; currentMonthOnly?: boolean; paidOnly?: boolean }): Promise<{ installments: any[]; total: number }> {
+    const { search, page = 1, limit = 10, currentMonthOnly = false, paidOnly = false } = filters;
     const offset = (page - 1) * limit;
 
-    const results = await db
+    const conditions: any[] = [];
+    if (currentMonthOnly) {
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
+      conditions.push(sql`${installments.paymentDate} >= ${monthStart}`);
+      conditions.push(sql`${installments.paymentDate} <= ${monthEnd}`);
+    }
+    if (paidOnly) {
+      conditions.push(eq(installments.isPaid, true));
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const query = db
       .select({
         id: installments.id,
         loanId: installments.loanId,
@@ -1400,6 +1414,7 @@ export class DatabaseStorage implements IStorage {
         principleAmount: installments.principleAmount,
         marginAmount: installments.marginAmount,
         totalAmount: installments.totalAmount,
+        paidAmount: installments.paidAmount,
         paymentDate: installments.paymentDate,
         lateDays: installments.lateDays,
         isPaid: installments.isPaid,
@@ -1408,12 +1423,16 @@ export class DatabaseStorage implements IStorage {
       })
       .from(installments)
       .leftJoin(loans, eq(installments.loanId, loans.id))
-      .leftJoin(customers, eq(loans.customerId, customers.id))
-      .orderBy(installments.dueDate)
-      .limit(limit)
-      .offset(offset);
+      .leftJoin(customers, eq(loans.customerId, customers.id));
 
-    const [{ count: total }] = await db.select({ count: count() }).from(installments);
+    const results = whereClause
+      ? await query.where(whereClause).orderBy(installments.dueDate).limit(limit).offset(offset)
+      : await query.orderBy(installments.dueDate).limit(limit).offset(offset);
+
+    const countQuery = db.select({ count: count() }).from(installments);
+    const [{ count: total }] = whereClause
+      ? await countQuery.where(whereClause)
+      : await countQuery;
 
     return { installments: results, total: Number(total) };
   }
@@ -1642,7 +1661,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async recordPartialPayment(id: string, amount: number): Promise<Installment> {
+  async recordPartialPayment(id: string, amount: number, paymentDateStr?: string): Promise<Installment> {
     const [existing] = await db
       .select()
       .from(installments)
@@ -1655,7 +1674,7 @@ export class DatabaseStorage implements IStorage {
     const currentPaid = parseFloat(existing.paidAmount || "0");
     const totalDue = parseFloat(existing.totalAmount || "0");
     const newPaidAmount = currentPaid + amount;
-    const today = new Date().toISOString().split("T")[0];
+    const today = paymentDateStr || new Date().toISOString().split("T")[0];
 
     if (newPaidAmount > totalDue + 0.01) {
       throw new Error("Payment amount exceeds remaining balance");
@@ -1665,11 +1684,11 @@ export class DatabaseStorage implements IStorage {
 
     const updateData: any = {
       paidAmount: newPaidAmount.toFixed(2),
+      paymentDate: today,
     };
 
     if (isFullyPaid) {
       updateData.isPaid = true;
-      updateData.paymentDate = today;
       const dueDate = existing.dueDate ? new Date(existing.dueDate) : new Date();
       const payDate = new Date(today);
       const diffDays = Math.max(0, Math.floor((payDate.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)));
@@ -3524,6 +3543,11 @@ export class DatabaseStorage implements IStorage {
 
   async getAccount(id: string): Promise<Account | undefined> {
     const [account] = await db.select().from(accounts).where(eq(accounts.id, id));
+    return account;
+  }
+
+  async getAccountByCode(code: string): Promise<Account | undefined> {
+    const [account] = await db.select().from(accounts).where(eq(accounts.accountCode, code));
     return account;
   }
 

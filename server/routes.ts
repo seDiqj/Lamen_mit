@@ -2601,11 +2601,13 @@ export async function registerRoutes(
   // ===== INSTALLMENTS =====
   app.get("/api/installments", isAuthenticated, async (req, res) => {
     try {
-      const { search, page, limit } = req.query;
+      const { search, page, limit, currentMonthOnly, paidOnly } = req.query;
       const result = await storage.getInstallments({
         search: search as string | undefined,
         page: page ? parseInt(page as string) : 1,
         limit: limit ? parseInt(limit as string) : 10,
+        currentMonthOnly: currentMonthOnly === "true",
+        paidOnly: paidOnly === "true",
       });
       res.json({
         ...result,
@@ -2654,17 +2656,112 @@ export async function registerRoutes(
 
   app.patch("/api/collections/:id/pay", isAuthenticated, async (req: any, res) => {
     try {
-      const schema = z.object({ amount: z.number().positive("Payment amount must be greater than 0") });
+      const schema = z.object({
+        amount: z.number().positive("Payment amount must be greater than 0"),
+        paymentDate: z.string().optional(),
+        debitAccountCode: z.string().optional(),
+      });
       const parsed = schema.parse(req.body);
-      const installment = await storage.recordPartialPayment(req.params.id, parsed.amount);
+      const installment = await storage.recordPartialPayment(req.params.id, parsed.amount, parsed.paymentDate);
       const action = installment.isPaid ? "full_payment" : "partial_payment";
       await logActivity(req, action, "installment", req.params.id,
         `Recorded ${action === "full_payment" ? "full" : "partial"} payment of AFN ${parsed.amount.toLocaleString()} for installment #${installment.installmentNumber}`
       );
+
+      try {
+        const loan = installment.loanId ? await storage.getLoan(installment.loanId) : null;
+        const customer = loan?.customerId ? await storage.getCustomer(loan.customerId) : null;
+        const customerName = customer ? `${customer.firstName} ${customer.lastName}` : "Unknown";
+        const loanAppId = loan?.applicationId || "N/A";
+
+        const debitCode = parsed.debitAccountCode || "10206";
+        const creditCode = "11000";
+
+        const debitAccount = await storage.getAccountByCode(debitCode);
+        const creditAccount = await storage.getAccountByCode(creditCode);
+
+        if (debitAccount && creditAccount) {
+          const entryNumber = await storage.getNextEntryNumber();
+          const entryDate = parsed.paymentDate || new Date().toISOString().split("T")[0];
+          const description = `Collection: ${customerName} (${loanAppId}) - Installment #${installment.installmentNumber} - AFN ${parsed.amount.toLocaleString()}`;
+
+          const principleAmt = parseFloat(installment.principleAmount || "0");
+          const marginAmt = parseFloat(installment.marginAmount || "0");
+          const totalAmt = principleAmt + marginAmt;
+          const paymentRatio = totalAmt > 0 ? parsed.amount / totalAmt : 1;
+          const principalPortion = Math.round(principleAmt * paymentRatio * 100) / 100;
+          const marginPortion = Math.round((parsed.amount - principalPortion) * 100) / 100;
+
+          const lines: any[] = [
+            {
+              accountId: debitAccount.id,
+              description: `Cash received - ${customerName} Inst #${installment.installmentNumber}`,
+              debitAmount: parsed.amount.toFixed(2),
+              creditAmount: "0",
+            },
+            {
+              accountId: creditAccount.id,
+              description: `Loan receivable - ${customerName} Inst #${installment.installmentNumber}`,
+              debitAmount: "0",
+              creditAmount: parsed.amount.toFixed(2),
+            },
+          ];
+
+          await storage.createJournalEntry(
+            {
+              entryNumber,
+              entryDate,
+              description,
+              reference: loanAppId,
+              referenceType: "collection",
+              referenceId: installment.id,
+              isPosted: true,
+              createdBy: req.session.userId,
+              postedBy: req.session.userId,
+              postedAt: new Date(),
+            },
+            lines
+          );
+        }
+      } catch (journalError) {
+        console.error("Warning: Failed to create journal entry for collection:", journalError);
+      }
+
       res.json(installment);
     } catch (error: any) {
       console.error("Error recording collection payment:", error);
       res.status(400).json({ message: error.message || "Failed to record payment" });
+    }
+  });
+
+  app.get("/api/payment-stats", isAuthenticated, async (req, res) => {
+    try {
+      const now = new Date();
+      const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+      const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
+      const today = now.toISOString().split("T")[0];
+
+      const result = await pool.query(`
+        SELECT
+          COALESCE(SUM(CASE WHEN i.due_date <= $1 AND i.is_paid = false THEN COALESCE(i.total_amount::numeric, 0) - COALESCE(i.paid_amount::numeric, 0) ELSE 0 END), 0) as due_till_current_month,
+          COALESCE(SUM(CASE WHEN i.due_date < $2 AND i.is_paid = false THEN COALESCE(i.total_amount::numeric, 0) - COALESCE(i.paid_amount::numeric, 0) ELSE 0 END), 0) as overdue_till_date,
+          COALESCE(SUM(CASE WHEN i.payment_date >= $3 AND i.payment_date <= $4 THEN COALESCE(i.paid_amount::numeric, 0) ELSE 0 END), 0) as collected_current_month,
+          COALESCE(SUM(CASE WHEN i.is_paid = false THEN COALESCE(i.total_amount::numeric, 0) - COALESCE(i.paid_amount::numeric, 0) ELSE 0 END), 0) as outstanding_till_date
+        FROM installments i
+        JOIN loans l ON i.loan_id = l.id
+        WHERE l.status IN ('disbursed', 'active')
+      `, [currentMonthEnd, today, currentMonthStart, currentMonthEnd]);
+
+      const stats = result.rows[0];
+      res.json({
+        dueTillCurrentMonth: parseFloat(stats.due_till_current_month || "0"),
+        overdueTillDate: parseFloat(stats.overdue_till_date || "0"),
+        collectedCurrentMonth: parseFloat(stats.collected_current_month || "0"),
+        outstandingTillDate: parseFloat(stats.outstanding_till_date || "0"),
+      });
+    } catch (error) {
+      console.error("Error fetching payment stats:", error);
+      res.status(500).json({ message: "Failed to fetch payment stats" });
     }
   });
 

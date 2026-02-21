@@ -126,12 +126,13 @@ export default function PaymentsPage() {
     page: number;
     totalPages: number;
   }>({
-    queryKey: ["/api/installments", search, page, limit],
+    queryKey: ["/api/installments", search, page, limit, "currentMonth"],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
       params.set("page", String(page));
       params.set("limit", String(limit));
+      params.set("currentMonthOnly", "true");
       const res = await fetch(`/api/installments?${params.toString()}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch installments");
       return res.json();
@@ -145,6 +146,15 @@ export default function PaymentsPage() {
   const { data: loansData, isLoading: loansLoading } = useQuery<{ loans: LoanItem[]; total: number }>({
     queryKey: [`/api/loans?status=disbursed&page=1&limit=500`],
     enabled: activeTab === "summary",
+  });
+
+  const { data: paymentStats } = useQuery<{
+    dueTillCurrentMonth: number;
+    overdueTillDate: number;
+    collectedCurrentMonth: number;
+    outstandingTillDate: number;
+  }>({
+    queryKey: ["/api/payment-stats"],
   });
 
   const { data: allInstallmentsData, isLoading: installmentsLoading } = useQuery<{ installments: SummaryInstallment[]; total: number }>({
@@ -424,29 +434,17 @@ export default function PaymentsPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-xl bg-green-500/10 flex items-center justify-center">
-                <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
+              <div className="h-12 w-12 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                <Calendar className="h-6 w-6 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Collected This Month</p>
-                <p className="text-2xl font-bold">{formatCurrency(45000)}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-xl bg-yellow-500/10 flex items-center justify-center">
-                <Calendar className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Due This Week</p>
-                <p className="text-2xl font-bold">{formatCurrency(12500)}</p>
+                <p className="text-sm text-muted-foreground">Due Till Current Month</p>
+                <p className="text-2xl font-bold" data-testid="text-due-till-month">{formatCurrency(paymentStats?.dueTillCurrentMonth || 0)}</p>
+                <p className="text-xs text-muted-foreground">Includes previous unpaid</p>
               </div>
             </div>
           </CardContent>
@@ -458,8 +456,34 @@ export default function PaymentsPage() {
                 <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Total Overdue</p>
-                <p className="text-2xl font-bold">{formatCurrency(8750)}</p>
+                <p className="text-sm text-muted-foreground">Overdue Till Date</p>
+                <p className="text-2xl font-bold text-red-600 dark:text-red-400" data-testid="text-overdue-till-date">{formatCurrency(paymentStats?.overdueTillDate || 0)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-xl bg-green-500/10 flex items-center justify-center">
+                <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Collected This Month</p>
+                <p className="text-2xl font-bold text-green-600 dark:text-green-400" data-testid="text-collected-month">{formatCurrency(paymentStats?.collectedCurrentMonth || 0)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-xl bg-amber-500/10 flex items-center justify-center">
+                <Banknote className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Outstanding Till Date</p>
+                <p className="text-2xl font-bold text-amber-600 dark:text-amber-400" data-testid="text-outstanding-till-date">{formatCurrency(paymentStats?.outstandingTillDate || 0)}</p>
               </div>
             </div>
           </CardContent>
@@ -475,16 +499,24 @@ export default function PaymentsPage() {
         <TabsContent value="list" className="mt-4">
           <Card>
             <CardHeader>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search by loan ID, customer name..."
-                    className="pl-10"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    data-testid="input-search-payments"
-                  />
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-base">Payments This Month</CardTitle>
+                  <Badge variant="outline" className="text-xs">
+                    {new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                  </Badge>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by loan ID, customer name..."
+                      className="pl-10"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      data-testid="input-search-payments"
+                    />
+                  </div>
                 </div>
               </div>
             </CardHeader>
@@ -497,19 +529,18 @@ export default function PaymentsPage() {
                       <TableHead>Customer</TableHead>
                       <TableHead>Installment #</TableHead>
                       <TableHead>Due Date</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead className="text-right">Total Amount</TableHead>
+                      <TableHead className="text-right">Paid Amount</TableHead>
+                      <TableHead>Payment Date</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Late Days</TableHead>
-                      {(roleData?.role === "user" || roleData?.role === "manager" || roleData?.role === "admin") && (
-                        <TableHead className="text-right">Actions</TableHead>
-                      )}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {isLoading ? (
                       Array.from({ length: 5 }).map((_, i) => (
                         <TableRow key={i}>
-                          {Array.from({ length: 8 }).map((_, j) => (
+                          {Array.from({ length: 9 }).map((_, j) => (
                             <TableCell key={j}>
                               <Skeleton className="h-4 w-full" />
                             </TableCell>
@@ -529,6 +560,12 @@ export default function PaymentsPage() {
                             <TableCell>{formatDate(installment.dueDate)}</TableCell>
                             <TableCell className="text-right font-medium">
                               {formatCurrency(installment.totalAmount)}
+                            </TableCell>
+                            <TableCell className="text-right font-medium text-green-600 dark:text-green-400">
+                              {formatCurrency(installment.paidAmount || installment.totalAmount)}
+                            </TableCell>
+                            <TableCell>
+                              {installment.paymentDate ? formatDate(installment.paymentDate) : "-"}
                             </TableCell>
                             <TableCell>
                               <Badge 
@@ -552,30 +589,13 @@ export default function PaymentsPage() {
                                 "-"
                               )}
                             </TableCell>
-                            {(roleData?.role === "user" || roleData?.role === "manager" || roleData?.role === "admin") && (
-                              <TableCell className="text-right">
-                                {!installment.isPaid && (
-                                  <Button
-                                    size="sm"
-                                    onClick={() => {
-                                      setSelectedInstallment(installment);
-                                      setShowPayDialog(true);
-                                    }}
-                                    data-testid={`button-pay-${installment.id}`}
-                                  >
-                                    <DollarSign className="mr-1 h-3 w-3" />
-                                    Record Payment
-                                  </Button>
-                                )}
-                              </TableCell>
-                            )}
                           </TableRow>
                         );
                       })
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                          No installments found
+                        <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                          No payments recorded this month
                         </TableCell>
                       </TableRow>
                     )}

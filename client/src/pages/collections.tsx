@@ -147,6 +147,8 @@ export default function CollectionsPage() {
   const [selectedInstallment, setSelectedInstallment] = useState<CollectionInstallment | null>(null);
   const [showPayDialog, setShowPayDialog] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split("T")[0]);
+  const [debitAccountCode, setDebitAccountCode] = useState("10206");
   const limit = 20;
 
   const queryClient = useQueryClient();
@@ -182,24 +184,38 @@ export default function CollectionsPage() {
     queryKey: ["/api/finance-officers/active"],
   });
 
+  const { data: accountsList = [] } = useQuery<any[]>({
+    queryKey: ["/api/accounts"],
+    queryFn: async () => {
+      const res = await fetch("/api/accounts", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const bankAccounts = accountsList.filter((a: any) => a.accountType === "asset" && a.accountCode.startsWith("1"));
+
   const payMutation = useMutation({
-    mutationFn: async ({ id, amount }: { id: string; amount: number }) => {
-      const res = await apiRequest("PATCH", `/api/collections/${id}/pay`, { amount });
+    mutationFn: async ({ id, amount, paymentDate, debitAccountCode }: { id: string; amount: number; paymentDate: string; debitAccountCode: string }) => {
+      const res = await apiRequest("PATCH", `/api/collections/${id}/pay`, { amount, paymentDate, debitAccountCode });
       return res.json();
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["/api/collections"] });
       queryClient.invalidateQueries({ queryKey: ["/api/installments"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/journal-entries"] });
       toast({
         title: result.isPaid ? "Full Payment Recorded" : "Partial Payment Recorded",
         description: result.isPaid
-          ? `Installment #${result.installmentNumber} fully paid. ${result.lateDays > 0 ? `Late by ${result.lateDays} days (${getParBucket(result.lateDays)}).` : "Paid on time."}`
-          : `AFN ${parseFloat(paymentAmount).toLocaleString()} recorded. Remaining: ${formatCurrency(parseFloat(result.totalAmount) - parseFloat(result.paidAmount))}`,
+          ? `Installment #${result.installmentNumber} fully paid. Journal entry created. ${result.lateDays > 0 ? `Late by ${result.lateDays} days (${getParBucket(result.lateDays)}).` : "Paid on time."}`
+          : `AFN ${parseFloat(paymentAmount).toLocaleString()} recorded. Journal entry created. Remaining: ${formatCurrency(parseFloat(result.totalAmount) - parseFloat(result.paidAmount))}`,
       });
       setShowPayDialog(false);
       setSelectedInstallment(null);
       setPaymentAmount("");
+      setPaymentDate(new Date().toISOString().split("T")[0]);
+      setDebitAccountCode("10206");
     },
     onError: (error: any) => {
       toast({
@@ -214,18 +230,20 @@ export default function CollectionsPage() {
     setSelectedInstallment(inst);
     const remaining = parseFloat(inst.totalAmount) - parseFloat(inst.paidAmount || "0");
     setPaymentAmount(remaining.toFixed(2));
+    setPaymentDate(new Date().toISOString().split("T")[0]);
+    setDebitAccountCode("10206");
     setShowPayDialog(true);
   };
 
   const confirmPayment = () => {
-    if (!selectedInstallment || !paymentAmount) return;
+    if (!selectedInstallment || !paymentAmount || !paymentDate) return;
     const amount = parseFloat(paymentAmount);
     const remaining = parseFloat(selectedInstallment.totalAmount) - parseFloat(selectedInstallment.paidAmount || "0");
     if (amount <= 0 || amount > remaining + 0.01) {
       toast({ title: "Invalid Amount", description: `Amount must be between 1 and ${formatCurrency(remaining)}`, variant: "destructive" });
       return;
     }
-    payMutation.mutate({ id: selectedInstallment.id, amount });
+    payMutation.mutate({ id: selectedInstallment.id, amount, paymentDate, debitAccountCode });
   };
 
   const [exporting, setExporting] = useState(false);
@@ -660,6 +678,17 @@ export default function CollectionsPage() {
               })()}
 
               <div className="space-y-2">
+                <Label htmlFor="payment-date">Payment Date</Label>
+                <Input
+                  id="payment-date"
+                  type="date"
+                  value={paymentDate}
+                  onChange={(e) => setPaymentDate(e.target.value)}
+                  data-testid="input-payment-date"
+                />
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="payment-amount">Payment Amount (AFN)</Label>
                 <Input
                   id="payment-amount"
@@ -692,6 +721,23 @@ export default function CollectionsPage() {
                     Half
                   </Button>
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="debit-account">Bank Account (Debit)</Label>
+                <Select value={debitAccountCode} onValueChange={setDebitAccountCode}>
+                  <SelectTrigger data-testid="select-debit-account">
+                    <SelectValue placeholder="Select bank account" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {bankAccounts.map((acc: any) => (
+                      <SelectItem key={acc.id} value={acc.accountCode}>
+                        {acc.accountCode} - {acc.accountName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">Credit: 11000 - Accounts Receivable (auto)</p>
               </div>
 
               {parseFloat(paymentAmount) > 0 && parseFloat(paymentAmount) < (parseFloat(selectedInstallment.totalAmount) - parseFloat(selectedInstallment.paidAmount || "0") - 0.01) && (
