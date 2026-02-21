@@ -54,7 +54,7 @@ import {
   Trash2
 } from "lucide-react";
 import { format } from "date-fns";
-import type { Branch, FinanceOfficer } from "@shared/schema";
+import type { Branch, FinanceOfficer, FundingSource, Sector, Business } from "@shared/schema";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn, toPersianDate, calculateAge } from "@/lib/utils";
 import { MessageCircle } from "lucide-react";
@@ -223,6 +223,9 @@ export default function FadReviewPage() {
   const { data: branches = [] } = useQuery<Branch[]>({ queryKey: ["/api/branches"] });
   const { data: financeOfficers = [] } = useQuery<FinanceOfficer[]>({ queryKey: ["/api/finance-officers"] });
   const { data: provinces = [] } = useQuery<any[]>({ queryKey: ["/api/provinces"] });
+  const { data: sectors = [] } = useQuery<Sector[]>({ queryKey: ["/api/sectors"] });
+  const { data: businesses = [] } = useQuery<Business[]>({ queryKey: ["/api/businesses"] });
+  const { data: fundingSources = [] } = useQuery<FundingSource[]>({ queryKey: ["/api/funding-sources"] });
   const { data: pendingLoansData, isLoading } = useQuery<{ loans: LoanWithDetails[]; total: number }>({
     queryKey: ["/api/loans", "data_quality_review"],
     queryFn: async () => {
@@ -887,15 +890,56 @@ export default function FadReviewPage() {
                         </Select><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="productName" render={({ field }) => (
-                      <FormItem><FormLabel>Product</FormLabel>
+                      <FormItem><FormLabel>Product Name</FormLabel>
                         <Select disabled={!isEditing} onValueChange={(val) => {
                           field.onChange(val);
                           const product = loanProducts.find(p => p.name === val);
                           if (product) form.setValue("productCode", product.code);
                         }} value={field.value}>
                           <FormControl><SelectTrigger data-testid="select-product"><SelectValue placeholder="Select product" /></SelectTrigger></FormControl>
-                          <SelectContent>{loanProducts.map(p => <SelectItem key={p.code} value={p.name}>{p.name}</SelectItem>)}</SelectContent>
+                          <SelectContent>{loanProducts.map(p => <SelectItem key={p.code} value={p.name}>{p.code} - {p.name}</SelectItem>)}</SelectContent>
                         </Select><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="productCode" render={({ field }) => (
+                      <FormItem><FormLabel>Product Code</FormLabel><FormControl><Input readOnly className="bg-muted" placeholder="Auto-filled" disabled={!isEditing} {...field} data-testid="input-productCode" /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="sector" render={({ field }) => (
+                      <FormItem><FormLabel>Sector</FormLabel>
+                        <Select disabled={!isEditing} onValueChange={(value) => {
+                          const sector = sectors.find((s: any) => s.id === value);
+                          field.onChange(sector?.name || "");
+                          form.setValue("businessDescription", "");
+                        }} value={sectors.find((s: any) => s.name === field.value)?.id || ""}>
+                          <FormControl><SelectTrigger data-testid="select-sector"><SelectValue placeholder="Select sector" /></SelectTrigger></FormControl>
+                          <SelectContent>{sectors.map((s: any) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                        </Select><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="businessDescription" render={({ field }) => {
+                      const selectedSector = sectors.find((s: any) => s.name === form.watch("sector"));
+                      const sectorBusinesses = businesses.filter((b: any) => b.sectorId === selectedSector?.id);
+                      return (
+                        <FormItem><FormLabel>Business</FormLabel>
+                          <Select disabled={!isEditing || !selectedSector} onValueChange={(value) => {
+                            const business = sectorBusinesses.find((b: any) => b.id === value);
+                            field.onChange(business?.name || "");
+                          }} value={sectorBusinesses.find((b: any) => b.name === field.value)?.id || ""}>
+                            <FormControl><SelectTrigger data-testid="select-business"><SelectValue placeholder={selectedSector ? "Select business" : "Select sector first"} /></SelectTrigger></FormControl>
+                            <SelectContent>{sectorBusinesses.map((b: any) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectContent>
+                          </Select><FormMessage /></FormItem>
+                      );
+                    }} />
+                    <FormField control={form.control} name="financingPurpose" render={({ field }) => (
+                      <FormItem><FormLabel>Financing Purpose</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-purpose" /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="fundingSourceId" render={({ field }) => (
+                      <FormItem><FormLabel>Source of Fund</FormLabel>
+                        <Select disabled={!isEditing} onValueChange={field.onChange} value={field.value}>
+                          <FormControl><SelectTrigger data-testid="select-fundingSource"><SelectValue placeholder="Select source" /></SelectTrigger></FormControl>
+                          <SelectContent>{fundingSources.map((fs: any) => <SelectItem key={fs.id} value={fs.id}>{fs.name}</SelectItem>)}</SelectContent>
+                        </Select><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="requestDate" render={({ field }) => (
+                      <FormItem><FormLabel>Request Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-requestDate" /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="requestAmount" render={({ field }) => (
                       <FormItem><FormLabel>Request Amount (AFN)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} data-testid="input-requestAmount" /></FormControl><FormMessage /></FormItem>
@@ -904,22 +948,16 @@ export default function FadReviewPage() {
                       <FormItem><FormLabel>Duration (Months)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} data-testid="input-duration" /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="gracePeriod" render={({ field }) => (
-                      <FormItem><FormLabel>Grace Period (Months)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} data-testid="input-grace" /></FormControl><FormMessage /></FormItem>
+                      <FormItem><FormLabel>Grace Period</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} data-testid="input-grace" /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="numberOfInstallments" render={({ field }) => (
                       <FormItem><FormLabel>Installments</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} data-testid="input-installments" /></FormControl><FormMessage /></FormItem>
                     )} />
+                    <FormField control={form.control} name="principleAmount" render={({ field }) => (
+                      <FormItem><FormLabel>Principle (AFN)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} data-testid="input-principleAmount" /></FormControl><FormMessage /></FormItem>
+                    )} />
                     <FormField control={form.control} name="marginRate" render={({ field }) => (
                       <FormItem><FormLabel>Margin Rate (%)</FormLabel><FormControl><Input type="number" step="0.01" disabled={!isEditing} {...field} data-testid="input-marginRate" /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={form.control} name="sector" render={({ field }) => (
-                      <FormItem><FormLabel>Sector</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-sector" /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={form.control} name="fundingSourceId" render={({ field }) => (
-                      <FormItem><FormLabel>Funding Source</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-fundingSourceId" /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={form.control} name="financingPurpose" render={({ field }) => (
-                      <FormItem className="col-span-2"><FormLabel>Purpose</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-purpose" /></FormControl><FormMessage /></FormItem>
                     )} />
                   </div>
 
