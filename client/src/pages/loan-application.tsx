@@ -439,7 +439,7 @@ export default function LoanApplicationPage() {
                   <FormField control={form.control} name="customerNo" render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-xs">Customer No</FormLabel>
-                      <FormControl><Input placeholder="Auto-generated" className="h-9" {...field} data-testid="input-customer-no" /></FormControl>
+                      <FormControl><Input placeholder="Select branch to auto-generate" className="h-9 bg-muted/50" readOnly {...field} data-testid="input-customer-no" /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
@@ -786,7 +786,15 @@ export default function LoanApplicationPage() {
                   <FormField control={form.control} name="branchId" render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-xs">Branch</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select onValueChange={(val) => {
+                        field.onChange(val);
+                        if (!prefilledCustomerId) {
+                          fetch(`/api/customers/next-number/${val}`, { credentials: "include" })
+                            .then(r => r.json())
+                            .then(data => { if (data.customerNo) form.setValue("customerNo", data.customerNo); })
+                            .catch(() => {});
+                        }
+                      }} value={field.value}>
                         <FormControl>
                           <SelectTrigger className="h-9" data-testid="select-branch"><SelectValue placeholder="Select branch" /></SelectTrigger>
                         </FormControl>

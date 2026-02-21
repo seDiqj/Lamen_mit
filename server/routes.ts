@@ -967,6 +967,95 @@ export async function registerRoutes(
   });
 
   // ===== CUSTOMERS =====
+  app.get("/api/customers/next-number/:branchId", isAuthenticated, async (req, res) => {
+    try {
+      const branchId = req.params.branchId;
+      const branch = await storage.getBranch(branchId);
+      if (!branch) return res.status(404).json({ message: "Branch not found" });
+
+      const branchCode = branch.code || branch.shortName || "000";
+
+      const result = await pool.query(
+        `SELECT customer_no FROM customers
+         WHERE customer_no ~ $1
+         ORDER BY customer_no DESC LIMIT 1`,
+        [`^${branchCode}[0-9]{6}$`]
+      );
+
+      let nextSeq = 1;
+      if (result.rows.length > 0) {
+        const lastNo = result.rows[0].customer_no;
+        const numericPart = lastNo.substring(branchCode.length);
+        const parsed = parseInt(numericPart, 10);
+        if (!isNaN(parsed)) nextSeq = parsed + 1;
+      }
+
+      const customerNo = `${branchCode}${String(nextSeq).padStart(6, "0")}`;
+      res.json({ customerNo, branchCode, sequence: nextSeq });
+    } catch (error) {
+      console.error("Error generating customer number:", error);
+      res.status(500).json({ message: "Failed to generate customer number" });
+    }
+  });
+
+  app.post("/api/customers/backfill-numbers", isAuthenticated, requireRole("admin"), async (req: any, res) => {
+    try {
+      const allBranches = await db.select().from(branches);
+      const branchMap = new Map(allBranches.map(b => [b.id, b]));
+
+      const customersWithoutProperNo = await pool.query(`
+        SELECT c.id, c.customer_no, c.created_at,
+               l.branch_id
+        FROM customers c
+        LEFT JOIN loans l ON l.customer_id = c.id
+        ORDER BY l.branch_id, c.created_at
+      `);
+
+      let updated = 0;
+      let skipped = 0;
+      const branchCounters: Record<string, number> = {};
+
+      for (const branch of allBranches) {
+        const code = branch.code || branch.shortName || "000";
+        const maxResult = await pool.query(
+          `SELECT customer_no FROM customers WHERE customer_no ~ $1 ORDER BY customer_no DESC LIMIT 1`,
+          [`^${code}[0-9]{6}$`]
+        );
+        if (maxResult.rows.length > 0) {
+          const numPart = maxResult.rows[0].customer_no.replace(code, "");
+          branchCounters[branch.id] = parseInt(numPart, 10);
+        } else {
+          branchCounters[branch.id] = 0;
+        }
+      }
+
+      for (const row of customersWithoutProperNo.rows) {
+        const branchId = row.branch_id;
+        if (!branchId) { skipped++; continue; }
+        const branch = branchMap.get(branchId);
+        if (!branch) { skipped++; continue; }
+        const code = branch.code || branch.shortName || "000";
+        const existingNo = row.customer_no || "";
+        const expectedPattern = new RegExp(`^${code}\\d{6}$`);
+        if (expectedPattern.test(existingNo)) {
+          skipped++;
+          continue;
+        }
+
+        branchCounters[branchId] = (branchCounters[branchId] || 0) + 1;
+        const newNo = `${code}${String(branchCounters[branchId]).padStart(6, "0")}`;
+
+        await pool.query(`UPDATE customers SET customer_no = $1 WHERE id = $2`, [newNo, row.id]);
+        updated++;
+      }
+
+      res.json({ updated, skipped, total: customersWithoutProperNo.rows.length });
+    } catch (error) {
+      console.error("Error backfilling customer numbers:", error);
+      res.status(500).json({ message: "Failed to backfill customer numbers" });
+    }
+  });
+
   app.get("/api/customers", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
     try {
       const { search, page, limit } = req.query;
