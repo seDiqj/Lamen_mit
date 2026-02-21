@@ -251,7 +251,8 @@ export interface IStorage {
   getInstallments(filters: { search?: string; page?: number; limit?: number; currentMonthOnly?: boolean; paidOnly?: boolean }): Promise<{ installments: any[]; total: number }>;
   markInstallmentPaid(id: string): Promise<Installment>;
   getCollectionInstallments(filters: { filter?: string; branch?: string; officer?: string; search?: string; page?: number; limit?: number }): Promise<{ installments: any[]; total: number; summary: any }>;
-  recordPartialPayment(id: string, amount: number): Promise<Installment>;
+  recordPartialPayment(id: string, amount: number, paymentDateStr?: string): Promise<Installment>;
+  recordPaymentWithOverflow(id: string, amount: number, paymentDateStr?: string): Promise<{ paidInstallments: Installment[]; totalApplied: number; overflow: number }>;
 
   // Loan Classification Report
   getLoanClassificationReport(): Promise<any>;
