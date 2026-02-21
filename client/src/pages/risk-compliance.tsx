@@ -367,6 +367,8 @@ export default function RiskCompliancePage() {
                   Loan Details
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {renderViewField("Branch", loanDetails?.loan?.branchName)}
+                  {renderViewField("Finance Officer", loanDetails?.loan?.financeOfficerName)}
                   {renderViewField("Product Name", loanDetails?.loan?.productName)}
                   {renderViewField("Product Code", loanDetails?.loan?.productCode)}
                   {renderViewField("Sector", loanDetails?.loan?.sector)}

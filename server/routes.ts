@@ -1869,9 +1869,15 @@ export async function registerRoutes(
       const committeeVotes = await storage.getCommitteeVotesByLoanId(loan.id);
       const fundingSource = loan.fundingSourceId ? await storage.getFundingSource(loan.fundingSourceId) : null;
       const customerDocuments = customer ? await storage.getCustomerDocuments(customer.id) : [];
+      const branch = loan.branchId ? await storage.getBranch(loan.branchId) : null;
+      const financeOfficer = loan.financeOfficerId ? await storage.getFinanceOfficer(loan.financeOfficerId) : null;
       
       res.json({
-        loan,
+        loan: {
+          ...loan,
+          branchName: branch?.name || null,
+          financeOfficerName: financeOfficer?.name || null,
+        },
         customer,
         business,
         license,
