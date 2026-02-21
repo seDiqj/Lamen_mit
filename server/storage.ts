@@ -2008,7 +2008,7 @@ export class DatabaseStorage implements IStorage {
       .select({
         total: count(),
         active: sql<number>`COUNT(*) FILTER (WHERE ${loans.status} = 'active')`,
-        pending: sql<number>`COUNT(*) FILTER (WHERE ${loans.status} NOT IN ('disbursed', 'active', 'completed', 'rejected', 'cancelled'))`,
+        pending: sql<number>`COUNT(*) FILTER (WHERE ${loans.status} NOT IN ('disbursed', 'active', 'completed', 'rejected', 'defaulted'))`,
       })
       .from(loans);
 
