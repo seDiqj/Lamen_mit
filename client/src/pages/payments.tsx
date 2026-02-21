@@ -77,9 +77,13 @@ type SummaryInstallment = {
   id: string;
   loanId: string;
   installmentNumber: number;
+  dueDate?: string;
   totalAmount?: string;
   principleAmount?: string;
   marginAmount?: string;
+  paidAmount?: string;
+  paymentDate?: string;
+  lateDays?: number;
   isPaid: boolean;
 };
 
@@ -115,6 +119,8 @@ export default function PaymentsPage() {
   const [showCorrectDialog, setShowCorrectDialog] = useState(false);
   const [activeTab, setActiveTab] = useState("list");
   const [repaidExpanded, setRepaidExpanded] = useState(false);
+  const [showStatementDialog, setShowStatementDialog] = useState(false);
+  const [selectedLoan, setSelectedLoan] = useState<LoanItem | null>(null);
   const limit = 10;
 
   const queryClient = useQueryClient();
@@ -269,6 +275,104 @@ export default function PaymentsPage() {
       return { label: "Overdue", variant: "destructive" as const };
     }
     return { label: "Pending", variant: "warning" as const };
+  };
+
+  const getStatementData = (loan: LoanItem) => {
+    const loanInstallments = allInstallments
+      .filter((i) => i.loanId === loan.id)
+      .sort((a, b) => a.installmentNumber - b.installmentNumber);
+    const fc = calcFinancing(loan);
+    const totalFinancing = parseFloat(loan.totalReceivable || "0") || fc.financingAmount;
+    let runningBalance = totalFinancing;
+    return loanInstallments.map((inst) => {
+      const paid = parseFloat(inst.paidAmount || (inst.isPaid ? inst.totalAmount || "0" : "0"));
+      runningBalance -= paid;
+      return {
+        installmentNumber: inst.installmentNumber,
+        dueDate: inst.dueDate,
+        principleAmount: parseFloat(inst.principleAmount || "0"),
+        marginAmount: parseFloat(inst.marginAmount || "0"),
+        totalAmount: parseFloat(inst.totalAmount || "0"),
+        paidAmount: paid,
+        paymentDate: inst.paymentDate,
+        lateDays: inst.lateDays || 0,
+        isPaid: inst.isPaid,
+        balance: Math.max(runningBalance, 0),
+      };
+    });
+  };
+
+  const exportStatementToPDF = (loan: LoanItem) => {
+    const statementRows = getStatementData(loan);
+    const fc = calcFinancing(loan);
+    const repayment = getLoanRepayment(loan);
+    const totalFinancing = parseFloat(loan.totalReceivable || "0") || fc.financingAmount;
+
+    const doc = new jsPDF({ orientation: "landscape" });
+
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("Lamen Microfinance Institution", 14, 18);
+    doc.setFontSize(12);
+    doc.text("Customer Account Statement", 14, 26);
+
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    const infoY = 34;
+    doc.text(`Customer: ${loan.customerName}`, 14, infoY);
+    doc.text(`Financing ID: ${loan.applicationId}`, 14, infoY + 6);
+    doc.text(`Product: ${loan.productName || "-"}`, 14, infoY + 12);
+    doc.text(`Branch: ${loan.branchName || "-"}`, 140, infoY);
+    doc.text(`Status: ${loan.status}`, 140, infoY + 6);
+    doc.text(`Principal: ${formatAFN(fc.principal)} + ${fc.margin}% = ${formatAFN(totalFinancing)}`, 140, infoY + 12);
+    doc.text(`Repaid: ${formatAFN(repayment.totalRepaid)} / ${formatAFN(repayment.totalTarget)} (${repayment.progress.toFixed(1)}%)`, 14, infoY + 18);
+    doc.text(`Report Date: ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`, 140, infoY + 18);
+
+    const tableData = statementRows.map((row) => [
+      row.installmentNumber,
+      row.dueDate ? formatDate(row.dueDate) : "-",
+      formatAFN(row.principleAmount),
+      formatAFN(row.marginAmount),
+      formatAFN(row.totalAmount),
+      formatAFN(row.paidAmount),
+      row.paymentDate ? formatDate(row.paymentDate) : "-",
+      row.lateDays > 0 ? `${row.lateDays}` : "-",
+      row.isPaid ? "Paid" : row.dueDate && new Date(row.dueDate) < new Date() ? "Overdue" : "Pending",
+      formatAFN(row.balance),
+    ]);
+
+    autoTable(doc, {
+      startY: infoY + 24,
+      head: [["#", "Due Date", "Principal", "Margin", "Total", "Paid", "Payment Date", "Late Days", "Status", "Balance"]],
+      body: tableData,
+      theme: "grid",
+      headStyles: { fillColor: [34, 87, 122], fontSize: 8 },
+      bodyStyles: { fontSize: 7.5 },
+      columnStyles: {
+        0: { halign: "center", cellWidth: 10 },
+        2: { halign: "right" },
+        3: { halign: "right" },
+        4: { halign: "right" },
+        5: { halign: "right" },
+        7: { halign: "center" },
+        8: { halign: "center" },
+        9: { halign: "right" },
+      },
+      didParseCell: (data: any) => {
+        if (data.section === "body" && data.column.index === 8) {
+          const val = data.cell.raw;
+          if (val === "Paid") data.cell.styles.textColor = [22, 163, 74];
+          else if (val === "Overdue") data.cell.styles.textColor = [220, 38, 38];
+        }
+      },
+    });
+
+    const finalY = (doc as any).lastAutoTable?.finalY || 200;
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "italic");
+    doc.text("Generated by Lamen MFI Loan Management System", 14, finalY + 10);
+
+    doc.save(`Account_Statement_${loan.applicationId}_${loan.customerName.replace(/\s+/g, "_")}.pdf`);
   };
 
   const buildSummaryRows = () => {
@@ -785,7 +889,12 @@ export default function PaymentsPage() {
                 {filteredLoans.map((loan) => {
                   const repayment = getLoanRepayment(loan);
                   return (
-                    <Card key={loan.id} data-testid={`card-summary-${loan.id}`}>
+                    <Card
+                      key={loan.id}
+                      data-testid={`card-summary-${loan.id}`}
+                      className="cursor-pointer transition-shadow hover:shadow-md hover:border-primary/30"
+                      onClick={() => { setSelectedLoan(loan); setShowStatementDialog(true); }}
+                    >
                       <CardContent className="p-4">
                         <div className="flex items-start gap-3">
                           <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
@@ -938,6 +1047,160 @@ export default function PaymentsPage() {
               {correctRepaidMutation.isPending ? "Processing..." : "Run Correction"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showStatementDialog} onOpenChange={setShowStatementDialog}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              Account Statement
+              {selectedLoan && (
+                <Badge variant="outline" className="ml-2 text-xs font-normal">
+                  {selectedLoan.applicationId}
+                </Badge>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedLoan ? `${selectedLoan.customerName} - ${selectedLoan.productName || ""} · ${selectedLoan.branchName || ""}` : ""}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedLoan && installmentsLoading && (
+            <div className="py-8 text-center">
+              <Skeleton className="h-4 w-48 mx-auto mb-3" />
+              <Skeleton className="h-4 w-32 mx-auto" />
+              <p className="text-sm text-muted-foreground mt-3">Loading installment data...</p>
+            </div>
+          )}
+
+          {selectedLoan && !installmentsLoading && (() => {
+            const statementRows = getStatementData(selectedLoan);
+            const fc = calcFinancing(selectedLoan);
+            const repayment = getLoanRepayment(selectedLoan);
+            const totalFinancing = parseFloat(selectedLoan.totalReceivable || "0") || fc.financingAmount;
+            const totalPaidStatement = statementRows.reduce((s, r) => s + r.paidAmount, 0);
+            const totalPrincipalStatement = statementRows.reduce((s, r) => s + r.principleAmount, 0);
+            const totalMarginStatement = statementRows.reduce((s, r) => s + r.marginAmount, 0);
+            const totalAmountStatement = statementRows.reduce((s, r) => s + r.totalAmount, 0);
+
+            return (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/30">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Principal</p>
+                    <p className="text-sm font-bold text-blue-700 dark:text-blue-400">{formatAFN(fc.principal)}</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/30">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Margin ({fc.margin}%)</p>
+                    <p className="text-sm font-bold text-purple-700 dark:text-purple-400">{formatAFN(totalFinancing - fc.principal)}</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900/30">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Total Repaid</p>
+                    <p className="text-sm font-bold text-green-700 dark:text-green-400">{formatAFN(repayment.totalRepaid)}</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Outstanding</p>
+                    <p className="text-sm font-bold text-amber-700 dark:text-amber-400">{formatAFN(totalFinancing - repayment.totalRepaid)}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-2.5 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${repayment.progress >= 50 ? "bg-primary" : "bg-amber-500"}`}
+                      style={{ width: `${repayment.progress}%` }}
+                    />
+                  </div>
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">{repayment.progress.toFixed(1)}% ({repayment.paidCount}/{repayment.totalCount})</span>
+                </div>
+
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-10 text-center">#</TableHead>
+                        <TableHead>Due Date</TableHead>
+                        <TableHead className="text-right">Principal</TableHead>
+                        <TableHead className="text-right">Margin</TableHead>
+                        <TableHead className="text-right">Total</TableHead>
+                        <TableHead className="text-right">Paid</TableHead>
+                        <TableHead>Payment Date</TableHead>
+                        <TableHead className="text-center">Late</TableHead>
+                        <TableHead className="text-center">Status</TableHead>
+                        <TableHead className="text-right">Balance</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {statementRows.map((row) => (
+                        <TableRow
+                          key={row.installmentNumber}
+                          className={row.isPaid ? "bg-green-50/50 dark:bg-green-950/10" : row.dueDate && new Date(row.dueDate) < new Date() ? "bg-red-50/50 dark:bg-red-950/10" : ""}
+                          data-testid={`row-statement-${row.installmentNumber}`}
+                        >
+                          <TableCell className="text-center text-xs">{row.installmentNumber}</TableCell>
+                          <TableCell className="text-xs">{row.dueDate ? formatDate(row.dueDate) : "-"}</TableCell>
+                          <TableCell className="text-right text-xs">{formatAFN(row.principleAmount)}</TableCell>
+                          <TableCell className="text-right text-xs">{formatAFN(row.marginAmount)}</TableCell>
+                          <TableCell className="text-right text-xs font-medium">{formatAFN(row.totalAmount)}</TableCell>
+                          <TableCell className="text-right text-xs font-medium text-green-600 dark:text-green-400">
+                            {row.paidAmount > 0 ? formatAFN(row.paidAmount) : "-"}
+                          </TableCell>
+                          <TableCell className="text-xs">{row.paymentDate ? formatDate(row.paymentDate) : "-"}</TableCell>
+                          <TableCell className="text-center text-xs">
+                            {row.lateDays > 0 ? (
+                              <span className="text-red-600 dark:text-red-400">{row.lateDays}d</span>
+                            ) : "-"}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge
+                              className={`text-[10px] ${
+                                row.isPaid
+                                  ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                                  : row.dueDate && new Date(row.dueDate) < new Date()
+                                    ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                                    : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                              }`}
+                            >
+                              {row.isPaid ? "Paid" : row.dueDate && new Date(row.dueDate) < new Date() ? "Overdue" : "Pending"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right text-xs font-semibold">{formatAFN(row.balance)}</TableCell>
+                        </TableRow>
+                      ))}
+                      <TableRow className="bg-muted/50 font-semibold">
+                        <TableCell colSpan={2} className="text-xs">Total</TableCell>
+                        <TableCell className="text-right text-xs">{formatAFN(totalPrincipalStatement)}</TableCell>
+                        <TableCell className="text-right text-xs">{formatAFN(totalMarginStatement)}</TableCell>
+                        <TableCell className="text-right text-xs">{formatAFN(totalAmountStatement)}</TableCell>
+                        <TableCell className="text-right text-xs text-green-600 dark:text-green-400">{formatAFN(totalPaidStatement)}</TableCell>
+                        <TableCell colSpan={3}></TableCell>
+                        <TableCell className="text-right text-xs">{formatAFN(totalFinancing - totalPaidStatement)}</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowStatementDialog(false)}
+                    data-testid="button-close-statement"
+                  >
+                    Close
+                  </Button>
+                  <Button
+                    className="bg-red-600 text-white hover:bg-red-700 no-default-hover-elevate"
+                    onClick={() => exportStatementToPDF(selectedLoan)}
+                    data-testid="button-export-statement-pdf"
+                  >
+                    <FileText className="mr-2 h-4 w-4" />
+                    Export PDF
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>
