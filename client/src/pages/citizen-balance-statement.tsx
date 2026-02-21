@@ -1238,8 +1238,8 @@ export default function CitizenBalanceStatementPage() {
                         data-testid="input-cleanup-disbursement-date"
                       />
                       {edit.disbursementDate && (
-                        <span className={`text-[10px] mt-0.5 block ${new Date(edit.disbursementDate) >= new Date("2026-01-17") ? "text-blue-600" : "text-amber-600"}`}>
-                          {new Date(edit.disbursementDate) >= new Date("2026-01-17") ? "New Formula" : "Old Formula"}
+                        <span className={`text-[10px] mt-0.5 block ${new Date(edit.disbursementDate) >= new Date("2026-01-07") ? "text-blue-600" : "text-amber-600"}`}>
+                          {new Date(edit.disbursementDate) >= new Date("2026-01-07") ? "New Formula" : "Old Formula"}
                         </span>
                       )}
                     </div>

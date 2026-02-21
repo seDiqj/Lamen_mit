@@ -5825,7 +5825,7 @@ export async function registerRoutes(
 
       const rate = updatedMarginRate > 1 ? updatedMarginRate / 100 : updatedMarginRate;
 
-      const cutoffDate = new Date("2026-01-17");
+      const cutoffDate = new Date("2026-01-07");
       const disbursement = await storage.getDisbursementByLoan(loanId);
       let effectiveDisbDate: Date | null = null;
       if (disbursementDate) {
