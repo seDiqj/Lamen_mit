@@ -271,6 +271,8 @@ export interface IStorage {
   // Installment management
   getInstallmentById(id: string): Promise<any>;
   updateInstallmentAmounts(id: string, data: { principleAmount: string; marginAmount: string; totalAmount: string; isPaid?: boolean; paymentDate?: string | null; paidAmount?: string }): Promise<any>;
+  getJournalEntryByReference(referenceType: string, referenceId: string): Promise<any | null>;
+  getJournalEntriesByReference(referenceType: string, referenceId: string): Promise<any[]>;
   createInstallment(data: any): Promise<any>;
   deleteInstallmentsBeyond(loanId: string, maxInstallmentNumber: number): Promise<number>;
   getDisbursedLoans(filters?: { search?: string; branchId?: string }): Promise<any[]>;
@@ -1494,6 +1496,30 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
+  async getJournalEntryByReference(referenceType: string, referenceId: string): Promise<any | null> {
+    const [entry] = await db
+      .select()
+      .from(journalEntries)
+      .where(and(
+        eq(journalEntries.referenceType, referenceType),
+        eq(journalEntries.referenceId, referenceId),
+        eq(journalEntries.isReversed, false)
+      ))
+      .limit(1);
+    return entry || null;
+  }
+
+  async getJournalEntriesByReference(referenceType: string, referenceId: string): Promise<any[]> {
+    return db
+      .select()
+      .from(journalEntries)
+      .where(and(
+        eq(journalEntries.referenceType, referenceType),
+        eq(journalEntries.referenceId, referenceId),
+        eq(journalEntries.isReversed, false)
+      ));
+  }
+
   async deleteInstallmentsBeyond(loanId: string, maxInstallmentNumber: number): Promise<number> {
     const deleted = await db
       .delete(installments)
@@ -1575,6 +1601,8 @@ export class DatabaseStorage implements IStorage {
       conditions.push(sql`${installments.isPaid} = false AND COALESCE(${installments.paidAmount}, 0) > 0`);
     } else if (filter === "all_unpaid") {
       conditions.push(sql`${installments.isPaid} = false`);
+    } else if (filter === "paid") {
+      conditions.push(sql`${installments.isPaid} = true`);
     }
 
     if (branch && branch !== "all") {

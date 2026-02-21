@@ -47,6 +47,7 @@ import {
   FileText,
   Download,
   FileSpreadsheet,
+  Undo2,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -233,6 +234,46 @@ export default function CollectionsPage() {
       });
     },
   });
+
+  const [showReverseDialog, setShowReverseDialog] = useState(false);
+  const [reverseInstallment, setReverseInstallment] = useState<CollectionInstallment | null>(null);
+
+  const reverseMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("POST", `/api/collections/${id}/reverse`);
+      return res.json();
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/collections"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/installments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/journal-entries"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/payment-stats"] });
+      toast({
+        title: "Payment Reversed",
+        description: `AFN ${parseFloat(result.reversedAmount).toLocaleString()} has been reversed. Journal entry has been reversed automatically.`,
+      });
+      setShowReverseDialog(false);
+      setReverseInstallment(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Reverse Failed",
+        description: error.message || "Failed to reverse payment",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleReverse = (inst: CollectionInstallment) => {
+    setReverseInstallment(inst);
+    setShowReverseDialog(true);
+  };
+
+  const confirmReverse = () => {
+    if (!reverseInstallment) return;
+    reverseMutation.mutate(reverseInstallment.id);
+  };
 
   const handlePay = (inst: CollectionInstallment) => {
     setSelectedInstallment(inst);
@@ -457,6 +498,7 @@ export default function CollectionsPage() {
                 <SelectItem value="overdue">Overdue Only</SelectItem>
                 <SelectItem value="partial">Partial Payments</SelectItem>
                 <SelectItem value="all_unpaid">All Unpaid</SelectItem>
+                <SelectItem value="paid">Paid (Collected)</SelectItem>
               </SelectContent>
             </Select>
             <Select value={branch} onValueChange={(v) => { setBranch(v); setPage(1); }}>
@@ -578,14 +620,26 @@ export default function CollectionsPage() {
                           )}
                         </TableCell>
                         <TableCell className="text-center">
-                          <Button
-                            size="sm"
-                            onClick={() => handlePay(inst)}
-                            data-testid={`button-pay-${inst.id}`}
-                          >
-                            <Banknote className="h-4 w-4 mr-1" />
-                            Collect
-                          </Button>
+                          {inst.isPaid ? (
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleReverse(inst)}
+                              data-testid={`button-reverse-${inst.id}`}
+                            >
+                              <Undo2 className="h-4 w-4 mr-1" />
+                              Reverse
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              onClick={() => handlePay(inst)}
+                              data-testid={`button-pay-${inst.id}`}
+                            >
+                              <Banknote className="h-4 w-4 mr-1" />
+                              Collect
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     );
@@ -773,6 +827,60 @@ export default function CollectionsPage() {
               data-testid="button-confirm-pay"
             >
               {payMutation.isPending ? "Processing..." : `Record ${formatCurrency(paymentAmount)}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showReverseDialog} onOpenChange={setShowReverseDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-red-600 dark:text-red-400 flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" />
+              Reverse Payment
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to reverse this payment? This action will:
+            </DialogDescription>
+          </DialogHeader>
+          {reverseInstallment && (
+            <div className="space-y-4">
+              <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg p-4 space-y-2 text-sm">
+                <p>• Reset the paid amount of <strong>AFN {parseFloat(reverseInstallment.paidAmount || "0").toLocaleString()}</strong> back to zero</p>
+                <p>• Mark installment <strong>#{reverseInstallment.installmentNumber}</strong> as unpaid</p>
+                <p>• Automatically reverse the related journal entry in accounting</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Customer</span>
+                  <p className="font-medium">{reverseInstallment.customerName}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Financing ID</span>
+                  <p className="font-medium">{reverseInstallment.loanApplicationId}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Amount Paid</span>
+                  <p className="font-medium text-red-600 dark:text-red-400">{formatCurrency(reverseInstallment.paidAmount || "0")}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Payment Date</span>
+                  <p className="font-medium">{reverseInstallment.paymentDate ? formatDate(reverseInstallment.paymentDate) : "N/A"}</p>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowReverseDialog(false)} data-testid="button-cancel-reverse">
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmReverse}
+              disabled={reverseMutation.isPending}
+              data-testid="button-confirm-reverse"
+            >
+              {reverseMutation.isPending ? "Reversing..." : "Confirm Reverse"}
             </Button>
           </DialogFooter>
         </DialogContent>

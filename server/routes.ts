@@ -2920,6 +2920,50 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/collections/:id/reverse", isAuthenticated, requireRole("manager", "admin"), async (req: any, res) => {
+    try {
+      const installmentId = req.params.id;
+      const installment = await storage.getInstallmentById(installmentId);
+      if (!installment) return res.status(404).json({ message: "Installment not found" });
+
+      const paidAmount = parseFloat(installment.paidAmount || "0");
+      if (paidAmount <= 0) return res.status(400).json({ message: "No payment to reverse on this installment" });
+
+      const journalEntries = await storage.getJournalEntriesByReference("collection", installmentId);
+
+      for (const journalEntry of journalEntries) {
+        await storage.reverseJournalEntry(journalEntry.id, req.session.userId);
+        await logActivity(req, "reverse", "journal_entry", journalEntry.id, `Auto-reversed collection journal entry ${journalEntry.entryNumber} for installment reversal`);
+      }
+
+      await storage.updateInstallmentAmounts(installmentId, {
+        principleAmount: installment.principleAmount || "0",
+        marginAmount: installment.marginAmount || "0",
+        totalAmount: installment.totalAmount || "0",
+        paidAmount: "0",
+        paymentDate: null,
+        isPaid: false,
+      });
+
+      await pool.query(
+        `UPDATE installments SET late_days = NULL, installment_variance = NULL WHERE id = $1`,
+        [installmentId]
+      );
+
+      const loan = installment.loanId ? await storage.getLoan(installment.loanId) : null;
+      const customer = loan?.customerId ? await storage.getCustomer(loan.customerId) : null;
+      const customerName = customer ? `${customer.firstName} ${customer.lastName}` : "Unknown";
+      await logActivity(req, "reverse_payment", "installment", installmentId,
+        `Reversed payment of AFN ${paidAmount.toLocaleString()} for ${customerName} - Installment #${installment.installmentNumber}`
+      );
+
+      res.json({ message: "Payment reversed successfully", reversedAmount: paidAmount });
+    } catch (error: any) {
+      console.error("Error reversing collection payment:", error);
+      res.status(500).json({ message: error.message || "Failed to reverse payment" });
+    }
+  });
+
   app.get("/api/payment-stats", isAuthenticated, async (req, res) => {
     try {
       const now = new Date();
