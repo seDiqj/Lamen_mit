@@ -6271,13 +6271,18 @@ export async function registerRoutes(
             }
           }
 
-          const paymentRatio = totalAmount > 0 ? Math.min(effectivePaidAmount, totalAmount) / totalAmount : 0;
+          let paidMargin = 0;
+          let paidPrinciple = 0;
+          if (hasPaid && effectivePaidAmount > 0) {
+            paidMargin = Math.min(effectivePaidAmount, marginAmt);
+            paidPrinciple = Math.min(effectivePaidAmount - paidMargin, principleAmt);
+          }
 
           return {
             no: inst.installmentNumber || (idx + 1),
             paymentDate: hasPaid ? (inst.paymentDate || null) : null,
-            principleAmount: hasPaid ? principleAmt * paymentRatio : 0,
-            marginAmount: hasPaid ? marginAmt * paymentRatio : 0,
+            principleAmount: paidPrinciple,
+            marginAmount: paidMargin,
             totalAmount: effectivePaidAmount,
             isPaid: inst.isPaid,
             arears: parDays,
