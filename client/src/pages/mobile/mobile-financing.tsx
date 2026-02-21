@@ -53,14 +53,19 @@ function getStoredDraft() {
 const defaultFormData: Record<string, string> = {
   customerNo: "",
   firstName: "",
+  lastName: "",
   fatherName: "",
+  fullNameDari: "",
+  fatherNameDari: "",
   gender: "male",
+  maritalStatus: "",
   nationalId: "",
   nidExpiryDate: "",
   dateOfBirth: "",
   placeOfBirth: "",
   homeAddress: "",
   district: "",
+  province: "",
   phoneNumber: "",
   secondPhoneNumber: "",
   numberOfDependents: "0",
@@ -91,6 +96,7 @@ const defaultFormData: Record<string, string> = {
   businessVillage: "",
   businessDetailedAddress: "",
   businessYearsOfExperience: "",
+  businessMonthlyIncomeAmount: "",
   licenseType: "",
   licensePresident: "",
   licenseNumber: "",
@@ -222,6 +228,7 @@ export default function MobileFinancing() {
         indirectMaleDependent: parseInt(data.indirectMaleDependent) || 0,
         indirectFemaleDependent: parseInt(data.indirectFemaleDependent) || 0,
         businessYearsOfExperience: parseInt(data.businessYearsOfExperience) || 0,
+        businessMonthlyIncomeAmount: parseFloat(data.businessMonthlyIncomeAmount) || 0,
         collateralPurchasedPrice: parseFloat(data.collateralPurchasedPrice) || 0,
         collateralMarketPrice: parseFloat(data.collateralMarketPrice) || 0,
         financialGuarantorYearsOfExperience: parseInt(data.financialGuarantorYearsOfExperience) || 0,
@@ -351,8 +358,17 @@ export default function MobileFinancing() {
                 <MobileField label="Full Name" required>
                   <Input placeholder="Full name" value={formData.firstName} onChange={(e) => updateField("firstName", e.target.value)} data-testid="input-first-name" />
                 </MobileField>
+                <MobileField label="Last Name">
+                  <Input placeholder="Last name" value={formData.lastName} onChange={(e) => updateField("lastName", e.target.value)} data-testid="input-last-name" />
+                </MobileField>
                 <MobileField label="Father's Name">
                   <Input placeholder="Father's name" value={formData.fatherName} onChange={(e) => updateField("fatherName", e.target.value)} data-testid="input-father-name" />
+                </MobileField>
+                <MobileField label="Full Name (Dari)">
+                  <Input placeholder="نام مکمل" value={formData.fullNameDari} onChange={(e) => updateField("fullNameDari", e.target.value)} data-testid="input-fullNameDari" dir="rtl" />
+                </MobileField>
+                <MobileField label="Father's Name (Dari)">
+                  <Input placeholder="نام پدر" value={formData.fatherNameDari} onChange={(e) => updateField("fatherNameDari", e.target.value)} data-testid="input-fatherNameDari" dir="rtl" />
                 </MobileField>
                 <MobileField label="Gender">
                   <Select value={formData.gender} onValueChange={(v) => updateField("gender", v)}>
@@ -360,6 +376,17 @@ export default function MobileFinancing() {
                     <SelectContent>
                       <SelectItem value="male">Male</SelectItem>
                       <SelectItem value="female">Female</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </MobileField>
+                <MobileField label="Marital Status">
+                  <Select value={formData.maritalStatus} onValueChange={(v) => updateField("maritalStatus", v)}>
+                    <SelectTrigger data-testid="select-maritalStatus"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="single">Single</SelectItem>
+                      <SelectItem value="married">Married</SelectItem>
+                      <SelectItem value="divorced">Divorced</SelectItem>
+                      <SelectItem value="widowed">Widowed</SelectItem>
                     </SelectContent>
                   </Select>
                 </MobileField>
@@ -386,6 +413,9 @@ export default function MobileFinancing() {
               <div className="grid grid-cols-2 gap-2">
                 <MobileField label="Home Address">
                   <Input placeholder="Home address" value={formData.homeAddress} onChange={(e) => updateField("homeAddress", e.target.value)} data-testid="input-home-address" />
+                </MobileField>
+                <MobileField label="Province">
+                  <Input placeholder="Province" value={formData.province} onChange={(e) => updateField("province", e.target.value)} data-testid="input-province" />
                 </MobileField>
                 <MobileField label="District">
                   <Input placeholder="District" value={formData.district} onChange={(e) => updateField("district", e.target.value)} data-testid="input-district" />
@@ -652,6 +682,11 @@ export default function MobileFinancing() {
                 </MobileField>
                 <MobileField label="Years of Experience">
                   <Input type="number" placeholder="0" value={formData.businessYearsOfExperience} onChange={(e) => updateField("businessYearsOfExperience", e.target.value)} data-testid="input-biz-exp" />
+                </MobileField>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <MobileField label="Monthly Income (AFN)">
+                  <Input type="number" placeholder="0" value={formData.businessMonthlyIncomeAmount} onChange={(e) => updateField("businessMonthlyIncomeAmount", e.target.value)} data-testid="input-biz-monthly-income" />
                 </MobileField>
               </div>
 

@@ -301,6 +301,7 @@ export default function RiskCompliancePage() {
                   {renderViewField("Full Name (Dari)", loanDetails?.customer?.fullNameDari)}
                   {renderViewField("Father's Name (Dari)", loanDetails?.customer?.fatherNameDari)}
                   {renderViewField("Gender", loanDetails?.customer?.gender)}
+                  {renderViewField("Marital Status", loanDetails?.customer?.maritalStatus)}
                   {renderViewField("National ID", loanDetails?.customer?.nationalId)}
                   {renderDateViewField("NID Expiry Date", loanDetails?.customer?.nidExpiryDate)}
                   {renderDobViewField("Date of Birth", loanDetails?.customer?.dateOfBirth)}
@@ -308,6 +309,7 @@ export default function RiskCompliancePage() {
                   {renderViewField("Phone Number", loanDetails?.customer?.phoneNumber)}
                   {renderViewField("Second Phone", loanDetails?.customer?.secondPhoneNumber)}
                   {renderViewField("Home Address", loanDetails?.customer?.homeAddress)}
+                  {renderViewField("Province", loanDetails?.customer?.province)}
                   {renderViewField("District", loanDetails?.customer?.district)}
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -439,6 +441,7 @@ export default function RiskCompliancePage() {
                   {renderViewField("Village", loanDetails?.business?.village)}
                   {renderViewField("Detailed Address", loanDetails?.business?.detailedAddress)}
                   {renderViewField("Years of Experience", loanDetails?.business?.yearsOfExperience)}
+                  {renderViewField("Monthly Income (AFN)", loanDetails?.business?.monthlyIncomeAmount ? `AFN ${Number(loanDetails.business.monthlyIncomeAmount).toLocaleString()}` : null)}
                 </div>
                 {loanDetails?.license && (
                   <>

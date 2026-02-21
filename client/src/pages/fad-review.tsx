@@ -97,11 +97,14 @@ const fadReviewSchema = z.object({
   fullNameDari: z.string().optional(),
   fatherNameDari: z.string().optional(),
   gender: z.string().optional(),
+  maritalStatus: z.string().optional(),
   nationalId: z.string().optional(),
   nidExpiryDate: z.string().optional(),
   dateOfBirth: z.string().optional(),
   placeOfBirth: z.string().optional(),
+  age: z.coerce.number().optional(),
   homeAddress: z.string().optional(),
+  province: z.string().optional(),
   district: z.string().optional(),
   phoneNumber: z.string().optional(),
   secondPhoneNumber: z.string().optional(),
@@ -131,6 +134,7 @@ const fadReviewSchema = z.object({
   businessVillage: z.string().optional(),
   businessDetailedAddress: z.string().optional(),
   businessYearsOfExperience: z.coerce.number().optional(),
+  businessMonthlyIncomeAmount: z.coerce.number().optional(),
   licenseType: z.string().optional(),
   licensePresident: z.string().optional(),
   licenseNumber: z.string().optional(),
@@ -218,6 +222,7 @@ export default function FadReviewPage() {
 
   const { data: branches = [] } = useQuery<Branch[]>({ queryKey: ["/api/branches"] });
   const { data: financeOfficers = [] } = useQuery<FinanceOfficer[]>({ queryKey: ["/api/finance-officers"] });
+  const { data: provinces = [] } = useQuery<any[]>({ queryKey: ["/api/provinces"] });
   const { data: pendingLoansData, isLoading } = useQuery<{ loans: LoanWithDetails[]; total: number }>({
     queryKey: ["/api/loans", "data_quality_review"],
     queryFn: async () => {
@@ -340,11 +345,14 @@ export default function FadReviewPage() {
         fullNameDari: d.customer?.fullNameDari || "",
         fatherNameDari: d.customer?.fatherNameDari || "",
         gender: d.customer?.gender || "male",
+        maritalStatus: d.customer?.maritalStatus || "",
         nationalId: d.customer?.nationalId || "",
         nidExpiryDate: d.customer?.nidExpiryDate || "",
         dateOfBirth: d.customer?.dateOfBirth || "",
         placeOfBirth: d.customer?.placeOfBirth || "",
+        age: d.customer?.age || undefined,
         homeAddress: d.customer?.homeAddress || "",
+        province: d.customer?.province || "",
         district: d.customer?.district || "",
         phoneNumber: d.customer?.phoneNumber || "",
         secondPhoneNumber: d.customer?.secondPhoneNumber || "",
@@ -374,6 +382,7 @@ export default function FadReviewPage() {
         businessVillage: d.business?.village || "",
         businessDetailedAddress: d.business?.detailedAddress || "",
         businessYearsOfExperience: d.business?.yearsOfExperience || 0,
+        businessMonthlyIncomeAmount: d.business?.monthlyIncomeAmount || undefined,
         licenseType: d.license?.licenseType || "",
         licensePresident: d.license?.president || "",
         licenseNumber: d.license?.licenseNumber || "",
@@ -665,6 +674,18 @@ export default function FadReviewPage() {
                           <SelectContent><SelectItem value="male">Male</SelectItem><SelectItem value="female">Female</SelectItem></SelectContent>
                         </Select><FormMessage /></FormItem>
                     )} />
+                    <FormField control={form.control} name="maritalStatus" render={({ field }) => (
+                      <FormItem><FormLabel>Marital Status</FormLabel>
+                        <Select disabled={!isEditing} onValueChange={field.onChange} value={field.value || ""}>
+                          <FormControl><SelectTrigger data-testid="select-maritalStatus"><SelectValue placeholder="Select marital status" /></SelectTrigger></FormControl>
+                          <SelectContent>
+                            <SelectItem value="single">Single</SelectItem>
+                            <SelectItem value="married">Married</SelectItem>
+                            <SelectItem value="divorced">Divorced</SelectItem>
+                            <SelectItem value="widowed">Widowed</SelectItem>
+                          </SelectContent>
+                        </Select><FormMessage /></FormItem>
+                    )} />
                     <FormField control={form.control} name="nationalId" render={({ field }) => (
                       <FormItem><FormLabel>National ID</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-nationalId" /></FormControl><FormMessage /></FormItem>
                     )} />
@@ -702,6 +723,20 @@ export default function FadReviewPage() {
                     )} />
                     <FormField control={form.control} name="homeAddress" render={({ field }) => (
                       <FormItem><FormLabel>Home Address</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-homeAddress" /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="province" render={({ field }) => (
+                      <FormItem><FormLabel>Province</FormLabel>
+                        <Select disabled={!isEditing} onValueChange={(value) => {
+                          const prov = provinces.find((p: any) => p.id.toString() === value);
+                          field.onChange(prov?.name || "");
+                        }} value={provinces.find((p: any) => p.name === field.value)?.id.toString() || ""}>
+                          <FormControl><SelectTrigger data-testid="select-customer-province"><SelectValue placeholder="Select province" /></SelectTrigger></FormControl>
+                          <SelectContent>
+                            {provinces.map((prov: any) => (
+                              <SelectItem key={prov.id} value={prov.id.toString()}>{prov.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="district" render={({ field }) => (
                       <FormItem><FormLabel>District</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-district" /></FormControl><FormMessage /></FormItem>
@@ -963,6 +998,9 @@ export default function FadReviewPage() {
                     )} />
                     <FormField control={form.control} name="businessYearsOfExperience" render={({ field }) => (
                       <FormItem><FormLabel>Years of Experience</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} data-testid="input-businessExp" /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="businessMonthlyIncomeAmount" render={({ field }) => (
+                      <FormItem><FormLabel>Monthly Income (AFN)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} data-testid="input-biz-monthly-income" /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="licenseType" render={({ field }) => (
                       <FormItem><FormLabel>License Type</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-licenseType" /></FormControl><FormMessage /></FormItem>
