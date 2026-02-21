@@ -371,6 +371,7 @@ export default function CommitteeVotingPage() {
                   {renderViewField("Full Name (Dari)", loanDetails?.customer?.fullNameDari)}
                   {renderViewField("Father's Name (Dari)", loanDetails?.customer?.fatherNameDari)}
                   {renderViewField("Gender", loanDetails?.customer?.gender)}
+                  {renderViewField("Marital Status", loanDetails?.customer?.maritalStatus)}
                   {renderViewField("National ID", loanDetails?.customer?.nationalId)}
                   {renderDateViewField("NID Expiry Date", loanDetails?.customer?.nidExpiryDate)}
                   {renderDobViewField("Date of Birth", loanDetails?.customer?.dateOfBirth)}
@@ -378,6 +379,7 @@ export default function CommitteeVotingPage() {
                   {renderViewField("Phone Number", loanDetails?.customer?.phoneNumber)}
                   {renderViewField("Second Phone", loanDetails?.customer?.secondPhoneNumber)}
                   {renderViewField("Home Address", loanDetails?.customer?.homeAddress)}
+                  {renderViewField("Province", loanDetails?.customer?.province)}
                   {renderViewField("District", loanDetails?.customer?.district)}
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -435,6 +437,8 @@ export default function CommitteeVotingPage() {
                   Loan Details
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {renderViewField("Branch", loanDetails?.loan?.branchName)}
+                  {renderViewField("Finance Officer", loanDetails?.loan?.financeOfficerName)}
                   {renderViewField("Product Name", loanDetails?.loan?.productName)}
                   {renderViewField("Product Code", loanDetails?.loan?.productCode)}
                   {renderViewField("Sector", loanDetails?.loan?.sector)}
@@ -509,6 +513,7 @@ export default function CommitteeVotingPage() {
                   {renderViewField("Village", loanDetails?.business?.village)}
                   {renderViewField("Detailed Address", loanDetails?.business?.detailedAddress)}
                   {renderViewField("Years of Experience", loanDetails?.business?.yearsOfExperience)}
+                  {renderViewField("Monthly Income (AFN)", loanDetails?.business?.monthlyIncomeAmount ? `AFN ${Number(loanDetails.business.monthlyIncomeAmount).toLocaleString()}` : null)}
                 </div>
                 {loanDetails?.license && (
                   <>
