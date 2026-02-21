@@ -3842,14 +3842,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getNextEntryNumber(): Promise<string> {
-    const year = new Date().getFullYear();
-    const [result] = await db
-      .select({ count: count() })
+    const allEntries = await db
+      .select({ entryNumber: journalEntries.entryNumber })
       .from(journalEntries)
-      .where(like(journalEntries.entryNumber, `JE${year}%`));
-    
-    const nextNum = (result?.count || 0) + 1;
-    return `JE${year}${nextNum.toString().padStart(6, '0')}`;
+      .where(like(journalEntries.entryNumber, 'JE%'));
+
+    let maxNum = 0;
+    for (const entry of allEntries) {
+      const numPart = entry.entryNumber.replace(/^JE-?/, '');
+      const parsed = parseInt(numPart, 10);
+      if (!isNaN(parsed) && parsed > maxNum) maxNum = parsed;
+    }
+    const nextNum = maxNum + 1;
+    return `JE${nextNum.toString().padStart(4, '0')}`;
   }
 
   // Accounting Reports
