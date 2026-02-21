@@ -5835,7 +5835,12 @@ export async function registerRoutes(
       }
       const useNewFormula = effectiveDisbDate ? effectiveDisbDate >= cutoffDate : true;
 
-      const profitTotal = updatedPrincipal * rate;
+      let profitTotal: number;
+      if (useNewFormula) {
+        profitTotal = (updatedPrincipal * rate / 12) * durationMonths;
+      } else {
+        profitTotal = updatedPrincipal * rate;
+      }
       const grandTotal = updatedPrincipal + profitTotal;
 
       await storage.updateLoan(loanId, {
