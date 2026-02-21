@@ -205,11 +205,19 @@ export default function CollectionsPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/installments"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["/api/journal-entries"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/payment-stats"] });
+      let description = "";
+      if (result.overflowApplied) {
+        description = `AFN ${parseFloat(paymentAmount).toLocaleString()} applied across ${result.installmentsPaid} installment(s). Journal entry created.`;
+        if (result.overflow > 0) description += ` AFN ${result.overflow.toLocaleString()} could not be applied (no more installments).`;
+      } else if (result.isPaid) {
+        description = `Installment #${result.installmentNumber} fully paid. Journal entry created. ${result.lateDays > 0 ? `Late by ${result.lateDays} days (${getParBucket(result.lateDays)}).` : "Paid on time."}`;
+      } else {
+        description = `AFN ${parseFloat(paymentAmount).toLocaleString()} recorded. Journal entry created. Remaining: ${formatCurrency(parseFloat(result.totalAmount) - parseFloat(result.paidAmount))}`;
+      }
       toast({
-        title: result.isPaid ? "Full Payment Recorded" : "Partial Payment Recorded",
-        description: result.isPaid
-          ? `Installment #${result.installmentNumber} fully paid. Journal entry created. ${result.lateDays > 0 ? `Late by ${result.lateDays} days (${getParBucket(result.lateDays)}).` : "Paid on time."}`
-          : `AFN ${parseFloat(paymentAmount).toLocaleString()} recorded. Journal entry created. Remaining: ${formatCurrency(parseFloat(result.totalAmount) - parseFloat(result.paidAmount))}`,
+        title: result.overflowApplied ? "Overpayment Applied" : result.isPaid ? "Full Payment Recorded" : "Partial Payment Recorded",
+        description,
       });
       setShowPayDialog(false);
       setSelectedInstallment(null);
@@ -238,9 +246,8 @@ export default function CollectionsPage() {
   const confirmPayment = () => {
     if (!selectedInstallment || !paymentAmount || !paymentDate) return;
     const amount = parseFloat(paymentAmount);
-    const remaining = parseFloat(selectedInstallment.totalAmount) - parseFloat(selectedInstallment.paidAmount || "0");
-    if (amount <= 0 || amount > remaining + 0.01) {
-      toast({ title: "Invalid Amount", description: `Amount must be between 1 and ${formatCurrency(remaining)}`, variant: "destructive" });
+    if (amount <= 0) {
+      toast({ title: "Invalid Amount", description: "Payment amount must be greater than 0", variant: "destructive" });
       return;
     }
     payMutation.mutate({ id: selectedInstallment.id, amount, paymentDate, debitAccountCode });
@@ -695,11 +702,17 @@ export default function CollectionsPage() {
                   type="number"
                   step="0.01"
                   min="1"
-                  max={parseFloat(selectedInstallment.totalAmount) - parseFloat(selectedInstallment.paidAmount || "0")}
                   value={paymentAmount}
                   onChange={(e) => setPaymentAmount(e.target.value)}
                   data-testid="input-payment-amount"
                 />
+                {parseFloat(paymentAmount || "0") > (parseFloat(selectedInstallment.totalAmount) - parseFloat(selectedInstallment.paidAmount || "0")) + 0.01 && (
+                  <div className="rounded-md bg-blue-50 dark:bg-blue-950/20 p-2 border border-blue-200 dark:border-blue-900/30">
+                    <p className="text-xs text-blue-700 dark:text-blue-400">
+                      Excess of {formatCurrency(parseFloat(paymentAmount || "0") - (parseFloat(selectedInstallment.totalAmount) - parseFloat(selectedInstallment.paidAmount || "0")))} will be applied to the next installment(s) as partial payment.
+                    </p>
+                  </div>
+                )}
                 <div className="flex gap-2">
                   <Button
                     variant="outline"

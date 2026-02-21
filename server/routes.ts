@@ -2751,14 +2751,17 @@ export async function registerRoutes(
         debitAccountCode: z.string().optional(),
       });
       const parsed = schema.parse(req.body);
-      const installment = await storage.recordPartialPayment(req.params.id, parsed.amount, parsed.paymentDate);
-      const action = installment.isPaid ? "full_payment" : "partial_payment";
+      const result = await storage.recordPaymentWithOverflow(req.params.id, parsed.amount, parsed.paymentDate);
+      const firstInstallment = result.paidInstallments[0];
+
+      const installmentNums = result.paidInstallments.map(i => `#${i.installmentNumber}`).join(", ");
+      const action = result.paidInstallments.length > 1 ? "overpayment" : (firstInstallment.isPaid ? "full_payment" : "partial_payment");
       await logActivity(req, action, "installment", req.params.id,
-        `Recorded ${action === "full_payment" ? "full" : "partial"} payment of AFN ${parsed.amount.toLocaleString()} for installment #${installment.installmentNumber}`
+        `Recorded payment of AFN ${parsed.amount.toLocaleString()} applied to installment(s) ${installmentNums}${result.overflow > 0 ? ` (AFN ${result.overflow.toLocaleString()} unapplied)` : ""}`
       );
 
       try {
-        const loan = installment.loanId ? await storage.getLoan(installment.loanId) : null;
+        const loan = firstInstallment.loanId ? await storage.getLoan(firstInstallment.loanId) : null;
         const customer = loan?.customerId ? await storage.getCustomer(loan.customerId) : null;
         const customerName = customer ? `${customer.firstName} ${customer.lastName}` : "Unknown";
         const loanAppId = loan?.applicationId || "N/A";
@@ -2772,27 +2775,20 @@ export async function registerRoutes(
         if (debitAccount && creditAccount) {
           const entryNumber = await storage.getNextEntryNumber();
           const entryDate = parsed.paymentDate || new Date().toISOString().split("T")[0];
-          const description = `Collection: ${customerName} (${loanAppId}) - Installment #${installment.installmentNumber} - AFN ${parsed.amount.toLocaleString()}`;
-
-          const principleAmt = parseFloat(installment.principleAmount || "0");
-          const marginAmt = parseFloat(installment.marginAmount || "0");
-          const totalAmt = principleAmt + marginAmt;
-          const paymentRatio = totalAmt > 0 ? parsed.amount / totalAmt : 1;
-          const principalPortion = Math.round(principleAmt * paymentRatio * 100) / 100;
-          const marginPortion = Math.round((parsed.amount - principalPortion) * 100) / 100;
+          const description = `Collection: ${customerName} (${loanAppId}) - Inst ${installmentNums} - AFN ${parsed.amount.toLocaleString()}`;
 
           const lines: any[] = [
             {
               accountId: debitAccount.id,
-              description: `Cash received - ${customerName} Inst #${installment.installmentNumber}`,
-              debitAmount: parsed.amount.toFixed(2),
+              description: `Cash received - ${customerName} Inst ${installmentNums}`,
+              debitAmount: result.totalApplied.toFixed(2),
               creditAmount: "0",
             },
             {
               accountId: creditAccount.id,
-              description: `Loan receivable - ${customerName} Inst #${installment.installmentNumber}`,
+              description: `Loan receivable - ${customerName} Inst ${installmentNums}`,
               debitAmount: "0",
-              creditAmount: parsed.amount.toFixed(2),
+              creditAmount: result.totalApplied.toFixed(2),
             },
           ];
 
@@ -2803,7 +2799,7 @@ export async function registerRoutes(
               description,
               reference: loanAppId,
               referenceType: "collection",
-              referenceId: installment.id,
+              referenceId: firstInstallment.id,
               isPosted: true,
               createdBy: req.session.userId,
               postedBy: req.session.userId,
@@ -2816,7 +2812,13 @@ export async function registerRoutes(
         console.error("Warning: Failed to create journal entry for collection:", journalError);
       }
 
-      res.json(installment);
+      res.json({
+        ...firstInstallment,
+        overflowApplied: result.paidInstallments.length > 1,
+        installmentsPaid: result.paidInstallments.length,
+        totalApplied: result.totalApplied,
+        overflow: result.overflow,
+      });
     } catch (error: any) {
       console.error("Error recording collection payment:", error);
       res.status(400).json({ message: error.message || "Failed to record payment" });

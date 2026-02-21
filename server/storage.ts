@@ -1663,47 +1663,111 @@ export class DatabaseStorage implements IStorage {
   }
 
   async recordPartialPayment(id: string, amount: number, paymentDateStr?: string): Promise<Installment> {
-    const [existing] = await db
-      .select()
-      .from(installments)
-      .where(eq(installments.id, id));
+    const result = await this.recordPaymentWithOverflow(id, amount, paymentDateStr);
+    return result.paidInstallments[0];
+  }
 
-    if (!existing) {
-      throw new Error("Installment not found");
-    }
+  async recordPaymentWithOverflow(id: string, amount: number, paymentDateStr?: string): Promise<{ paidInstallments: Installment[]; totalApplied: number; overflow: number }> {
+    return await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select()
+        .from(installments)
+        .where(eq(installments.id, id));
 
-    const currentPaid = parseFloat(existing.paidAmount || "0");
-    const totalDue = parseFloat(existing.totalAmount || "0");
-    const newPaidAmount = currentPaid + amount;
-    const today = paymentDateStr || new Date().toISOString().split("T")[0];
+      if (!existing) {
+        throw new Error("Installment not found");
+      }
 
-    if (newPaidAmount > totalDue + 0.01) {
-      throw new Error("Payment amount exceeds remaining balance");
-    }
+      const today = paymentDateStr || new Date().toISOString().split("T")[0];
+      const paidInstallments: Installment[] = [];
+      let remainingPayment = amount;
 
-    const isFullyPaid = Math.abs(newPaidAmount - totalDue) < 0.01;
+      const currentPaid = parseFloat(existing.paidAmount || "0");
+      const totalDue = parseFloat(existing.totalAmount || "0");
+      const currentRemaining = totalDue - currentPaid;
+      const applyToCurrent = Math.min(remainingPayment, Math.max(currentRemaining, 0));
 
-    const updateData: any = {
-      paidAmount: newPaidAmount.toFixed(2),
-      paymentDate: today,
-    };
+      const newPaidAmount = currentPaid + applyToCurrent;
+      const isFullyPaid = Math.abs(newPaidAmount - totalDue) < 0.01 || newPaidAmount >= totalDue - 0.01;
 
-    if (isFullyPaid) {
-      updateData.isPaid = true;
-      const dueDate = existing.dueDate ? new Date(existing.dueDate) : new Date();
-      const payDate = new Date(today);
-      const diffDays = Math.max(0, Math.floor((payDate.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)));
-      updateData.lateDays = diffDays;
-      updateData.installmentVariance = diffDays.toString();
-    }
+      const updateData: any = {
+        paidAmount: newPaidAmount.toFixed(2),
+        paymentDate: today,
+      };
 
-    const [updated] = await db
-      .update(installments)
-      .set(updateData)
-      .where(eq(installments.id, id))
-      .returning();
+      if (isFullyPaid) {
+        updateData.isPaid = true;
+        const dueDate = existing.dueDate ? new Date(existing.dueDate) : new Date();
+        const payDate = new Date(today);
+        const diffDays = Math.max(0, Math.floor((payDate.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)));
+        updateData.lateDays = diffDays;
+        updateData.installmentVariance = diffDays.toString();
+      }
 
-    return updated;
+      const [updated] = await tx
+        .update(installments)
+        .set(updateData)
+        .where(eq(installments.id, id))
+        .returning();
+
+      paidInstallments.push(updated);
+      remainingPayment -= applyToCurrent;
+
+      if (remainingPayment > 0.01 && existing.loanId) {
+        const nextInstallments = await tx
+          .select()
+          .from(installments)
+          .where(and(
+            eq(installments.loanId, existing.loanId),
+            eq(installments.isPaid, false),
+            sql`${installments.installmentNumber} > ${existing.installmentNumber}`
+          ))
+          .orderBy(asc(installments.installmentNumber));
+
+        for (const nextInst of nextInstallments) {
+          if (remainingPayment <= 0.01) break;
+
+          const nextCurrentPaid = parseFloat(nextInst.paidAmount || "0");
+          const nextTotalDue = parseFloat(nextInst.totalAmount || "0");
+          const nextRemaining = nextTotalDue - nextCurrentPaid;
+          const applyToNext = Math.min(remainingPayment, Math.max(nextRemaining, 0));
+
+          if (applyToNext <= 0) continue;
+
+          const nextNewPaid = nextCurrentPaid + applyToNext;
+          const nextFullyPaid = Math.abs(nextNewPaid - nextTotalDue) < 0.01 || nextNewPaid >= nextTotalDue - 0.01;
+
+          const nextUpdateData: any = {
+            paidAmount: nextNewPaid.toFixed(2),
+            paymentDate: today,
+          };
+
+          if (nextFullyPaid) {
+            nextUpdateData.isPaid = true;
+            const dueDate = nextInst.dueDate ? new Date(nextInst.dueDate) : new Date();
+            const payDate = new Date(today);
+            const diffDays = Math.max(0, Math.floor((payDate.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)));
+            nextUpdateData.lateDays = diffDays;
+            nextUpdateData.installmentVariance = diffDays.toString();
+          }
+
+          const [nextUpdated] = await tx
+            .update(installments)
+            .set(nextUpdateData)
+            .where(eq(installments.id, nextInst.id))
+            .returning();
+
+          paidInstallments.push(nextUpdated);
+          remainingPayment -= applyToNext;
+        }
+      }
+
+      return {
+        paidInstallments,
+        totalApplied: amount - Math.max(remainingPayment, 0),
+        overflow: Math.max(remainingPayment, 0),
+      };
+    });
   }
 
   async getLoanClassificationReport(): Promise<any> {
