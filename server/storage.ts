@@ -2032,6 +2032,18 @@ export class DatabaseStorage implements IStorage {
       .from(installments)
       .where(eq(installments.isPaid, true));
 
+    const currentMonthStats = await db.execute(sql`
+      SELECT 
+        COUNT(*) FILTER (WHERE DATE_TRUNC('month', d.disbursement_date) = DATE_TRUNC('month', CURRENT_DATE)) as current_month_count,
+        COALESCE(SUM(CASE WHEN DATE_TRUNC('month', d.disbursement_date) = DATE_TRUNC('month', CURRENT_DATE) THEN l.principle_amount::numeric ELSE 0 END), 0) as current_month_amount,
+        COUNT(*) FILTER (WHERE DATE_TRUNC('month', d.disbursement_date) = DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')) as prev_month_count,
+        COALESCE(SUM(CASE WHEN DATE_TRUNC('month', d.disbursement_date) = DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month') THEN l.principle_amount::numeric ELSE 0 END), 0) as prev_month_amount
+      FROM disbursements d
+      LEFT JOIN loans l ON d.loan_id = l.id
+      WHERE d.disbursement_date IS NOT NULL
+    `);
+    const cmStats = currentMonthStats.rows[0] as any;
+
     const recentLoans = await db
       .select({
         id: loans.id,
@@ -2084,6 +2096,10 @@ export class DatabaseStorage implements IStorage {
     return {
       totalLoans: Number(loanCounts.total),
       activeLoans: Number(loanCounts.active),
+      currentMonthCount: Number(cmStats.current_month_count || 0),
+      currentMonthAmount: Number(cmStats.current_month_amount || 0),
+      prevMonthCount: Number(cmStats.prev_month_count || 0),
+      prevMonthAmount: Number(cmStats.prev_month_amount || 0),
       pendingLoans: Number(loanCounts.pending),
       totalCustomers: Number(customerCount.count),
       totalDisbursed: Number(amounts.totalDisbursed),

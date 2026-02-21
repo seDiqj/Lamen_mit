@@ -51,6 +51,10 @@ import {
 type DashboardStats = {
   totalLoans: number;
   activeLoans: number;
+  currentMonthCount: number;
+  currentMonthAmount: number;
+  prevMonthCount: number;
+  prevMonthAmount: number;
   pendingLoans: number;
   totalCustomers: number;
   totalDisbursed: number;
@@ -367,16 +371,28 @@ export default function Dashboard() {
           gradient="bg-gradient-to-r from-blue-500 to-cyan-500"
           iconBg="bg-gradient-to-br from-blue-500 to-cyan-600"
         />
-        <StatCard
-          title="Active Financings"
-          value={stats?.activeLoans?.toString() || "0"}
-          change="+12% from last month"
-          changeType="positive"
-          icon={CheckCircle2}
-          loading={isLoading}
-          gradient="bg-gradient-to-r from-emerald-500 to-green-500"
-          iconBg="bg-gradient-to-br from-emerald-500 to-green-600"
-        />
+        {(() => {
+          const curCount = stats?.currentMonthCount || 0;
+          const curAmount = stats?.currentMonthAmount || 0;
+          const prevAmount = stats?.prevMonthAmount || 0;
+          const pctChange = prevAmount > 0 
+            ? Math.round(((curAmount - prevAmount) / prevAmount) * 100) 
+            : curAmount > 0 ? 100 : 0;
+          const changeType = pctChange >= 0 ? "positive" as const : "negative" as const;
+          const changeText = `${pctChange >= 0 ? '+' : ''}${pctChange}% from last month`;
+          return (
+            <StatCard
+              title="Current Month Financing"
+              value={`${curCount} | AFN ${Number(curAmount).toLocaleString()}`}
+              change={changeText}
+              changeType={changeType}
+              icon={CheckCircle2}
+              loading={isLoading}
+              gradient="bg-gradient-to-r from-emerald-500 to-green-500"
+              iconBg="bg-gradient-to-br from-emerald-500 to-green-600"
+            />
+          );
+        })()}
         <StatCard
           title="Total Customers"
           value={stats?.totalCustomers?.toString() || "0"}
