@@ -2073,7 +2073,7 @@ export class DatabaseStorage implements IStorage {
     const monthlyData = await db.execute(sql`
       SELECT 
         TO_CHAR(d.disbursement_date, 'Mon') as month,
-        TO_CHAR(d.disbursement_date, 'MM') as month_num,
+        TO_CHAR(d.disbursement_date, 'YYYY-MM') as sort_key,
         COALESCE(SUM(l.principle_amount::numeric), 0) as disbursed,
         COALESCE((
           SELECT SUM(COALESCE(i.paid_amount::numeric, 0))
@@ -2083,8 +2083,9 @@ export class DatabaseStorage implements IStorage {
       FROM disbursements d
       LEFT JOIN loans l ON d.loan_id = l.id
       WHERE d.disbursement_date IS NOT NULL
-      GROUP BY TO_CHAR(d.disbursement_date, 'Mon'), TO_CHAR(d.disbursement_date, 'MM')
-      ORDER BY TO_CHAR(d.disbursement_date, 'MM')
+        AND d.disbursement_date >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '5 months')
+      GROUP BY TO_CHAR(d.disbursement_date, 'Mon'), TO_CHAR(d.disbursement_date, 'YYYY-MM')
+      ORDER BY TO_CHAR(d.disbursement_date, 'YYYY-MM')
     `);
 
     const monthlyTrends = (monthlyData.rows as any[]).map(m => ({
