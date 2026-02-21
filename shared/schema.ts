@@ -26,6 +26,7 @@ export const branches = pgTable("branches", {
   name: varchar("name", { length: 255 }).notNull(),
   shortName: varchar("short_name", { length: 50 }),
   code: varchar("code", { length: 50 }),
+  accountCode: varchar("account_code", { length: 50 }),
   address: text("address"),
   createdAt: timestamp("created_at").defaultNow(),
 });

@@ -2295,6 +2295,59 @@ export async function registerRoutes(
       });
       
       await logActivity(req, "disburse_loan", "loan", req.params.id, `Disbursed loan: ${loan.applicationId}`);
+
+      try {
+        const customer = loan.customerId ? await storage.getCustomer(loan.customerId) : null;
+        const customerName = customer ? `${customer.firstName} ${customer.lastName}` : "Unknown";
+        const branch = loan.branchId ? await storage.getBranch(loan.branchId) : null;
+        const disbursementAmount = parseFloat(loan.requestAmount || "0");
+
+        const creditCode = branch?.accountCode || "10206";
+        const debitCode = "11000";
+
+        const debitAccount = await storage.getAccountByCode(debitCode);
+        const creditAccount = await storage.getAccountByCode(creditCode);
+
+        if (debitAccount && creditAccount && disbursementAmount > 0) {
+          const entryNumber = await storage.getNextEntryNumber();
+          const entryDate = today.toISOString().split("T")[0];
+          const description = `Disbursement: ${customerName} (${loan.applicationId}) - AFN ${disbursementAmount.toLocaleString()}`;
+
+          const lines: any[] = [
+            {
+              accountId: debitAccount.id,
+              description: `Loan receivable - ${customerName} (${loan.applicationId})`,
+              debitAmount: disbursementAmount.toFixed(2),
+              creditAmount: "0",
+            },
+            {
+              accountId: creditAccount.id,
+              description: `Cash disbursed - ${customerName} (${loan.applicationId})`,
+              debitAmount: "0",
+              creditAmount: disbursementAmount.toFixed(2),
+            },
+          ];
+
+          await storage.createJournalEntry(
+            {
+              entryNumber,
+              entryDate,
+              description,
+              reference: loan.applicationId,
+              referenceType: "disbursement",
+              referenceId: loan.id,
+              isPosted: true,
+              createdBy: req.session.userId,
+              postedBy: req.session.userId,
+              postedAt: new Date(),
+            },
+            lines
+          );
+        }
+      } catch (journalError) {
+        console.error("Warning: Failed to create journal entry for disbursement:", journalError);
+      }
+
       res.json({ message: "Loan disbursed successfully", installmentsCreated: result.installmentsCreated, customerId: loan.customerId });
     } catch (error) {
       console.error("Error disbursing loan:", error);
@@ -2400,6 +2453,48 @@ export async function registerRoutes(
         }
 
         const result = await storage.bulkDisburseLoan(applicationId, normalizedDate, userId);
+        
+        if (result.success) {
+          try {
+            const loan = await storage.getLoanByApplicationId(applicationId);
+            if (loan) {
+              const customer = loan.customerId ? await storage.getCustomer(loan.customerId) : null;
+              const customerName = customer ? `${customer.firstName} ${customer.lastName}` : "Unknown";
+              const branch = loan.branchId ? await storage.getBranch(loan.branchId) : null;
+              const disbursementAmount = parseFloat(loan.requestAmount || "0");
+
+              const creditCode = branch?.accountCode || "10206";
+              const debitCode = "11000";
+              const debitAccount = await storage.getAccountByCode(debitCode);
+              const creditAccount = await storage.getAccountByCode(creditCode);
+
+              if (debitAccount && creditAccount && disbursementAmount > 0) {
+                const entryNumber = await storage.getNextEntryNumber();
+                await storage.createJournalEntry(
+                  {
+                    entryNumber,
+                    entryDate: normalizedDate,
+                    description: `Disbursement: ${customerName} (${applicationId}) - AFN ${disbursementAmount.toLocaleString()}`,
+                    reference: applicationId,
+                    referenceType: "disbursement",
+                    referenceId: loan.id,
+                    isPosted: true,
+                    createdBy: userId,
+                    postedBy: userId,
+                    postedAt: new Date(),
+                  },
+                  [
+                    { accountId: debitAccount.id, description: `Loan receivable - ${customerName}`, debitAmount: disbursementAmount.toFixed(2), creditAmount: "0" },
+                    { accountId: creditAccount.id, description: `Cash disbursed - ${customerName}`, debitAmount: "0", creditAmount: disbursementAmount.toFixed(2) },
+                  ]
+                );
+              }
+            }
+          } catch (journalError) {
+            console.error(`Warning: Failed to create journal entry for bulk disbursement ${applicationId}:`, journalError);
+          }
+        }
+
         results.push(result);
       }
 

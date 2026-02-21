@@ -46,6 +46,7 @@ const branchFormSchema = z.object({
   name: z.string().min(1, "Branch name is required"),
   shortName: z.string().optional(),
   code: z.string().optional(),
+  accountCode: z.string().optional(),
   address: z.string().optional(),
 });
 
@@ -65,6 +66,7 @@ export default function BranchesPage() {
       name: "",
       shortName: "",
       code: "",
+      accountCode: "",
       address: "",
     },
   });
@@ -133,6 +135,7 @@ export default function BranchesPage() {
         name: branch.name,
         shortName: branch.shortName || "",
         code: branch.code || "",
+        accountCode: branch.accountCode || "",
         address: branch.address || "",
       });
     } else {
@@ -186,6 +189,7 @@ export default function BranchesPage() {
                   <TableHead>Branch Name</TableHead>
                   <TableHead>Short Name</TableHead>
                   <TableHead>Code</TableHead>
+                  <TableHead>Account Code</TableHead>
                   <TableHead>Address</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -194,7 +198,7 @@ export default function BranchesPage() {
                 {isLoading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
-                      {Array.from({ length: 5 }).map((_, j) => (
+                      {Array.from({ length: 6 }).map((_, j) => (
                         <TableCell key={j}>
                           <Skeleton className="h-4 w-full" />
                         </TableCell>
@@ -214,6 +218,7 @@ export default function BranchesPage() {
                       </TableCell>
                       <TableCell>{branch.shortName || "-"}</TableCell>
                       <TableCell className="font-mono">{branch.code || "-"}</TableCell>
+                      <TableCell className="font-mono">{branch.accountCode || "-"}</TableCell>
                       <TableCell>
                         {branch.address && (
                           <div className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -236,7 +241,7 @@ export default function BranchesPage() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-12">
+                    <TableCell colSpan={6} className="text-center py-12">
                       <Building2 className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
                       <p className="text-muted-foreground">No branches found</p>
                     </TableCell>
@@ -303,6 +308,19 @@ export default function BranchesPage() {
                   )}
                 />
               </div>
+              <FormField
+                control={form.control}
+                name="accountCode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Account Code (Disbursement)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. 10206" {...field} data-testid="input-branch-account-code" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <FormField
                 control={form.control}
                 name="address"

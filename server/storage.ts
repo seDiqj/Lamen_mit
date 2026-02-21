@@ -232,6 +232,7 @@ export interface IStorage {
   approveLoan(loanId: string, approvalData: InsertLoanApproval): Promise<void>;
   disburseLoan(loanId: string, disbursementData: InsertDisbursement): Promise<{ installmentsCreated: number }>;
   bulkDisburseLoan(loanApplicationId: string, disbursementDate: string, userId: string): Promise<{ success: boolean; applicationId: string; error?: string }>;
+  getLoanByApplicationId(applicationId: string): Promise<Loan | undefined>;
   
   // FAD Reviews
   createFadReview(data: InsertFadReview): Promise<FadReview>;
@@ -1300,6 +1301,11 @@ export class DatabaseStorage implements IStorage {
     } catch (error: any) {
       return { success: false, applicationId: loanApplicationId, error: error.message };
     }
+  }
+
+  async getLoanByApplicationId(applicationId: string): Promise<Loan | undefined> {
+    const [loan] = await db.select().from(loans).where(eq(loans.applicationId, applicationId));
+    return loan;
   }
 
   // FAD Reviews
