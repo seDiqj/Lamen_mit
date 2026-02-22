@@ -1122,6 +1122,12 @@ export default function FadReviewPage() {
                       <FormField control={form.control} name="financialGuarantorFatherName" render={({ field }) => (
                         <FormItem><FormLabel>Father's Name</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-finGuarantorFather" /></FormControl><FormMessage /></FormItem>
                       )} />
+                      <FormField control={form.control} name="financialGuarantorNid" render={({ field }) => (
+                        <FormItem><FormLabel>National ID</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-finGuarantorNid" /></FormControl><FormMessage /></FormItem>
+                      )} />
+                      <FormField control={form.control} name="financialGuarantorNidExpiry" render={({ field }) => (
+                        <FormItem><FormLabel>NID Expiry Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-finGuarantorNidExpiry" /></FormControl><FormMessage /></FormItem>
+                      )} />
                       <FormField control={form.control} name="financialGuarantorDateOfBirth" render={({ field }) => {
                         const calcAge = (dob: string) => { if (!dob) return null; const b = new Date(dob); const t = new Date(); let a = t.getFullYear() - b.getFullYear(); if (t.getMonth() < b.getMonth() || (t.getMonth() === b.getMonth() && t.getDate() < b.getDate())) a--; return a; };
                         const age = calcAge(field.value || "");
@@ -1135,23 +1141,29 @@ export default function FadReviewPage() {
                           <FormMessage /></FormItem>
                         );
                       }} />
-                      <FormField control={form.control} name="financialGuarantorNid" render={({ field }) => (
-                        <FormItem><FormLabel>National ID</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-finGuarantorNid" /></FormControl><FormMessage /></FormItem>
-                      )} />
-                      <FormField control={form.control} name="financialGuarantorNidExpiry" render={({ field }) => (
-                        <FormItem><FormLabel>NID Expiry Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-finGuarantorNidExpiry" /></FormControl><FormMessage /></FormItem>
-                      )} />
                       <FormField control={form.control} name="financialGuarantorPhone" render={({ field }) => (
                         <FormItem><FormLabel>Phone</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-finGuarantorPhone" /></FormControl><FormMessage /></FormItem>
                       )} />
                       <FormField control={form.control} name="financialGuarantorHomeAddress" render={({ field }) => (
                         <FormItem><FormLabel>Home Address</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-finGuarantorAddress" /></FormControl><FormMessage /></FormItem>
                       )} />
+                      <FormField control={form.control} name="financialGuarantorDistrict" render={({ field }) => (
+                        <FormItem><FormLabel>District</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-finGuarantorDistrict" /></FormControl><FormMessage /></FormItem>
+                      )} />
                       <FormField control={form.control} name="financialGuarantorBusiness" render={({ field }) => (
                         <FormItem><FormLabel>Business</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-finGuarantorBusiness" /></FormControl><FormMessage /></FormItem>
                       )} />
+                      <FormField control={form.control} name="financialGuarantorBusinessAddress" render={({ field }) => (
+                        <FormItem><FormLabel>Business Address</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-finGuarantorBusinessAddress" /></FormControl><FormMessage /></FormItem>
+                      )} />
                       <FormField control={form.control} name="financialGuarantorRelationship" render={({ field }) => (
                         <FormItem><FormLabel>Relationship</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-finGuarantorRelation" /></FormControl><FormMessage /></FormItem>
+                      )} />
+                      <FormField control={form.control} name="financialGuarantorYearsOfExperience" render={({ field }) => (
+                        <FormItem><FormLabel>Years of Experience</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} data-testid="input-finGuarantorExperience" /></FormControl><FormMessage /></FormItem>
+                      )} />
+                      <FormField control={form.control} name="financialGuarantorInventory" render={({ field }) => (
+                        <FormItem><FormLabel>Inventory (AFN)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} data-testid="input-finGuarantorInventory" /></FormControl><FormMessage /></FormItem>
                       )} />
                       <FormField control={form.control} name="financialGuarantorMonthlyIncome" render={({ field }) => (
                         <FormItem><FormLabel>Monthly Income (AFN)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} data-testid="input-finGuarantorIncome" /></FormControl><FormMessage /></FormItem>
@@ -1178,6 +1190,12 @@ export default function FadReviewPage() {
                       <FormField control={form.control} name="financialGuarantor2FatherName" render={({ field }) => (
                         <FormItem><FormLabel>Father's Name</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-finGuarantor2Father" /></FormControl><FormMessage /></FormItem>
                       )} />
+                      <FormField control={form.control} name="financialGuarantor2Nid" render={({ field }) => (
+                        <FormItem><FormLabel>National ID</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-finGuarantor2Nid" /></FormControl><FormMessage /></FormItem>
+                      )} />
+                      <FormField control={form.control} name="financialGuarantor2NidExpiry" render={({ field }) => (
+                        <FormItem><FormLabel>NID Expiry Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-finGuarantor2NidExpiry" /></FormControl><FormMessage /></FormItem>
+                      )} />
                       <FormField control={form.control} name="financialGuarantor2DateOfBirth" render={({ field }) => {
                         const calcAge = (dob: string) => { if (!dob) return null; const b = new Date(dob); const t = new Date(); let a = t.getFullYear() - b.getFullYear(); if (t.getMonth() < b.getMonth() || (t.getMonth() === b.getMonth() && t.getDate() < b.getDate())) a--; return a; };
                         const age = calcAge(field.value || "");
@@ -1191,12 +1209,6 @@ export default function FadReviewPage() {
                           <FormMessage /></FormItem>
                         );
                       }} />
-                      <FormField control={form.control} name="financialGuarantor2Nid" render={({ field }) => (
-                        <FormItem><FormLabel>National ID</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-finGuarantor2Nid" /></FormControl><FormMessage /></FormItem>
-                      )} />
-                      <FormField control={form.control} name="financialGuarantor2NidExpiry" render={({ field }) => (
-                        <FormItem><FormLabel>NID Expiry Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-finGuarantor2NidExpiry" /></FormControl><FormMessage /></FormItem>
-                      )} />
                       <FormField control={form.control} name="financialGuarantor2Phone" render={({ field }) => (
                         <FormItem><FormLabel>Phone</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-finGuarantor2Phone" /></FormControl><FormMessage /></FormItem>
                       )} />
@@ -1246,6 +1258,12 @@ export default function FadReviewPage() {
                       <FormField control={form.control} name="familyGuarantorFatherName" render={({ field }) => (
                         <FormItem><FormLabel>Father's Name</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-famGuarantorFather" /></FormControl><FormMessage /></FormItem>
                       )} />
+                      <FormField control={form.control} name="familyGuarantorNid" render={({ field }) => (
+                        <FormItem><FormLabel>National ID</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-famGuarantorNid" /></FormControl><FormMessage /></FormItem>
+                      )} />
+                      <FormField control={form.control} name="familyGuarantorNidExpiry" render={({ field }) => (
+                        <FormItem><FormLabel>NID Expiry Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-famGuarantorNidExpiry" /></FormControl><FormMessage /></FormItem>
+                      )} />
                       <FormField control={form.control} name="familyGuarantorDateOfBirth" render={({ field }) => {
                         const calcAge = (dob: string) => { if (!dob) return null; const b = new Date(dob); const t = new Date(); let a = t.getFullYear() - b.getFullYear(); if (t.getMonth() < b.getMonth() || (t.getMonth() === b.getMonth() && t.getDate() < b.getDate())) a--; return a; };
                         const age = calcAge(field.value || "");
@@ -1259,17 +1277,14 @@ export default function FadReviewPage() {
                           <FormMessage /></FormItem>
                         );
                       }} />
-                      <FormField control={form.control} name="familyGuarantorNid" render={({ field }) => (
-                        <FormItem><FormLabel>National ID</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-famGuarantorNid" /></FormControl><FormMessage /></FormItem>
-                      )} />
-                      <FormField control={form.control} name="familyGuarantorNidExpiry" render={({ field }) => (
-                        <FormItem><FormLabel>NID Expiry Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-famGuarantorNidExpiry" /></FormControl><FormMessage /></FormItem>
-                      )} />
                       <FormField control={form.control} name="familyGuarantorPhone" render={({ field }) => (
                         <FormItem><FormLabel>Phone</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-famGuarantorPhone" /></FormControl><FormMessage /></FormItem>
                       )} />
                       <FormField control={form.control} name="familyGuarantorHomeAddress" render={({ field }) => (
                         <FormItem><FormLabel>Home Address</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-famGuarantorAddress" /></FormControl><FormMessage /></FormItem>
+                      )} />
+                      <FormField control={form.control} name="familyGuarantorDistrict" render={({ field }) => (
+                        <FormItem><FormLabel>District</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-famGuarantorDistrict" /></FormControl><FormMessage /></FormItem>
                       )} />
                       <FormField control={form.control} name="familyGuarantorRelationship" render={({ field }) => (
                         <FormItem><FormLabel>Relationship</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-famGuarantorRelation" /></FormControl><FormMessage /></FormItem>
