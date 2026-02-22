@@ -342,6 +342,8 @@ export interface IStorage {
   postJournalEntry(id: string, postedBy: string): Promise<void>;
   reverseJournalEntry(id: string, createdBy: string): Promise<any>;
   
+  recalculateAllAccountBalances(): Promise<{ updated: number }>;
+  
   // Accounting - Reports
   getTrialBalance(asOfDate?: string): Promise<any[]>;
   getIncomeStatement(startDate: string, endDate: string): Promise<any>;
@@ -3857,6 +3859,22 @@ export class DatabaseStorage implements IStorage {
           creditAmount: String(line.creditAmount || "0"),
         });
       }
+
+      if (header.isPosted) {
+        for (const line of lines) {
+          const [account] = await tx.select().from(accounts).where(eq(accounts.id, line.accountId));
+          if (!account) continue;
+          let newBalance = Number(account.currentBalance || 0);
+          const debitAmt = Number(line.debitAmount || 0);
+          const creditAmt = Number(line.creditAmount || 0);
+          if (account.accountType === 'asset' || account.accountType === 'expense') {
+            newBalance += debitAmt - creditAmt;
+          } else {
+            newBalance += creditAmt - debitAmt;
+          }
+          await tx.update(accounts).set({ currentBalance: newBalance.toString() }).where(eq(accounts.id, line.accountId));
+        }
+      }
       
       return entry;
     });
@@ -3946,6 +3964,43 @@ export class DatabaseStorage implements IStorage {
     await db.update(journalEntries).set({ isReversed: true, reversedEntryId: reversalEntry.id }).where(eq(journalEntries.id, id));
     
     return reversalEntry;
+  }
+
+  async recalculateAllAccountBalances(): Promise<{ updated: number }> {
+    const allAccounts = await db.select().from(accounts);
+    let updated = 0;
+    
+    for (const account of allAccounts) {
+      const rows = await db
+        .select({
+          totalDebit: sql<string>`COALESCE(SUM(CAST(${journalLines.debitAmount} AS numeric)), 0)`,
+          totalCredit: sql<string>`COALESCE(SUM(CAST(${journalLines.creditAmount} AS numeric)), 0)`,
+        })
+        .from(journalLines)
+        .leftJoin(journalEntries, eq(journalLines.journalEntryId, journalEntries.id))
+        .where(and(
+          eq(journalLines.accountId, account.id),
+          eq(journalEntries.isPosted, true)
+        ));
+      
+      const totalDebit = Number(rows[0]?.totalDebit || 0);
+      const totalCredit = Number(rows[0]?.totalCredit || 0);
+      
+      let correctBalance: number;
+      if (account.accountType === 'asset' || account.accountType === 'expense') {
+        correctBalance = totalDebit - totalCredit;
+      } else {
+        correctBalance = totalCredit - totalDebit;
+      }
+      
+      const currentStored = Number(account.currentBalance || 0);
+      if (Math.abs(correctBalance - currentStored) > 0.001) {
+        await db.update(accounts).set({ currentBalance: correctBalance.toString() }).where(eq(accounts.id, account.id));
+        updated++;
+      }
+    }
+    
+    return { updated };
   }
 
   async getNextEntryNumber(): Promise<string> {

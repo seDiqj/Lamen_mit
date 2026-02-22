@@ -3529,6 +3529,17 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/accounts/recalculate-balances", isAuthenticated, requireRole("admin"), async (req: any, res) => {
+    try {
+      const result = await storage.recalculateAllAccountBalances();
+      await logActivity(req, "recalculate_balances", "accounts", null, `Recalculated all account balances from journal entries. ${result.updated} accounts updated.`);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error recalculating balances:", error);
+      res.status(500).json({ message: error.message || "Failed to recalculate balances" });
+    }
+  });
+
   // Fiscal Periods
   app.get("/api/fiscal-periods", isAuthenticated, async (req, res) => {
     try {
