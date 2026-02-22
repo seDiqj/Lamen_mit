@@ -4151,33 +4151,45 @@ export async function registerRoutes(
         return disbDate && disbDate >= cutoffDate;
       });
 
-      const oldModelTotalPrincipal = oldModelLoans.reduce((s: number, l: any) => s + Number(l.principleAmount || 0), 0);
-      const oldModelTotalMargin = oldModelLoans.reduce((s: number, l: any) => {
-        const principal = Number(l.principleAmount || 0);
-        const rate = Number(l.marginRate || 0);
-        return s + (principal * rate);
-      }, 0);
+      const oldModelIds = oldModelLoans.map((l: any) => l.id);
+      const newModelIds = newModelLoans.map((l: any) => l.id);
 
-      const newModelTotalPrincipal = newModelLoans.reduce((s: number, l: any) => s + Number(l.principleAmount || 0), 0);
-      const newModelWeightedRateSum = newModelLoans.reduce((s: number, l: any) => {
-        const principal = Number(l.principleAmount || 0);
-        const ratePercent = normalizeRateToPercent(Number(l.marginRate || 0));
-        return s + (principal * ratePercent);
-      }, 0);
-      const newModelAvgRate = newModelTotalPrincipal > 0
-        ? newModelWeightedRateSum / newModelTotalPrincipal
-        : 0;
+      let oldModelTotalPrincipal = 0;
+      let oldModelTotalMargin = 0;
+      if (oldModelIds.length > 0) {
+        const oldResult = await db
+          .select({
+            totalPrincipal: sql<string>`COALESCE(SUM(${loans.principleAmount}::numeric), 0)`,
+            totalMargin: sql<string>`COALESCE(SUM(${loans.principleAmount}::numeric * ${loans.marginRate}::numeric), 0)`,
+          })
+          .from(loans)
+          .where(inArray(loans.id, oldModelIds));
+        oldModelTotalPrincipal = Number(oldResult[0]?.totalPrincipal || 0);
+        oldModelTotalMargin = Number(oldResult[0]?.totalMargin || 0);
+      }
 
-      const overallWeightedRateSum = disbursedLoans.reduce((s: number, l: any) => {
-        const principal = Number(l.principleAmount || 0);
-        const ratePercent = normalizeRateToPercent(Number(l.marginRate || 0));
-        return s + (principal * ratePercent);
-      }, 0);
+      let newModelTotalPrincipal = 0;
+      let newModelAvgRate = 0;
+      if (newModelIds.length > 0) {
+        const newResult = await db
+          .select({
+            totalPrincipal: sql<string>`COALESCE(SUM(${loans.principleAmount}::numeric), 0)`,
+            weightedRateSum: sql<string>`COALESCE(SUM(${loans.principleAmount}::numeric * ${loans.marginRate}::numeric), 0)`,
+          })
+          .from(loans)
+          .where(inArray(loans.id, newModelIds));
+        newModelTotalPrincipal = Number(newResult[0]?.totalPrincipal || 0);
+        const newWeightedSum = Number(newResult[0]?.weightedRateSum || 0);
+        newModelAvgRate = newModelTotalPrincipal > 0 ? newWeightedSum / newModelTotalPrincipal : 0;
+      }
+
       const avgMarginRate = totalDisbursed > 0
-        ? overallWeightedRateSum / totalDisbursed
+        ? (oldModelLoans.reduce((s: number, l: any) => s + Number(l.principleAmount || 0) * normalizeRateToPercent(Number(l.marginRate || 0)), 0)
+          + newModelLoans.reduce((s: number, l: any) => s + Number(l.principleAmount || 0) * normalizeRateToPercent(Number(l.marginRate || 0)), 0))
+          / totalDisbursed
         : 0;
 
-      const projectionRate = newModelAvgRate > 0 ? newModelAvgRate : (avgMarginRate > 0 ? avgMarginRate : 0);
+      const projectionRate = newModelAvgRate > 0 ? newModelAvgRate : (avgMarginRate > 0 ? avgMarginRate : 16);
       const hasMarginData = projectionRate > 0;
 
       const earliestEntry = await db
