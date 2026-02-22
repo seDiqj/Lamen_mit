@@ -1,16 +1,10 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableRow,
-} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { FileText, FileSpreadsheet } from "lucide-react";
+import { FileText, FileSpreadsheet, ChevronDown, ChevronRight } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { formatDate } from "@/lib/date-utils";
 import { apiRequest } from "@/lib/queryClient";
@@ -19,16 +13,19 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-type AccountItem = {
+type TreeNode = {
+  id: string;
   accountCode: string;
   accountName: string;
   amount: number;
+  children: TreeNode[];
+  isLeaf: boolean;
 };
 
 type BalanceSheetData = {
-  assets: AccountItem[];
-  liabilities: AccountItem[];
-  equity: AccountItem[];
+  assetsTree: TreeNode[];
+  liabilitiesTree: TreeNode[];
+  equityTree: TreeNode[];
   retainedEarnings: number;
   currentPeriodNetIncome: number;
   netIncome: number;
@@ -38,11 +35,103 @@ type BalanceSheetData = {
   asOfDate: string;
 };
 
+function formatAmount(amount: number): string {
+  if (amount === 0) return "";
+  const formatted = formatCurrency(Math.abs(amount).toString());
+  return amount < 0 ? `-${formatted}` : formatted;
+}
+
+function formatAmountNum(amount: number): string {
+  if (amount === 0) return "0.00";
+  const abs = Math.abs(amount).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return amount < 0 ? `-${abs}` : abs;
+}
+
+function AccountTreeRow({
+  node,
+  depth,
+  expanded,
+  onToggle,
+}: {
+  node: TreeNode;
+  depth: number;
+  expanded: Record<string, boolean>;
+  onToggle: (id: string) => void;
+}) {
+  const isExpanded = expanded[node.id] !== false;
+  const hasChildren = node.children.length > 0;
+  const indent = depth * 24;
+
+  return (
+    <>
+      <tr
+        className={`border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/40 transition-colors ${
+          hasChildren ? "cursor-pointer" : ""
+        } ${hasChildren && depth === 0 ? "font-semibold" : ""}`}
+        onClick={hasChildren ? () => onToggle(node.id) : undefined}
+        data-testid={`row-account-${node.accountCode}`}
+      >
+        <td className="py-1.5 pr-2" style={{ paddingLeft: `${indent + 8}px` }}>
+          <div className="flex items-center gap-1">
+            {hasChildren ? (
+              <span className="flex-shrink-0 w-4 h-4 flex items-center justify-center text-muted-foreground">
+                {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+              </span>
+            ) : (
+              <span className="w-4" />
+            )}
+            <span className="text-sm">
+              {hasChildren ? (
+                <span className="font-medium">{node.accountCode} {node.accountName}</span>
+              ) : (
+                <span>{node.accountCode} {node.accountName}</span>
+              )}
+            </span>
+          </div>
+        </td>
+        <td className="py-1.5 text-right pr-4 tabular-nums text-sm whitespace-nowrap">
+          {node.isLeaf ? (
+            <span>{formatAmountNum(node.amount)}</span>
+          ) : hasChildren && !isExpanded ? (
+            <span className="font-medium">{formatAmount(node.amount)}</span>
+          ) : null}
+        </td>
+      </tr>
+      {hasChildren && isExpanded && (
+        <>
+          {node.children.map((child) => (
+            <AccountTreeRow
+              key={child.id}
+              node={child}
+              depth={depth + 1}
+              expanded={expanded}
+              onToggle={onToggle}
+            />
+          ))}
+          <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/20">
+            <td className="py-1.5 pr-2 font-semibold text-sm" style={{ paddingLeft: `${(depth + 1) * 24 + 8 + 20}px` }}>
+              Total for {node.accountCode} {node.accountName}
+            </td>
+            <td className="py-1.5 text-right pr-4 font-semibold tabular-nums text-sm whitespace-nowrap">
+              {formatAmount(node.amount)}
+            </td>
+          </tr>
+        </>
+      )}
+    </>
+  );
+}
+
 export default function BalanceSheet() {
   const [asOfDate, setAsOfDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [data, setData] = useState<BalanceSheetData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
+
+  const onToggle = useCallback((id: string) => {
+    setExpanded((prev) => ({ ...prev, [id]: prev[id] === false ? true : (prev[id] === undefined ? false : !prev[id]) }));
+  }, []);
 
   const fetchReport = async () => {
     setIsLoading(true);
@@ -61,181 +150,152 @@ export default function BalanceSheet() {
 
   const isBalanced = data ? Math.abs(data.totalAssets - (data.totalLiabilities + data.totalEquity)) < 0.01 : true;
 
+  const flattenTree = (nodes: TreeNode[], depth = 0): { accountCode: string; accountName: string; amount: number; depth: number; isParent: boolean; isTotalRow?: boolean }[] => {
+    const rows: any[] = [];
+    for (const node of nodes) {
+      const hasChildren = node.children.length > 0;
+      rows.push({ accountCode: node.accountCode, accountName: node.accountName, amount: node.amount, depth, isParent: hasChildren });
+      if (hasChildren) {
+        rows.push(...flattenTree(node.children, depth + 1));
+        rows.push({ accountCode: "", accountName: `Total for ${node.accountCode} ${node.accountName}`, amount: node.amount, depth: depth + 1, isParent: false, isTotalRow: true });
+      }
+    }
+    return rows;
+  };
+
   const handleExportExcel = () => {
     if (!data) return;
-
     const exportData: any[] = [];
-    
-    exportData.push({ "Account Code": "", "Account Name": "ASSETS", "Amount (AFN)": "" });
-    data.assets.filter(a => a.amount !== 0).forEach(item => {
+    exportData.push({ Account: "ASSETS", Total: "" });
+    flattenTree(data.assetsTree).forEach(r => {
+      const indent = "  ".repeat(r.depth);
       exportData.push({
-        "Account Code": item.accountCode,
-        "Account Name": item.accountName,
-        "Amount (AFN)": item.amount,
+        Account: `${indent}${r.accountCode} ${r.accountName}`,
+        Total: r.isTotalRow || r.isParent ? (r.isParent && !r.isTotalRow ? "" : r.amount) : r.amount,
       });
     });
-    exportData.push({ "Account Code": "", "Account Name": "Total Assets", "Amount (AFN)": data.totalAssets });
-    
-    exportData.push({ "Account Code": "", "Account Name": "", "Amount (AFN)": "" });
-    exportData.push({ "Account Code": "", "Account Name": "LIABILITIES", "Amount (AFN)": "" });
-    data.liabilities.filter(l => l.amount !== 0).forEach(item => {
+    exportData.push({ Account: "Total for Assets", Total: data.totalAssets });
+    exportData.push({ Account: "", Total: "" });
+
+    exportData.push({ Account: "LIABILITIES AND SHAREHOLDER'S EQUITY", Total: "" });
+    flattenTree(data.liabilitiesTree).forEach(r => {
+      const indent = "  ".repeat(r.depth);
       exportData.push({
-        "Account Code": item.accountCode,
-        "Account Name": item.accountName,
-        "Amount (AFN)": item.amount,
+        Account: `${indent}${r.accountCode} ${r.accountName}`,
+        Total: r.isTotalRow || r.isParent ? (r.isParent && !r.isTotalRow ? "" : r.amount) : r.amount,
       });
     });
-    exportData.push({ "Account Code": "", "Account Name": "Total Liabilities", "Amount (AFN)": data.totalLiabilities });
-    
-    exportData.push({ "Account Code": "", "Account Name": "", "Amount (AFN)": "" });
-    exportData.push({ "Account Code": "", "Account Name": "EQUITY", "Amount (AFN)": "" });
-    data.equity.filter(e => e.amount !== 0).forEach(item => {
+    exportData.push({ Account: "Total for Liabilities", Total: data.totalLiabilities });
+    exportData.push({ Account: "", Total: "" });
+
+    exportData.push({ Account: "SHAREHOLDER'S EQUITY", Total: "" });
+    flattenTree(data.equityTree).forEach(r => {
+      const indent = "  ".repeat(r.depth);
       exportData.push({
-        "Account Code": item.accountCode,
-        "Account Name": item.accountName,
-        "Amount (AFN)": item.amount,
+        Account: `${indent}${r.accountCode} ${r.accountName}`,
+        Total: r.isTotalRow || r.isParent ? (r.isParent && !r.isTotalRow ? "" : r.amount) : r.amount,
       });
     });
-    if (data.retainedEarnings !== 0) {
-      exportData.push({
-        "Account Code": "",
-        "Account Name": "Retained Earnings",
-        "Amount (AFN)": data.retainedEarnings,
-      });
-    }
-    if (data.currentPeriodNetIncome !== 0) {
-      exportData.push({
-        "Account Code": "",
-        "Account Name": data.currentPeriodNetIncome >= 0 ? "Current Period Net Income" : "Current Period Net Loss",
-        "Amount (AFN)": data.currentPeriodNetIncome,
-      });
-    }
-    exportData.push({ "Account Code": "", "Account Name": "Total Equity", "Amount (AFN)": data.totalEquity });
-    
-    exportData.push({ "Account Code": "", "Account Name": "", "Amount (AFN)": "" });
-    exportData.push({ "Account Code": "", "Account Name": "TOTAL LIABILITIES & EQUITY", "Amount (AFN)": data.totalLiabilities + data.totalEquity });
+    if (data.retainedEarnings !== 0) exportData.push({ Account: "  Retained Earnings", Total: data.retainedEarnings });
+    if (data.currentPeriodNetIncome !== 0) exportData.push({ Account: "  Net Income", Total: data.currentPeriodNetIncome });
+    exportData.push({ Account: "Total for Shareholder's Equity", Total: data.totalEquity });
+    exportData.push({ Account: "", Total: "" });
+    exportData.push({ Account: "Total for Liabilities and Shareholder's Equity", Total: data.totalLiabilities + data.totalEquity });
 
     const ws = XLSX.utils.json_to_sheet(exportData);
-    ws["!cols"] = [{ wch: 15 }, { wch: 45 }, { wch: 20 }];
-
+    ws["!cols"] = [{ wch: 60 }, { wch: 20 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Balance Sheet");
-
-    const dateStr = asOfDate.replace(/-/g, "");
-    XLSX.writeFile(wb, `Balance_Sheet_${dateStr}.xlsx`);
+    XLSX.writeFile(wb, `Balance_Sheet_${asOfDate.replace(/-/g, "")}.xlsx`);
   };
 
   const handleExportPDF = () => {
     if (!data) return;
-
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-
-    doc.setFontSize(18);
+    doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
-    doc.text("Lamen Microfinance Institution", 105, 20, { align: "center" });
-
-    doc.setFontSize(14);
-    doc.text("Balance Sheet", 105, 30, { align: "center" });
-
+    doc.text("Balance Sheet", 105, 18, { align: "center" });
+    doc.setFontSize(11);
+    doc.text("Lamen Microfinance Institution (LMI)", 105, 26, { align: "center" });
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    doc.text(`As of: ${formatDate(asOfDate)}`, 105, 38, { align: "center" });
-
-    doc.setFontSize(9);
-    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 105, 44, { align: "center" });
+    doc.text(`As of ${formatDate(asOfDate)}`, 105, 33, { align: "center" });
 
     const tableData: any[] = [];
-    
-    tableData.push([{ content: "ASSETS", colSpan: 3, styles: { fontStyle: "bold", fillColor: [219, 234, 254] } }]);
-    data.assets.filter(a => a.amount !== 0).forEach(item => {
+    const addSection = (title: string, nodes: TreeNode[], totalLabel: string, totalAmount: number, extraRows?: { label: string; amount: number }[]) => {
+      tableData.push([{ content: title, styles: { fontStyle: "bold" } }, ""]);
+      flattenTree(nodes).forEach(r => {
+        const indent = "  ".repeat(r.depth);
+        const name = `${indent}${r.accountCode} ${r.accountName}`;
+        const amt = r.isParent && !r.isTotalRow ? "" : formatAmountNum(r.amount);
+        const styles = r.isTotalRow ? { fontStyle: "bold" as const, fillColor: [240, 240, 240] as [number, number, number] } : r.isParent ? { fontStyle: "bold" as const } : {};
+        tableData.push([{ content: name, styles }, { content: amt, styles: { ...styles, halign: "right" as const } }]);
+      });
+      if (extraRows) {
+        extraRows.forEach(er => {
+          tableData.push([`  ${er.label}`, { content: formatAmountNum(er.amount), styles: { halign: "right" as const } }]);
+        });
+      }
       tableData.push([
-        item.accountCode,
-        item.accountName,
-        formatCurrency(item.amount.toString()).replace("AFN", "").trim()
+        { content: totalLabel, styles: { fontStyle: "bold", fillColor: [220, 220, 220] } },
+        { content: formatAmount(totalAmount), styles: { fontStyle: "bold", halign: "right", fillColor: [220, 220, 220] } },
       ]);
+      tableData.push(["", ""]);
+    };
+
+    addSection("Assets", data.assetsTree, "Total for Assets", data.totalAssets);
+
+    const equityExtras: { label: string; amount: number }[] = [];
+    if (data.retainedEarnings !== 0) equityExtras.push({ label: "Retained Earnings", amount: data.retainedEarnings });
+    if (data.currentPeriodNetIncome !== 0) equityExtras.push({ label: "Net Income", amount: data.currentPeriodNetIncome });
+
+    tableData.push([{ content: "Liabilities and Shareholder's Equity", styles: { fontStyle: "bold" } }, ""]);
+    flattenTree(data.liabilitiesTree).forEach(r => {
+      const indent = "  ".repeat(r.depth);
+      const name = `${indent}${r.accountCode} ${r.accountName}`;
+      const amt = r.isParent && !r.isTotalRow ? "" : formatAmountNum(r.amount);
+      const styles = r.isTotalRow ? { fontStyle: "bold" as const, fillColor: [240, 240, 240] as [number, number, number] } : r.isParent ? { fontStyle: "bold" as const } : {};
+      tableData.push([{ content: name, styles }, { content: amt, styles: { ...styles, halign: "right" as const } }]);
     });
     tableData.push([
-      "",
-      { content: "Total Assets", styles: { fontStyle: "bold" } },
-      { content: formatCurrency(data.totalAssets.toString()).replace("AFN", "").trim(), styles: { fontStyle: "bold", fillColor: [191, 219, 254] } }
+      { content: "Total for Liabilities", styles: { fontStyle: "bold", fillColor: [220, 220, 220] } },
+      { content: formatAmount(data.totalLiabilities), styles: { fontStyle: "bold", halign: "right", fillColor: [220, 220, 220] } },
     ]);
+    tableData.push(["", ""]);
 
-    tableData.push(["", "", ""]);
-    tableData.push([{ content: "LIABILITIES", colSpan: 3, styles: { fontStyle: "bold", fillColor: [254, 226, 226] } }]);
-    data.liabilities.filter(l => l.amount !== 0).forEach(item => {
-      tableData.push([
-        item.accountCode,
-        item.accountName,
-        formatCurrency(item.amount.toString()).replace("AFN", "").trim()
-      ]);
+    tableData.push([{ content: "Shareholder's Equity", styles: { fontStyle: "bold" } }, ""]);
+    flattenTree(data.equityTree).forEach(r => {
+      const indent = "  ".repeat(r.depth);
+      const name = `${indent}${r.accountCode} ${r.accountName}`;
+      const amt = r.isParent && !r.isTotalRow ? "" : formatAmountNum(r.amount);
+      const styles = r.isTotalRow ? { fontStyle: "bold" as const, fillColor: [240, 240, 240] as [number, number, number] } : r.isParent ? { fontStyle: "bold" as const } : {};
+      tableData.push([{ content: name, styles }, { content: amt, styles: { ...styles, halign: "right" as const } }]);
+    });
+    equityExtras.forEach(er => {
+      tableData.push([`  ${er.label}`, { content: formatAmountNum(er.amount), styles: { halign: "right" as const } }]);
     });
     tableData.push([
-      "",
-      { content: "Total Liabilities", styles: { fontStyle: "bold" } },
-      { content: formatCurrency(data.totalLiabilities.toString()).replace("AFN", "").trim(), styles: { fontStyle: "bold", fillColor: [254, 202, 202] } }
+      { content: "Total for Shareholder's Equity", styles: { fontStyle: "bold", fillColor: [220, 220, 220] } },
+      { content: formatAmount(data.totalEquity), styles: { fontStyle: "bold", halign: "right", fillColor: [220, 220, 220] } },
     ]);
-
-    tableData.push(["", "", ""]);
-    tableData.push([{ content: "EQUITY", colSpan: 3, styles: { fontStyle: "bold", fillColor: [243, 232, 255] } }]);
-    data.equity.filter(e => e.amount !== 0).forEach(item => {
-      tableData.push([
-        item.accountCode,
-        item.accountName,
-        formatCurrency(item.amount.toString()).replace("AFN", "").trim()
-      ]);
-    });
-    if (data.retainedEarnings !== 0) {
-      const reLabel = "Retained Earnings";
-      const reFillColor = data.retainedEarnings >= 0 ? [219, 234, 254] : [254, 215, 170];
-      tableData.push([
-        "",
-        { content: reLabel, styles: { fontStyle: "italic" } },
-        { content: formatCurrency(Math.abs(data.retainedEarnings).toString()).replace("AFN", "").trim() + (data.retainedEarnings < 0 ? " (Loss)" : ""), styles: { fillColor: reFillColor } }
-      ]);
-    }
-    if (data.currentPeriodNetIncome !== 0) {
-      const netIncomeLabel = data.currentPeriodNetIncome >= 0 ? "Current Period Net Income" : "Current Period Net Loss";
-      const fillColor = data.currentPeriodNetIncome >= 0 ? [220, 252, 231] : [254, 226, 226];
-      tableData.push([
-        "",
-        { content: netIncomeLabel, styles: { fontStyle: "italic" } },
-        { content: formatCurrency(Math.abs(data.currentPeriodNetIncome).toString()).replace("AFN", "").trim() + (data.currentPeriodNetIncome < 0 ? " (Loss)" : ""), styles: { fillColor } }
-      ]);
-    }
+    tableData.push(["", ""]);
     tableData.push([
-      "",
-      { content: "Total Equity", styles: { fontStyle: "bold" } },
-      { content: formatCurrency(data.totalEquity.toString()).replace("AFN", "").trim(), styles: { fontStyle: "bold", fillColor: [233, 213, 255] } }
-    ]);
-
-    tableData.push(["", "", ""]);
-    tableData.push([
-      "",
-      { content: "TOTAL LIABILITIES & EQUITY", styles: { fontStyle: "bold" } },
-      { content: formatCurrency((data.totalLiabilities + data.totalEquity).toString()).replace("AFN", "").trim(), styles: { fontStyle: "bold", fillColor: [240, 240, 240] } }
+      { content: "Total for Liabilities and Shareholder's Equity", styles: { fontStyle: "bold", fillColor: [200, 200, 200] } },
+      { content: formatAmount(data.totalLiabilities + data.totalEquity), styles: { fontStyle: "bold", halign: "right", fillColor: [200, 200, 200] } },
     ]);
 
     autoTable(doc, {
-      startY: 50,
-      head: [["Account Code", "Account Name", "Amount (AFN)"]],
+      startY: 40,
+      head: [["Account", "Total"]],
       body: tableData,
-      theme: "grid",
-      headStyles: { fillColor: [34, 139, 34], textColor: [255, 255, 255], fontStyle: "bold", halign: "center" },
+      theme: "plain",
+      headStyles: { fillColor: [245, 245, 245], textColor: [0, 0, 0], fontStyle: "bold", lineWidth: { bottom: 0.5 } },
       columnStyles: {
-        0: { halign: "left", cellWidth: 30 },
-        1: { halign: "left", cellWidth: 100 },
-        2: { halign: "right", cellWidth: 40 },
+        0: { halign: "left", cellWidth: 130 },
+        1: { halign: "right", cellWidth: 40 },
       },
-      styles: { fontSize: 9, cellPadding: 2 },
+      styles: { fontSize: 8, cellPadding: 1.5, lineColor: [220, 220, 220], lineWidth: 0.1 },
     });
-
-    const finalY = (doc as any).lastAutoTable?.finalY || 200;
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    const statusText = isBalanced ? "Status: BALANCED" : "Status: OUT OF BALANCE";
-    const statusColor = isBalanced ? [34, 139, 34] : [220, 38, 38];
-    doc.setTextColor(statusColor[0], statusColor[1], statusColor[2]);
-    doc.text(statusText, 105, finalY + 10, { align: "center" });
 
     const pageCount = doc.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
@@ -243,12 +303,37 @@ export default function BalanceSheet() {
       doc.setFontSize(8);
       doc.setTextColor(128, 128, 128);
       doc.text(`Page ${i} of ${pageCount}`, 105, 290, { align: "center" });
-      doc.text("Lamen Microfinance Institution - Confidential", 14, 290);
     }
 
-    const dateStr = asOfDate.replace(/-/g, "");
-    const balanceStatus = isBalanced ? "Balanced" : "OUT_OF_BALANCE";
-    doc.save(`Balance_Sheet_${dateStr}_${balanceStatus}.pdf`);
+    doc.save(`Balance_Sheet_${asOfDate.replace(/-/g, "")}.pdf`);
+  };
+
+  const categorizeAssets = (nodes: TreeNode[]) => {
+    const currentAssetCodes = ["10000", "11000", "12000", "12900", "13000", "18000"];
+    const current: TreeNode[] = [];
+    const longTerm: TreeNode[] = [];
+    for (const node of nodes) {
+      if (currentAssetCodes.includes(node.accountCode) || parseInt(node.accountCode) < 14000) {
+        current.push(node);
+      } else {
+        longTerm.push(node);
+      }
+    }
+    return { current, longTerm };
+  };
+
+  const categorizeLiabilities = (nodes: TreeNode[]) => {
+    const currentCodes = ["20100", "20110", "20130", "20140", "20150", "20800", "20900", "21000"];
+    const current: TreeNode[] = [];
+    const nonCurrent: TreeNode[] = [];
+    for (const node of nodes) {
+      if (currentCodes.includes(node.accountCode) || (parseInt(node.accountCode) >= 20100 && parseInt(node.accountCode) < 20200) || parseInt(node.accountCode) >= 20800) {
+        current.push(node);
+      } else {
+        nonCurrent.push(node);
+      }
+    }
+    return { current, nonCurrent };
   };
 
   return (
@@ -293,125 +378,243 @@ export default function BalanceSheet() {
       </Card>
 
       {data && (
-        <div className="flex flex-col gap-4">
-          <Card className="print:shadow-none">
-            <CardHeader className="border-b bg-blue-50 dark:bg-blue-950/30">
-              <CardTitle className="text-lg text-blue-600">Assets</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-4">
-              <Table>
-                <TableBody>
-                  {data.assets.length > 0 ? data.assets.filter(a => a.amount !== 0).map((item, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell className="font-mono w-24">{item.accountCode}</TableCell>
-                      <TableCell>{item.accountName}</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency(item.amount.toString())}</TableCell>
-                    </TableRow>
-                  )) : (
-                    <TableRow>
-                      <TableCell colSpan={3} className="text-center text-muted-foreground py-4">No assets recorded</TableCell>
-                    </TableRow>
-                  )}
-                  <TableRow className="bg-blue-100 dark:bg-blue-950/50 font-bold">
-                    <TableCell colSpan={2}>Total Assets</TableCell>
-                    <TableCell className="text-right font-mono">{formatCurrency(data.totalAssets.toString())}</TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+        <Card className="print:shadow-none">
+          <CardContent className="p-0">
+            <div className="text-center py-4 border-b">
+              <h2 className="text-xl font-bold">Balance Sheet</h2>
+              <p className="text-sm text-muted-foreground">Lamen Microfinance Institution (LMI)</p>
+              <p className="text-sm text-muted-foreground">As of {formatDate(asOfDate)}</p>
+            </div>
 
-          <Card className="print:shadow-none">
-            <CardHeader className="border-b bg-red-50 dark:bg-red-950/30">
-              <CardTitle className="text-lg text-red-600">Liabilities</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-4">
-              <Table>
-                <TableBody>
-                  {data.liabilities.length > 0 ? data.liabilities.filter(l => l.amount !== 0).map((item, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell className="font-mono w-24">{item.accountCode}</TableCell>
-                      <TableCell>{item.accountName}</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency(item.amount.toString())}</TableCell>
-                    </TableRow>
-                  )) : (
-                    <TableRow>
-                      <TableCell colSpan={3} className="text-center text-muted-foreground py-2 text-sm">No liabilities</TableCell>
-                    </TableRow>
-                  )}
-                  <TableRow className="bg-red-100 dark:bg-red-950/50 font-semibold">
-                    <TableCell colSpan={2}>Total Liabilities</TableCell>
-                    <TableCell className="text-right font-mono">{formatCurrency(data.totalLiabilities.toString())}</TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+            <div className="overflow-x-auto">
+              <table className="w-full" data-testid="table-balance-sheet">
+                <thead>
+                  <tr className="border-b-2 border-gray-300 dark:border-gray-600">
+                    <th className="text-left py-2 pl-2 pr-2 text-sm font-semibold">Account</th>
+                    <th className="text-right py-2 pr-4 text-sm font-semibold w-48">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    const { current: currentAssets, longTerm: longTermAssets } = categorizeAssets(data.assetsTree);
+                    const { current: currentLiab, nonCurrent: nonCurrentLiab } = categorizeLiabilities(data.liabilitiesTree);
+                    const currentAssetsTotal = currentAssets.reduce((s, n) => s + n.amount, 0);
+                    const longTermTotal = longTermAssets.reduce((s, n) => s + n.amount, 0);
+                    const currentLiabTotal = currentLiab.reduce((s, n) => s + n.amount, 0);
+                    const nonCurrentLiabTotal = nonCurrentLiab.reduce((s, n) => s + n.amount, 0);
 
-          <Card className="print:shadow-none">
-            <CardHeader className="border-b bg-purple-50 dark:bg-purple-950/30">
-              <CardTitle className="text-lg text-purple-600">Equity</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-4">
-              <Table>
-                <TableBody>
-                  {data.equity.length > 0 ? data.equity.filter(e => e.amount !== 0).map((item, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell className="font-mono w-24">{item.accountCode}</TableCell>
-                      <TableCell>{item.accountName}</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency(item.amount.toString())}</TableCell>
-                    </TableRow>
-                  )) : (
-                    <TableRow>
-                      <TableCell colSpan={3} className="text-center text-muted-foreground py-2 text-sm">No equity recorded</TableCell>
-                    </TableRow>
-                  )}
-                  {data.retainedEarnings !== 0 && (
-                    <TableRow className={data.retainedEarnings >= 0 ? "bg-blue-50 dark:bg-blue-950/30" : "bg-orange-50 dark:bg-orange-950/30"} data-testid="row-retained-earnings">
-                      <TableCell className="font-mono w-24"></TableCell>
-                      <TableCell className="italic">Retained Earnings</TableCell>
-                      <TableCell className={`text-right font-mono ${data.retainedEarnings >= 0 ? "text-blue-600" : "text-orange-600"}`} data-testid="text-retained-earnings">
-                        {formatCurrency(Math.abs(data.retainedEarnings).toString())}
-                        {data.retainedEarnings < 0 && " (Loss)"}
-                      </TableCell>
-                    </TableRow>
-                  )}
-                  {data.currentPeriodNetIncome !== 0 && (
-                    <TableRow className={data.currentPeriodNetIncome >= 0 ? "bg-green-50 dark:bg-green-950/30" : "bg-red-50 dark:bg-red-950/30"} data-testid="row-current-period-net-income">
-                      <TableCell className="font-mono w-24"></TableCell>
-                      <TableCell className="italic">
-                        {data.currentPeriodNetIncome >= 0 ? "Current Period Net Income" : "Current Period Net Loss"}
-                      </TableCell>
-                      <TableCell className={`text-right font-mono ${data.currentPeriodNetIncome >= 0 ? "text-green-600" : "text-red-600"}`} data-testid="text-current-period-net-income">
-                        {formatCurrency(Math.abs(data.currentPeriodNetIncome).toString())}
-                        {data.currentPeriodNetIncome < 0 && " (Loss)"}
-                      </TableCell>
-                    </TableRow>
-                  )}
-                  <TableRow className="bg-purple-100 dark:bg-purple-950/50 font-semibold">
-                    <TableCell colSpan={2}>Total Equity</TableCell>
-                    <TableCell className="text-right font-mono">{formatCurrency(data.totalEquity.toString())}</TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+                    return (
+                      <>
+                        <tr
+                          className="border-b-2 border-gray-300 dark:border-gray-600 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900/40"
+                          onClick={() => onToggle("section-Assets")}
+                          data-testid="row-section-assets"
+                        >
+                          <td className="py-2 pl-2 pr-2" colSpan={2}>
+                            <div className="flex items-center gap-1">
+                              <span className="flex-shrink-0 w-4 h-4 flex items-center justify-center text-muted-foreground">
+                                {expanded["section-Assets"] !== false ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                              </span>
+                              <span className="font-bold text-sm">Assets</span>
+                            </div>
+                          </td>
+                        </tr>
+                        {expanded["section-Assets"] !== false && (
+                          <>
+                            <tr
+                              className="border-b border-gray-100 dark:border-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900/40"
+                              onClick={() => onToggle("sub-current-assets")}
+                              data-testid="row-current-assets"
+                            >
+                              <td className="py-1.5 pl-8 pr-2" colSpan={2}>
+                                <div className="flex items-center gap-1">
+                                  <span className="flex-shrink-0 w-4 h-4 flex items-center justify-center text-muted-foreground">
+                                    {expanded["sub-current-assets"] !== false ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                                  </span>
+                                  <span className="font-semibold text-sm">Current Assets</span>
+                                </div>
+                              </td>
+                            </tr>
+                            {expanded["sub-current-assets"] !== false && (
+                              <>
+                                {currentAssets.map((node) => (
+                                  <AccountTreeRow key={node.id} node={node} depth={2} expanded={expanded} onToggle={onToggle} />
+                                ))}
+                                <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/20">
+                                  <td className="py-1.5 pl-16 pr-2 font-semibold text-sm">Total for Current Assets</td>
+                                  <td className="py-1.5 text-right pr-4 font-semibold tabular-nums text-sm whitespace-nowrap">{formatAmount(currentAssetsTotal)}</td>
+                                </tr>
+                              </>
+                            )}
+                            {longTermAssets.length > 0 && (
+                              <>
+                                <tr
+                                  className="border-b border-gray-100 dark:border-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900/40"
+                                  onClick={() => onToggle("sub-longterm-assets")}
+                                  data-testid="row-longterm-assets"
+                                >
+                                  <td className="py-1.5 pl-8 pr-2" colSpan={2}>
+                                    <div className="flex items-center gap-1">
+                                      <span className="flex-shrink-0 w-4 h-4 flex items-center justify-center text-muted-foreground">
+                                        {expanded["sub-longterm-assets"] !== false ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                                      </span>
+                                      <span className="font-semibold text-sm">Long-term assets</span>
+                                    </div>
+                                  </td>
+                                </tr>
+                                {expanded["sub-longterm-assets"] !== false && (
+                                  <>
+                                    {longTermAssets.map((node) => (
+                                      <AccountTreeRow key={node.id} node={node} depth={2} expanded={expanded} onToggle={onToggle} />
+                                    ))}
+                                    <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/20">
+                                      <td className="py-1.5 pl-16 pr-2 font-semibold text-sm">Total for Long-term assets</td>
+                                      <td className="py-1.5 text-right pr-4 font-semibold tabular-nums text-sm whitespace-nowrap">{formatAmount(longTermTotal)}</td>
+                                    </tr>
+                                  </>
+                                )}
+                              </>
+                            )}
+                            <tr className="border-b-2 border-gray-300 dark:border-gray-600 bg-gray-100/60 dark:bg-gray-800/40">
+                              <td className="py-2 pl-8 pr-2 font-bold text-sm">Total for Assets</td>
+                              <td className="py-2 text-right pr-4 font-bold tabular-nums text-sm whitespace-nowrap">{formatAmount(data.totalAssets)}</td>
+                            </tr>
+                          </>
+                        )}
 
-          <Card className="print:shadow-none border-2 border-primary/20">
-            <CardContent className="py-4">
-              <Table>
-                <TableBody>
-                  <TableRow className="font-bold text-lg">
-                    <TableCell colSpan={2}>Total Liabilities & Equity</TableCell>
-                    <TableCell className="text-right font-mono">
-                      {formatCurrency((data.totalLiabilities + data.totalEquity).toString())}
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </div>
+                        <tr
+                          className="border-b-2 border-gray-300 dark:border-gray-600 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900/40"
+                          onClick={() => onToggle("section-liab-equity")}
+                          data-testid="row-section-liabilities-equity"
+                        >
+                          <td className="py-2 pl-2 pr-2" colSpan={2}>
+                            <div className="flex items-center gap-1">
+                              <span className="flex-shrink-0 w-4 h-4 flex items-center justify-center text-muted-foreground">
+                                {expanded["section-liab-equity"] !== false ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                              </span>
+                              <span className="font-bold text-sm">Liabilities and Shareholder's Equity</span>
+                            </div>
+                          </td>
+                        </tr>
+
+                        {expanded["section-liab-equity"] !== false && (
+                          <>
+                            {currentLiab.length > 0 && (
+                              <>
+                                <tr
+                                  className="border-b border-gray-100 dark:border-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900/40"
+                                  onClick={() => onToggle("sub-current-liab")}
+                                >
+                                  <td className="py-1.5 pl-8 pr-2" colSpan={2}>
+                                    <div className="flex items-center gap-1">
+                                      <span className="flex-shrink-0 w-4 h-4 flex items-center justify-center text-muted-foreground">
+                                        {expanded["sub-current-liab"] !== false ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                                      </span>
+                                      <span className="font-semibold text-sm">Current Liabilities</span>
+                                    </div>
+                                  </td>
+                                </tr>
+                                {expanded["sub-current-liab"] !== false && (
+                                  <>
+                                    {currentLiab.map((node) => (
+                                      <AccountTreeRow key={node.id} node={node} depth={2} expanded={expanded} onToggle={onToggle} />
+                                    ))}
+                                    <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/20">
+                                      <td className="py-1.5 pl-16 pr-2 font-semibold text-sm">Total for Current Liabilities</td>
+                                      <td className="py-1.5 text-right pr-4 font-semibold tabular-nums text-sm whitespace-nowrap">{formatAmount(currentLiabTotal)}</td>
+                                    </tr>
+                                  </>
+                                )}
+                              </>
+                            )}
+                            {nonCurrentLiab.length > 0 && (
+                              <>
+                                <tr
+                                  className="border-b border-gray-100 dark:border-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900/40"
+                                  onClick={() => onToggle("sub-noncurrent-liab")}
+                                >
+                                  <td className="py-1.5 pl-8 pr-2" colSpan={2}>
+                                    <div className="flex items-center gap-1">
+                                      <span className="flex-shrink-0 w-4 h-4 flex items-center justify-center text-muted-foreground">
+                                        {expanded["sub-noncurrent-liab"] !== false ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                                      </span>
+                                      <span className="font-semibold text-sm">Non-current Liabilities</span>
+                                    </div>
+                                  </td>
+                                </tr>
+                                {expanded["sub-noncurrent-liab"] !== false && (
+                                  <>
+                                    {nonCurrentLiab.map((node) => (
+                                      <AccountTreeRow key={node.id} node={node} depth={2} expanded={expanded} onToggle={onToggle} />
+                                    ))}
+                                    <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/20">
+                                      <td className="py-1.5 pl-16 pr-2 font-semibold text-sm">Total for Non-current Liabilities</td>
+                                      <td className="py-1.5 text-right pr-4 font-semibold tabular-nums text-sm whitespace-nowrap">{formatAmount(nonCurrentLiabTotal)}</td>
+                                    </tr>
+                                  </>
+                                )}
+                              </>
+                            )}
+
+                            <tr
+                              className="border-b border-gray-100 dark:border-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900/40"
+                              onClick={() => onToggle("sub-equity")}
+                            >
+                              <td className="py-1.5 pl-8 pr-2" colSpan={2}>
+                                <div className="flex items-center gap-1">
+                                  <span className="flex-shrink-0 w-4 h-4 flex items-center justify-center text-muted-foreground">
+                                    {expanded["sub-equity"] !== false ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                                  </span>
+                                  <span className="font-semibold text-sm">Shareholder's Equity</span>
+                                </div>
+                              </td>
+                            </tr>
+                            {expanded["sub-equity"] !== false && (
+                              <>
+                                {data.equityTree.map((node) => (
+                                  <AccountTreeRow key={node.id} node={node} depth={2} expanded={expanded} onToggle={onToggle} />
+                                ))}
+                                {data.retainedEarnings !== 0 && (
+                                  <tr className="border-b border-gray-100 dark:border-gray-800">
+                                    <td className="py-1.5 text-sm" style={{ paddingLeft: `${2 * 24 + 8 + 20}px` }}>
+                                      Retained Earnings
+                                    </td>
+                                    <td className="py-1.5 text-right pr-4 tabular-nums text-sm whitespace-nowrap">
+                                      {formatAmountNum(data.retainedEarnings)}
+                                    </td>
+                                  </tr>
+                                )}
+                                {data.currentPeriodNetIncome !== 0 && (
+                                  <tr className="border-b border-gray-100 dark:border-gray-800">
+                                    <td className="py-1.5 text-sm" style={{ paddingLeft: `${2 * 24 + 8 + 20}px` }}>
+                                      Net Income
+                                    </td>
+                                    <td className="py-1.5 text-right pr-4 tabular-nums text-sm whitespace-nowrap">
+                                      {formatAmountNum(data.currentPeriodNetIncome)}
+                                    </td>
+                                  </tr>
+                                )}
+                                <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/20">
+                                  <td className="py-1.5 pl-16 pr-2 font-semibold text-sm">Total for Shareholder's Equity</td>
+                                  <td className="py-1.5 text-right pr-4 font-semibold tabular-nums text-sm whitespace-nowrap">{formatAmount(data.totalEquity)}</td>
+                                </tr>
+                              </>
+                            )}
+
+                            <tr className="border-b-2 border-gray-300 dark:border-gray-600 bg-gray-100/60 dark:bg-gray-800/40">
+                              <td className="py-2 pl-8 pr-2 font-bold text-sm">Total for Liabilities and Shareholder's Equity</td>
+                              <td className="py-2 text-right pr-4 font-bold tabular-nums text-sm whitespace-nowrap">{formatAmount(data.totalLiabilities + data.totalEquity)}</td>
+                            </tr>
+                          </>
+                        )}
+                      </>
+                    );
+                  })()}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {data && (

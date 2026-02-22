@@ -4155,34 +4155,66 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getBalanceSheet(asOfDate: string): Promise<any> {
-    const assetAccounts = await db.select().from(accounts).where(eq(accounts.accountType, 'asset'));
-    const liabilityAccounts = await db.select().from(accounts).where(eq(accounts.accountType, 'liability'));
-    const equityAccounts = await db.select().from(accounts).where(eq(accounts.accountType, 'equity'));
-    const incomeAccounts = await db.select().from(accounts).where(eq(accounts.accountType, 'income'));
-    const expenseAccounts = await db.select().from(accounts).where(eq(accounts.accountType, 'expense'));
-    
-    const sortByCode = (a: any, b: any) => (a.accountCode || "").localeCompare(b.accountCode || "", undefined, { numeric: true });
+    const allAccounts = await db.select().from(accounts);
+    const incomeAccounts = allAccounts.filter(a => a.accountType === 'income');
+    const expenseAccounts = allAccounts.filter(a => a.accountType === 'expense');
 
-    const assets = assetAccounts.map(acc => ({
-      accountCode: acc.accountCode,
-      accountName: acc.accountName,
-      amount: Number(acc.currentBalance || 0),
-    })).sort(sortByCode);
-    
-    const liabilities = liabilityAccounts.map(acc => {
-      const balance = Number(acc.currentBalance || 0);
-      return {
-        accountCode: acc.accountCode,
-        accountName: acc.accountName,
-        amount: balance,
+    type TreeNode = {
+      id: string;
+      accountCode: string;
+      accountName: string;
+      amount: number;
+      children: TreeNode[];
+      isLeaf: boolean;
+    };
+
+    const buildTree = (accs: typeof allAccounts): TreeNode[] => {
+      const idMap = new Map<string, typeof allAccounts[0]>();
+      accs.forEach(a => idMap.set(a.id, a));
+
+      const childrenMap = new Map<string, typeof allAccounts>();
+      const roots: typeof allAccounts = [];
+      for (const acc of accs) {
+        if (acc.parentId && idMap.has(acc.parentId)) {
+          if (!childrenMap.has(acc.parentId)) childrenMap.set(acc.parentId, []);
+          childrenMap.get(acc.parentId)!.push(acc);
+        } else {
+          roots.push(acc);
+        }
+      }
+
+      const sortByCode = (a: any, b: any) => (a.accountCode || "").localeCompare(b.accountCode || "", undefined, { numeric: true });
+
+      const buildNode = (acc: typeof allAccounts[0]): TreeNode => {
+        const kids = childrenMap.get(acc.id) || [];
+        kids.sort(sortByCode);
+        const childNodes = kids.map(buildNode);
+        const isLeaf = childNodes.length === 0;
+        const ownBalance = Number(acc.currentBalance || 0);
+        const amount = isLeaf
+          ? ownBalance
+          : childNodes.reduce((sum, c) => sum + c.amount, 0) + ownBalance;
+        return {
+          id: acc.id,
+          accountCode: acc.accountCode,
+          accountName: acc.accountName,
+          amount,
+          children: childNodes,
+          isLeaf,
+        };
       };
-    }).sort(sortByCode);
-    
-    const equity = equityAccounts.map(acc => ({
-      accountCode: acc.accountCode,
-      accountName: acc.accountName,
-      amount: Number(acc.currentBalance || 0),
-    })).sort(sortByCode);
+
+      roots.sort(sortByCode);
+      return roots.map(buildNode);
+    };
+
+    const assetAccounts = allAccounts.filter(a => a.accountType === 'asset');
+    const liabilityAccounts = allAccounts.filter(a => a.accountType === 'liability');
+    const equityAccounts = allAccounts.filter(a => a.accountType === 'equity');
+
+    const assetsTree = buildTree(assetAccounts);
+    const liabilitiesTree = buildTree(liabilityAccounts);
+    const equityTree = buildTree(equityAccounts);
 
     const asOfYear = new Date(asOfDate).getFullYear();
     const priorYearEnd = `${asOfYear - 1}-12-31`;
@@ -4230,16 +4262,17 @@ export class DatabaseStorage implements IStorage {
     const retainedEarnings = await computePL(null, priorYearEnd);
     const currentPeriodNetIncome = await computePL(currentYearStart, asOfDate);
     const netIncome = retainedEarnings + currentPeriodNetIncome;
-    
-    const totalAssets = assets.reduce((sum, a) => sum + a.amount, 0);
-    const totalLiabilities = liabilities.reduce((sum, l) => sum + l.amount, 0);
-    const totalEquityFromAccounts = equity.reduce((sum, e) => sum + e.amount, 0);
+
+    const sumTree = (nodes: TreeNode[]): number => nodes.reduce((s, n) => s + n.amount, 0);
+    const totalAssets = sumTree(assetsTree);
+    const totalLiabilities = sumTree(liabilitiesTree);
+    const totalEquityFromAccounts = sumTree(equityTree);
     const totalEquity = totalEquityFromAccounts + netIncome;
-    
+
     return {
-      assets,
-      liabilities,
-      equity,
+      assetsTree,
+      liabilitiesTree,
+      equityTree,
       retainedEarnings,
       currentPeriodNetIncome,
       netIncome,
