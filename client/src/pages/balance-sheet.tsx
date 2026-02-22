@@ -10,7 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { FileText, FileSpreadsheet, RefreshCw } from "lucide-react";
+import { FileText, FileSpreadsheet } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { formatDate } from "@/lib/date-utils";
 import { apiRequest } from "@/lib/queryClient";
@@ -42,33 +42,12 @@ export default function BalanceSheet() {
   const [asOfDate, setAsOfDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [data, setData] = useState<BalanceSheetData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isRecalculating, setIsRecalculating] = useState(false);
   const { toast } = useToast();
-
-  const handleRecalculate = async () => {
-    setIsRecalculating(true);
-    try {
-      const res = await apiRequest("POST", "/api/accounts/recalculate-balances");
-      const result = await res.json();
-      toast({
-        title: "Balances Recalculated",
-        description: `${result.updated} account balance(s) were corrected from journal entries.`,
-      });
-      if (data) fetchReport();
-    } catch (error: any) {
-      toast({
-        title: "Recalculation Failed",
-        description: error.message || "Failed to recalculate balances",
-        variant: "destructive",
-      });
-    } finally {
-      setIsRecalculating(false);
-    }
-  };
 
   const fetchReport = async () => {
     setIsLoading(true);
     try {
+      await apiRequest("POST", "/api/accounts/recalculate-balances").catch(() => {});
       const res = await fetch(`/api/reports/balance-sheet?asOfDate=${asOfDate}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch");
       const result = await res.json();
@@ -308,10 +287,6 @@ export default function BalanceSheet() {
             </div>
             <Button onClick={fetchReport} disabled={isLoading} data-testid="button-generate">
               {isLoading ? "Loading..." : "Generate Report"}
-            </Button>
-            <Button variant="outline" onClick={handleRecalculate} disabled={isRecalculating} data-testid="button-recalculate">
-              <RefreshCw className={`h-4 w-4 mr-1 ${isRecalculating ? "animate-spin" : ""}`} />
-              {isRecalculating ? "Recalculating..." : "Recalculate Balances"}
             </Button>
           </div>
         </CardContent>
