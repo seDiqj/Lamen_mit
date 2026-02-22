@@ -15,6 +15,9 @@ import {
   PieChart,
   FileSpreadsheet,
   FileText,
+  Calendar,
+  ArrowUpRight,
+  Calculator,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -24,6 +27,22 @@ type BreakdownItem = {
   accountCode: string;
   accountName: string;
   amount: number;
+};
+
+type LoanModelBreakdown = {
+  oldModel: {
+    count: number;
+    totalPrincipal: number;
+    totalMarginOneTime: number;
+    description: string;
+  };
+  newModel: {
+    count: number;
+    totalPrincipal: number;
+    avgAnnualRate: number;
+    description: string;
+  };
+  cutoffDate: string;
 };
 
 type ProfitabilityData = {
@@ -36,10 +55,22 @@ type ProfitabilityData = {
   expenseBreakdown: BreakdownItem[];
   totalDisbursedLoans: number;
   totalDisbursedAmount: number;
-  totalMarginIncome: number;
   avgMarginRate: number;
   requiredDisbursement: number;
   recommendations: string[];
+  loanModelBreakdown: LoanModelBreakdown;
+  projectionRate: number;
+  breakEvenProjection: { annualIncome: number; monthlyIncome: number };
+  additionalScenario: {
+    amount: number;
+    annualIncome: number;
+    monthlyIncome: number;
+    monthlyNetProfit: number;
+  };
+  monthlyExpenses: number;
+  monthlyIncome: number;
+  periodMonths: number;
+  annualizedLoss: number;
 };
 
 function formatAFN(amount: number): string {
@@ -55,6 +86,7 @@ export default function ProfitabilityAnalysis() {
   const [isLoading, setIsLoading] = useState(false);
   const [showIncomeBreakdown, setShowIncomeBreakdown] = useState(false);
   const [showExpenseBreakdown, setShowExpenseBreakdown] = useState(false);
+  const [showLoanModelDetails, setShowLoanModelDetails] = useState(false);
 
   const fetchAnalysis = async () => {
     setIsLoading(true);
@@ -98,21 +130,39 @@ export default function ProfitabilityAnalysis() {
     rows.push({ Section: "LOAN PORTFOLIO", Account: "", Amount: "" });
     rows.push({ Section: "", Account: "Total Disbursed Loans", Amount: data.totalDisbursedLoans });
     rows.push({ Section: "", Account: "Total Disbursed Amount", Amount: data.totalDisbursedAmount });
-    rows.push({ Section: "", Account: "Average Margin Rate", Amount: `${data.avgMarginRate.toFixed(2)}%` });
+    rows.push({ Section: "", Account: "Projection Margin Rate (Annual)", Amount: `${data.projectionRate.toFixed(2)}%` });
     rows.push({ Section: "", Account: "", Amount: "" });
 
-    if (!data.isProfitable) {
-      rows.push({ Section: "RECOMMENDATION", Account: "", Amount: "" });
-      rows.push({ Section: "", Account: "Required Disbursement to Break Even", Amount: data.requiredDisbursement });
+    rows.push({ Section: "LOAN MODEL BREAKDOWN", Account: "", Amount: "" });
+    rows.push({ Section: "", Account: `Old Model (Before ${data.loanModelBreakdown.cutoffDate}) - ${data.loanModelBreakdown.oldModel.description}`, Amount: "" });
+    rows.push({ Section: "", Account: `  Loans Count`, Amount: data.loanModelBreakdown.oldModel.count });
+    rows.push({ Section: "", Account: `  Total Principal`, Amount: data.loanModelBreakdown.oldModel.totalPrincipal });
+    rows.push({ Section: "", Account: `New Model (After ${data.loanModelBreakdown.cutoffDate}) - ${data.loanModelBreakdown.newModel.description}`, Amount: "" });
+    rows.push({ Section: "", Account: `  Loans Count`, Amount: data.loanModelBreakdown.newModel.count });
+    rows.push({ Section: "", Account: `  Total Principal`, Amount: data.loanModelBreakdown.newModel.totalPrincipal });
+    rows.push({ Section: "", Account: `  Avg Annual Rate`, Amount: `${data.loanModelBreakdown.newModel.avgAnnualRate.toFixed(2)}%` });
+    rows.push({ Section: "", Account: "", Amount: "" });
+
+    if (!data.isProfitable && data.requiredDisbursement > 0) {
+      rows.push({ Section: "BREAK-EVEN ANALYSIS", Account: "", Amount: "" });
+      rows.push({ Section: "", Account: "Additional Disbursement Required to Break Even", Amount: data.requiredDisbursement });
+      rows.push({ Section: "", Account: "Projected Annual Income from Break-Even Disbursement", Amount: data.breakEvenProjection.annualIncome });
+      rows.push({ Section: "", Account: "Projected Monthly Income from Break-Even Disbursement", Amount: data.breakEvenProjection.monthlyIncome });
+      rows.push({ Section: "", Account: "", Amount: "" });
     }
 
+    rows.push({ Section: "ADDITIONAL 10M SCENARIO", Account: "", Amount: "" });
+    rows.push({ Section: "", Account: "Additional Disbursement Amount", Amount: data.additionalScenario.amount });
+    rows.push({ Section: "", Account: "Projected Annual Margin Income", Amount: data.additionalScenario.annualIncome });
+    rows.push({ Section: "", Account: "Projected Monthly Margin Income", Amount: data.additionalScenario.monthlyIncome });
     rows.push({ Section: "", Account: "", Amount: "" });
+
     data.recommendations.forEach(rec => {
       rows.push({ Section: "", Account: rec, Amount: "" });
     });
 
     const ws = XLSX.utils.json_to_sheet(rows);
-    ws["!cols"] = [{ wch: 25 }, { wch: 60 }, { wch: 25 }];
+    ws["!cols"] = [{ wch: 30 }, { wch: 65 }, { wch: 25 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Profitability Analysis");
     XLSX.writeFile(wb, `Profitability_Analysis_${Date.now()}.xlsx`);
@@ -153,12 +203,26 @@ export default function ProfitabilityAnalysis() {
     ]);
     tableData.push(["", ""]);
 
-    if (!data.isProfitable) {
-      tableData.push([{ content: "Recommendation", colSpan: 2, styles: { fontStyle: "bold", fillColor: [254, 249, 195] } }]);
-      tableData.push(["Required Loan Disbursement to Break Even", { content: formatNum(data.requiredDisbursement), styles: { halign: "right", fontStyle: "bold" } }]);
+    tableData.push([{ content: "Loan Model Breakdown", colSpan: 2, styles: { fontStyle: "bold", fillColor: [219, 234, 254] } }]);
+    tableData.push([`Old Model (Before ${data.loanModelBreakdown.cutoffDate})`, { content: `${data.loanModelBreakdown.oldModel.count} loans - ${formatNum(data.loanModelBreakdown.oldModel.totalPrincipal)}`, styles: { halign: "right" } }]);
+    tableData.push([`New Model (After ${data.loanModelBreakdown.cutoffDate})`, { content: `${data.loanModelBreakdown.newModel.count} loans - ${formatNum(data.loanModelBreakdown.newModel.totalPrincipal)}`, styles: { halign: "right" } }]);
+    tableData.push([`Annual Margin Rate for Projections`, { content: `${data.projectionRate.toFixed(2)}%`, styles: { halign: "right", fontStyle: "bold" } }]);
+    tableData.push(["", ""]);
+
+    if (!data.isProfitable && data.requiredDisbursement > 0) {
+      tableData.push([{ content: "Break-Even Analysis", colSpan: 2, styles: { fontStyle: "bold", fillColor: [254, 249, 195] } }]);
+      tableData.push(["Additional Disbursement Required", { content: formatNum(data.requiredDisbursement), styles: { halign: "right", fontStyle: "bold" } }]);
+      tableData.push(["Projected Annual Income", { content: formatNum(data.breakEvenProjection.annualIncome), styles: { halign: "right" } }]);
+      tableData.push(["Projected Monthly Income", { content: formatNum(data.breakEvenProjection.monthlyIncome), styles: { halign: "right" } }]);
+      tableData.push(["", ""]);
     }
 
+    tableData.push([{ content: "Additional AFN 10M Disbursement Scenario", colSpan: 2, styles: { fontStyle: "bold", fillColor: [237, 233, 254] } }]);
+    tableData.push(["Additional Disbursement", { content: formatNum(data.additionalScenario.amount), styles: { halign: "right" } }]);
+    tableData.push(["Projected Annual Margin Income", { content: formatNum(data.additionalScenario.annualIncome), styles: { halign: "right" } }]);
+    tableData.push(["Projected Monthly Margin Income", { content: formatNum(data.additionalScenario.monthlyIncome), styles: { halign: "right" } }]);
     tableData.push(["", ""]);
+
     data.recommendations.forEach(rec => {
       tableData.push([{ content: rec, colSpan: 2 }]);
     });
@@ -185,7 +249,7 @@ export default function ProfitabilityAnalysis() {
           </div>
           <div>
             <h1 className="text-2xl font-bold" data-testid="text-page-title">Profitability Analysis</h1>
-            <p className="text-muted-foreground text-sm">Company financial health and recommendations</p>
+            <p className="text-muted-foreground text-sm">Company financial health, projections, and recommendations</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -361,7 +425,7 @@ export default function ProfitabilityAnalysis() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 <div className="p-3 rounded-lg bg-muted/40">
                   <p className="text-sm text-muted-foreground">Total Disbursed Loans</p>
                   <p className="text-xl font-bold" data-testid="text-disbursed-count">{data.totalDisbursedLoans}</p>
@@ -371,8 +435,194 @@ export default function ProfitabilityAnalysis() {
                   <p className="text-xl font-bold" data-testid="text-disbursed-amount">{formatAFN(data.totalDisbursedAmount)}</p>
                 </div>
                 <div className="p-3 rounded-lg bg-muted/40">
-                  <p className="text-sm text-muted-foreground">Average Margin Rate</p>
-                  <p className="text-xl font-bold" data-testid="text-margin-rate">{data.avgMarginRate.toFixed(2)}%</p>
+                  <p className="text-sm text-muted-foreground">Annual Margin Rate (for projections)</p>
+                  <p className="text-xl font-bold" data-testid="text-margin-rate">{data.projectionRate.toFixed(2)}%</p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                className="flex items-center gap-2 w-full text-left text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline mb-2"
+                onClick={() => setShowLoanModelDetails(!showLoanModelDetails)}
+                data-testid="button-toggle-loan-model"
+              >
+                {showLoanModelDetails ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                <Calendar className="h-4 w-4" />
+                Loan Model Breakdown (Old vs New)
+              </button>
+
+              {showLoanModelDetails && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                  <div className="p-4 rounded-lg border border-orange-200 dark:border-orange-800 bg-orange-50/50 dark:bg-orange-950/20">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge variant="outline" className="text-orange-700 dark:text-orange-400 border-orange-300 dark:border-orange-700">Old Model</Badge>
+                      <span className="text-xs text-muted-foreground">Before {data.loanModelBreakdown.cutoffDate}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-3">{data.loanModelBreakdown.oldModel.description}</p>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Loans</span>
+                        <span className="font-medium">{data.loanModelBreakdown.oldModel.count}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Total Principal</span>
+                        <span className="font-mono font-medium">{formatAFN(data.loanModelBreakdown.oldModel.totalPrincipal)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Total Margin (One-time)</span>
+                        <span className="font-mono font-medium">{formatAFN(data.loanModelBreakdown.oldModel.totalMarginOneTime)}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-4 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge variant="outline" className="text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-700">New Model</Badge>
+                      <span className="text-xs text-muted-foreground">After {data.loanModelBreakdown.cutoffDate}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-3">{data.loanModelBreakdown.newModel.description}</p>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Loans</span>
+                        <span className="font-medium">{data.loanModelBreakdown.newModel.count}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Total Principal</span>
+                        <span className="font-mono font-medium">{formatAFN(data.loanModelBreakdown.newModel.totalPrincipal)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Avg Annual Rate</span>
+                        <span className="font-mono font-medium">{data.loanModelBreakdown.newModel.avgAnnualRate.toFixed(2)}%</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {!data.isProfitable && data.requiredDisbursement > 0 && (
+            <Card className="border-2 border-amber-200 dark:border-amber-800" data-testid="card-break-even">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Calculator className="h-5 w-5 text-amber-500" />
+                  Break-Even Analysis
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 mb-4">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="font-semibold text-amber-800 dark:text-amber-300">Additional Loan Disbursement Required to Break Even</p>
+                      <p className="text-2xl font-bold text-amber-700 dark:text-amber-400 mt-1" data-testid="text-required-disbursement">
+                        {formatAFN(data.requiredDisbursement)}
+                      </p>
+                      <p className="text-sm text-amber-600 dark:text-amber-500 mt-1">
+                        This is the <strong>additional</strong> amount the company needs to disburse in new loans (on top of existing portfolio). The total loss of {formatAFN(data.netProfitLoss)} over {data.periodMonths.toFixed(1)} months is annualized to {formatAFN(data.annualizedLoss)}/year. At {data.projectionRate.toFixed(2)}% annual margin rate, this disbursement would generate enough margin income to cover the annualized loss.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800">
+                    <p className="text-xs text-muted-foreground">If Company Disburses This Amount</p>
+                    <p className="text-lg font-bold text-green-700 dark:text-green-400 mt-1">{formatAFN(data.requiredDisbursement)}</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800">
+                    <p className="text-xs text-muted-foreground">Annual Margin Income Earned</p>
+                    <p className="text-lg font-bold text-green-700 dark:text-green-400 mt-1">{formatAFN(data.breakEvenProjection.annualIncome)}</p>
+                    <p className="text-xs text-muted-foreground">= covers the current loss</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800">
+                    <p className="text-xs text-muted-foreground">Monthly Margin Income Earned</p>
+                    <p className="text-lg font-bold text-green-700 dark:text-green-400 mt-1">{formatAFN(data.breakEvenProjection.monthlyIncome)}</p>
+                    <p className="text-xs text-muted-foreground">per month from this disbursement</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <Card className="border-2 border-purple-200 dark:border-purple-800" data-testid="card-scenario-10m">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <ArrowUpRight className="h-5 w-5 text-purple-500" />
+                Scenario: Additional AFN 10,000,000 Disbursement
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                What happens if the company disburses an additional AFN 10 million in new loans?
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                <div className="p-3 rounded-lg bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800">
+                  <p className="text-xs text-muted-foreground">Additional Disbursement</p>
+                  <p className="text-lg font-bold text-purple-700 dark:text-purple-400 mt-1">{formatAFN(data.additionalScenario.amount)}</p>
+                </div>
+                <div className="p-3 rounded-lg bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800">
+                  <p className="text-xs text-muted-foreground">Annual Margin Income</p>
+                  <p className="text-lg font-bold text-purple-700 dark:text-purple-400 mt-1">{formatAFN(data.additionalScenario.annualIncome)}</p>
+                  <p className="text-xs text-muted-foreground">at {data.projectionRate.toFixed(2)}% annual rate</p>
+                </div>
+                <div className="p-3 rounded-lg bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800">
+                  <p className="text-xs text-muted-foreground">Monthly Margin Income</p>
+                  <p className="text-lg font-bold text-purple-700 dark:text-purple-400 mt-1">{formatAFN(data.additionalScenario.monthlyIncome)}</p>
+                  <p className="text-xs text-muted-foreground">earned each month</p>
+                </div>
+                <div className={`p-3 rounded-lg border ${
+                  (data.netProfitLoss + data.additionalScenario.annualIncome) > 0
+                    ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800'
+                    : 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800'
+                }`}>
+                  <p className="text-xs text-muted-foreground">Projected Net Position (Annual)</p>
+                  <p className={`text-lg font-bold mt-1 ${
+                    (data.netProfitLoss + data.additionalScenario.annualIncome) > 0
+                      ? 'text-green-700 dark:text-green-400'
+                      : 'text-red-700 dark:text-red-400'
+                  }`}>
+                    {(data.netProfitLoss + data.additionalScenario.annualIncome) < 0 ? "-" : ""}
+                    {formatAFN(data.netProfitLoss + data.additionalScenario.annualIncome)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {(data.netProfitLoss + data.additionalScenario.annualIncome) > 0
+                      ? "Would become profitable"
+                      : "Still not enough to break even"
+                    }
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-lg bg-muted/40">
+                <p className="text-sm font-medium mb-2">Monthly Projection Table (12 Months)</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left py-1.5 px-2 text-muted-foreground font-medium">Month</th>
+                        <th className="text-right py-1.5 px-2 text-muted-foreground font-medium">Margin Income</th>
+                        <th className="text-right py-1.5 px-2 text-muted-foreground font-medium">Cumulative Income</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Array.from({ length: 12 }, (_, i) => {
+                        const monthIncome = data.additionalScenario.monthlyIncome;
+                        const cumulativeIncome = monthIncome * (i + 1);
+                        return (
+                          <tr key={i} className="border-b border-muted/50 hover:bg-muted/30" data-testid={`row-month-${i + 1}`}>
+                            <td className="py-1.5 px-2">Month {i + 1}</td>
+                            <td className="text-right py-1.5 px-2 font-mono text-purple-700 dark:text-purple-400">{formatNum(monthIncome)}</td>
+                            <td className="text-right py-1.5 px-2 font-mono font-medium">{formatNum(cumulativeIncome)}</td>
+                          </tr>
+                        );
+                      })}
+                      <tr className="font-bold bg-purple-50 dark:bg-purple-950/30">
+                        <td className="py-2 px-2">Total (12 Months)</td>
+                        <td className="text-right py-2 px-2 font-mono text-purple-700 dark:text-purple-400">{formatNum(data.additionalScenario.annualIncome)}</td>
+                        <td className="text-right py-2 px-2 font-mono">{formatNum(data.additionalScenario.annualIncome)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </CardContent>
@@ -386,23 +636,6 @@ export default function ProfitabilityAnalysis() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {!data.isProfitable && data.requiredDisbursement > 0 && (
-                <div className="mb-4 p-4 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
-                  <div className="flex items-start gap-3">
-                    <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="font-semibold text-amber-800 dark:text-amber-300">Loan Disbursement Required to Break Even</p>
-                      <p className="text-2xl font-bold text-amber-700 dark:text-amber-400 mt-1" data-testid="text-required-disbursement">
-                        {formatAFN(data.requiredDisbursement)}
-                      </p>
-                      <p className="text-sm text-amber-600 dark:text-amber-500 mt-1">
-                        Based on average margin rate of {data.avgMarginRate.toFixed(2)}%, the company needs to disburse this additional loan amount to generate enough margin income to cover the current loss.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               <div className="space-y-2">
                 {data.recommendations.map((rec, idx) => (
                   <div key={idx} className="flex items-start gap-2 text-sm" data-testid={`text-recommendation-${idx}`}>

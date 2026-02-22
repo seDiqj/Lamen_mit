@@ -4123,40 +4123,120 @@ export async function registerRoutes(
       const netProfitLoss = totalIncome - totalExpenses;
       const isProfitable = netProfitLoss > 0;
 
+      const cutoffDate = '2026-01-07';
+
+      const normalizeRateToPercent = (rate: number): number => {
+        if (rate > 1) return rate;
+        return rate * 100;
+      };
+
       const allLoans = await db.select().from(loans);
       const disbursedLoans = allLoans.filter((l: any) => l.status === 'disbursed' || l.status === 'active' || l.status === 'closed');
       const totalDisbursed = disbursedLoans.reduce((s: number, l: any) => s + Number(l.principleAmount || 0), 0);
-      const totalMarginIncome = disbursedLoans.reduce((s: number, l: any) => {
-        const principal = Number(l.principleAmount || 0);
-        const rate = Number(l.marginRate || 0);
-        return s + (principal * rate / 100);
-      }, 0);
 
-      const weightedRateSum = disbursedLoans.reduce((s: number, l: any) => {
+      const allDisbursements = await db.select().from(disbursements);
+      const loanDisbursementDates: Record<string, string> = {};
+      for (const d of allDisbursements) {
+        if (d.loanId && d.disbursementDate) {
+          loanDisbursementDates[d.loanId] = d.disbursementDate;
+        }
+      }
+
+      const oldModelLoans = disbursedLoans.filter((l: any) => {
+        const disbDate = loanDisbursementDates[l.id];
+        return !disbDate || disbDate < cutoffDate;
+      });
+      const newModelLoans = disbursedLoans.filter((l: any) => {
+        const disbDate = loanDisbursementDates[l.id];
+        return disbDate && disbDate >= cutoffDate;
+      });
+
+      const oldModelTotalPrincipal = oldModelLoans.reduce((s: number, l: any) => s + Number(l.principleAmount || 0), 0);
+      const oldModelTotalMargin = oldModelLoans.reduce((s: number, l: any) => {
         const principal = Number(l.principleAmount || 0);
         const rate = Number(l.marginRate || 0);
         return s + (principal * rate);
       }, 0);
-      const avgMarginRate = totalDisbursed > 0
-        ? weightedRateSum / totalDisbursed
+
+      const newModelTotalPrincipal = newModelLoans.reduce((s: number, l: any) => s + Number(l.principleAmount || 0), 0);
+      const newModelWeightedRateSum = newModelLoans.reduce((s: number, l: any) => {
+        const principal = Number(l.principleAmount || 0);
+        const ratePercent = normalizeRateToPercent(Number(l.marginRate || 0));
+        return s + (principal * ratePercent);
+      }, 0);
+      const newModelAvgRate = newModelTotalPrincipal > 0
+        ? newModelWeightedRateSum / newModelTotalPrincipal
         : 0;
-      const hasMarginData = totalDisbursed > 0 && avgMarginRate > 0;
+
+      const overallWeightedRateSum = disbursedLoans.reduce((s: number, l: any) => {
+        const principal = Number(l.principleAmount || 0);
+        const ratePercent = normalizeRateToPercent(Number(l.marginRate || 0));
+        return s + (principal * ratePercent);
+      }, 0);
+      const avgMarginRate = totalDisbursed > 0
+        ? overallWeightedRateSum / totalDisbursed
+        : 0;
+
+      const projectionRate = newModelAvgRate > 0 ? newModelAvgRate : (avgMarginRate > 0 ? avgMarginRate : 0);
+      const hasMarginData = projectionRate > 0;
+
+      const earliestEntry = await db
+        .select({ minDate: sql<string>`MIN(${journalEntries.entryDate})` })
+        .from(journalEntries)
+        .where(eq(journalEntries.isPosted, true));
+      const latestEntry = await db
+        .select({ maxDate: sql<string>`MAX(${journalEntries.entryDate})` })
+        .from(journalEntries)
+        .where(eq(journalEntries.isPosted, true));
+
+      const startDateStr = earliestEntry[0]?.minDate || new Date().toISOString().split('T')[0];
+      const endDateStr = latestEntry[0]?.maxDate || new Date().toISOString().split('T')[0];
+      const periodStartDate = new Date(startDateStr);
+      const periodEndDate = new Date(endDateStr);
+      const periodDays = Math.max(1, Math.ceil((periodEndDate.getTime() - periodStartDate.getTime()) / (1000 * 60 * 60 * 24)));
+      const periodMonths = Math.max(1, periodDays / 30.44);
+      const periodYears = Math.max(0.1, periodDays / 365.25);
+
+      const annualizedLoss = netProfitLoss / periodYears;
+      const monthlyExpenses = totalExpenses / periodMonths;
+      const monthlyIncome = totalIncome / periodMonths;
 
       let requiredDisbursement = 0;
+      let breakEvenProjection = { annualIncome: 0, monthlyIncome: 0 };
+      let additionalScenario = {
+        amount: 10000000,
+        annualIncome: 0,
+        monthlyIncome: 0,
+        monthlyNetProfit: 0,
+      };
       let recommendations: string[] = [];
 
       if (!isProfitable) {
-        const shortfall = Math.abs(netProfitLoss);
+        const annualShortfall = Math.abs(annualizedLoss);
         if (hasMarginData) {
-          requiredDisbursement = (shortfall / (avgMarginRate / 100));
+          requiredDisbursement = annualShortfall / (projectionRate / 100);
+          breakEvenProjection = {
+            annualIncome: annualShortfall,
+            monthlyIncome: annualShortfall / 12,
+          };
         }
+
+        if (hasMarginData) {
+          additionalScenario.annualIncome = additionalScenario.amount * projectionRate / 100;
+          additionalScenario.monthlyIncome = additionalScenario.annualIncome / 12;
+          additionalScenario.monthlyNetProfit = additionalScenario.monthlyIncome;
+        }
+
         recommendations = [
-          `The company has a net loss of AFN ${Math.abs(netProfitLoss).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
-          `To break even, the company needs to generate additional income of AFN ${shortfall.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+          `The company has a total net loss of AFN ${Math.abs(netProfitLoss).toLocaleString('en-US', { minimumFractionDigits: 2 })} over ${periodMonths.toFixed(1)} months`,
+          `Annualized loss is approximately AFN ${annualShortfall.toLocaleString('en-US', { minimumFractionDigits: 2 })} per year`,
         ];
         if (hasMarginData) {
           recommendations.push(
-            `Based on the weighted average margin rate of ${avgMarginRate.toFixed(2)}%, the company should disburse approximately AFN ${requiredDisbursement.toLocaleString('en-US', { minimumFractionDigits: 2 })} in new loans`
+            `Based on the annual margin rate of ${projectionRate.toFixed(2)}%, the company needs to disburse an additional AFN ${requiredDisbursement.toLocaleString('en-US', { minimumFractionDigits: 2 })} in new loans to cover the annual loss`
+          );
+          recommendations.push(
+            `This additional disbursement would generate AFN ${breakEvenProjection.annualIncome.toLocaleString('en-US', { minimumFractionDigits: 2 })} per year (AFN ${breakEvenProjection.monthlyIncome.toLocaleString('en-US', { minimumFractionDigits: 2 })} per month) in margin income`
           );
         } else {
           recommendations.push("Insufficient loan portfolio data to calculate required disbursement amount");
@@ -4167,8 +4247,13 @@ export async function registerRoutes(
           "Explore new revenue streams or service fee structures",
         );
       } else {
+        if (hasMarginData) {
+          additionalScenario.annualIncome = additionalScenario.amount * projectionRate / 100;
+          additionalScenario.monthlyIncome = additionalScenario.annualIncome / 12;
+          additionalScenario.monthlyNetProfit = additionalScenario.monthlyIncome;
+        }
         recommendations = [
-          `The company is profitable with a net profit of AFN ${netProfitLoss.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+          `The company is profitable with a total net profit of AFN ${netProfitLoss.toLocaleString('en-US', { minimumFractionDigits: 2 })} over ${periodMonths.toFixed(1)} months`,
           `Profit margin is ${((netProfitLoss / (totalIncome || 1)) * 100).toFixed(2)}%`,
           "Continue maintaining efficient operations",
           "Consider reinvesting profits to grow the loan portfolio",
@@ -4185,10 +4270,31 @@ export async function registerRoutes(
         expenseBreakdown,
         totalDisbursedLoans: disbursedLoans.length,
         totalDisbursedAmount: totalDisbursed,
-        totalMarginIncome,
         avgMarginRate,
         requiredDisbursement,
         recommendations,
+        loanModelBreakdown: {
+          oldModel: {
+            count: oldModelLoans.length,
+            totalPrincipal: oldModelTotalPrincipal,
+            totalMarginOneTime: oldModelTotalMargin,
+            description: "Margin applied once for entire loan duration (rate stored as decimal, e.g. 0.16 = 16%)",
+          },
+          newModel: {
+            count: newModelLoans.length,
+            totalPrincipal: newModelTotalPrincipal,
+            avgAnnualRate: newModelAvgRate,
+            description: "Margin applied annually every 12 months (rate stored as percentage, e.g. 16 = 16%)",
+          },
+          cutoffDate,
+        },
+        projectionRate,
+        breakEvenProjection,
+        additionalScenario,
+        monthlyExpenses,
+        monthlyIncome,
+        periodMonths,
+        annualizedLoss: !isProfitable ? Math.abs(annualizedLoss) : 0,
       });
     } catch (error) {
       console.error("Profitability analysis error:", error);
