@@ -2762,8 +2762,9 @@ export async function registerRoutes(
         });
         await logActivity(req, "committee_approve", "loan", loanId, `Committee approved with ${approvedVotes} votes`);
       } else if (rejectedVotes > (COMMITTEE_SIZE - REQUIRED_APPROVALS)) {
-        await storage.updateLoan(loanId, { status: "risk_compliance_review" });
-        await logActivity(req, "committee_reject", "loan", loanId, `Committee rejected with ${rejectedVotes} votes - sent back to Risk Compliance`);
+        await storage.updateLoan(loanId, { status: "data_quality_review" });
+        await storage.resetCommitteeVotes(loanId);
+        await logActivity(req, "committee_reject", "loan", loanId, `Committee rejected with ${rejectedVotes} votes - sent back to FAD review`);
       }
 
       res.json(voteRecord);
