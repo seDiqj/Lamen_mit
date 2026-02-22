@@ -4098,17 +4098,19 @@ export class DatabaseStorage implements IStorage {
       return Math.abs(net);
     };
 
+    const sortByCode = (a: any, b: any) => (a.accountCode || "").localeCompare(b.accountCode || "", undefined, { numeric: true });
+
     const buildGroup = (accs: typeof allIncomeAccounts) => {
       const parentAccounts = accs.filter(a => !a.parentId);
       const childAccounts = accs.filter(a => a.parentId);
 
-      return parentAccounts.map(parent => {
+      const groups = parentAccounts.map(parent => {
         const children = childAccounts.filter(c => c.parentId === parent.id);
         const childrenWithAmounts = children.map(c => ({
           accountCode: c.accountCode,
           accountName: c.accountName,
           amount: getBalance(c.id, c.accountType),
-        }));
+        })).sort(sortByCode);
         const parentOwnAmount = getBalance(parent.id, parent.accountType);
         const childrenTotal = childrenWithAmounts.reduce((s, c) => s + c.amount, 0);
         const total = children.length > 0 ? childrenTotal + parentOwnAmount : parentOwnAmount;
@@ -4120,6 +4122,7 @@ export class DatabaseStorage implements IStorage {
           children: childrenWithAmounts,
         };
       });
+      return groups.sort(sortByCode);
     };
 
     const operatingIncomeAccounts = allIncomeAccounts.filter(a => a.accountCode.startsWith('5'));
