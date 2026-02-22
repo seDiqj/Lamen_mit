@@ -151,11 +151,26 @@ export default function ProfitabilityAnalysis() {
       rows.push({ Section: "", Account: "", Amount: "" });
     }
 
-    rows.push({ Section: "ADDITIONAL 10M SCENARIO", Account: "", Amount: "" });
-    rows.push({ Section: "", Account: "Additional Disbursement Amount", Amount: data.additionalScenario.amount });
-    rows.push({ Section: "", Account: "Projected Annual Margin Income", Amount: data.additionalScenario.annualIncome });
-    rows.push({ Section: "", Account: "Projected Monthly Margin Income", Amount: data.additionalScenario.monthlyIncome });
+    const totalScenarioAmt = data.requiredDisbursement + data.additionalScenario.amount;
+    const totalScenarioAnnual = totalScenarioAmt * data.projectionRate / 100;
+    const annualExp = data.monthlyExpenses * 12;
+
+    rows.push({ Section: "SCENARIO: BREAK-EVEN + AFN 10M", Account: "", Amount: "" });
+    rows.push({ Section: "", Account: "Break-Even Disbursement", Amount: data.requiredDisbursement });
+    rows.push({ Section: "", Account: "+ Additional Amount", Amount: data.additionalScenario.amount });
+    rows.push({ Section: "", Account: "Total Disbursement", Amount: totalScenarioAmt });
+    rows.push({ Section: "", Account: "Annual Margin Income", Amount: totalScenarioAnnual });
+    rows.push({ Section: "", Account: "Monthly Margin Income", Amount: totalScenarioAnnual / 12 });
     rows.push({ Section: "", Account: "", Amount: "" });
+
+    rows.push({ Section: "4-YEAR PROJECTION", Account: "", Amount: "" });
+    for (let y = 1; y <= 4; y++) {
+      rows.push({ Section: `Year ${y}`, Account: "Suggested Disbursement (Cumulative)", Amount: totalScenarioAmt * y });
+      rows.push({ Section: "", Account: "Margin Income (Cumulative)", Amount: totalScenarioAnnual * y });
+      rows.push({ Section: "", Account: "Expenditure (Cumulative)", Amount: annualExp * y });
+      rows.push({ Section: "", Account: "Net Profit / Loss", Amount: (totalScenarioAnnual * y) - (annualExp * y) });
+      rows.push({ Section: "", Account: "", Amount: "" });
+    }
 
     data.recommendations.forEach(rec => {
       rows.push({ Section: "", Account: rec, Amount: "" });
@@ -217,10 +232,29 @@ export default function ProfitabilityAnalysis() {
       tableData.push(["", ""]);
     }
 
-    tableData.push([{ content: "Additional AFN 10M Disbursement Scenario", colSpan: 2, styles: { fontStyle: "bold", fillColor: [237, 233, 254] } }]);
-    tableData.push(["Additional Disbursement", { content: formatNum(data.additionalScenario.amount), styles: { halign: "right" } }]);
-    tableData.push(["Projected Annual Margin Income", { content: formatNum(data.additionalScenario.annualIncome), styles: { halign: "right" } }]);
-    tableData.push(["Projected Monthly Margin Income", { content: formatNum(data.additionalScenario.monthlyIncome), styles: { halign: "right" } }]);
+    const pdfTotalScenario = data.requiredDisbursement + data.additionalScenario.amount;
+    const pdfTotalAnnual = pdfTotalScenario * data.projectionRate / 100;
+    const pdfAnnualExp = data.monthlyExpenses * 12;
+
+    tableData.push([{ content: "Scenario: Break-Even + AFN 10M", colSpan: 2, styles: { fontStyle: "bold", fillColor: [237, 233, 254] } }]);
+    tableData.push(["Break-Even Disbursement", { content: formatNum(data.requiredDisbursement), styles: { halign: "right" } }]);
+    tableData.push(["+ Additional Amount", { content: formatNum(data.additionalScenario.amount), styles: { halign: "right" } }]);
+    tableData.push(["Total Disbursement", { content: formatNum(pdfTotalScenario), styles: { halign: "right", fontStyle: "bold" } }]);
+    tableData.push(["Annual Margin Income", { content: formatNum(pdfTotalAnnual), styles: { halign: "right" } }]);
+    tableData.push(["Monthly Margin Income", { content: formatNum(pdfTotalAnnual / 12), styles: { halign: "right" } }]);
+    tableData.push(["", ""]);
+
+    tableData.push([{ content: "4-Year Projection", colSpan: 2, styles: { fontStyle: "bold", fillColor: [224, 231, 255] } }]);
+    for (let y = 1; y <= 4; y++) {
+      const yMargin = pdfTotalAnnual * y;
+      const yExp = pdfAnnualExp * y;
+      const yNet = yMargin - yExp;
+      tableData.push([{ content: `Year ${y}`, styles: { fontStyle: "bold" } }, ""]);
+      tableData.push(["  Suggested Disbursement (Cumulative)", { content: formatNum(pdfTotalScenario * y), styles: { halign: "right" } }]);
+      tableData.push(["  Margin Income (Cumulative)", { content: formatNum(yMargin), styles: { halign: "right" } }]);
+      tableData.push(["  Expenditure (Cumulative)", { content: formatNum(yExp), styles: { halign: "right" } }]);
+      tableData.push(["  Net Profit / Loss", { content: `${yNet < 0 ? "-" : ""}${formatNum(Math.abs(yNet))}`, styles: { halign: "right", fontStyle: "bold" } }]);
+    }
     tableData.push(["", ""]);
 
     data.recommendations.forEach(rec => {
@@ -544,89 +578,130 @@ export default function ProfitabilityAnalysis() {
             </Card>
           )}
 
-          <Card className="border-2 border-purple-200 dark:border-purple-800" data-testid="card-scenario-10m">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <ArrowUpRight className="h-5 w-5 text-purple-500" />
-                Scenario: Additional AFN 10,000,000 Disbursement
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                What happens if the company disburses an additional AFN 10 million in new loans?
-              </p>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                <div className="p-3 rounded-lg bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800">
-                  <p className="text-xs text-muted-foreground">Additional Disbursement</p>
-                  <p className="text-lg font-bold text-purple-700 dark:text-purple-400 mt-1">{formatAFN(data.additionalScenario.amount)}</p>
-                </div>
-                <div className="p-3 rounded-lg bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800">
-                  <p className="text-xs text-muted-foreground">Annual Margin Income</p>
-                  <p className="text-lg font-bold text-purple-700 dark:text-purple-400 mt-1">{formatAFN(data.additionalScenario.annualIncome)}</p>
-                  <p className="text-xs text-muted-foreground">at {data.projectionRate.toFixed(2)}% annual rate</p>
-                </div>
-                <div className="p-3 rounded-lg bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800">
-                  <p className="text-xs text-muted-foreground">Monthly Margin Income</p>
-                  <p className="text-lg font-bold text-purple-700 dark:text-purple-400 mt-1">{formatAFN(data.additionalScenario.monthlyIncome)}</p>
-                  <p className="text-xs text-muted-foreground">earned each month</p>
-                </div>
-                <div className={`p-3 rounded-lg border ${
-                  (data.netProfitLoss + data.additionalScenario.annualIncome) > 0
-                    ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800'
-                    : 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800'
-                }`}>
-                  <p className="text-xs text-muted-foreground">Projected Net Position (Annual)</p>
-                  <p className={`text-lg font-bold mt-1 ${
-                    (data.netProfitLoss + data.additionalScenario.annualIncome) > 0
-                      ? 'text-green-700 dark:text-green-400'
-                      : 'text-red-700 dark:text-red-400'
-                  }`}>
-                    {(data.netProfitLoss + data.additionalScenario.annualIncome) < 0 ? "-" : ""}
-                    {formatAFN(data.netProfitLoss + data.additionalScenario.annualIncome)}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {(data.netProfitLoss + data.additionalScenario.annualIncome) > 0
-                      ? "Would become profitable"
-                      : "Still not enough to break even"
-                    }
-                  </p>
-                </div>
-              </div>
+          {(() => {
+            const totalScenarioAmount = data.requiredDisbursement + data.additionalScenario.amount;
+            const totalScenarioAnnualIncome = totalScenarioAmount * data.projectionRate / 100;
+            const totalScenarioMonthlyIncome = totalScenarioAnnualIncome / 12;
+            const annualizedExpenses = data.monthlyExpenses * 12;
 
-              <div className="p-3 rounded-lg bg-muted/40">
-                <p className="text-sm font-medium mb-2">Monthly Projection Table (12 Months)</p>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left py-1.5 px-2 text-muted-foreground font-medium">Month</th>
-                        <th className="text-right py-1.5 px-2 text-muted-foreground font-medium">Margin Income</th>
-                        <th className="text-right py-1.5 px-2 text-muted-foreground font-medium">Cumulative Income</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {Array.from({ length: 12 }, (_, i) => {
-                        const monthIncome = data.additionalScenario.monthlyIncome;
-                        const cumulativeIncome = monthIncome * (i + 1);
-                        return (
-                          <tr key={i} className="border-b border-muted/50 hover:bg-muted/30" data-testid={`row-month-${i + 1}`}>
-                            <td className="py-1.5 px-2">Month {i + 1}</td>
-                            <td className="text-right py-1.5 px-2 font-mono text-purple-700 dark:text-purple-400">{formatNum(monthIncome)}</td>
-                            <td className="text-right py-1.5 px-2 font-mono font-medium">{formatNum(cumulativeIncome)}</td>
+            return (
+              <>
+                <Card className="border-2 border-purple-200 dark:border-purple-800" data-testid="card-scenario-10m">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <ArrowUpRight className="h-5 w-5 text-purple-500" />
+                      Scenario: Break-Even Amount + Additional AFN 10,000,000
+                    </CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      What happens if the company disburses the suggested break-even amount ({formatAFN(data.requiredDisbursement)}) plus an additional AFN 10 million?
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
+                      <div className="p-3 rounded-lg bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800">
+                        <p className="text-xs text-muted-foreground">Break-Even Disbursement</p>
+                        <p className="text-lg font-bold text-purple-700 dark:text-purple-400 mt-1">{formatAFN(data.requiredDisbursement)}</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800">
+                        <p className="text-xs text-muted-foreground">+ Additional Amount</p>
+                        <p className="text-lg font-bold text-purple-700 dark:text-purple-400 mt-1">{formatAFN(data.additionalScenario.amount)}</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
+                        <p className="text-xs text-muted-foreground">Total Disbursement</p>
+                        <p className="text-lg font-bold text-blue-700 dark:text-blue-400 mt-1">{formatAFN(totalScenarioAmount)}</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800">
+                        <p className="text-xs text-muted-foreground">Annual Margin Income</p>
+                        <p className="text-lg font-bold text-green-700 dark:text-green-400 mt-1">{formatAFN(totalScenarioAnnualIncome)}</p>
+                        <p className="text-xs text-muted-foreground">at {data.projectionRate.toFixed(2)}% annual rate</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800">
+                        <p className="text-xs text-muted-foreground">Monthly Margin Income</p>
+                        <p className="text-lg font-bold text-green-700 dark:text-green-400 mt-1">{formatAFN(totalScenarioMonthlyIncome)}</p>
+                        <p className="text-xs text-muted-foreground">earned each month</p>
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 mb-4">
+                      <p className="text-sm font-medium text-green-800 dark:text-green-300">
+                        Net Annual Profit from this scenario: <strong>{formatAFN(totalScenarioAnnualIncome - data.annualizedLoss)}</strong> per year
+                        ({formatAFN((totalScenarioAnnualIncome - data.annualizedLoss) / 12)} per month)
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        The additional AFN 10M beyond break-even generates {formatAFN(data.additionalScenario.amount * data.projectionRate / 100)} extra margin income per year
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-2 border-indigo-200 dark:border-indigo-800" data-testid="card-4year-projection">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Calculator className="h-5 w-5 text-indigo-500" />
+                      4-Year Projection (Suggested Disbursement + AFN 10M Additional)
+                    </CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      Yearly breakdown of disbursement, margin income, expenses, and net profit/loss
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b bg-muted/50">
+                            <th className="text-left py-2 px-3 text-muted-foreground font-medium">Year</th>
+                            <th className="text-right py-2 px-3 text-muted-foreground font-medium">Suggested Disbursement</th>
+                            <th className="text-right py-2 px-3 text-muted-foreground font-medium">Margin Income</th>
+                            <th className="text-right py-2 px-3 text-muted-foreground font-medium">Expenditure</th>
+                            <th className="text-right py-2 px-3 text-muted-foreground font-medium">Net Profit / Loss</th>
                           </tr>
-                        );
-                      })}
-                      <tr className="font-bold bg-purple-50 dark:bg-purple-950/30">
-                        <td className="py-2 px-2">Total (12 Months)</td>
-                        <td className="text-right py-2 px-2 font-mono text-purple-700 dark:text-purple-400">{formatNum(data.additionalScenario.annualIncome)}</td>
-                        <td className="text-right py-2 px-2 font-mono">{formatNum(data.additionalScenario.annualIncome)}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                        </thead>
+                        <tbody>
+                          {Array.from({ length: 4 }, (_, i) => {
+                            const yearNum = i + 1;
+                            const cumulativeDisbursement = totalScenarioAmount * yearNum;
+                            const yearMarginIncome = totalScenarioAnnualIncome * yearNum;
+                            const yearExpenditure = annualizedExpenses * yearNum;
+                            const yearNetProfit = yearMarginIncome - yearExpenditure;
+                            const isPositive = yearNetProfit > 0;
+
+                            return (
+                              <tr key={i} className="border-b border-muted/50 hover:bg-muted/30" data-testid={`row-year-${yearNum}`}>
+                                <td className="py-2 px-3 font-medium">Year {yearNum}</td>
+                                <td className="text-right py-2 px-3 font-mono text-blue-700 dark:text-blue-400">{formatNum(cumulativeDisbursement)}</td>
+                                <td className="text-right py-2 px-3 font-mono text-green-700 dark:text-green-400">{formatNum(yearMarginIncome)}</td>
+                                <td className="text-right py-2 px-3 font-mono text-red-700 dark:text-red-400">{formatNum(yearExpenditure)}</td>
+                                <td className={`text-right py-2 px-3 font-mono font-bold ${isPositive ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
+                                  {yearNetProfit < 0 ? "-" : ""}{formatNum(Math.abs(yearNetProfit))}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                          <tr className="font-bold bg-indigo-50 dark:bg-indigo-950/30 border-t-2">
+                            <td className="py-2.5 px-3">4-Year Total</td>
+                            <td className="text-right py-2.5 px-3 font-mono text-blue-700 dark:text-blue-400">{formatNum(totalScenarioAmount * 4)}</td>
+                            <td className="text-right py-2.5 px-3 font-mono text-green-700 dark:text-green-400">{formatNum(totalScenarioAnnualIncome * 4)}</td>
+                            <td className="text-right py-2.5 px-3 font-mono text-red-700 dark:text-red-400">{formatNum(annualizedExpenses * 4)}</td>
+                            {(() => {
+                              const total4YearNet = (totalScenarioAnnualIncome * 4) - (annualizedExpenses * 4);
+                              return (
+                                <td className={`text-right py-2.5 px-3 font-mono font-bold ${total4YearNet > 0 ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
+                                  {total4YearNet < 0 ? "-" : ""}{formatNum(Math.abs(total4YearNet))}
+                                </td>
+                              );
+                            })()}
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-3">
+                      * Expenditure is based on current annualized expenses ({formatAFN(annualizedExpenses)}/year). Disbursement shows cumulative amount. Margin income assumes {data.projectionRate.toFixed(2)}% annual rate applied on total cumulative disbursement.
+                    </p>
+                  </CardContent>
+                </Card>
+              </>
+            );
+          })()}
 
           <Card className={`${data.isProfitable ? 'border-green-200 dark:border-green-800' : 'border-amber-200 dark:border-amber-800'} border-2`} data-testid="card-recommendations">
             <CardHeader className="pb-2">
