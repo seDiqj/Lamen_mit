@@ -45,6 +45,7 @@ import {
   ClipboardCheck,
   ListChecks,
   ArrowDownUp,
+  PieChart,
 } from "lucide-react";
 import lamenLogo from "@assets/LamenLogo_1769936371528.jpeg";
 
@@ -106,6 +107,7 @@ const PAGE_URL_TO_NAME: Record<string, string> = {
   "/dab-report": "dab-report",
   "/dab-reports": "reports",
   "/accounting-dashboard": "accounting-dashboard",
+  "/profitability-analysis": "profitability-analysis",
   "/hr/dashboard": "hr-dashboard",
   "/hr/org-structure": "hr-org-structure",
   "/hr/employees": "hr-employees",
@@ -184,6 +186,7 @@ export function IconRailNav({ children }: IconRailNavProps) {
       items: [
         { title: "Overview", url: "/", icon: LayoutDashboard, iconColor: "text-blue-500" },
         { title: "Admin Dashboard", url: "/admin-dashboard", icon: Users, iconColor: "text-indigo-500" },
+        { title: "Profitability Analysis", url: "/profitability-analysis", icon: PieChart, iconColor: "text-purple-500" },
       ],
     },
     {

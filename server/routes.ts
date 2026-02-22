@@ -4056,6 +4056,146 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/reports/profitability-analysis", isAuthenticated, async (req, res) => {
+    try {
+      const allAccounts = await db.select().from(accounts);
+      const incomeAccounts = allAccounts.filter((a: any) => a.accountType === 'income');
+      const expenseAccounts = allAccounts.filter((a: any) => a.accountType === 'expense');
+
+      const allAccountIds = [...incomeAccounts, ...expenseAccounts].map((a: any) => a.id);
+
+      let totalIncome = 0;
+      let totalExpenses = 0;
+      const incomeBreakdown: any[] = [];
+      const expenseBreakdown: any[] = [];
+
+      if (allAccountIds.length > 0) {
+        const balanceRows = await db
+          .select({
+            accountId: journalLines.accountId,
+            totalDebit: sql<string>`COALESCE(SUM(CAST(${journalLines.debitAmount} AS numeric)), 0)`,
+            totalCredit: sql<string>`COALESCE(SUM(CAST(${journalLines.creditAmount} AS numeric)), 0)`,
+          })
+          .from(journalLines)
+          .leftJoin(journalEntries, eq(journalLines.journalEntryId, journalEntries.id))
+          .where(
+            and(
+              eq(journalEntries.isPosted, true),
+              inArray(journalLines.accountId, allAccountIds)
+            )
+          )
+          .groupBy(journalLines.accountId);
+
+        for (const row of balanceRows) {
+          const debit = Number(row.totalDebit || 0);
+          const credit = Number(row.totalCredit || 0);
+          const acc = allAccounts.find((a: any) => a.id === row.accountId);
+          if (!acc) continue;
+
+          if (acc.accountType === 'income') {
+            const amount = credit - debit;
+            totalIncome += amount;
+            if (Math.abs(amount) > 0.01) {
+              incomeBreakdown.push({
+                accountCode: acc.accountCode,
+                accountName: acc.accountName,
+                amount,
+              });
+            }
+          } else if (acc.accountType === 'expense') {
+            const amount = debit - credit;
+            totalExpenses += amount;
+            if (Math.abs(amount) > 0.01) {
+              expenseBreakdown.push({
+                accountCode: acc.accountCode,
+                accountName: acc.accountName,
+                amount,
+              });
+            }
+          }
+        }
+      }
+
+      const sortByCode = (a: any, b: any) => (a.accountCode || "").localeCompare(b.accountCode || "", undefined, { numeric: true });
+      incomeBreakdown.sort(sortByCode);
+      expenseBreakdown.sort(sortByCode);
+
+      const netProfitLoss = totalIncome - totalExpenses;
+      const isProfitable = netProfitLoss > 0;
+
+      const allLoans = await db.select().from(loans);
+      const disbursedLoans = allLoans.filter((l: any) => l.status === 'disbursed' || l.status === 'active' || l.status === 'closed');
+      const totalDisbursed = disbursedLoans.reduce((s: number, l: any) => s + Number(l.principleAmount || 0), 0);
+      const totalMarginIncome = disbursedLoans.reduce((s: number, l: any) => {
+        const principal = Number(l.principleAmount || 0);
+        const rate = Number(l.marginRate || 0);
+        return s + (principal * rate / 100);
+      }, 0);
+
+      const weightedRateSum = disbursedLoans.reduce((s: number, l: any) => {
+        const principal = Number(l.principleAmount || 0);
+        const rate = Number(l.marginRate || 0);
+        return s + (principal * rate);
+      }, 0);
+      const avgMarginRate = totalDisbursed > 0
+        ? weightedRateSum / totalDisbursed
+        : 0;
+      const hasMarginData = totalDisbursed > 0 && avgMarginRate > 0;
+
+      let requiredDisbursement = 0;
+      let recommendations: string[] = [];
+
+      if (!isProfitable) {
+        const shortfall = Math.abs(netProfitLoss);
+        if (hasMarginData) {
+          requiredDisbursement = (shortfall / (avgMarginRate / 100));
+        }
+        recommendations = [
+          `The company has a net loss of AFN ${Math.abs(netProfitLoss).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+          `To break even, the company needs to generate additional income of AFN ${shortfall.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+        ];
+        if (hasMarginData) {
+          recommendations.push(
+            `Based on the weighted average margin rate of ${avgMarginRate.toFixed(2)}%, the company should disburse approximately AFN ${requiredDisbursement.toLocaleString('en-US', { minimumFractionDigits: 2 })} in new loans`
+          );
+        } else {
+          recommendations.push("Insufficient loan portfolio data to calculate required disbursement amount");
+        }
+        recommendations.push(
+          "Consider reviewing and reducing operational expenses",
+          "Focus on increasing loan portfolio quality to reduce provisions",
+          "Explore new revenue streams or service fee structures",
+        );
+      } else {
+        recommendations = [
+          `The company is profitable with a net profit of AFN ${netProfitLoss.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+          `Profit margin is ${((netProfitLoss / (totalIncome || 1)) * 100).toFixed(2)}%`,
+          "Continue maintaining efficient operations",
+          "Consider reinvesting profits to grow the loan portfolio",
+        ];
+      }
+
+      res.json({
+        totalIncome,
+        totalExpenses,
+        netProfitLoss,
+        isProfitable,
+        profitMargin: totalIncome > 0 ? (netProfitLoss / totalIncome) * 100 : 0,
+        incomeBreakdown,
+        expenseBreakdown,
+        totalDisbursedLoans: disbursedLoans.length,
+        totalDisbursedAmount: totalDisbursed,
+        totalMarginIncome,
+        avgMarginRate,
+        requiredDisbursement,
+        recommendations,
+      });
+    } catch (error) {
+      console.error("Profitability analysis error:", error);
+      res.status(500).json({ message: "Failed to generate profitability analysis" });
+    }
+  });
+
   app.get("/api/reports/loan-disbursement", isAuthenticated, async (req, res) => {
     try {
       const { startDate, endDate, branchId, fundingSourceId } = req.query;
