@@ -2204,6 +2204,7 @@ export async function registerRoutes(
 
       if (loan.status === "returned") {
         await storage.updateLoan(loan.id, { status: "pending" });
+        await storage.resetCommitteeVotes(loan.id);
         await logActivity(req, "resubmit_loan", "loan", loan.id, `Resubmitted returned loan application: ${loan.applicationId}`);
       }
 

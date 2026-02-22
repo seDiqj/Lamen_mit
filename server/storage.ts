@@ -247,6 +247,7 @@ export interface IStorage {
   updateCommitteeVote(id: string, data: Partial<InsertCommitteeVote>): Promise<CommitteeVote>;
   getCommitteeVotesByLoanId(loanId: string): Promise<CommitteeVote[]>;
   getCommitteeVoteByLoanAndVoter(loanId: string, voterId: string): Promise<CommitteeVote | undefined>;
+  resetCommitteeVotes(loanId: string): Promise<void>;
   
   // Installments
   getInstallments(filters: { search?: string; page?: number; limit?: number; currentMonthOnly?: boolean; paidOnly?: boolean }): Promise<{ installments: any[]; total: number }>;
@@ -1345,6 +1346,13 @@ export class DatabaseStorage implements IStorage {
 
   async getCommitteeVotesByLoanId(loanId: string): Promise<CommitteeVote[]> {
     return db.select().from(committeeVotes).where(eq(committeeVotes.loanId, loanId));
+  }
+
+  async resetCommitteeVotes(loanId: string): Promise<void> {
+    await db
+      .update(committeeVotes)
+      .set({ vote: "pending", comments: null, votedAt: null })
+      .where(eq(committeeVotes.loanId, loanId));
   }
 
   async getCommitteeVoteByLoanAndVoter(loanId: string, voterId: string): Promise<CommitteeVote | undefined> {
