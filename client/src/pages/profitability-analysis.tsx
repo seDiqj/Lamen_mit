@@ -151,26 +151,57 @@ export default function ProfitabilityAnalysis() {
       rows.push({ Section: "", Account: "", Amount: "" });
     }
 
-    const totalScenarioAmt = data.requiredDisbursement + data.additionalScenario.amount;
-    const totalScenarioAnnual = totalScenarioAmt * data.projectionRate / 100;
-    const annualExp = data.monthlyExpenses * 12;
+    const exBaseExp = data.monthlyExpenses * 12;
+    const exRate = data.projectionRate / 100;
+    const exAvgTerm = 18;
+    const exDisb = [104_000_000, 154_000_000, 204_000_000, 254_000_000];
+    const exYears = ["2026", "2027", "2028", "2029"];
 
-    rows.push({ Section: "SCENARIO: BREAK-EVEN + AFN 10M", Account: "", Amount: "" });
-    rows.push({ Section: "", Account: "Break-Even Disbursement", Amount: data.requiredDisbursement });
-    rows.push({ Section: "", Account: "+ Additional Amount", Amount: data.additionalScenario.amount });
-    rows.push({ Section: "", Account: "Total Disbursement", Amount: totalScenarioAmt });
-    rows.push({ Section: "", Account: "Annual Margin Income", Amount: totalScenarioAnnual });
-    rows.push({ Section: "", Account: "Monthly Margin Income", Amount: totalScenarioAnnual / 12 });
+    rows.push({ Section: "4-YEAR PROJECTION (2026-2029)", Account: "", Amount: "" });
+    rows.push({ Section: "", Account: "Assumptions: 2026 = AFN 104M, +AFN 50M/yr, expenses +10%/yr, margin " + data.projectionRate.toFixed(2) + "%", Amount: "" });
     rows.push({ Section: "", Account: "", Amount: "" });
 
-    rows.push({ Section: "4-YEAR PROJECTION", Account: "", Amount: "" });
-    for (let y = 1; y <= 4; y++) {
-      rows.push({ Section: `Year ${y}`, Account: "Suggested Disbursement (Cumulative)", Amount: totalScenarioAmt * y });
-      rows.push({ Section: "", Account: "Margin Income (Cumulative)", Amount: totalScenarioAnnual * y });
-      rows.push({ Section: "", Account: "Expenditure (Cumulative)", Amount: annualExp * y });
-      rows.push({ Section: "", Account: "Net Profit / Loss", Amount: (totalScenarioAnnual * y) - (annualExp * y) });
+    exDisb.forEach((disb, i) => {
+      const expenses = exBaseExp * Math.pow(1.1, i + 1);
+      const outstanding = exDisb.slice(0, i + 1).reduce((s, d, j) => {
+        const yrsAgo = i - j;
+        return s + d * Math.max(0, 1 - (yrsAgo * 12) / exAvgTerm);
+      }, 0);
+      const margin = outstanding * exRate;
+      const collections = exDisb.slice(0, i + 1).reduce((s, d, j) => {
+        const yrsAgo = i - j;
+        if (yrsAgo === 0) return s + (d / exAvgTerm) * 6;
+        return s + (d / exAvgTerm) * Math.min(12, yrsAgo * 12);
+      }, 0);
+      const net = margin - expenses;
+      rows.push({ Section: `Year ${exYears[i]}`, Account: "Disbursement", Amount: disb });
+      rows.push({ Section: "", Account: "Outstanding Portfolio", Amount: outstanding });
+      rows.push({ Section: "", Account: "Margin Income", Amount: margin });
+      rows.push({ Section: "", Account: "Collections", Amount: collections });
+      rows.push({ Section: "", Account: "Expenses", Amount: expenses });
+      rows.push({ Section: "", Account: "Net Profit / Loss", Amount: net });
       rows.push({ Section: "", Account: "", Amount: "" });
-    }
+    });
+
+    rows.push({ Section: "MONTHLY CAPITAL NEEDS - 2026", Account: "", Amount: "" });
+    const exMonthlyDisb = 104_000_000 / 12;
+    const exMonthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    exMonthNames.forEach((mn, m) => {
+      let col = 0;
+      for (let p = 0; p < m; p++) {
+        col += exMonthlyDisb / exAvgTerm;
+        col += (exMonthlyDisb * exRate) / 12;
+      }
+      const cumDisb = exMonthlyDisb * (m + 1);
+      let cumCol = 0;
+      for (let mi = 0; mi <= m; mi++) {
+        for (let p = 0; p < mi; p++) {
+          cumCol += exMonthlyDisb / exAvgTerm;
+          cumCol += (exMonthlyDisb * exRate) / 12;
+        }
+      }
+      rows.push({ Section: `${mn} 2026`, Account: `Disbursement: ${exMonthlyDisb.toFixed(0)} | Collections: ${col.toFixed(0)} | Net Capital: ${(cumDisb - cumCol).toFixed(0)}`, Amount: cumDisb - cumCol });
+    });
 
     data.recommendations.forEach(rec => {
       rows.push({ Section: "", Account: rec, Amount: "" });
@@ -232,29 +263,26 @@ export default function ProfitabilityAnalysis() {
       tableData.push(["", ""]);
     }
 
-    const pdfTotalScenario = data.requiredDisbursement + data.additionalScenario.amount;
-    const pdfTotalAnnual = pdfTotalScenario * data.projectionRate / 100;
-    const pdfAnnualExp = data.monthlyExpenses * 12;
+    const pdfBaseExp = data.monthlyExpenses * 12;
+    const pdfRate = data.projectionRate / 100;
+    const pdfAvgTerm = 18;
+    const pdfDisb = [104_000_000, 154_000_000, 204_000_000, 254_000_000];
+    const pdfYears = ["2026", "2027", "2028", "2029"];
 
-    tableData.push([{ content: "Scenario: Break-Even + AFN 10M", colSpan: 2, styles: { fontStyle: "bold", fillColor: [237, 233, 254] } }]);
-    tableData.push(["Break-Even Disbursement", { content: formatNum(data.requiredDisbursement), styles: { halign: "right" } }]);
-    tableData.push(["+ Additional Amount", { content: formatNum(data.additionalScenario.amount), styles: { halign: "right" } }]);
-    tableData.push(["Total Disbursement", { content: formatNum(pdfTotalScenario), styles: { halign: "right", fontStyle: "bold" } }]);
-    tableData.push(["Annual Margin Income", { content: formatNum(pdfTotalAnnual), styles: { halign: "right" } }]);
-    tableData.push(["Monthly Margin Income", { content: formatNum(pdfTotalAnnual / 12), styles: { halign: "right" } }]);
-    tableData.push(["", ""]);
-
-    tableData.push([{ content: "4-Year Projection", colSpan: 2, styles: { fontStyle: "bold", fillColor: [224, 231, 255] } }]);
-    for (let y = 1; y <= 4; y++) {
-      const yMargin = pdfTotalAnnual * y;
-      const yExp = pdfAnnualExp * y;
-      const yNet = yMargin - yExp;
-      tableData.push([{ content: `Year ${y}`, styles: { fontStyle: "bold" } }, ""]);
-      tableData.push(["  Suggested Disbursement (Cumulative)", { content: formatNum(pdfTotalScenario * y), styles: { halign: "right" } }]);
-      tableData.push(["  Margin Income (Cumulative)", { content: formatNum(yMargin), styles: { halign: "right" } }]);
-      tableData.push(["  Expenditure (Cumulative)", { content: formatNum(yExp), styles: { halign: "right" } }]);
-      tableData.push(["  Net Profit / Loss", { content: `${yNet < 0 ? "-" : ""}${formatNum(Math.abs(yNet))}`, styles: { halign: "right", fontStyle: "bold" } }]);
-    }
+    tableData.push([{ content: "4-Year Projection (2026-2029)", colSpan: 2, styles: { fontStyle: "bold", fillColor: [224, 231, 255] } }]);
+    tableData.push([{ content: `Assumptions: AFN 104M (2026), +50M/yr, expenses +10%/yr, margin ${data.projectionRate.toFixed(2)}%`, colSpan: 2 }]);
+    pdfDisb.forEach((disb, i) => {
+      const expenses = pdfBaseExp * Math.pow(1.1, i + 1);
+      const outstanding = pdfDisb.slice(0, i + 1).reduce((s, d, j) => s + d * Math.max(0, 1 - ((i - j) * 12) / pdfAvgTerm), 0);
+      const margin = outstanding * pdfRate;
+      const net = margin - expenses;
+      tableData.push([{ content: `Year ${pdfYears[i]}`, styles: { fontStyle: "bold" } }, ""]);
+      tableData.push(["  Disbursement", { content: formatNum(disb), styles: { halign: "right" } }]);
+      tableData.push(["  Outstanding Portfolio", { content: formatNum(outstanding), styles: { halign: "right" } }]);
+      tableData.push(["  Margin Income", { content: formatNum(margin), styles: { halign: "right" } }]);
+      tableData.push(["  Expenses", { content: formatNum(expenses), styles: { halign: "right" } }]);
+      tableData.push(["  Net Profit / Loss", { content: `${net < 0 ? "-" : ""}${formatNum(Math.abs(net))}`, styles: { halign: "right", fontStyle: "bold" } }]);
+    });
     tableData.push(["", ""]);
 
     data.recommendations.forEach(rec => {
@@ -579,69 +607,151 @@ export default function ProfitabilityAnalysis() {
           )}
 
           {(() => {
-            const totalScenarioAmount = data.requiredDisbursement + data.additionalScenario.amount;
-            const totalScenarioAnnualIncome = totalScenarioAmount * data.projectionRate / 100;
-            const totalScenarioMonthlyIncome = totalScenarioAnnualIncome / 12;
-            const annualizedExpenses = data.monthlyExpenses * 12;
+            const baseExpenses = data.monthlyExpenses * 12;
+            const marginRate = data.projectionRate / 100;
+            const avgLoanTermMonths = 18;
+
+            const yearlyDisbursements = [104_000_000, 154_000_000, 204_000_000, 254_000_000];
+            const yearLabels = ["2026", "2027", "2028", "2029"];
+
+            const yearData = yearlyDisbursements.map((disb, i) => {
+              const expenses = baseExpenses * Math.pow(1.1, i + 1);
+              const cumulativeOutstanding = yearlyDisbursements.slice(0, i + 1).reduce((sum, d, j) => {
+                const yearsAgo = i - j;
+                const remainingFraction = Math.max(0, 1 - (yearsAgo * 12) / avgLoanTermMonths);
+                return sum + d * remainingFraction;
+              }, 0);
+              const marginIncome = cumulativeOutstanding * marginRate;
+              const collections = yearlyDisbursements.slice(0, i + 1).reduce((sum, d, j) => {
+                const yearsAgo = i - j;
+                if (yearsAgo === 0) {
+                  return sum + (d / avgLoanTermMonths) * 6;
+                }
+                const monthsCollecting = Math.min(12, yearsAgo * 12);
+                return sum + (d / avgLoanTermMonths) * monthsCollecting;
+              }, 0);
+              const netProfit = marginIncome - expenses;
+              return { year: yearLabels[i], disbursement: disb, expenses, marginIncome, collections, cumulativeOutstanding, netProfit };
+            });
+
+            const totalDisbursement = yearData.reduce((s, y) => s + y.disbursement, 0);
+            const totalMargin = yearData.reduce((s, y) => s + y.marginIncome, 0);
+            const totalExpenses = yearData.reduce((s, y) => s + y.expenses, 0);
+            const totalCollections = yearData.reduce((s, y) => s + y.collections, 0);
+            const totalNet = totalMargin - totalExpenses;
+
+            const monthlyDisb2026 = 104_000_000 / 12;
+            const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+            const monthlyData = monthNames.map((name, m) => {
+              const newDisb = monthlyDisb2026;
+              let collections = 0;
+              for (let prev = 0; prev < m; prev++) {
+                const monthsSince = m - prev;
+                if (monthsSince >= 1) {
+                  collections += monthlyDisb2026 / avgLoanTermMonths;
+                  collections += (monthlyDisb2026 * marginRate) / 12;
+                }
+              }
+              const cumulativeDisb = newDisb * (m + 1);
+              const cumulativeCollections = monthNames.slice(0, m + 1).reduce((sum, _, mi) => {
+                let col = 0;
+                for (let prev = 0; prev < mi; prev++) {
+                  col += monthlyDisb2026 / avgLoanTermMonths;
+                  col += (monthlyDisb2026 * marginRate) / 12;
+                }
+                return sum + col;
+              }, 0);
+              const netCapitalNeeded = cumulativeDisb - cumulativeCollections;
+              return { month: name, newDisb, collections, cumulativeDisb, cumulativeCollections, netCapitalNeeded };
+            });
 
             return (
               <>
-                <Card className="border-2 border-purple-200 dark:border-purple-800" data-testid="card-scenario-10m">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <ArrowUpRight className="h-5 w-5 text-purple-500" />
-                      Scenario: Break-Even Amount + Additional AFN 10,000,000
-                    </CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      What happens if the company disburses the suggested break-even amount ({formatAFN(data.requiredDisbursement)}) plus an additional AFN 10 million?
-                    </p>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
-                      <div className="p-3 rounded-lg bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800">
-                        <p className="text-xs text-muted-foreground">Break-Even Disbursement</p>
-                        <p className="text-lg font-bold text-purple-700 dark:text-purple-400 mt-1">{formatAFN(data.requiredDisbursement)}</p>
-                      </div>
-                      <div className="p-3 rounded-lg bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800">
-                        <p className="text-xs text-muted-foreground">+ Additional Amount</p>
-                        <p className="text-lg font-bold text-purple-700 dark:text-purple-400 mt-1">{formatAFN(data.additionalScenario.amount)}</p>
-                      </div>
-                      <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
-                        <p className="text-xs text-muted-foreground">Total Disbursement</p>
-                        <p className="text-lg font-bold text-blue-700 dark:text-blue-400 mt-1">{formatAFN(totalScenarioAmount)}</p>
-                      </div>
-                      <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800">
-                        <p className="text-xs text-muted-foreground">Annual Margin Income</p>
-                        <p className="text-lg font-bold text-green-700 dark:text-green-400 mt-1">{formatAFN(totalScenarioAnnualIncome)}</p>
-                        <p className="text-xs text-muted-foreground">at {data.projectionRate.toFixed(2)}% annual rate</p>
-                      </div>
-                      <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800">
-                        <p className="text-xs text-muted-foreground">Monthly Margin Income</p>
-                        <p className="text-lg font-bold text-green-700 dark:text-green-400 mt-1">{formatAFN(totalScenarioMonthlyIncome)}</p>
-                        <p className="text-xs text-muted-foreground">earned each month</p>
-                      </div>
-                    </div>
-
-                    <div className="p-4 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 mb-4">
-                      <p className="text-sm font-medium text-green-800 dark:text-green-300">
-                        Net Annual Profit from this scenario: <strong>{formatAFN(totalScenarioAnnualIncome - data.annualizedLoss)}</strong> per year
-                        ({formatAFN((totalScenarioAnnualIncome - data.annualizedLoss) / 12)} per month)
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        The additional AFN 10M beyond break-even generates {formatAFN(data.additionalScenario.amount * data.projectionRate / 100)} extra margin income per year
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-
                 <Card className="border-2 border-indigo-200 dark:border-indigo-800" data-testid="card-4year-projection">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-lg flex items-center gap-2">
                       <Calculator className="h-5 w-5 text-indigo-500" />
-                      4-Year Projection (Suggested Disbursement + AFN 10M Additional)
+                      4-Year Disbursement & Profitability Projection (2026–2029)
                     </CardTitle>
                     <p className="text-sm text-muted-foreground">
-                      Yearly breakdown of disbursement, margin income, expenses, and net profit/loss
+                      2026: AFN 104M disbursement, +AFN 50M/year growth, expenses increase 10% annually, {data.projectionRate.toFixed(2)}% margin rate, {avgLoanTermMonths}-month avg loan term
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+                      <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
+                        <p className="text-xs text-muted-foreground">Year 1 (2026) Disbursement</p>
+                        <p className="text-xl font-bold text-blue-700 dark:text-blue-400">{formatAFN(104_000_000)}</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800">
+                        <p className="text-xs text-muted-foreground">Annual Disbursement Growth</p>
+                        <p className="text-xl font-bold text-purple-700 dark:text-purple-400">+AFN 50,000,000</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800">
+                        <p className="text-xs text-muted-foreground">Annual Expense Growth</p>
+                        <p className="text-xl font-bold text-red-700 dark:text-red-400">+10% / year</p>
+                        <p className="text-xs text-muted-foreground">Base: {formatAFN(baseExpenses)}/yr</p>
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b bg-muted/50">
+                            <th className="text-left py-2.5 px-3 text-muted-foreground font-medium">Year</th>
+                            <th className="text-right py-2.5 px-3 text-muted-foreground font-medium">Disbursement</th>
+                            <th className="text-right py-2.5 px-3 text-muted-foreground font-medium">Outstanding Portfolio</th>
+                            <th className="text-right py-2.5 px-3 text-muted-foreground font-medium">Margin Income</th>
+                            <th className="text-right py-2.5 px-3 text-muted-foreground font-medium">Collections</th>
+                            <th className="text-right py-2.5 px-3 text-muted-foreground font-medium">Expenses</th>
+                            <th className="text-right py-2.5 px-3 text-muted-foreground font-medium">Net Profit / Loss</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {yearData.map((yr, i) => {
+                            const isPositive = yr.netProfit > 0;
+                            return (
+                              <tr key={i} className="border-b border-muted/50 hover:bg-muted/30" data-testid={`row-year-${yr.year}`}>
+                                <td className="py-2.5 px-3 font-medium">{yr.year}</td>
+                                <td className="text-right py-2.5 px-3 font-mono text-blue-700 dark:text-blue-400">{formatNum(yr.disbursement)}</td>
+                                <td className="text-right py-2.5 px-3 font-mono text-violet-700 dark:text-violet-400">{formatNum(yr.cumulativeOutstanding)}</td>
+                                <td className="text-right py-2.5 px-3 font-mono text-green-700 dark:text-green-400">{formatNum(yr.marginIncome)}</td>
+                                <td className="text-right py-2.5 px-3 font-mono text-teal-700 dark:text-teal-400">{formatNum(yr.collections)}</td>
+                                <td className="text-right py-2.5 px-3 font-mono text-red-700 dark:text-red-400">{formatNum(yr.expenses)}</td>
+                                <td className={`text-right py-2.5 px-3 font-mono font-bold ${isPositive ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
+                                  {yr.netProfit < 0 ? "-" : ""}{formatNum(Math.abs(yr.netProfit))}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                          <tr className="font-bold bg-indigo-50 dark:bg-indigo-950/30 border-t-2">
+                            <td className="py-2.5 px-3">4-Year Total</td>
+                            <td className="text-right py-2.5 px-3 font-mono text-blue-700 dark:text-blue-400">{formatNum(totalDisbursement)}</td>
+                            <td className="text-right py-2.5 px-3 font-mono text-violet-700 dark:text-violet-400">—</td>
+                            <td className="text-right py-2.5 px-3 font-mono text-green-700 dark:text-green-400">{formatNum(totalMargin)}</td>
+                            <td className="text-right py-2.5 px-3 font-mono text-teal-700 dark:text-teal-400">{formatNum(totalCollections)}</td>
+                            <td className="text-right py-2.5 px-3 font-mono text-red-700 dark:text-red-400">{formatNum(totalExpenses)}</td>
+                            <td className={`text-right py-2.5 px-3 font-mono font-bold ${totalNet > 0 ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
+                              {totalNet < 0 ? "-" : ""}{formatNum(Math.abs(totalNet))}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-3">
+                      * Outstanding Portfolio accounts for loan repayments over {avgLoanTermMonths}-month avg term. Margin income = outstanding portfolio × {data.projectionRate.toFixed(2)}%. Collections include principal repayments based on avg loan term. Expenses: base {formatAFN(baseExpenses)}/yr with 10% annual increase.
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-2 border-teal-200 dark:border-teal-800" data-testid="card-monthly-capital">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Calendar className="h-5 w-5 text-teal-500" />
+                      Monthly Capital Needs — 2026
+                    </CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      Monthly breakdown of AFN 104M disbursement target showing capital required after accounting for loan collections
                     </p>
                   </CardHeader>
                   <CardContent>
@@ -649,53 +759,40 @@ export default function ProfitabilityAnalysis() {
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b bg-muted/50">
-                            <th className="text-left py-2 px-3 text-muted-foreground font-medium">Year</th>
-                            <th className="text-right py-2 px-3 text-muted-foreground font-medium">Suggested Disbursement</th>
-                            <th className="text-right py-2 px-3 text-muted-foreground font-medium">Margin Income</th>
-                            <th className="text-right py-2 px-3 text-muted-foreground font-medium">Expenditure</th>
-                            <th className="text-right py-2 px-3 text-muted-foreground font-medium">Net Profit / Loss</th>
+                            <th className="text-left py-2.5 px-3 text-muted-foreground font-medium">Month</th>
+                            <th className="text-right py-2.5 px-3 text-muted-foreground font-medium">New Disbursement</th>
+                            <th className="text-right py-2.5 px-3 text-muted-foreground font-medium">Monthly Collections</th>
+                            <th className="text-right py-2.5 px-3 text-muted-foreground font-medium">Cumulative Disbursed</th>
+                            <th className="text-right py-2.5 px-3 text-muted-foreground font-medium">Cumulative Collections</th>
+                            <th className="text-right py-2.5 px-3 text-muted-foreground font-medium">Net Capital Required</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {Array.from({ length: 4 }, (_, i) => {
-                            const yearNum = i + 1;
-                            const cumulativeDisbursement = totalScenarioAmount * yearNum;
-                            const yearMarginIncome = totalScenarioAnnualIncome * yearNum;
-                            const yearExpenditure = annualizedExpenses * yearNum;
-                            const yearNetProfit = yearMarginIncome - yearExpenditure;
-                            const isPositive = yearNetProfit > 0;
-
-                            return (
-                              <tr key={i} className="border-b border-muted/50 hover:bg-muted/30" data-testid={`row-year-${yearNum}`}>
-                                <td className="py-2 px-3 font-medium">Year {yearNum}</td>
-                                <td className="text-right py-2 px-3 font-mono text-blue-700 dark:text-blue-400">{formatNum(cumulativeDisbursement)}</td>
-                                <td className="text-right py-2 px-3 font-mono text-green-700 dark:text-green-400">{formatNum(yearMarginIncome)}</td>
-                                <td className="text-right py-2 px-3 font-mono text-red-700 dark:text-red-400">{formatNum(yearExpenditure)}</td>
-                                <td className={`text-right py-2 px-3 font-mono font-bold ${isPositive ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
-                                  {yearNetProfit < 0 ? "-" : ""}{formatNum(Math.abs(yearNetProfit))}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                          <tr className="font-bold bg-indigo-50 dark:bg-indigo-950/30 border-t-2">
-                            <td className="py-2.5 px-3">4-Year Total</td>
-                            <td className="text-right py-2.5 px-3 font-mono text-blue-700 dark:text-blue-400">{formatNum(totalScenarioAmount * 4)}</td>
-                            <td className="text-right py-2.5 px-3 font-mono text-green-700 dark:text-green-400">{formatNum(totalScenarioAnnualIncome * 4)}</td>
-                            <td className="text-right py-2.5 px-3 font-mono text-red-700 dark:text-red-400">{formatNum(annualizedExpenses * 4)}</td>
-                            {(() => {
-                              const total4YearNet = (totalScenarioAnnualIncome * 4) - (annualizedExpenses * 4);
-                              return (
-                                <td className={`text-right py-2.5 px-3 font-mono font-bold ${total4YearNet > 0 ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
-                                  {total4YearNet < 0 ? "-" : ""}{formatNum(Math.abs(total4YearNet))}
-                                </td>
-                              );
-                            })()}
+                          {monthlyData.map((md, i) => (
+                            <tr key={i} className="border-b border-muted/50 hover:bg-muted/30" data-testid={`row-month-${md.month}`}>
+                              <td className="py-2 px-3 font-medium">{md.month} 2026</td>
+                              <td className="text-right py-2 px-3 font-mono text-blue-700 dark:text-blue-400">{formatNum(md.newDisb)}</td>
+                              <td className="text-right py-2 px-3 font-mono text-teal-700 dark:text-teal-400">{formatNum(md.collections)}</td>
+                              <td className="text-right py-2 px-3 font-mono text-muted-foreground">{formatNum(md.cumulativeDisb)}</td>
+                              <td className="text-right py-2 px-3 font-mono text-muted-foreground">{formatNum(md.cumulativeCollections)}</td>
+                              <td className="text-right py-2 px-3 font-mono font-bold text-amber-700 dark:text-amber-400">{formatNum(md.netCapitalNeeded)}</td>
+                            </tr>
+                          ))}
+                          <tr className="font-bold bg-teal-50 dark:bg-teal-950/30 border-t-2">
+                            <td className="py-2.5 px-3">Year Total</td>
+                            <td className="text-right py-2.5 px-3 font-mono text-blue-700 dark:text-blue-400">{formatNum(104_000_000)}</td>
+                            <td className="text-right py-2.5 px-3 font-mono text-teal-700 dark:text-teal-400">{formatNum(monthlyData.reduce((s, m) => s + m.collections, 0))}</td>
+                            <td className="text-right py-2.5 px-3 font-mono text-muted-foreground">—</td>
+                            <td className="text-right py-2.5 px-3 font-mono text-muted-foreground">—</td>
+                            <td className="text-right py-2.5 px-3 font-mono font-bold text-amber-700 dark:text-amber-400">
+                              {formatNum(monthlyData[11]?.netCapitalNeeded || 0)}
+                            </td>
                           </tr>
                         </tbody>
                       </table>
                     </div>
                     <p className="text-xs text-muted-foreground mt-3">
-                      * Expenditure is based on current annualized expenses ({formatAFN(annualizedExpenses)}/year). Disbursement shows cumulative amount. Margin income assumes {data.projectionRate.toFixed(2)}% annual rate applied on total cumulative disbursement.
+                      * Assumes even monthly disbursement (~{formatAFN(monthlyDisb2026)}/month). Collections begin from month 2 as prior-month borrowers start repaying principal ({avgLoanTermMonths}-month term) plus margin ({data.projectionRate.toFixed(2)}% annual). Net Capital Required = cumulative disbursements - cumulative collections.
                     </p>
                   </CardContent>
                 </Card>
