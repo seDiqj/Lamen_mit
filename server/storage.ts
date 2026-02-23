@@ -2198,16 +2198,11 @@ export class DatabaseStorage implements IStorage {
       .from(loans)
       .groupBy(loans.status);
 
-    const monthlyData = await db.execute(sql`
+    const monthlyDisbData = await db.execute(sql`
       SELECT 
         TO_CHAR(d.disbursement_date, 'Mon') as month,
         TO_CHAR(d.disbursement_date, 'YYYY-MM') as sort_key,
-        COALESCE(SUM(l.principle_amount::numeric), 0) as disbursed,
-        COALESCE((
-          SELECT SUM(COALESCE(i.paid_amount::numeric, 0))
-          FROM installments i
-          WHERE i.loan_id = ANY(ARRAY_AGG(l.id)) AND i.is_paid = true
-        ), 0) as collected
+        COALESCE(SUM(l.principle_amount::numeric), 0) as disbursed
       FROM disbursements d
       LEFT JOIN loans l ON d.loan_id = l.id
       WHERE d.disbursement_date IS NOT NULL
@@ -2216,10 +2211,33 @@ export class DatabaseStorage implements IStorage {
       ORDER BY TO_CHAR(d.disbursement_date, 'YYYY-MM')
     `);
 
-    const monthlyTrends = (monthlyData.rows as any[]).map(m => ({
-      month: m.month,
-      disbursed: Number(m.disbursed),
-      collected: Number(m.collected),
+    const monthlyCollData = await db.execute(sql`
+      SELECT 
+        TO_CHAR(i.payment_date, 'Mon') as month,
+        TO_CHAR(i.payment_date, 'YYYY-MM') as sort_key,
+        COALESCE(SUM(i.paid_amount::numeric), 0) as collected
+      FROM installments i
+      WHERE i.is_paid = true
+        AND i.payment_date IS NOT NULL
+        AND i.payment_date >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '5 months')
+      GROUP BY TO_CHAR(i.payment_date, 'Mon'), TO_CHAR(i.payment_date, 'YYYY-MM')
+      ORDER BY TO_CHAR(i.payment_date, 'YYYY-MM')
+    `);
+
+    const disbMap = new Map<string, { month: string; disbursed: number }>();
+    for (const row of monthlyDisbData.rows as any[]) {
+      disbMap.set(row.sort_key, { month: row.month, disbursed: Number(row.disbursed) });
+    }
+    const collMap = new Map<string, number>();
+    for (const row of monthlyCollData.rows as any[]) {
+      collMap.set(row.sort_key, Number(row.collected));
+    }
+
+    const allKeys = new Set([...disbMap.keys(), ...collMap.keys()]);
+    const monthlyTrends = Array.from(allKeys).sort().map(key => ({
+      month: disbMap.get(key)?.month || (monthlyCollData.rows as any[]).find((r: any) => r.sort_key === key)?.month || key,
+      disbursed: disbMap.get(key)?.disbursed || 0,
+      collected: collMap.get(key) || 0,
     }));
 
     return {
