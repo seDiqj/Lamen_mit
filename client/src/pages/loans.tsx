@@ -621,7 +621,7 @@ export default function LoansPage() {
                                 };
                                 try {
                                   const text = generateQRText(qrData);
-                                  const url = await generateQRWithLogo(text, 350);
+                                  const url = await generateQRWithLogo(text, 450);
                                   setQrLoanInfo(qrData);
                                   setQrDataUrl(url);
                                   setShowQRDialog(true);
@@ -690,7 +690,7 @@ export default function LoansPage() {
       </Card>
 
       <Dialog open={showQRDialog} onOpenChange={setShowQRDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <QrCode className="h-5 w-5 text-primary" />
@@ -702,8 +702,8 @@ export default function LoansPage() {
           </DialogHeader>
           <div className="flex flex-col items-center py-4 space-y-4">
             {qrDataUrl && (
-              <div className="border-2 border-muted rounded-xl p-3 bg-white">
-                <img src={qrDataUrl} alt="Loan QR Code" className="w-[300px] h-[300px]" data-testid="img-qr-code" />
+              <div className="border-2 border-muted rounded-xl p-4 bg-white">
+                <img src={qrDataUrl} alt="Loan QR Code" className="w-[400px] h-[400px]" data-testid="img-qr-code" />
               </div>
             )}
             {qrLoanInfo && (
