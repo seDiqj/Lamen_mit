@@ -2303,11 +2303,23 @@ export async function registerRoutes(
         const branch = loan.branchId ? await storage.getBranch(loan.branchId) : null;
         const disbursementAmount = parseFloat(loan.requestAmount || "0");
 
+        let marginAmount = parseFloat(loan.profit || "0");
+        if (marginAmount === 0 && disbursementAmount > 0) {
+          const marginRate = parseFloat(loan.marginRate || "0");
+          const durationMonths = loan.financingDurationMonths || 12;
+          const rateCalc = marginRate > 1 ? marginRate / 100 : marginRate;
+          marginAmount = (disbursementAmount * rateCalc / 12) * durationMonths;
+        }
+
+        const totalReceivableAmount = disbursementAmount + marginAmount;
+
         const creditCode = branch?.accountCode || "10206";
         const debitCode = "11000";
+        const marginCreditCode = "20900";
 
         const debitAccount = await storage.getAccountByCode(debitCode);
         const creditAccount = await storage.getAccountByCode(creditCode);
+        const marginCreditAccount = await storage.getAccountByCode(marginCreditCode);
 
         if (debitAccount && creditAccount && disbursementAmount > 0) {
           const entryNumber = await storage.getNextEntryNumber();
@@ -2318,7 +2330,7 @@ export async function registerRoutes(
             {
               accountId: debitAccount.id,
               description: `Loan receivable - ${customerName} (${loan.applicationId})`,
-              debitAmount: disbursementAmount.toFixed(2),
+              debitAmount: totalReceivableAmount.toFixed(2),
               creditAmount: "0",
             },
             {
@@ -2328,6 +2340,15 @@ export async function registerRoutes(
               creditAmount: disbursementAmount.toFixed(2),
             },
           ];
+
+          if (marginCreditAccount && marginAmount > 0) {
+            lines.push({
+              accountId: marginCreditAccount.id,
+              description: `Loan margin - ${customerName} (${loan.applicationId})`,
+              debitAmount: "0",
+              creditAmount: marginAmount.toFixed(2),
+            });
+          }
 
           await storage.createJournalEntry(
             {
@@ -2464,13 +2485,36 @@ export async function registerRoutes(
               const branch = loan.branchId ? await storage.getBranch(loan.branchId) : null;
               const disbursementAmount = parseFloat(loan.requestAmount || "0");
 
+              let bulkMarginAmount = parseFloat(loan.profit || "0");
+              if (bulkMarginAmount === 0 && disbursementAmount > 0) {
+                const bulkMarginRate = parseFloat(loan.marginRate || "0");
+                const bulkDuration = loan.financingDurationMonths || 12;
+                const bulkRateCalc = bulkMarginRate > 1 ? bulkMarginRate / 100 : bulkMarginRate;
+                bulkMarginAmount = (disbursementAmount * bulkRateCalc / 12) * bulkDuration;
+              }
+              const bulkTotalReceivable = disbursementAmount + bulkMarginAmount;
+
               const creditCode = branch?.accountCode || "10206";
               const debitCode = "11000";
+              const bulkMarginCreditCode = "20900";
               const debitAccount = await storage.getAccountByCode(debitCode);
               const creditAccount = await storage.getAccountByCode(creditCode);
+              const bulkMarginCreditAccount = await storage.getAccountByCode(bulkMarginCreditCode);
 
               if (debitAccount && creditAccount && disbursementAmount > 0) {
                 const entryNumber = await storage.getNextEntryNumber();
+                const bulkLines: any[] = [
+                  { accountId: debitAccount.id, description: `Loan receivable - ${customerName}`, debitAmount: bulkTotalReceivable.toFixed(2), creditAmount: "0" },
+                  { accountId: creditAccount.id, description: `Cash disbursed - ${customerName}`, debitAmount: "0", creditAmount: disbursementAmount.toFixed(2) },
+                ];
+                if (bulkMarginCreditAccount && bulkMarginAmount > 0) {
+                  bulkLines.push({
+                    accountId: bulkMarginCreditAccount.id,
+                    description: `Loan margin - ${customerName} (${applicationId})`,
+                    debitAmount: "0",
+                    creditAmount: bulkMarginAmount.toFixed(2),
+                  });
+                }
                 await storage.createJournalEntry(
                   {
                     entryNumber,
@@ -2484,10 +2528,7 @@ export async function registerRoutes(
                     postedBy: userId,
                     postedAt: new Date(),
                   },
-                  [
-                    { accountId: debitAccount.id, description: `Loan receivable - ${customerName}`, debitAmount: disbursementAmount.toFixed(2), creditAmount: "0" },
-                    { accountId: creditAccount.id, description: `Cash disbursed - ${customerName}`, debitAmount: "0", creditAmount: disbursementAmount.toFixed(2) },
-                  ]
+                  bulkLines
                 );
               }
             }
