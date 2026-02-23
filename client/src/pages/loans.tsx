@@ -37,12 +37,22 @@ import {
   ArrowDown,
   FileSpreadsheet,
   MessageCircle,
+  QrCode,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { FundingSource } from "@shared/schema";
 import type { Loan } from "@shared/schema";
+import { generateQRText, generateQRWithLogo, downloadQRCode, type QRLoanData } from "@/lib/qr-generator";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type LoanWithDetails = Loan & {
   customerName?: string;
@@ -93,6 +103,9 @@ export default function LoansPage() {
   const [page, setPage] = useState(1);
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [showQRDialog, setShowQRDialog] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
+  const [qrLoanInfo, setQrLoanInfo] = useState<QRLoanData | null>(null);
   const limit = 10;
 
   const handleSort = (column: SortColumn) => {
@@ -591,6 +604,35 @@ export default function LoansPage() {
                               <Eye className="h-4 w-4" />
                             </Link>
                           </Button>
+                          {loan.status === "disbursed" && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Generate QR Code"
+                              data-testid={`button-qr-loan-${loan.id}`}
+                              onClick={async () => {
+                                const qrData: QRLoanData = {
+                                  applicationId: loan.applicationId || "",
+                                  customerName: loan.customerName || "Unknown",
+                                  amount: loan.principleAmount || loan.requestAmount || "0",
+                                  disbursementDate: loan.disbursementDate || "",
+                                  productName: loan.productName || "Murabaha",
+                                  durationMonths: loan.financingDurationMonths || 12,
+                                };
+                                try {
+                                  const text = generateQRText(qrData);
+                                  const url = await generateQRWithLogo(text, 350);
+                                  setQrLoanInfo(qrData);
+                                  setQrDataUrl(url);
+                                  setShowQRDialog(true);
+                                } catch (err) {
+                                  console.error("Failed to generate QR:", err);
+                                }
+                              }}
+                            >
+                              <QrCode className="h-4 w-4" />
+                            </Button>
+                          )}
                           {(roleData?.role === "manager" || roleData?.role === "admin") && (
                             <Button variant="ghost" size="icon" asChild data-testid={`button-edit-loan-${loan.id}`}>
                               <Link href={`/loans/${loan.id}`}>
@@ -646,6 +688,52 @@ export default function LoansPage() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={showQRDialog} onOpenChange={setShowQRDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <QrCode className="h-5 w-5 text-primary" />
+              Loan QR Code
+            </DialogTitle>
+            <DialogDescription>
+              Disbursement QR code for {qrLoanInfo?.applicationId}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center py-4 space-y-4">
+            {qrDataUrl && (
+              <div className="border-2 border-muted rounded-xl p-3 bg-white">
+                <img src={qrDataUrl} alt="Loan QR Code" className="w-[300px] h-[300px]" data-testid="img-qr-code" />
+              </div>
+            )}
+            {qrLoanInfo && (
+              <div className="text-xs text-muted-foreground text-center space-y-0.5">
+                <p className="font-semibold text-foreground">{qrLoanInfo.applicationId}</p>
+                <p>{qrLoanInfo.customerName}</p>
+                <p>AFN {Number(qrLoanInfo.amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}</p>
+                <p>{qrLoanInfo.productName} - {qrLoanInfo.durationMonths} months</p>
+                <p>Disbursed: {qrLoanInfo.disbursementDate}</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => setShowQRDialog(false)}>
+              Close
+            </Button>
+            <Button
+              onClick={() => {
+                if (qrDataUrl && qrLoanInfo) {
+                  downloadQRCode(qrDataUrl, `QR_${qrLoanInfo.applicationId}.png`);
+                }
+              }}
+              data-testid="button-download-qr"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Download
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
