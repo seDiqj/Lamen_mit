@@ -2378,6 +2378,162 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/loans/fix-disbursement-journals", isAuthenticated, requireRole("admin"), async (req: any, res) => {
+    try {
+      const { applicationIds } = req.body;
+      if (!Array.isArray(applicationIds) || applicationIds.length === 0) {
+        return res.status(400).json({ message: "Please provide an array of applicationIds" });
+      }
+
+      const marginCreditCode = "20900";
+      const debitCode = "11000";
+      const marginCreditAccount = await storage.getAccountByCode(marginCreditCode);
+      if (!marginCreditAccount) {
+        return res.status(400).json({ message: `Account ${marginCreditCode} not found` });
+      }
+
+      const results: any[] = [];
+
+      for (const appId of applicationIds) {
+        try {
+          const loan = await storage.getLoanByApplicationId(appId);
+          if (!loan) {
+            results.push({ applicationId: appId, success: false, error: "Loan not found" });
+            continue;
+          }
+
+          const customer = loan.customerId ? await storage.getCustomer(loan.customerId) : null;
+          const customerName = customer ? `${customer.firstName} ${customer.lastName}` : "Unknown";
+          const branch = loan.branchId ? await storage.getBranch(loan.branchId) : null;
+          const disbursement = await storage.getDisbursementByLoan(loan.id);
+          const principalAmount = parseFloat(loan.principleAmount || loan.requestAmount || "0");
+
+          let marginAmount = parseFloat(loan.profit || "0");
+          if (marginAmount === 0 && principalAmount > 0) {
+            const marginRate = parseFloat(loan.marginRate || "0");
+            const durationMonths = loan.financingDurationMonths || 12;
+            const rateCalc = marginRate > 1 ? marginRate / 100 : marginRate;
+            marginAmount = (principalAmount * rateCalc / 12) * durationMonths;
+          }
+
+          if (marginAmount <= 0) {
+            results.push({ applicationId: appId, success: false, error: "No margin amount to record" });
+            continue;
+          }
+
+          const totalReceivableAmount = principalAmount + marginAmount;
+          const creditCode = branch?.accountCode || "10206";
+          const debitAccount = await storage.getAccountByCode(debitCode);
+          const creditAccount = await storage.getAccountByCode(creditCode);
+
+          if (!debitAccount || !creditAccount) {
+            results.push({ applicationId: appId, success: false, error: "Debit or credit account not found" });
+            continue;
+          }
+
+          const existingEntries = await db.select().from(journalEntries)
+            .where(and(eq(journalEntries.reference, appId), eq(journalEntries.referenceType, "disbursement")));
+
+          const disbDate = disbursement?.disbursementDate || new Date().toISOString().split("T")[0];
+
+          if (existingEntries.length > 0) {
+            const existingEntry = existingEntries[0];
+            const existingLines = await db.select().from(journalLines)
+              .where(eq(journalLines.journalEntryId, existingEntry.id));
+
+            const has20900 = existingLines.some((line: any) => line.accountId === marginCreditAccount.id);
+            if (has20900) {
+              results.push({ applicationId: appId, success: false, error: "Already has 20900 margin line" });
+              continue;
+            }
+
+            await db.insert(journalLines).values({
+              id: crypto.randomUUID(),
+              journalEntryId: existingEntry.id,
+              accountId: marginCreditAccount.id,
+              description: `Loan margin - ${customerName} (${appId})`,
+              debitAmount: "0",
+              creditAmount: marginAmount.toFixed(2),
+            });
+
+            const debitLine = existingLines.find((line: any) => parseFloat(line.debitAmount || "0") > 0);
+            if (debitLine) {
+              await db.update(journalLines)
+                .set({ debitAmount: totalReceivableAmount.toFixed(2) })
+                .where(eq(journalLines.id, debitLine.id));
+            }
+
+            const newTotalDebit = totalReceivableAmount;
+            const newTotalCredit = principalAmount + marginAmount;
+            await db.update(journalEntries)
+              .set({
+                totalDebit: newTotalDebit.toFixed(2),
+                totalCredit: newTotalCredit.toFixed(2),
+              })
+              .where(eq(journalEntries.id, existingEntry.id));
+
+            results.push({ applicationId: appId, success: true, action: "updated", marginAmount: marginAmount.toFixed(2) });
+          } else {
+            const entryNumber = await storage.getNextEntryNumber();
+            const description = `Disbursement: ${customerName} (${appId}) - AFN ${principalAmount.toLocaleString()}`;
+
+            const lines: any[] = [
+              {
+                accountId: debitAccount.id,
+                description: `Loan receivable - ${customerName} (${appId})`,
+                debitAmount: totalReceivableAmount.toFixed(2),
+                creditAmount: "0",
+              },
+              {
+                accountId: creditAccount.id,
+                description: `Cash disbursed - ${customerName} (${appId})`,
+                debitAmount: "0",
+                creditAmount: principalAmount.toFixed(2),
+              },
+              {
+                accountId: marginCreditAccount.id,
+                description: `Loan margin - ${customerName} (${appId})`,
+                debitAmount: "0",
+                creditAmount: marginAmount.toFixed(2),
+              },
+            ];
+
+            await storage.createJournalEntry(
+              {
+                entryNumber,
+                entryDate: disbDate,
+                description,
+                reference: appId,
+                referenceType: "disbursement",
+                referenceId: loan.id,
+                isPosted: true,
+                createdBy: req.session.userId,
+                postedBy: req.session.userId,
+                postedAt: new Date(),
+              },
+              lines
+            );
+
+            results.push({ applicationId: appId, success: true, action: "created", marginAmount: marginAmount.toFixed(2) });
+          }
+
+          await logActivity(req, "fix_disbursement_journal", "loan", loan.id, `Fixed disbursement journal for ${appId} - added margin ${marginAmount.toFixed(2)} to account 20900`);
+        } catch (loanError: any) {
+          results.push({ applicationId: appId, success: false, error: loanError.message });
+        }
+      }
+
+      const successCount = results.filter(r => r.success).length;
+      res.json({
+        message: `Processed ${results.length} loans: ${successCount} fixed successfully`,
+        results,
+      });
+    } catch (error: any) {
+      console.error("Error fixing disbursement journals:", error);
+      res.status(500).json({ message: "Failed to fix disbursement journals" });
+    }
+  });
+
   // ===== BULK DISBURSEMENT (CSV Upload) =====
   const monthMap: Record<string, string> = {
     jan: "01", feb: "02", mar: "03", apr: "04", may: "05", jun: "06",
