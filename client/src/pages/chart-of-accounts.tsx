@@ -195,9 +195,49 @@ export default function ChartOfAccounts() {
     });
   };
 
+  const filterHierarchy = (accs: Account[]): Account[] => {
+    if (!searchTerm && typeFilter === "all") return accs;
+
+    const matchesFilter = (acc: Account): boolean => {
+      const matchesSearch = !searchTerm ||
+        acc.accountCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        acc.accountName.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesType = typeFilter === "all" || acc.accountType === typeFilter;
+      return matchesSearch && matchesType;
+    };
+
+    const filterTree = (acc: Account): Account | null => {
+      const filteredChildren = (acc.children || [])
+        .map(child => filterTree(child))
+        .filter((c): c is Account => c !== null);
+
+      if (matchesFilter(acc) || filteredChildren.length > 0) {
+        return { ...acc, children: filteredChildren };
+      }
+      return null;
+    };
+
+    return accs.map(a => filterTree(a)).filter((a): a is Account => a !== null);
+  };
+
+  const filteredHierarchy = filterHierarchy(hierarchy);
+
+  const collectAllIds = (accs: Account[]): Set<string> => {
+    const ids = new Set<string>();
+    const collect = (acc: Account) => {
+      if (acc.children && acc.children.length > 0) {
+        ids.add(acc.id);
+        acc.children.forEach(collect);
+      }
+    };
+    accs.forEach(collect);
+    return ids;
+  };
+
   const renderAccountRow = (account: Account, level: number = 0): JSX.Element[] => {
     const hasChildren = account.children && account.children.length > 0;
-    const isExpanded = expandedAccounts.has(account.id);
+    const isSearching = !!(searchTerm || typeFilter !== "all");
+    const isExpanded = isSearching || expandedAccounts.has(account.id);
 
     const rows: JSX.Element[] = [
       <TableRow key={account.id} className="hover:bg-muted/50">
@@ -371,7 +411,7 @@ export default function ChartOfAccounts() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {hierarchy.length > 0 ? hierarchy.flatMap(acc => renderAccountRow(acc)) : (
+                {filteredHierarchy.length > 0 ? filteredHierarchy.flatMap(acc => renderAccountRow(acc)) : (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                       No accounts found. Click "Add Account" to create your first account.
