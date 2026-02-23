@@ -17,10 +17,19 @@ import {
   User, FileText, Building2, Shield, Users, UserCheck, 
   ChevronLeft, ChevronRight, Save, ArrowLeft, Loader2, Check, Eye, Edit2,
   XCircle, AlertTriangle, CheckCircle2, Clock, Camera, ExternalLink,
-  Upload, X, File, Trash2
+  Upload, X, File, Trash2, QrCode, Download
 } from "lucide-react";
 import type { Branch, FinanceOfficer, FundingSource, Province, District } from "@shared/schema";
 import { cn, toPersianDate, calculateAge } from "@/lib/utils";
+import { generateQRText, generateQRWithLogo, downloadQRCode, type QRLoanData } from "@/lib/qr-generator";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const optNum = z.preprocess(
   (v) => (v === "" || v === null || v === undefined ? undefined : Number(v)),
@@ -150,6 +159,9 @@ export default function LoanDetailsPage() {
   const queryClient = useQueryClient();
   const [currentStep, setCurrentStep] = useState(1);
   const [isEditing, setIsEditing] = useState(false);
+  const [showQRDialog, setShowQRDialog] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
+  const [qrLoanInfo, setQrLoanInfo] = useState<QRLoanData | null>(null);
   const [customerPhotoUrl, setCustomerPhotoUrl] = useState<string | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [newDocuments, setNewDocuments] = useState<{documentType: string; fileName: string; fileUrl: string}[]>([]);
@@ -411,18 +423,51 @@ export default function LoanDetailsPage() {
             </p>
           </div>
         </div>
-        <Button
-          variant={isEditing ? "outline" : "default"}
-          onClick={() => setIsEditing(!isEditing)}
-          className={isEditing ? "" : "bg-gradient-to-r from-blue-500 to-indigo-500"}
-          data-testid="button-toggle-edit"
-        >
-          {isEditing ? (
-            <><Eye className="h-4 w-4 mr-2" /> View Mode</>
-          ) : (
-            <><Edit2 className="h-4 w-4 mr-2" /> Edit</>
+        <div className="flex items-center gap-2">
+          {loanData?.loan?.status === "disbursed" && (
+            <Button
+              variant="outline"
+              onClick={async () => {
+                const loan = loanData?.loan;
+                const customer = loanData?.customer;
+                if (!loan) return;
+                const qrData: QRLoanData = {
+                  applicationId: loan.applicationId || "",
+                  customerName: customer ? `${customer.firstName} ${customer.lastName}` : "Unknown",
+                  amount: loan.principleAmount || loan.requestAmount || "0",
+                  disbursementDate: loanData?.disbursement?.disbursementDate || "",
+                  productName: loan.productName || "Murabaha",
+                  durationMonths: loan.financingDurationMonths || 12,
+                };
+                try {
+                  const text = generateQRText(qrData);
+                  const url = await generateQRWithLogo(text, 350);
+                  setQrLoanInfo(qrData);
+                  setQrDataUrl(url);
+                  setShowQRDialog(true);
+                } catch (err) {
+                  console.error("Failed to generate QR code:", err);
+                  toast({ title: "Error", description: "Failed to generate QR code", variant: "destructive" });
+                }
+              }}
+              data-testid="button-generate-qr"
+            >
+              <QrCode className="h-4 w-4 mr-2" /> QR Code
+            </Button>
           )}
-        </Button>
+          <Button
+            variant={isEditing ? "outline" : "default"}
+            onClick={() => setIsEditing(!isEditing)}
+            className={isEditing ? "" : "bg-gradient-to-r from-blue-500 to-indigo-500"}
+            data-testid="button-toggle-edit"
+          >
+            {isEditing ? (
+              <><Eye className="h-4 w-4 mr-2" /> View Mode</>
+            ) : (
+              <><Edit2 className="h-4 w-4 mr-2" /> Edit</>
+            )}
+          </Button>
+        </div>
       </div>
 
       {loanData?.loan?.status === "rejected" && (
@@ -1225,6 +1270,52 @@ export default function LoanDetailsPage() {
           </div>
         </form>
       </Form>
+
+      <Dialog open={showQRDialog} onOpenChange={setShowQRDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <QrCode className="h-5 w-5 text-primary" />
+              Loan QR Code
+            </DialogTitle>
+            <DialogDescription>
+              Disbursement QR code for {qrLoanInfo?.applicationId}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center py-4 space-y-4">
+            {qrDataUrl && (
+              <div className="border-2 border-muted rounded-xl p-3 bg-white">
+                <img src={qrDataUrl} alt="Loan QR Code" className="w-[300px] h-[300px]" data-testid="img-qr-code" />
+              </div>
+            )}
+            {qrLoanInfo && (
+              <div className="text-xs text-muted-foreground text-center space-y-0.5">
+                <p className="font-semibold text-foreground">{qrLoanInfo.applicationId}</p>
+                <p>{qrLoanInfo.customerName}</p>
+                <p>AFN {Number(qrLoanInfo.amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}</p>
+                <p>{qrLoanInfo.productName} - {qrLoanInfo.durationMonths} months</p>
+                <p>Disbursed: {qrLoanInfo.disbursementDate}</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => setShowQRDialog(false)}>
+              Close
+            </Button>
+            <Button
+              onClick={() => {
+                if (qrDataUrl && qrLoanInfo) {
+                  downloadQRCode(qrDataUrl, `QR_${qrLoanInfo.applicationId}.png`);
+                }
+              }}
+              data-testid="button-download-qr"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Download QR Code
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

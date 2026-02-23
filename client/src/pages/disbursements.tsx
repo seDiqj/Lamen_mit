@@ -37,9 +37,11 @@ import {
   XCircle,
   Loader2,
   AlertTriangle,
+  QrCode,
 } from "lucide-react";
 import { Link } from "wouter";
 import type { Loan } from "@shared/schema";
+import { generateQRText, generateQRWithLogo, downloadQRCode, type QRLoanData } from "@/lib/qr-generator";
 
 type ApprovedLoan = Loan & {
   customerName?: string;
@@ -66,6 +68,9 @@ export default function DisbursementsPage() {
   const [search, setSearch] = useState("");
   const [selectedLoan, setSelectedLoan] = useState<ApprovedLoan | null>(null);
   const [showDisburseDialog, setShowDisburseDialog] = useState(false);
+  const [showQRDialog, setShowQRDialog] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
+  const [qrLoanInfo, setQrLoanInfo] = useState<QRLoanData | null>(null);
   const [bulkResults, setBulkResults] = useState<BulkResponse | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -90,7 +95,7 @@ export default function DisbursementsPage() {
       const res = await apiRequest("POST", `/api/loans/${loanId}/disburse`, {});
       return res.json();
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/loans/approved"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       toast({
@@ -98,11 +103,27 @@ export default function DisbursementsPage() {
         description: "The financing has been disbursed successfully.",
       });
       setShowDisburseDialog(false);
-      const customerId = data?.customerId;
-      setSelectedLoan(null);
-      if (customerId) {
-        setLocation(`/citizen-balance-statement?customerId=${customerId}`);
+
+      if (selectedLoan) {
+        const qrData: QRLoanData = {
+          applicationId: selectedLoan.applicationId || "",
+          customerName: selectedLoan.customerName || "Unknown",
+          amount: selectedLoan.approvedAmount || selectedLoan.requestAmount || "0",
+          disbursementDate: new Date().toISOString().split("T")[0],
+          productName: selectedLoan.productName || "Murabaha",
+          durationMonths: selectedLoan.financingDurationMonths || 12,
+        };
+        try {
+          const text = generateQRText(qrData);
+          const url = await generateQRWithLogo(text, 350);
+          setQrLoanInfo(qrData);
+          setQrDataUrl(url);
+          setShowQRDialog(true);
+        } catch (err) {
+          console.error("Failed to generate QR code:", err);
+        }
       }
+      setSelectedLoan(null);
     },
     onError: (error: Error) => {
       toast({
@@ -537,6 +558,51 @@ export default function DisbursementsPage() {
               data-testid="button-confirm-disburse"
             >
               {disburseMutation.isPending ? "Processing..." : "Confirm Disbursement"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showQRDialog} onOpenChange={setShowQRDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <QrCode className="h-5 w-5 text-primary" />
+              Loan QR Code
+            </DialogTitle>
+            <DialogDescription>
+              Disbursement QR code for {qrLoanInfo?.applicationId}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center py-4 space-y-4">
+            {qrDataUrl && (
+              <div className="border-2 border-muted rounded-xl p-3 bg-white">
+                <img src={qrDataUrl} alt="Loan QR Code" className="w-[300px] h-[300px]" data-testid="img-qr-code" />
+              </div>
+            )}
+            {qrLoanInfo && (
+              <div className="text-xs text-muted-foreground text-center space-y-0.5">
+                <p className="font-semibold text-foreground">{qrLoanInfo.applicationId}</p>
+                <p>{qrLoanInfo.customerName}</p>
+                <p>AFN {Number(qrLoanInfo.amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}</p>
+                <p>{qrLoanInfo.productName} - {qrLoanInfo.durationMonths} months</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => setShowQRDialog(false)}>
+              Close
+            </Button>
+            <Button
+              onClick={() => {
+                if (qrDataUrl && qrLoanInfo) {
+                  downloadQRCode(qrDataUrl, `QR_${qrLoanInfo.applicationId}.png`);
+                }
+              }}
+              data-testid="button-download-qr"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Download QR Code
             </Button>
           </DialogFooter>
         </DialogContent>
