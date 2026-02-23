@@ -647,28 +647,32 @@ export default function ProfitabilityAnalysis() {
             const totalCapitalRequired = yearData.reduce((s, y) => s + y.capitalRequired, 0);
 
             const monthlyDisb2026 = 104_000_000 / 12;
+            const monthlyExpense2026 = (baseExpenses * 1.1) / 12;
             const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
             const monthlyData = monthNames.map((name, m) => {
               const newDisb = monthlyDisb2026;
               let collections = 0;
+              let marginIncomeThisMonth = 0;
               for (let prev = 0; prev < m; prev++) {
-                const monthsSince = m - prev;
-                if (monthsSince >= 1) {
-                  collections += monthlyDisb2026 / avgLoanTermMonths;
-                  collections += (monthlyDisb2026 * marginRate) / 12;
-                }
+                collections += monthlyDisb2026 / avgLoanTermMonths;
+                marginIncomeThisMonth += (monthlyDisb2026 * marginRate) / 12;
               }
+              const netProfit = marginIncomeThisMonth - monthlyExpense2026;
               const cumulativeDisb = newDisb * (m + 1);
-              const cumulativeCollections = monthNames.slice(0, m + 1).reduce((sum, _, mi) => {
+              let cumulativeCollections = 0;
+              let cumulativeNetProfit = 0;
+              for (let mi = 0; mi <= m; mi++) {
                 let col = 0;
+                let margin = 0;
                 for (let prev = 0; prev < mi; prev++) {
                   col += monthlyDisb2026 / avgLoanTermMonths;
-                  col += (monthlyDisb2026 * marginRate) / 12;
+                  margin += (monthlyDisb2026 * marginRate) / 12;
                 }
-                return sum + col;
-              }, 0);
-              const netCapitalNeeded = cumulativeDisb - cumulativeCollections;
-              return { month: name, newDisb, collections, cumulativeDisb, cumulativeCollections, netCapitalNeeded };
+                cumulativeCollections += col;
+                cumulativeNetProfit += margin - monthlyExpense2026;
+              }
+              const netCapitalNeeded = cumulativeDisb - cumulativeCollections - cumulativeNetProfit;
+              return { month: name, newDisb, collections, marginIncomeThisMonth, netProfit, cumulativeDisb, cumulativeCollections, cumulativeNetProfit, netCapitalNeeded };
             });
 
             return (
@@ -764,7 +768,7 @@ export default function ProfitabilityAnalysis() {
                       Monthly Capital Needs — 2026
                     </CardTitle>
                     <p className="text-sm text-muted-foreground">
-                      Monthly breakdown of AFN 104M disbursement target showing capital required after accounting for loan collections
+                      Monthly breakdown of AFN 104M disbursement target showing capital required after accounting for collections and net profit. Monthly expenses: {formatAFN(monthlyExpense2026)}.
                     </p>
                   </CardHeader>
                   <CardContent>
@@ -773,11 +777,13 @@ export default function ProfitabilityAnalysis() {
                         <thead>
                           <tr className="border-b bg-muted/50">
                             <th className="text-left py-2.5 px-3 text-muted-foreground font-medium">Month</th>
-                            <th className="text-right py-2.5 px-3 text-muted-foreground font-medium">New Disbursement</th>
-                            <th className="text-right py-2.5 px-3 text-muted-foreground font-medium">Monthly Collections</th>
-                            <th className="text-right py-2.5 px-3 text-muted-foreground font-medium">Cumulative Disbursed</th>
-                            <th className="text-right py-2.5 px-3 text-muted-foreground font-medium">Cumulative Collections</th>
-                            <th className="text-right py-2.5 px-3 text-muted-foreground font-medium">Net Capital Required</th>
+                            <th className="text-right py-2.5 px-3 text-muted-foreground font-medium">Disbursement</th>
+                            <th className="text-right py-2.5 px-3 text-muted-foreground font-medium">Collections</th>
+                            <th className="text-right py-2.5 px-3 text-muted-foreground font-medium">Net Profit</th>
+                            <th className="text-right py-2.5 px-3 text-muted-foreground font-medium">Cum. Disbursed</th>
+                            <th className="text-right py-2.5 px-3 text-muted-foreground font-medium">Cum. Collections</th>
+                            <th className="text-right py-2.5 px-3 text-muted-foreground font-medium">Cum. Net Profit</th>
+                            <th className="text-right py-2.5 px-3 text-muted-foreground font-medium">Capital Required</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -786,8 +792,14 @@ export default function ProfitabilityAnalysis() {
                               <td className="py-2 px-3 font-medium">{md.month} 2026</td>
                               <td className="text-right py-2 px-3 font-mono text-blue-700 dark:text-blue-400">{formatNum(md.newDisb)}</td>
                               <td className="text-right py-2 px-3 font-mono text-teal-700 dark:text-teal-400">{formatNum(md.collections)}</td>
+                              <td className={`text-right py-2 px-3 font-mono ${md.netProfit >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
+                                {md.netProfit < 0 ? "-" : ""}{formatNum(Math.abs(md.netProfit))}
+                              </td>
                               <td className="text-right py-2 px-3 font-mono text-muted-foreground">{formatNum(md.cumulativeDisb)}</td>
                               <td className="text-right py-2 px-3 font-mono text-muted-foreground">{formatNum(md.cumulativeCollections)}</td>
+                              <td className={`text-right py-2 px-3 font-mono ${md.cumulativeNetProfit >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
+                                {md.cumulativeNetProfit < 0 ? "-" : ""}{formatNum(Math.abs(md.cumulativeNetProfit))}
+                              </td>
                               <td className="text-right py-2 px-3 font-mono font-bold text-amber-700 dark:text-amber-400">{formatNum(md.netCapitalNeeded)}</td>
                             </tr>
                           ))}
@@ -795,8 +807,14 @@ export default function ProfitabilityAnalysis() {
                             <td className="py-2.5 px-3">Year Total</td>
                             <td className="text-right py-2.5 px-3 font-mono text-blue-700 dark:text-blue-400">{formatNum(104_000_000)}</td>
                             <td className="text-right py-2.5 px-3 font-mono text-teal-700 dark:text-teal-400">{formatNum(monthlyData.reduce((s, m) => s + m.collections, 0))}</td>
+                            <td className={`text-right py-2.5 px-3 font-mono ${monthlyData.reduce((s, m) => s + m.netProfit, 0) >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
+                              {monthlyData.reduce((s, m) => s + m.netProfit, 0) < 0 ? "-" : ""}{formatNum(Math.abs(monthlyData.reduce((s, m) => s + m.netProfit, 0)))}
+                            </td>
                             <td className="text-right py-2.5 px-3 font-mono text-muted-foreground">—</td>
                             <td className="text-right py-2.5 px-3 font-mono text-muted-foreground">—</td>
+                            <td className={`text-right py-2.5 px-3 font-mono ${(monthlyData[11]?.cumulativeNetProfit || 0) >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
+                              {(monthlyData[11]?.cumulativeNetProfit || 0) < 0 ? "-" : ""}{formatNum(Math.abs(monthlyData[11]?.cumulativeNetProfit || 0))}
+                            </td>
                             <td className="text-right py-2.5 px-3 font-mono font-bold text-amber-700 dark:text-amber-400">
                               {formatNum(monthlyData[11]?.netCapitalNeeded || 0)}
                             </td>
@@ -805,7 +823,7 @@ export default function ProfitabilityAnalysis() {
                       </table>
                     </div>
                     <p className="text-xs text-muted-foreground mt-3">
-                      * Assumes even monthly disbursement (~{formatAFN(monthlyDisb2026)}/month). Collections begin from month 2 as prior-month borrowers start repaying principal ({avgLoanTermMonths}-month term) plus margin ({data.projectionRate.toFixed(2)}% annual). Net Capital Required = cumulative disbursements - cumulative collections.
+                      * Even monthly disbursement (~{formatAFN(monthlyDisb2026)}/month). Collections from prior months' borrowers (principal over {avgLoanTermMonths}-month term + margin at {data.projectionRate.toFixed(2)}%). Net Profit = margin income − monthly expenses ({formatAFN(monthlyExpense2026)}). Capital Required = Cum. Disbursed − Cum. Collections − Cum. Net Profit.
                     </p>
                   </CardContent>
                 </Card>
