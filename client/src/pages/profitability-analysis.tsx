@@ -174,12 +174,14 @@ export default function ProfitabilityAnalysis() {
         return s + (d / exAvgTerm) * Math.min(12, yrsAgo * 12);
       }, 0);
       const net = margin - expenses;
+      const capitalReq = disb - collections - net;
       rows.push({ Section: `Year ${exYears[i]}`, Account: "Disbursement", Amount: disb });
       rows.push({ Section: "", Account: "Outstanding Portfolio", Amount: outstanding });
       rows.push({ Section: "", Account: "Margin Income", Amount: margin });
       rows.push({ Section: "", Account: "Collections", Amount: collections });
       rows.push({ Section: "", Account: "Expenses", Amount: expenses });
       rows.push({ Section: "", Account: "Net Profit / Loss", Amount: net });
+      rows.push({ Section: "", Account: "Capital Required", Amount: capitalReq });
       rows.push({ Section: "", Account: "", Amount: "" });
     });
 
@@ -282,6 +284,8 @@ export default function ProfitabilityAnalysis() {
       tableData.push(["  Margin Income", { content: formatNum(margin), styles: { halign: "right" } }]);
       tableData.push(["  Expenses", { content: formatNum(expenses), styles: { halign: "right" } }]);
       tableData.push(["  Net Profit / Loss", { content: `${net < 0 ? "-" : ""}${formatNum(Math.abs(net))}`, styles: { halign: "right", fontStyle: "bold" } }]);
+      const pdfCapReq = disb - pdfDisb.slice(0, i + 1).reduce((s, d, j) => { const ya = i - j; if (ya === 0) return s + (d / pdfAvgTerm) * 6; return s + (d / pdfAvgTerm) * Math.min(12, ya * 12); }, 0) - net;
+      tableData.push(["  Capital Required", { content: formatNum(pdfCapReq), styles: { halign: "right", fontStyle: "bold" } }]);
     });
     tableData.push(["", ""]);
 
@@ -631,7 +635,8 @@ export default function ProfitabilityAnalysis() {
                 return sum + (d / avgLoanTermMonths) * monthsCollecting;
               }, 0);
               const netProfit = marginIncome - expenses;
-              return { year: yearLabels[i], disbursement: disb, expenses, marginIncome, collections, cumulativeOutstanding, netProfit };
+              const capitalRequired = disb - collections - netProfit;
+              return { year: yearLabels[i], disbursement: disb, expenses, marginIncome, collections, cumulativeOutstanding, netProfit, capitalRequired };
             });
 
             const totalDisbursement = yearData.reduce((s, y) => s + y.disbursement, 0);
@@ -639,6 +644,7 @@ export default function ProfitabilityAnalysis() {
             const totalExpenses = yearData.reduce((s, y) => s + y.expenses, 0);
             const totalCollections = yearData.reduce((s, y) => s + y.collections, 0);
             const totalNet = totalMargin - totalExpenses;
+            const totalCapitalRequired = yearData.reduce((s, y) => s + y.capitalRequired, 0);
 
             const monthlyDisb2026 = 104_000_000 / 12;
             const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -705,6 +711,7 @@ export default function ProfitabilityAnalysis() {
                             <th className="text-right py-2.5 px-3 text-muted-foreground font-medium">Collections</th>
                             <th className="text-right py-2.5 px-3 text-muted-foreground font-medium">Expenses</th>
                             <th className="text-right py-2.5 px-3 text-muted-foreground font-medium">Net Profit / Loss</th>
+                            <th className="text-right py-2.5 px-3 text-muted-foreground font-medium">Capital Required</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -721,6 +728,9 @@ export default function ProfitabilityAnalysis() {
                                 <td className={`text-right py-2.5 px-3 font-mono font-bold ${isPositive ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
                                   {yr.netProfit < 0 ? "-" : ""}{formatNum(Math.abs(yr.netProfit))}
                                 </td>
+                                <td className="text-right py-2.5 px-3 font-mono font-bold text-amber-700 dark:text-amber-400">
+                                  {formatNum(yr.capitalRequired)}
+                                </td>
                               </tr>
                             );
                           })}
@@ -734,12 +744,15 @@ export default function ProfitabilityAnalysis() {
                             <td className={`text-right py-2.5 px-3 font-mono font-bold ${totalNet > 0 ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
                               {totalNet < 0 ? "-" : ""}{formatNum(Math.abs(totalNet))}
                             </td>
+                            <td className="text-right py-2.5 px-3 font-mono font-bold text-amber-700 dark:text-amber-400">
+                              {formatNum(totalCapitalRequired)}
+                            </td>
                           </tr>
                         </tbody>
                       </table>
                     </div>
                     <p className="text-xs text-muted-foreground mt-3">
-                      * Outstanding Portfolio accounts for loan repayments over {avgLoanTermMonths}-month avg term. Margin income = outstanding portfolio × {data.projectionRate.toFixed(2)}%. Collections include principal repayments based on avg loan term. Expenses: base {formatAFN(baseExpenses)}/yr with 10% annual increase.
+                      * Outstanding Portfolio accounts for loan repayments over {avgLoanTermMonths}-month avg term. Margin income = outstanding portfolio × {data.projectionRate.toFixed(2)}%. Collections include principal repayments based on avg loan term. Expenses: base {formatAFN(baseExpenses)}/yr with 10% annual increase. Capital Required = Disbursement − Collections − Net Profit (fresh capital needed after accounting for returning funds and profit).
                     </p>
                   </CardContent>
                 </Card>
