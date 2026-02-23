@@ -163,20 +163,32 @@ export default function ProfitabilityAnalysis() {
 
     exDisb.forEach((disb, i) => {
       const expenses = exBaseExp * Math.pow(1.1, i + 1);
-      const outstanding = exDisb.slice(0, i + 1).reduce((s, d, j) => {
-        const yrsAgo = i - j;
-        return s + d * Math.max(0, 1 - (yrsAgo * 12) / exAvgTerm);
-      }, 0);
-      const margin = outstanding * exRate;
-      const collections = exDisb.slice(0, i + 1).reduce((s, d, j) => {
-        const yrsAgo = i - j;
-        if (yrsAgo === 0) return s + (d / exAvgTerm) * 6;
-        return s + (d / exAvgTerm) * Math.min(12, yrsAgo * 12);
-      }, 0);
+      let margin = 0; let collections = 0;
+      for (let mo = 0; mo < 12; mo++) {
+        let op = 0; let col = 0;
+        for (let py = 0; py <= i; py++) {
+          const pmd = exDisb[py] / 12;
+          if (py === i) {
+            for (let pm = 0; pm <= mo; pm++) {
+              const age = mo - pm;
+              op += Math.max(0, pmd - (pmd / exAvgTerm) * age);
+              if (age > 0) col += pmd / exAvgTerm;
+            }
+          } else {
+            for (let pm = 0; pm < 12; pm++) {
+              const age = (i - py) * 12 + (mo - pm);
+              if (age < exAvgTerm) { op += Math.max(0, pmd - (pmd / exAvgTerm) * age); col += pmd / exAvgTerm; }
+            }
+          }
+        }
+        margin += op * (exRate / 12);
+        collections += col;
+      }
+      const outstanding = margin / exRate;
       const net = margin - expenses;
       const capitalReq = disb - collections - net;
       rows.push({ Section: `Year ${exYears[i]}`, Account: "Disbursement", Amount: disb });
-      rows.push({ Section: "", Account: "Outstanding Portfolio", Amount: outstanding });
+      rows.push({ Section: "", Account: "Avg Outstanding Portfolio", Amount: outstanding });
       rows.push({ Section: "", Account: "Margin Income", Amount: margin });
       rows.push({ Section: "", Account: "Collections", Amount: collections });
       rows.push({ Section: "", Account: "Expenses", Amount: expenses });
@@ -275,16 +287,36 @@ export default function ProfitabilityAnalysis() {
     tableData.push([{ content: `Assumptions: AFN 104M (2026), +50M/yr, expenses +10%/yr, margin ${data.projectionRate.toFixed(2)}%`, colSpan: 2 }]);
     pdfDisb.forEach((disb, i) => {
       const expenses = pdfBaseExp * Math.pow(1.1, i + 1);
-      const outstanding = pdfDisb.slice(0, i + 1).reduce((s, d, j) => s + d * Math.max(0, 1 - ((i - j) * 12) / pdfAvgTerm), 0);
-      const margin = outstanding * pdfRate;
-      const net = margin - expenses;
+      let pMargin = 0; let pCollections = 0;
+      for (let mo = 0; mo < 12; mo++) {
+        let op = 0; let col = 0;
+        for (let py = 0; py <= i; py++) {
+          const pmd = pdfDisb[py] / 12;
+          if (py === i) {
+            for (let pm = 0; pm <= mo; pm++) {
+              const age = mo - pm;
+              op += Math.max(0, pmd - (pmd / pdfAvgTerm) * age);
+              if (age > 0) col += pmd / pdfAvgTerm;
+            }
+          } else {
+            for (let pm = 0; pm < 12; pm++) {
+              const age = (i - py) * 12 + (mo - pm);
+              if (age < pdfAvgTerm) { op += Math.max(0, pmd - (pmd / pdfAvgTerm) * age); col += pmd / pdfAvgTerm; }
+            }
+          }
+        }
+        pMargin += op * (pdfRate / 12);
+        pCollections += col;
+      }
+      const outstanding = pMargin / pdfRate;
+      const net = pMargin - expenses;
+      const pdfCapReq = disb - pCollections - net;
       tableData.push([{ content: `Year ${pdfYears[i]}`, styles: { fontStyle: "bold" } }, ""]);
       tableData.push(["  Disbursement", { content: formatNum(disb), styles: { halign: "right" } }]);
-      tableData.push(["  Outstanding Portfolio", { content: formatNum(outstanding), styles: { halign: "right" } }]);
-      tableData.push(["  Margin Income", { content: formatNum(margin), styles: { halign: "right" } }]);
+      tableData.push(["  Avg Outstanding Portfolio", { content: formatNum(outstanding), styles: { halign: "right" } }]);
+      tableData.push(["  Margin Income", { content: formatNum(pMargin), styles: { halign: "right" } }]);
       tableData.push(["  Expenses", { content: formatNum(expenses), styles: { halign: "right" } }]);
       tableData.push(["  Net Profit / Loss", { content: `${net < 0 ? "-" : ""}${formatNum(Math.abs(net))}`, styles: { halign: "right", fontStyle: "bold" } }]);
-      const pdfCapReq = disb - pdfDisb.slice(0, i + 1).reduce((s, d, j) => { const ya = i - j; if (ya === 0) return s + (d / pdfAvgTerm) * 6; return s + (d / pdfAvgTerm) * Math.min(12, ya * 12); }, 0) - net;
       tableData.push(["  Capital Required", { content: formatNum(pdfCapReq), styles: { halign: "right", fontStyle: "bold" } }]);
     });
     tableData.push(["", ""]);
@@ -620,23 +652,48 @@ export default function ProfitabilityAnalysis() {
 
             const yearData = yearlyDisbursements.map((disb, i) => {
               const expenses = baseExpenses * Math.pow(1.1, i + 1);
-              const cumulativeOutstanding = yearlyDisbursements.slice(0, i + 1).reduce((sum, d, j) => {
-                const yearsAgo = i - j;
-                const remainingFraction = Math.max(0, 1 - (yearsAgo * 12) / avgLoanTermMonths);
-                return sum + d * remainingFraction;
-              }, 0);
-              const marginIncome = cumulativeOutstanding * marginRate;
-              const collections = yearlyDisbursements.slice(0, i + 1).reduce((sum, d, j) => {
-                const yearsAgo = i - j;
-                if (yearsAgo === 0) {
-                  return sum + (d / avgLoanTermMonths) * 6;
+
+              let totalMarginIncome = 0;
+              let totalCollections = 0;
+              const monthlyDisbThisYear = disb / 12;
+
+              for (let month = 0; month < 12; month++) {
+                let outstandingThisMonth = 0;
+                let collectionsThisMonth = 0;
+
+                for (let prevYear = 0; prevYear <= i; prevYear++) {
+                  const prevMonthlyDisb = yearlyDisbursements[prevYear] / 12;
+                  const yearsAgo = i - prevYear;
+
+                  if (prevYear === i) {
+                    for (let pm = 0; pm <= month; pm++) {
+                      const monthsOld = month - pm;
+                      const principalRepaid = (prevMonthlyDisb / avgLoanTermMonths) * monthsOld;
+                      outstandingThisMonth += Math.max(0, prevMonthlyDisb - principalRepaid);
+                      if (monthsOld > 0) {
+                        collectionsThisMonth += prevMonthlyDisb / avgLoanTermMonths;
+                      }
+                    }
+                  } else {
+                    for (let pm = 0; pm < 12; pm++) {
+                      const totalMonthsOld = yearsAgo * 12 + (month - pm);
+                      if (totalMonthsOld < avgLoanTermMonths) {
+                        const principalRepaid = (prevMonthlyDisb / avgLoanTermMonths) * totalMonthsOld;
+                        outstandingThisMonth += Math.max(0, prevMonthlyDisb - principalRepaid);
+                        collectionsThisMonth += prevMonthlyDisb / avgLoanTermMonths;
+                      }
+                    }
+                  }
                 }
-                const monthsCollecting = Math.min(12, yearsAgo * 12);
-                return sum + (d / avgLoanTermMonths) * monthsCollecting;
-              }, 0);
-              const netProfit = marginIncome - expenses;
-              const capitalRequired = disb - collections - netProfit;
-              return { year: yearLabels[i], disbursement: disb, expenses, marginIncome, collections, cumulativeOutstanding, netProfit, capitalRequired };
+
+                totalMarginIncome += outstandingThisMonth * (marginRate / 12);
+                totalCollections += collectionsThisMonth;
+              }
+
+              const netProfit = totalMarginIncome - expenses;
+              const capitalRequired = disb - totalCollections - netProfit;
+              const avgOutstanding = totalMarginIncome / marginRate;
+              return { year: yearLabels[i], disbursement: disb, expenses, marginIncome: totalMarginIncome, collections: totalCollections, cumulativeOutstanding: avgOutstanding, netProfit, capitalRequired };
             });
 
             const totalDisbursement = yearData.reduce((s, y) => s + y.disbursement, 0);
@@ -721,7 +778,7 @@ export default function ProfitabilityAnalysis() {
                           <tr className="border-b bg-muted/50">
                             <th className="text-left py-2.5 px-3 text-muted-foreground font-medium">Year</th>
                             <th className="text-right py-2.5 px-3 text-muted-foreground font-medium">Disbursement</th>
-                            <th className="text-right py-2.5 px-3 text-muted-foreground font-medium">Outstanding Portfolio</th>
+                            <th className="text-right py-2.5 px-3 text-muted-foreground font-medium">Avg Outstanding</th>
                             <th className="text-right py-2.5 px-3 text-muted-foreground font-medium">Margin Income</th>
                             <th className="text-right py-2.5 px-3 text-muted-foreground font-medium">Collections</th>
                             <th className="text-right py-2.5 px-3 text-muted-foreground font-medium">Expenses</th>
@@ -767,7 +824,7 @@ export default function ProfitabilityAnalysis() {
                       </table>
                     </div>
                     <p className="text-xs text-muted-foreground mt-3">
-                      * Outstanding Portfolio accounts for loan repayments over {avgLoanTermMonths}-month avg term. Margin income = outstanding portfolio × {data.projectionRate.toFixed(2)}%. Collections include principal repayments based on avg loan term. Expenses: base {formatAFN(baseExpenses)}/yr with 10% annual increase. Capital Required = Disbursement − Collections − Net Profit (fresh capital needed after accounting for returning funds and profit).
+                      * Loans disbursed evenly each month. Avg Outstanding = average portfolio across 12 months (accounts for gradual disbursement and repayments over {avgLoanTermMonths}-month avg term). Margin income = outstanding portfolio × {data.projectionRate.toFixed(2)}%. Collections include principal repayments. Expenses: base {formatAFN(baseExpenses)}/yr with 10% annual increase. Capital Required = Disbursement − Collections − Net Profit.
                     </p>
                   </CardContent>
                 </Card>
