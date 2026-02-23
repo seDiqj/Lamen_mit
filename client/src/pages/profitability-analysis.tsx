@@ -648,28 +648,39 @@ export default function ProfitabilityAnalysis() {
 
             const monthlyDisb2026 = 104_000_000 / 12;
             const monthlyExpense2026 = (baseExpenses * 1.1) / 12;
+            const monthlyMarginRate = marginRate / 12;
             const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
             const monthlyData = monthNames.map((name, m) => {
               const newDisb = monthlyDisb2026;
               let collections = 0;
-              let marginIncomeThisMonth = 0;
               for (let prev = 0; prev < m; prev++) {
                 collections += monthlyDisb2026 / avgLoanTermMonths;
-                marginIncomeThisMonth += (monthlyDisb2026 * marginRate) / 12;
               }
+              let outstandingPortfolio = 0;
+              for (let prev = 0; prev <= m; prev++) {
+                const monthsOld = m - prev;
+                const principalRepaid = (monthlyDisb2026 / avgLoanTermMonths) * monthsOld;
+                outstandingPortfolio += Math.max(0, monthlyDisb2026 - principalRepaid);
+              }
+              const marginIncomeThisMonth = outstandingPortfolio * monthlyMarginRate;
               const netProfit = marginIncomeThisMonth - monthlyExpense2026;
               const cumulativeDisb = newDisb * (m + 1);
               let cumulativeCollections = 0;
               let cumulativeNetProfit = 0;
               for (let mi = 0; mi <= m; mi++) {
                 let col = 0;
-                let margin = 0;
                 for (let prev = 0; prev < mi; prev++) {
                   col += monthlyDisb2026 / avgLoanTermMonths;
-                  margin += (monthlyDisb2026 * marginRate) / 12;
                 }
+                let op = 0;
+                for (let prev = 0; prev <= mi; prev++) {
+                  const mo = mi - prev;
+                  const pr = (monthlyDisb2026 / avgLoanTermMonths) * mo;
+                  op += Math.max(0, monthlyDisb2026 - pr);
+                }
+                const mi_margin = op * monthlyMarginRate;
                 cumulativeCollections += col;
-                cumulativeNetProfit += margin - monthlyExpense2026;
+                cumulativeNetProfit += mi_margin - monthlyExpense2026;
               }
               const netCapitalNeeded = cumulativeDisb - cumulativeCollections - cumulativeNetProfit;
               return { month: name, newDisb, collections, marginIncomeThisMonth, netProfit, cumulativeDisb, cumulativeCollections, cumulativeNetProfit, netCapitalNeeded };
