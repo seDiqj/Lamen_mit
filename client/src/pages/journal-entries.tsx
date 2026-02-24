@@ -41,7 +41,7 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Plus, Search, Receipt, Eye, CheckCircle, RotateCcw, Trash2, Pencil, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Search, Receipt, Eye, CheckCircle, RotateCcw, Trash2, Pencil, ChevronLeft, ChevronRight, Undo2, Wrench } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { formatDate } from "@/lib/date-utils";
 

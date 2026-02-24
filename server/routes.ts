@@ -4188,6 +4188,40 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/journal-entries/:id/unpost", isAuthenticated, requireRole("admin"), async (req: any, res) => {
+    try {
+      await storage.unpostJournalEntry(req.params.id);
+      await logActivity(req, "unpost", "journal_entry", req.params.id, "Unposted journal entry");
+      res.json({ message: "Journal entry unposted successfully" });
+    } catch (error: any) {
+      console.error("Error unposting journal entry:", error);
+      res.status(500).json({ message: error.message || "Failed to unpost journal entry" });
+    }
+  });
+
+  app.post("/api/journal-entries/fix-empty-posted", isAuthenticated, requireRole("admin"), async (req: any, res) => {
+    try {
+      const result = await db.execute(sql`
+        UPDATE journal_entries je
+        SET is_posted = false, posted_by = null, posted_at = null
+        WHERE je.is_posted = true
+          AND je.is_reversed = false
+          AND NOT EXISTS (
+            SELECT 1 FROM journal_lines jl WHERE jl.journal_entry_id = je.id
+          )
+        RETURNING je.entry_number
+      `);
+      const fixed = (result.rows as any[]).map(r => r.entry_number);
+      if (fixed.length > 0) {
+        await logActivity(req, "fix", "journal_entry", "bulk", `Unposted ${fixed.length} empty entries: ${fixed.join(', ')}`);
+      }
+      res.json({ message: `Fixed ${fixed.length} entries`, entries: fixed });
+    } catch (error) {
+      console.error("Error fixing empty posted entries:", error);
+      res.status(500).json({ message: "Failed to fix entries" });
+    }
+  });
+
   app.post("/api/journal-entries/:id/reverse", isAuthenticated, requireRole("manager", "admin"), async (req: any, res) => {
     try {
       const reversalEntry = await storage.reverseJournalEntry(req.params.id, req.session.userId);

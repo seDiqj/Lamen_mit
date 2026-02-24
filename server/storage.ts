@@ -340,6 +340,7 @@ export interface IStorage {
   createJournalEntry(header: any, lines: any[]): Promise<any>;
   updateJournalEntry(id: string, data: any): Promise<any>;
   postJournalEntry(id: string, postedBy: string): Promise<void>;
+  unpostJournalEntry(id: string): Promise<void>;
   reverseJournalEntry(id: string, createdBy: string): Promise<any>;
   
   recalculateAllAccountBalances(): Promise<{ updated: number }>;
@@ -3934,6 +3935,10 @@ export class DatabaseStorage implements IStorage {
     const entry = await this.getJournalEntry(id);
     if (!entry || entry.isPosted) return;
     
+    if (!entry.lines || entry.lines.length < 2) {
+      throw new Error("Cannot post journal entry without at least 2 lines. Please add lines first.");
+    }
+    
     // Update account balances
     for (const line of entry.lines) {
       const [account] = await db.select().from(accounts).where(eq(accounts.id, line.accountId));
@@ -3955,6 +3960,31 @@ export class DatabaseStorage implements IStorage {
     }
     
     await db.update(journalEntries).set({ isPosted: true, postedBy, postedAt: new Date() }).where(eq(journalEntries.id, id));
+  }
+
+  async unpostJournalEntry(id: string): Promise<void> {
+    const entry = await this.getJournalEntry(id);
+    if (!entry || !entry.isPosted) return;
+    if (entry.isReversed) throw new Error("Cannot unpost a reversed entry");
+
+    for (const line of entry.lines) {
+      const [account] = await db.select().from(accounts).where(eq(accounts.id, line.accountId));
+      if (!account) continue;
+
+      let newBalance = Number(account.currentBalance || 0);
+      const debit = Number(line.debitAmount || 0);
+      const credit = Number(line.creditAmount || 0);
+
+      if (account.accountType === 'asset' || account.accountType === 'expense') {
+        newBalance -= debit - credit;
+      } else {
+        newBalance -= credit - debit;
+      }
+
+      await db.update(accounts).set({ currentBalance: newBalance.toString() }).where(eq(accounts.id, line.accountId));
+    }
+
+    await db.update(journalEntries).set({ isPosted: false, postedBy: null, postedAt: null }).where(eq(journalEntries.id, id));
   }
 
   async reverseJournalEntry(id: string, createdBy: string): Promise<JournalEntry> {
