@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { db } from "./db";
 import { customers, loans, disbursements, branches, financeOfficers, installments, fundingSources as fundingSourcesTable, collaterals, customerBusinesses, businessLicenses, loanApprovals, guarantors, userRoles, fadReviews, riskComplianceReviews, accounts, journalEntries, journalLines } from "@shared/schema";
 import { users } from "@shared/models/auth";
-import { eq, and, or, inArray, sql, gte, lte, desc, isNull } from "drizzle-orm";
+import { eq, and, or, inArray, sql, gte, lte, desc } from "drizzle-orm";
 import { z } from "zod";
 import bcrypt from "bcrypt";
 import session from "express-session";
@@ -4658,13 +4658,8 @@ export async function registerRoutes(
       }
 
       const conditions: any[] = [
-        or(
-          and(
-            gte(disbursements.disbursementDate, startDate as string),
-            lte(disbursements.disbursementDate, endDate as string),
-          ),
-          isNull(disbursements.disbursementDate),
-        ),
+        gte(disbursements.disbursementDate, startDate as string),
+        lte(disbursements.disbursementDate, endDate as string),
       ];
       if (branchId && branchId !== "all") {
         conditions.push(eq(loans.branchId, branchId as string));
@@ -4688,7 +4683,7 @@ export async function registerRoutes(
         })
         .from(collaterals)
         .innerJoin(loans, eq(collaterals.loanId, loans.id))
-        .leftJoin(disbursements, eq(loans.id, disbursements.loanId))
+        .innerJoin(disbursements, eq(loans.id, disbursements.loanId))
         .leftJoin(branches, eq(loans.branchId, branches.id))
         .where(and(...conditions))
         .orderBy(branches.name, loans.applicationId);
@@ -4721,13 +4716,8 @@ export async function registerRoutes(
       }
 
       const conditions: any[] = [
-        or(
-          and(
-            gte(disbursements.disbursementDate, startDate as string),
-            lte(disbursements.disbursementDate, endDate as string),
-          ),
-          isNull(disbursements.disbursementDate),
-        ),
+        gte(disbursements.disbursementDate, startDate as string),
+        lte(disbursements.disbursementDate, endDate as string),
       ];
       if (branchId && branchId !== "all") {
         conditions.push(eq(loans.branchId, branchId as string));
@@ -4765,7 +4755,7 @@ export async function registerRoutes(
         })
         .from(loans)
         .innerJoin(customers, eq(loans.customerId, customers.id))
-        .leftJoin(disbursements, eq(loans.id, disbursements.loanId))
+        .innerJoin(disbursements, eq(loans.id, disbursements.loanId))
         .leftJoin(branches, eq(loans.branchId, branches.id))
         .leftJoin(customerBusinesses, eq(customers.id, customerBusinesses.customerId))
         .leftJoin(businessLicenses, eq(customerBusinesses.id, businessLicenses.customerBusinessId))
@@ -4857,13 +4847,8 @@ export async function registerRoutes(
       }
 
       const conditions: any[] = [
-        or(
-          and(
-            gte(disbursements.disbursementDate, startDate as string),
-            lte(disbursements.disbursementDate, endDate as string),
-          ),
-          isNull(disbursements.disbursementDate),
-        ),
+        gte(disbursements.disbursementDate, startDate as string),
+        lte(disbursements.disbursementDate, endDate as string),
       ];
       if (branchId && branchId !== "all") {
         conditions.push(eq(loans.branchId, branchId as string));
@@ -4880,7 +4865,7 @@ export async function registerRoutes(
         })
         .from(loans)
         .innerJoin(customers, eq(loans.customerId, customers.id))
-        .leftJoin(disbursements, eq(loans.id, disbursements.loanId))
+        .innerJoin(disbursements, eq(loans.id, disbursements.loanId))
         .leftJoin(branches, eq(loans.branchId, branches.id))
         .where(and(...conditions))
         .orderBy(branches.name, loans.applicationId);
@@ -4950,13 +4935,8 @@ export async function registerRoutes(
       }
 
       const conditions: any[] = [
-        or(
-          and(
-            gte(disbursements.disbursementDate, startDate as string),
-            lte(disbursements.disbursementDate, endDate as string),
-          ),
-          isNull(disbursements.disbursementDate),
-        ),
+        gte(disbursements.disbursementDate, startDate as string),
+        lte(disbursements.disbursementDate, endDate as string),
       ];
       if (branchId && branchId !== "all") {
         conditions.push(eq(loans.branchId, branchId as string));
@@ -4999,7 +4979,7 @@ export async function registerRoutes(
         })
         .from(loans)
         .innerJoin(customers, eq(loans.customerId, customers.id))
-        .leftJoin(disbursements, eq(loans.id, disbursements.loanId))
+        .innerJoin(disbursements, eq(loans.id, disbursements.loanId))
         .leftJoin(branches, eq(loans.branchId, branches.id))
         .leftJoin(fundingSourcesTable, eq(loans.fundingSourceId, fundingSourcesTable.id))
         .where(and(...conditions))
