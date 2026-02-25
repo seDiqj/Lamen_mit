@@ -364,7 +364,7 @@ export default function Dashboard() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          title="Total Financings"
+          title="Total Financing Applications"
           value={stats?.totalLoans?.toString() || "0"}
           icon={FileText}
           loading={isLoading}
