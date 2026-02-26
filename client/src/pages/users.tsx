@@ -399,9 +399,18 @@ export default function UsersPage() {
     queryKey: ["/api/finance-officers"],
   });
 
-  const { data: lookupRoles = [] } = useQuery<{ id: number; value: string; label: string; description: string | null; isActive: boolean }[]>({
-    queryKey: ["/api/lookup-roles"],
-  });
+  const systemRoles = [
+    { value: "user", label: "User" },
+    { value: "finance_officer", label: "Financing Officer" },
+    { value: "fad", label: "FAD Officer" },
+    { value: "risk_compliance", label: "Risk & Compliance" },
+    { value: "sharia", label: "Sharia Officer" },
+    { value: "cfo", label: "CFO" },
+    { value: "coo", label: "COO" },
+    { value: "ceo", label: "CEO" },
+    { value: "manager", label: "Manager" },
+    { value: "admin", label: "Admin" },
+  ];
 
   const resetForm = () => {
     setFormData({
@@ -592,21 +601,14 @@ export default function UsersPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {lookupRoles.filter(r => r.isActive).map((role) => (
-                      <SelectItem key={role.id} value={role.value}>
+                    {systemRoles.map((role) => (
+                      <SelectItem key={role.value} value={role.value}>
                         <div className="flex items-center gap-2">
                           <Shield className="h-4 w-4 text-purple-500" />
                           {role.label}
                         </div>
                       </SelectItem>
                     ))}
-                    {lookupRoles.filter(r => r.isActive).length === 0 && (
-                      <>
-                        <SelectItem value="user">User</SelectItem>
-                        <SelectItem value="manager">Manager</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
-                      </>
-                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -830,21 +832,14 @@ export default function UsersPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {lookupRoles.filter(r => r.isActive).map((role) => (
-                    <SelectItem key={role.id} value={role.value}>
+                  {systemRoles.map((role) => (
+                    <SelectItem key={role.value} value={role.value}>
                       <div className="flex items-center gap-2">
                         <Shield className="h-4 w-4 text-purple-500" />
                         {role.label}
                       </div>
                     </SelectItem>
                   ))}
-                  {lookupRoles.filter(r => r.isActive).length === 0 && (
-                    <>
-                      <SelectItem value="user">User</SelectItem>
-                      <SelectItem value="manager">Manager</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
-                    </>
-                  )}
                 </SelectContent>
               </Select>
             </div>

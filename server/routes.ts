@@ -865,50 +865,6 @@ export async function registerRoutes(
     }
   });
 
-  // ===== LOOKUP ROLES =====
-  app.get("/api/lookup-roles", isAuthenticated, async (req, res) => {
-    try {
-      const roles = await storage.getLookupRoles();
-      res.json(roles);
-    } catch (error) {
-      console.error("Error fetching lookup roles:", error);
-      res.status(500).json({ message: "Failed to fetch lookup roles" });
-    }
-  });
-
-  app.post("/api/lookup-roles", isAuthenticated, requirePageAccess("lookup"), async (req: any, res) => {
-    try {
-      const role = await storage.createLookupRole(req.body);
-      await logActivity(req, "create_lookup_role", "lookup_role", String(role.id), `Created lookup role: ${role.label}`);
-      res.status(201).json(role);
-    } catch (error) {
-      console.error("Error creating lookup role:", error);
-      res.status(500).json({ message: "Failed to create lookup role" });
-    }
-  });
-
-  app.patch("/api/lookup-roles/:id", isAuthenticated, requirePageAccess("lookup"), async (req: any, res) => {
-    try {
-      const role = await storage.updateLookupRole(parseInt(req.params.id), req.body);
-      await logActivity(req, "update_lookup_role", "lookup_role", req.params.id, `Updated lookup role: ${role.label}`);
-      res.json(role);
-    } catch (error) {
-      console.error("Error updating lookup role:", error);
-      res.status(500).json({ message: "Failed to update lookup role" });
-    }
-  });
-
-  app.delete("/api/lookup-roles/:id", isAuthenticated, requirePageAccess("lookup"), async (req: any, res) => {
-    try {
-      await storage.deleteLookupRole(parseInt(req.params.id));
-      await logActivity(req, "delete_lookup_role", "lookup_role", req.params.id, `Deleted lookup role`);
-      res.status(204).send();
-    } catch (error) {
-      console.error("Error deleting lookup role:", error);
-      res.status(500).json({ message: "Failed to delete lookup role" });
-    }
-  });
-
   // ===== PAR CATEGORIES =====
   app.get("/api/par-categories", isAuthenticated, async (req, res) => {
     try {
