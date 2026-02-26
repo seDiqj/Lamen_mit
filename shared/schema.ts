@@ -16,7 +16,7 @@ export const voteStatusEnum = pgEnum("vote_status", ["pending", "approved", "rej
 export const userRoles = pgTable("user_roles", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().unique(),
-  role: userRoleEnum("role").notNull().default("user"),
+  role: varchar("role", { length: 100 }).notNull().default("user"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -345,6 +345,7 @@ export const lookupRoles = pgTable("lookup_roles", {
   value: varchar("value", { length: 100 }).notNull().unique(),
   label: varchar("label", { length: 255 }).notNull(),
   description: text("description"),
+  roleType: varchar("role_type", { length: 20 }).notNull().default("user"),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });

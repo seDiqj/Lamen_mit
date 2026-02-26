@@ -52,7 +52,12 @@ Preferred communication style: Simple, everyday language.
 ### Authentication & Authorization
 - **Authentication**: Replit Auth integration via OpenID Connect
 - **Session Storage**: PostgreSQL-backed sessions with 7-day TTL
-- **Authorization**: Role-based middleware checking user roles (user, manager, admin)
+- **Authorization**: Role-based access control with two layers:
+  - `user_roles.role` (varchar) stores the specific role value (e.g., "cfo", "finance_officer", "admin")
+  - `lookup_roles` table defines each role with a `role_type` (user/manager/admin) for access level
+  - `hasRole()` checks both the direct role value AND the roleType from lookup_roles
+  - Frontend uses roleType for menu visibility and page access decisions
+- **Role Types**: Three access levels - User (basic page permissions), Managerial (full page access), Admin (full system + user management)
 - **Activity Logging**: All significant actions are logged with user ID, IP address, and timestamps
 
 ### Build System

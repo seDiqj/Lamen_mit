@@ -33,6 +33,13 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
@@ -77,8 +84,16 @@ const licenseTypeFormSchema = z.object({
   name: z.string().min(1, "License type name is required"),
 });
 
+const roleFormSchema = z.object({
+  value: z.string().min(1, "Role value is required"),
+  label: z.string().min(1, "Display label is required"),
+  description: z.string().optional(),
+  roleType: z.string().min(1, "Role type is required"),
+});
+
   
 
+type RoleFormData = z.infer<typeof roleFormSchema>;
 type SectorFormData = z.infer<typeof sectorFormSchema>;
 type BusinessFormData = z.infer<typeof businessFormSchema>;
 type ProvinceFormData = z.infer<typeof provinceFormSchema>;
@@ -106,6 +121,10 @@ export default function LookupPage() {
   // License Types state
   const [selectedLicenseType, setSelectedLicenseType] = useState<LicenseType | null>(null);
   const [showLicenseTypeDialog, setShowLicenseTypeDialog] = useState(false);
+
+  // Role state
+  const [selectedRole, setSelectedRole] = useState<any | null>(null);
+  const [showRoleDialog, setShowRoleDialog] = useState(false);
 
   
   
@@ -142,6 +161,11 @@ export default function LookupPage() {
   const licenseTypeForm = useForm<LicenseTypeFormData>({
     resolver: zodResolver(licenseTypeFormSchema),
     defaultValues: { name: "" },
+  });
+
+  const roleForm = useForm<RoleFormData>({
+    resolver: zodResolver(roleFormSchema),
+    defaultValues: { value: "", label: "", description: "", roleType: "user" },
   });
 
   
@@ -192,18 +216,14 @@ export default function LookupPage() {
     },
   });
 
-  const systemRolesList = [
-    { value: "user", label: "User", description: "Basic user with page-level permissions" },
-    { value: "finance_officer", label: "Financing Officer", description: "Linked to a specific financing officer profile" },
-    { value: "fad", label: "FAD Officer", description: "Financial Analysis & Due Diligence reviewer" },
-    { value: "risk_compliance", label: "Risk & Compliance", description: "Risk and compliance reviewer" },
-    { value: "sharia", label: "Sharia Officer", description: "Sharia compliance reviewer" },
-    { value: "cfo", label: "CFO", description: "Chief Financial Officer - committee voting" },
-    { value: "coo", label: "COO", description: "Chief Operating Officer - committee voting" },
-    { value: "ceo", label: "CEO", description: "Chief Executive Officer - committee voting" },
-    { value: "manager", label: "Manager", description: "Full access to all pages (managerial)" },
-    { value: "admin", label: "Admin", description: "Full system access including user management" },
-  ];
+  const { data: lookupRoles = [], isLoading: loadingRoles } = useQuery<any[]>({
+    queryKey: ["/api/lookup-roles"],
+    queryFn: async () => {
+      const res = await fetch("/api/lookup-roles", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch lookup roles");
+      return res.json();
+    },
+  });
 
   // Sector Mutations
   const createSectorMutation = useMutation({
@@ -382,6 +402,40 @@ export default function LookupPage() {
     onError: () => toast({ title: "Error", description: "Failed to delete license type.", variant: "destructive" }),
   });
 
+  const createRoleMutation = useMutation({
+    mutationFn: async (data: RoleFormData) => apiRequest("POST", "/api/lookup-roles", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/lookup-roles"] });
+      toast({ title: "Role Created", description: "The role has been created successfully." });
+      setShowRoleDialog(false);
+      roleForm.reset();
+    },
+    onError: () => toast({ title: "Error", description: "Failed to create role.", variant: "destructive" }),
+  });
+
+  const updateRoleMutation = useMutation({
+    mutationFn: async (data: RoleFormData) => apiRequest("PATCH", `/api/lookup-roles/${selectedRole?.id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/lookup-roles"] });
+      toast({ title: "Role Updated", description: "The role has been updated successfully." });
+      setShowRoleDialog(false);
+      setSelectedRole(null);
+      setIsEditMode(false);
+      roleForm.reset();
+    },
+    onError: () => toast({ title: "Error", description: "Failed to update role.", variant: "destructive" }),
+  });
+
+  const deleteRoleMutation = useMutation({
+    mutationFn: async (id: number) => apiRequest("DELETE", `/api/lookup-roles/${id}`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/lookup-roles"] });
+      toast({ title: "Role Deleted", description: "The role has been deleted." });
+      setShowDeleteDialog(false);
+    },
+    onError: () => toast({ title: "Error", description: "Failed to delete role.", variant: "destructive" }),
+  });
+
   
 
   
@@ -452,6 +506,27 @@ export default function LookupPage() {
     setShowLicenseTypeDialog(true);
   };
 
+  const handleOpenRoleDialog = (role?: any) => {
+    if (role) {
+      setSelectedRole(role);
+      setIsEditMode(true);
+      roleForm.reset({ value: role.value, label: role.label, description: role.description || "", roleType: role.roleType || "user" });
+    } else {
+      setSelectedRole(null);
+      setIsEditMode(false);
+      roleForm.reset({ value: "", label: "", description: "", roleType: "user" });
+    }
+    setShowRoleDialog(true);
+  };
+
+  const onRoleSubmit = (data: RoleFormData) => {
+    if (isEditMode && selectedRole) {
+      updateRoleMutation.mutate(data);
+    } else {
+      createRoleMutation.mutate(data);
+    }
+  };
+
   
 
   const handleDelete = (type: "sector" | "business" | "province" | "district" | "licenseType" | "userRole", id: string | number) => {
@@ -471,6 +546,8 @@ export default function LookupPage() {
       deleteDistrictMutation.mutate(deleteId as number);
     } else if (deleteType === "licenseType") {
       deleteLicenseTypeMutation.mutate(deleteId as number);
+    } else if (deleteType === "userRole") {
+      deleteRoleMutation.mutate(deleteId as number);
     }
   };
 
@@ -909,40 +986,71 @@ export default function LookupPage() {
                       <Shield className="h-5 w-5 text-purple-600" />
                       User Roles
                     </CardTitle>
-                    
+                    <Button onClick={() => handleOpenRoleDialog()} className="bg-purple-600 hover:bg-purple-700" data-testid="button-add-new-role">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add New Role
+                    </Button>
                   </div>
                 </CardHeader>
                 <CardContent className="overflow-auto" style={{ maxHeight: "calc(100vh - 240px)" }}>
-                  <p className="text-sm text-muted-foreground mb-3">System roles are predefined and managed through the user_roles table. Assign roles to users from the Users page.</p>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="text-xs w-12">#</TableHead>
-                        <TableHead className="text-xs">Role Value</TableHead>
-                        <TableHead className="text-xs">Display Label</TableHead>
-                        <TableHead className="text-xs">Description</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {systemRolesList.map((role, index) => (
-                        <TableRow key={role.value} data-testid={`row-role-${role.value}`}>
-                          <TableCell className="font-medium">{index + 1}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/30">
-                              {role.value}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="font-medium">
-                            <div className="flex items-center gap-2">
-                              <Shield className="h-4 w-4 text-purple-600" />
-                              {role.label}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground text-sm">{role.description}</TableCell>
+                  {loadingRoles ? (
+                    <div className="space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
+                  ) : lookupRoles.length > 0 ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs w-12">#</TableHead>
+                          <TableHead className="text-xs">Role Value</TableHead>
+                          <TableHead className="text-xs">Display Label</TableHead>
+                          <TableHead className="text-xs">Role Type</TableHead>
+                          <TableHead className="text-xs">Description</TableHead>
+                          <TableHead className="text-xs text-right">Actions</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {lookupRoles.map((role, index) => (
+                          <TableRow key={role.id} data-testid={`row-role-${role.value}`}>
+                            <TableCell className="font-medium">{index + 1}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/30">
+                                {role.value}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="font-medium">
+                              <div className="flex items-center gap-2">
+                                <Shield className="h-4 w-4 text-purple-600" />
+                                {role.label}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className={
+                                role.roleType === "admin" ? "bg-amber-500/10 text-amber-700 border-amber-500/30" :
+                                role.roleType === "manager" ? "bg-blue-500/10 text-blue-700 border-blue-500/30" :
+                                "bg-slate-500/10 text-slate-700 border-slate-500/30"
+                              }>
+                                {role.roleType === "admin" ? "Admin" : role.roleType === "manager" ? "Managerial" : "User"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-muted-foreground text-sm">{role.description}</TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <Button variant="ghost" size="icon" onClick={() => handleOpenRoleDialog(role)} data-testid={`button-edit-role-${role.id}`}>
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={() => handleDelete("userRole", role.id)} data-testid={`button-delete-role-${role.id}`}>
+                                  <Trash2 className="h-4 w-4 text-red-500" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No roles defined. Click "Add New Role" to create one.
+                    </div>
+                  )}
                 </CardContent>
               </>
             )}
@@ -1115,6 +1223,67 @@ export default function LookupPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Add/Edit Role Dialog */}
+      <Dialog open={showRoleDialog} onOpenChange={setShowRoleDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-purple-600" />
+              {isEditMode ? "Edit Role" : "Add New Role"}
+            </DialogTitle>
+          </DialogHeader>
+          <Form {...roleForm}>
+            <form onSubmit={roleForm.handleSubmit(onRoleSubmit)} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <FormField control={roleForm.control} name="value" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Role Value *</FormLabel>
+                    <FormControl><Input placeholder="e.g., cfo" className="h-9" {...field} disabled={isEditMode} data-testid="input-role-value" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={roleForm.control} name="label" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Display Label *</FormLabel>
+                    <FormControl><Input placeholder="e.g., CFO" className="h-9" {...field} data-testid="input-role-label" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              </div>
+              <FormField control={roleForm.control} name="roleType" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Role Type *</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger className="h-9" data-testid="select-role-type">
+                        <SelectValue placeholder="Select role type" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="user">User</SelectItem>
+                      <SelectItem value="manager">Managerial</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={roleForm.control} name="description" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Description</FormLabel>
+                  <FormControl><Input placeholder="Brief description of this role" className="h-9" {...field} data-testid="input-role-description" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <Button type="submit" className="w-full bg-purple-600 hover:bg-purple-700" disabled={createRoleMutation.isPending || updateRoleMutation.isPending} data-testid="button-submit-role">
+                <Plus className="h-4 w-4 mr-2" />
+                {createRoleMutation.isPending || updateRoleMutation.isPending ? "Saving..." : isEditMode ? "Update Role" : "Add Role"}
+              </Button>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
       {/* Delete Confirmation Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent>
@@ -1126,13 +1295,14 @@ export default function LookupPage() {
               {deleteType === "province" && "Are you sure you want to delete this province? All districts under this province will also be deleted."}
               {deleteType === "district" && "Are you sure you want to delete this district?"}
               {deleteType === "licenseType" && "Are you sure you want to delete this license type?"}
+              {deleteType === "userRole" && "Are you sure you want to delete this role?"}
               
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setShowDeleteDialog(false)} data-testid="button-cancel-delete">Cancel</Button>
             <Button variant="destructive" onClick={confirmDelete} disabled={deleteSectorMutation.isPending || deleteBusinessMutation.isPending || deleteProvinceMutation.isPending || deleteDistrictMutation.isPending || deleteLicenseTypeMutation.isPending} data-testid="button-confirm-delete">
-              {deleteSectorMutation.isPending || deleteBusinessMutation.isPending || deleteProvinceMutation.isPending || deleteDistrictMutation.isPending || deleteLicenseTypeMutation.isPending ? "Deleting..." : "Delete"}
+              {deleteSectorMutation.isPending || deleteBusinessMutation.isPending || deleteProvinceMutation.isPending || deleteDistrictMutation.isPending || deleteLicenseTypeMutation.isPending || deleteRoleMutation.isPending ? "Deleting..." : "Delete"}
             </Button>
           </DialogFooter>
         </DialogContent>

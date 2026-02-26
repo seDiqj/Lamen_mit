@@ -66,7 +66,8 @@ import {
 import { useState } from "react";
 
 type UserRoleData = {
-  role: "user" | "fad" | "risk_compliance" | "cfo" | "coo" | "ceo" | "sharia" | "manager" | "admin";
+  role: string;
+  roleType: string;
 };
 
 type MenuItem = {
@@ -418,7 +419,8 @@ export function AppSidebar() {
     },
   ];
 
-  const menuGroups = role === "admin" ? adminMenuGroups : role === "manager" ? managerMenuGroups : userMenuGroups;
+  const roleType = roleData?.roleType || role;
+  const menuGroups = (roleType === "admin" || role === "admin") ? adminMenuGroups : (roleType === "manager" || role === "manager") ? managerMenuGroups : userMenuGroups;
 
   const initials = user?.firstName && user?.lastName 
     ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()

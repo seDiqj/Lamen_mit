@@ -123,6 +123,9 @@ import {
   type CommitteeVote,
   type InsertParCategory,
   type ParCategory,
+  lookupRoles,
+  type InsertLookupRole,
+  type LookupRole,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -195,6 +198,14 @@ export interface IStorage {
   updateLicenseType(id: number, data: Partial<InsertLicenseType>): Promise<LicenseType>;
   deleteLicenseType(id: number): Promise<void>;
   
+  // Lookup Roles
+  getLookupRoles(): Promise<LookupRole[]>;
+  getLookupRole(id: number): Promise<LookupRole | undefined>;
+  getLookupRoleByValue(value: string): Promise<LookupRole | undefined>;
+  createLookupRole(data: InsertLookupRole): Promise<LookupRole>;
+  updateLookupRole(id: number, data: Partial<InsertLookupRole>): Promise<LookupRole>;
+  deleteLookupRole(id: number): Promise<void>;
+
   // PAR Categories
   getParCategories(): Promise<ParCategory[]>;
   getParCategory(id: number): Promise<ParCategory | undefined>;
@@ -750,6 +761,35 @@ export class DatabaseStorage implements IStorage {
 
   async deleteLicenseType(id: number): Promise<void> {
     await db.delete(licenseTypes).where(eq(licenseTypes.id, id));
+  }
+
+  // Lookup Roles
+  async getLookupRoles(): Promise<LookupRole[]> {
+    return db.select().from(lookupRoles).orderBy(asc(lookupRoles.id));
+  }
+
+  async getLookupRole(id: number): Promise<LookupRole | undefined> {
+    const [role] = await db.select().from(lookupRoles).where(eq(lookupRoles.id, id));
+    return role;
+  }
+
+  async getLookupRoleByValue(value: string): Promise<LookupRole | undefined> {
+    const [role] = await db.select().from(lookupRoles).where(eq(lookupRoles.value, value));
+    return role;
+  }
+
+  async createLookupRole(data: InsertLookupRole): Promise<LookupRole> {
+    const [role] = await db.insert(lookupRoles).values(data).returning();
+    return role;
+  }
+
+  async updateLookupRole(id: number, data: Partial<InsertLookupRole>): Promise<LookupRole> {
+    const [role] = await db.update(lookupRoles).set(data).where(eq(lookupRoles.id, id)).returning();
+    return role;
+  }
+
+  async deleteLookupRole(id: number): Promise<void> {
+    await db.delete(lookupRoles).where(eq(lookupRoles.id, id));
   }
 
   // PAR Categories
@@ -3066,9 +3106,12 @@ export class DatabaseStorage implements IStorage {
         profileImageUrl: users.profileImageUrl,
         createdAt: users.createdAt,
         role: userRoles.role,
+        roleLabel: lookupRoles.label,
+        roleType: lookupRoles.roleType,
       })
       .from(users)
       .leftJoin(userRoles, eq(users.id, userRoles.userId))
+      .leftJoin(lookupRoles, eq(userRoles.role, lookupRoles.value))
       .where(
         search
           ? or(
@@ -3094,9 +3137,12 @@ export class DatabaseStorage implements IStorage {
         profileImageUrl: users.profileImageUrl,
         createdAt: users.createdAt,
         role: userRoles.role,
+        roleLabel: lookupRoles.label,
+        roleType: lookupRoles.roleType,
       })
       .from(users)
       .leftJoin(userRoles, eq(users.id, userRoles.userId))
+      .leftJoin(lookupRoles, eq(userRoles.role, lookupRoles.value))
       .where(eq(users.id, id));
     return result;
   }

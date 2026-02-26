@@ -6,19 +6,22 @@ interface UserPermissions {
 }
 
 type UserRoleData = {
-  role: "user" | "manager" | "admin";
+  role: string;
+  roleType: string;
+  roleLabel?: string;
 };
 
 export function usePagePermissions() {
   const { isAuthenticated } = useAuth();
   
-  const { data: roleData } = useQuery<UserRoleData>({
+  const { data: roleData, isLoading: roleLoading } = useQuery<UserRoleData>({
     queryKey: ["/api/user/role"],
     enabled: isAuthenticated,
     staleTime: 1000 * 60 * 5,
   });
 
   const role = roleData?.role || "user";
+  const roleType = roleData?.roleType || role;
 
   const { data: myPermissions, isLoading } = useQuery<{ role: string; permissions: UserPermissions }>({
     queryKey: ["/api/my-permissions"],
@@ -35,8 +38,10 @@ export function usePagePermissions() {
 
   const DEFAULT_PAGES = ["dashboard", "loans", "payments"];
 
+  const isAdminOrManager = roleType === "admin" || roleType === "manager" || role === "admin" || role === "manager";
+
   const hasAccess = (pageName: string): boolean => {
-    if (role === "admin" || role === "manager") {
+    if (isAdminOrManager) {
       return true;
     }
     if (isLoading) {
@@ -55,6 +60,8 @@ export function usePagePermissions() {
     hasAccess,
     isLoading,
     isReady,
-    isAdminOrManager: role === "admin" || role === "manager",
+    isAdminOrManager,
+    role,
+    roleType,
   };
 }

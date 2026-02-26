@@ -72,11 +72,12 @@ export default function MobileRepayments() {
   const isOnline = useNetworkStatus();
   const [expandedLoan, setExpandedLoan] = useState<string | null>(loanIdParam);
 
-  const { data: roleData, isLoading: roleLoading } = useQuery<{ role: string }>({
+  const { data: roleData, isLoading: roleLoading } = useQuery<{ role: string; roleType: string }>({
     queryKey: ["/api/user/role"],
   });
   const userRole = roleData?.role || "user";
-  const isAdminOrManager = userRole === "admin" || userRole === "manager";
+  const userRoleType = roleData?.roleType || userRole;
+  const isAdminOrManager = userRoleType === "admin" || userRoleType === "manager" || userRole === "admin" || userRole === "manager";
 
   const { data: myOfficer, isLoading: officerLoading } = useQuery<FinanceOfficer | null>({
     queryKey: ["/api/finance-officers/me"],

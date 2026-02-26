@@ -285,7 +285,15 @@ export async function registerRoutes(
   // Helper to check role
   const hasRole = async (userId: string, allowedRoles: string[]): Promise<boolean> => {
     const userRole = await storage.getUserRole(userId);
-    return allowedRoles.includes(userRole?.role || "user");
+    const roleValue = userRole?.role || "user";
+    if (allowedRoles.includes(roleValue)) {
+      return true;
+    }
+    const lookupRole = await storage.getLookupRoleByValue(roleValue);
+    if (lookupRole && lookupRole.roleType && allowedRoles.includes(lookupRole.roleType)) {
+      return true;
+    }
+    return false;
   };
 
   // Middleware for role check
@@ -335,10 +343,11 @@ export async function registerRoutes(
       // If no role exists, create default "user" role
       if (!userRole) {
         await storage.setUserRole({ userId, role: "admin" }); // First user gets admin
-        return res.json({ role: "admin" });
+        return res.json({ role: "admin", roleType: "admin" });
       }
       
-      res.json({ role: userRole.role });
+      const lookupRole = await storage.getLookupRoleByValue(userRole.role || "user");
+      res.json({ role: userRole.role, roleType: lookupRole?.roleType || userRole.role, roleLabel: lookupRole?.label });
     } catch (error) {
       console.error("Error fetching user role:", error);
       res.status(500).json({ message: "Failed to fetch user role" });
@@ -862,6 +871,63 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting license type:", error);
       res.status(500).json({ message: "Failed to delete license type" });
+    }
+  });
+
+  // ===== LOOKUP ROLES =====
+  app.get("/api/lookup-roles", isAuthenticated, async (req, res) => {
+    try {
+      const roles = await storage.getLookupRoles();
+      res.json(roles);
+    } catch (error) {
+      console.error("Error fetching lookup roles:", error);
+      res.status(500).json({ message: "Failed to fetch lookup roles" });
+    }
+  });
+
+  app.post("/api/lookup-roles", isAuthenticated, requireRole("admin"), async (req, res) => {
+    try {
+      const { value, label, description, roleType } = req.body;
+      if (!value || !label) {
+        return res.status(400).json({ message: "Value and label are required" });
+      }
+      if (roleType && !["user", "manager", "admin"].includes(roleType)) {
+        return res.status(400).json({ message: "Role type must be user, manager, or admin" });
+      }
+      const role = await storage.createLookupRole({ value, label, description, roleType: roleType || "user" });
+      res.status(201).json(role);
+    } catch (error) {
+      console.error("Error creating lookup role:", error);
+      res.status(500).json({ message: "Failed to create lookup role" });
+    }
+  });
+
+  app.patch("/api/lookup-roles/:id", isAuthenticated, requireRole("admin"), async (req, res) => {
+    try {
+      const { value, label, description, roleType } = req.body;
+      if (roleType && !["user", "manager", "admin"].includes(roleType)) {
+        return res.status(400).json({ message: "Role type must be user, manager, or admin" });
+      }
+      const updateData: any = {};
+      if (value !== undefined) updateData.value = value;
+      if (label !== undefined) updateData.label = label;
+      if (description !== undefined) updateData.description = description;
+      if (roleType !== undefined) updateData.roleType = roleType;
+      const role = await storage.updateLookupRole(parseInt(req.params.id), updateData);
+      res.json(role);
+    } catch (error) {
+      console.error("Error updating lookup role:", error);
+      res.status(500).json({ message: "Failed to update lookup role" });
+    }
+  });
+
+  app.delete("/api/lookup-roles/:id", isAuthenticated, requireRole("admin"), async (req, res) => {
+    try {
+      await storage.deleteLookupRole(parseInt(req.params.id));
+      res.json({ message: "Lookup role deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting lookup role:", error);
+      res.status(500).json({ message: "Failed to delete lookup role" });
     }
   });
 
@@ -3565,15 +3631,17 @@ export async function registerRoutes(
     try {
       const permissions = await storage.getPagePermissions(req.session.userId);
       const userRole = await storage.getUserRole(req.session.userId);
+      const roleValue = userRole?.role || "user";
       
-      // Admins and managers have all permissions by default
-      if (userRole === "admin" || userRole === "manager") {
+      // Check if admin or manager via role or roleType
+      const isAdminOrManager = await hasRole(req.session.userId, ["admin", "manager"]);
+      if (isAdminOrManager) {
         const allPages = storage.getAllPages();
         const fullAccess = allPages.reduce((acc, page) => {
           acc[page] = true;
           return acc;
         }, {} as Record<string, boolean>);
-        return res.json({ role: userRole, permissions: fullAccess });
+        return res.json({ role: roleValue, permissions: fullAccess });
       }
       
       // Regular users need explicit permissions
@@ -3582,7 +3650,7 @@ export async function registerRoutes(
         permissionMap[p.pageName] = p.canAccess;
       });
       
-      res.json({ role: userRole, permissions: permissionMap });
+      res.json({ role: roleValue, permissions: permissionMap });
     } catch (error) {
       console.error("Error fetching my permissions:", error);
       res.status(500).json({ message: "Failed to fetch permissions" });

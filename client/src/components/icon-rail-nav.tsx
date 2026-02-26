@@ -50,7 +50,8 @@ import {
 import lamenLogo from "@assets/LamenLogo_1769936371528.jpeg";
 
 type UserRoleData = {
-  role: "user" | "fad" | "risk_compliance" | "cfo" | "coo" | "ceo" | "sharia" | "manager" | "admin";
+  role: string;
+  roleType: string;
 };
 
 type MenuItem = {
@@ -264,7 +265,7 @@ export function IconRailNav({ children }: IconRailNavProps) {
         { title: "Lookup", url: "/lookup", icon: Layers, iconColor: "text-emerald-500" },
         { title: "PAR Categories", url: "/par-categories", icon: AlertTriangle, iconColor: "text-amber-500" },
         { title: "Disbursement Targets", url: "/disbursement-targets", icon: Target, iconColor: "text-rose-500" },
-        ...(role === "admin" ? [{ title: "Users", url: "/users", icon: Shield, iconColor: "text-red-500" }] : []),
+        ...((role === "admin" || (roleData?.roleType === "admin")) ? [{ title: "Users", url: "/users", icon: Shield, iconColor: "text-red-500" }] : []),
       ],
     },
     {

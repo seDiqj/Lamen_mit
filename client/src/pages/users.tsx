@@ -252,6 +252,8 @@ interface User {
   firstName: string;
   lastName: string;
   role: string | null;
+  roleLabel: string | null;
+  roleType: string | null;
   createdAt: string;
 }
 
@@ -399,18 +401,11 @@ export default function UsersPage() {
     queryKey: ["/api/finance-officers"],
   });
 
-  const systemRoles = [
-    { value: "user", label: "User" },
-    { value: "finance_officer", label: "Financing Officer" },
-    { value: "fad", label: "FAD Officer" },
-    { value: "risk_compliance", label: "Risk & Compliance" },
-    { value: "sharia", label: "Sharia Officer" },
-    { value: "cfo", label: "CFO" },
-    { value: "coo", label: "COO" },
-    { value: "ceo", label: "CEO" },
-    { value: "manager", label: "Manager" },
-    { value: "admin", label: "Admin" },
-  ];
+  const { data: lookupRoles = [] } = useQuery<{ id: number; value: string; label: string; roleType: string; isActive: boolean }[]>({
+    queryKey: ["/api/lookup-roles"],
+  });
+
+  const systemRoles = lookupRoles.filter(r => r.isActive).map(r => ({ value: r.value, label: r.label }));
 
   const resetForm = () => {
     setFormData({
@@ -458,49 +453,42 @@ export default function UsersPage() {
     }
   };
 
-  const getRoleBadgeStyle = (role: string | null) => {
-    switch (role) {
+  const getRoleTypeForUser = (user: User) => {
+    return user.roleType || "user";
+  };
+
+  const getRoleBadgeStyle = (roleType: string | null) => {
+    switch (roleType) {
       case "admin":
         return "bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-700 dark:text-amber-400 border-amber-500/30";
       case "manager":
         return "bg-gradient-to-r from-blue-500/20 to-cyan-500/20 text-blue-700 dark:text-blue-400 border-blue-500/30";
-      case "finance_officer":
-        return "bg-gradient-to-r from-emerald-500/20 to-green-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/30";
       default:
         return "bg-gradient-to-r from-slate-500/20 to-gray-500/20 text-slate-700 dark:text-slate-400 border-slate-500/30";
     }
   };
 
-  const getRoleIcon = (role: string | null) => {
-    switch (role) {
+  const getRoleIcon = (roleType: string | null) => {
+    switch (roleType) {
       case "admin":
         return <Crown className="h-3.5 w-3.5 mr-1" />;
       case "manager":
         return <UserCheck className="h-3.5 w-3.5 mr-1" />;
-      case "finance_officer":
-        return <Briefcase className="h-3.5 w-3.5 mr-1" />;
       default:
         return <Users className="h-3.5 w-3.5 mr-1" />;
     }
   };
 
-  const getRoleLabel = (role: string | null) => {
-    switch (role) {
-      case "admin": return "Admin";
-      case "manager": return "Manager";
-      case "finance_officer": return "Financing Officer";
-      default: return "User";
-    }
+  const getRoleLabel = (user: User) => {
+    return user.roleLabel || user.role || "User";
   };
 
-  const getAvatarGradient = (role: string | null) => {
-    switch (role) {
+  const getAvatarGradient = (roleType: string | null) => {
+    switch (roleType) {
       case "admin":
         return "from-amber-500 to-orange-600";
       case "manager":
         return "from-blue-500 to-cyan-600";
-      case "finance_officer":
-        return "from-emerald-500 to-green-600";
       default:
         return "from-slate-500 to-gray-600";
     }
@@ -702,7 +690,7 @@ export default function UsersPage() {
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <Avatar className="h-10 w-10 ring-2 ring-offset-2 ring-offset-background ring-amber-500/20">
-                            <AvatarFallback className={`bg-gradient-to-br ${getAvatarGradient(user.role)} text-white font-semibold`}>
+                            <AvatarFallback className={`bg-gradient-to-br ${getAvatarGradient(getRoleTypeForUser(user))} text-white font-semibold`}>
                               {getInitials(user.firstName, user.lastName)}
                             </AvatarFallback>
                           </Avatar>
@@ -712,9 +700,9 @@ export default function UsersPage() {
                       <TableCell className="font-mono text-primary font-medium">{user.username}</TableCell>
                       <TableCell className="text-muted-foreground">{user.email || "-"}</TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={`flex items-center w-fit ${getRoleBadgeStyle(user.role)}`}>
-                          {getRoleIcon(user.role)}
-                          {getRoleLabel(user.role)}
+                        <Badge variant="outline" className={`flex items-center w-fit ${getRoleBadgeStyle(getRoleTypeForUser(user))}`}>
+                          {getRoleIcon(getRoleTypeForUser(user))}
+                          {getRoleLabel(user)}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-muted-foreground">
