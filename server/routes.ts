@@ -126,6 +126,10 @@ export async function registerRoutes(
         return res.status(401).json({ message: "Invalid username or password" });
       }
 
+      if (user.isActive === false) {
+        return res.status(403).json({ message: "Your account has been deactivated. Please contact an administrator." });
+      }
+
       req.session.userId = user.id;
       
       res.json({
@@ -3562,6 +3566,35 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting user:", error);
       res.status(500).json({ message: "Failed to delete user" });
+    }
+  });
+
+  // Toggle user active status
+  app.patch("/api/admin/users/:id/status", isAuthenticated, requireRole("admin"), async (req: any, res) => {
+    try {
+      const userId = req.params.id;
+      const { isActive } = req.body;
+
+      if (typeof isActive !== "boolean") {
+        return res.status(400).json({ message: "isActive must be a boolean value" });
+      }
+
+      if (userId === req.session.userId) {
+        return res.status(400).json({ message: "Cannot change your own account status" });
+      }
+
+      const user = await storage.getUserById(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      await storage.updateUser(userId, { isActive });
+      await logActivity(req, isActive ? "activate_user" : "deactivate_user", "user", userId, `${isActive ? "Activated" : "Deactivated"} user: ${user.username}`);
+
+      res.json({ message: `User ${isActive ? "activated" : "deactivated"} successfully` });
+    } catch (error) {
+      console.error("Error updating user status:", error);
+      res.status(500).json({ message: "Failed to update user status" });
     }
   });
 

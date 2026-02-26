@@ -50,7 +50,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Switch } from "@/components/ui/switch";
-import { Search, Plus, Pencil, Trash2, Users, Shield, UserCheck, Crown, Lock, Unlock, LayoutDashboard, FileText, BarChart3, AlertTriangle, Activity, Settings, CreditCard, ClipboardList, PiggyBank, ChevronDown, ChevronRight, Building2, UserPlus, Briefcase, Gavel, FileCheck, Banknote, BookOpen, FolderOpen, Layers, Receipt, Scale, FileSpreadsheet, UserCog, Network, Calendar, Clock, Plane, CalendarOff, GitBranch } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, Users, Shield, UserCheck, UserX, Crown, Lock, Unlock, LayoutDashboard, FileText, BarChart3, AlertTriangle, Activity, Settings, CreditCard, ClipboardList, PiggyBank, ChevronDown, ChevronRight, Building2, UserPlus, Briefcase, Gavel, FileCheck, Banknote, BookOpen, FolderOpen, Layers, Receipt, Scale, FileSpreadsheet, UserCog, Network, Calendar, Clock, Plane, CalendarOff, GitBranch } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -256,6 +256,7 @@ interface User {
   role: string | null;
   roleLabel: string | null;
   roleType: string | null;
+  isActive: boolean | null;
   createdAt: string;
 }
 
@@ -299,6 +300,7 @@ export default function UsersPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editUser, setEditUser] = useState<User | null>(null);
   const [deleteUser, setDeleteUser] = useState<User | null>(null);
+  const [toggleStatusUser, setToggleStatusUser] = useState<User | null>(null);
   const [permissionsUser, setPermissionsUser] = useState<User | null>(null);
   const [userPermissions, setUserPermissions] = useState<UserPermissions>({});
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
@@ -380,6 +382,21 @@ export default function UsersPage() {
     },
     onError: (error: Error) => {
       toast({ title: "Failed to delete user", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const toggleStatusMutation = useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      const res = await apiRequest("PATCH", `/api/admin/users/${id}/status`, { isActive });
+      return res.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      toast({ title: variables.isActive ? "User activated successfully" : "User deactivated successfully" });
+      setToggleStatusUser(null);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to update user status", description: error.message, variant: "destructive" });
     },
   });
 
@@ -840,6 +857,7 @@ export default function UsersPage() {
                     <TableHead className="font-semibold">Username</TableHead>
                     <TableHead className="font-semibold">Email</TableHead>
                     <TableHead className="font-semibold">Role</TableHead>
+                    <TableHead className="font-semibold">Status</TableHead>
                     <TableHead className="font-semibold">Created</TableHead>
                     <TableHead className="text-right font-semibold">Actions</TableHead>
                   </TableRow>
@@ -865,6 +883,16 @@ export default function UsersPage() {
                           {getRoleLabel(user)}
                         </Badge>
                       </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={cn(
+                          "text-xs",
+                          user.isActive !== false
+                            ? "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/30"
+                            : "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30"
+                        )} data-testid={`status-user-${user.id}`}>
+                          {user.isActive !== false ? "Active" : "Inactive"}
+                        </Badge>
+                      </TableCell>
                       <TableCell className="text-muted-foreground">
                         {user.createdAt ? format(new Date(user.createdAt), "dd-MMM-yyyy") : "-"}
                       </TableCell>
@@ -881,6 +909,19 @@ export default function UsersPage() {
                               <Shield className="h-4 w-4 text-purple-500" />
                             </Button>
                           )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setToggleStatusUser(user)}
+                            data-testid={`button-toggle-status-${user.id}`}
+                            title={user.isActive !== false ? "Deactivate User" : "Activate User"}
+                          >
+                            {user.isActive !== false ? (
+                              <UserX className="h-4 w-4 text-amber-600" />
+                            ) : (
+                              <UserCheck className="h-4 w-4 text-green-600" />
+                            )}
+                          </Button>
                           <Button
                             variant="ghost"
                             size="icon"
@@ -1249,6 +1290,52 @@ export default function UsersPage() {
               data-testid="button-confirm-delete"
             >
               {deleteMutation.isPending ? "Deleting..." : "Delete User"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Activate/Deactivate Confirmation Dialog */}
+      <AlertDialog open={!!toggleStatusUser} onOpenChange={(open) => { if (!open) setToggleStatusUser(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <div className={cn(
+                "h-8 w-8 rounded-lg flex items-center justify-center",
+                toggleStatusUser?.isActive !== false ? "bg-amber-500/10" : "bg-green-500/10"
+              )}>
+                {toggleStatusUser?.isActive !== false ? (
+                  <UserX className="h-4 w-4 text-amber-600" />
+                ) : (
+                  <UserCheck className="h-4 w-4 text-green-600" />
+                )}
+              </div>
+              {toggleStatusUser?.isActive !== false ? "Deactivate User" : "Activate User"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {toggleStatusUser?.isActive !== false ? (
+                <>Are you sure you want to deactivate <span className="font-semibold">{toggleStatusUser?.firstName} {toggleStatusUser?.lastName}</span>? They will no longer be able to log in to the system.</>
+              ) : (
+                <>Are you sure you want to reactivate <span className="font-semibold">{toggleStatusUser?.firstName} {toggleStatusUser?.lastName}</span>? They will be able to log in again.</>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => toggleStatusUser && toggleStatusMutation.mutate({
+                id: toggleStatusUser.id,
+                isActive: toggleStatusUser.isActive === false,
+              })}
+              className={toggleStatusUser?.isActive !== false ? "bg-amber-600 hover:bg-amber-700" : "bg-green-600 hover:bg-green-700"}
+              data-testid="button-confirm-toggle-status"
+            >
+              {toggleStatusMutation.isPending
+                ? "Processing..."
+                : toggleStatusUser?.isActive !== false
+                  ? "Deactivate User"
+                  : "Activate User"
+              }
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
