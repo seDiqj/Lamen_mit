@@ -3446,6 +3446,8 @@ export async function registerRoutes(
 
       await storage.setUserRole({ userId: user.id, role: role || "user" });
 
+      await storage.applyRolePermissionsToUser(role || "user", user.id, req.session.userId);
+
       if (role === "finance_officer" && financeOfficerId) {
         const targetOfficer = await storage.getOfficer(financeOfficerId);
         if (targetOfficer?.userId && targetOfficer.userId !== user.id) {
@@ -3505,7 +3507,11 @@ export async function registerRoutes(
       }
 
       if (role) {
+        const currentRole = await storage.getUserRole(userId);
         await storage.updateUserRole(userId, role);
+        if (currentRole?.role !== role) {
+          await storage.applyRolePermissionsToUser(role, userId, req.session.userId);
+        }
       }
 
       if (role === "finance_officer" && financeOfficerId) {
@@ -3623,6 +3629,67 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching user permissions:", error);
       res.status(500).json({ message: "Failed to fetch user permissions" });
+    }
+  });
+
+  // Role Page Permissions
+  app.get("/api/role-permissions/:roleValue", isAuthenticated, requireRole("admin"), async (req: any, res) => {
+    try {
+      const permissions = await storage.getRolePagePermissions(req.params.roleValue);
+      const permissionMap: Record<string, boolean> = {};
+      permissions.forEach(p => {
+        permissionMap[p.pageName] = p.canAccess;
+      });
+      res.json({ permissions: permissionMap });
+    } catch (error) {
+      console.error("Error fetching role permissions:", error);
+      res.status(500).json({ message: "Failed to fetch role permissions" });
+    }
+  });
+
+  app.get("/api/all-role-permissions", isAuthenticated, requireRole("admin"), async (req: any, res) => {
+    try {
+      const allPerms = await storage.getAllRolePagePermissions();
+      const grouped: Record<string, Record<string, boolean>> = {};
+      allPerms.forEach(p => {
+        if (!grouped[p.roleValue]) grouped[p.roleValue] = {};
+        grouped[p.roleValue][p.pageName] = p.canAccess;
+      });
+      res.json(grouped);
+    } catch (error) {
+      console.error("Error fetching all role permissions:", error);
+      res.status(500).json({ message: "Failed to fetch all role permissions" });
+    }
+  });
+
+  app.post("/api/role-permissions", isAuthenticated, requireRole("admin"), async (req: any, res) => {
+    try {
+      const { roleValue, pageName, canAccess } = req.body;
+      if (!roleValue || !pageName || canAccess === undefined) {
+        return res.status(400).json({ message: "roleValue, pageName, and canAccess are required" });
+      }
+      await storage.setRolePagePermission(roleValue, pageName, canAccess);
+      await logActivity(req, "update_role_permission", "role_permission", roleValue, `Updated role permission for page ${pageName}: ${canAccess ? 'granted' : 'revoked'}`);
+      res.json({ message: "Role permission updated successfully" });
+    } catch (error) {
+      console.error("Error updating role permission:", error);
+      res.status(500).json({ message: "Failed to update role permission" });
+    }
+  });
+
+  app.post("/api/apply-role-permissions/:userId", isAuthenticated, requireRole("admin"), async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const { roleValue } = req.body;
+      if (!roleValue) {
+        return res.status(400).json({ message: "roleValue is required" });
+      }
+      await storage.applyRolePermissionsToUser(roleValue, userId, req.session.userId);
+      await logActivity(req, "apply_role_permissions", "permission", userId, `Applied role permissions from ${roleValue}`);
+      res.json({ message: "Role permissions applied successfully" });
+    } catch (error) {
+      console.error("Error applying role permissions:", error);
+      res.status(500).json({ message: "Failed to apply role permissions" });
     }
   });
 

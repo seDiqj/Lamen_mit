@@ -438,6 +438,19 @@ export type ActivityLog = typeof activityLogs.$inferSelect;
 export type InsertParCategory = z.infer<typeof insertParCategorySchema>;
 export type ParCategory = typeof parCategories.$inferSelect;
 
+// Role Page Permissions - default page permissions per role
+export const rolePagePermissions = pgTable("role_page_permissions", {
+  id: serial("id").primaryKey(),
+  roleValue: varchar("role_value", { length: 100 }).notNull(),
+  pageName: varchar("page_name", { length: 100 }).notNull(),
+  canAccess: boolean("can_access").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertRolePagePermissionSchema = createInsertSchema(rolePagePermissions).omit({ id: true, createdAt: true });
+export type InsertRolePagePermission = z.infer<typeof insertRolePagePermissionSchema>;
+export type RolePagePermission = typeof rolePagePermissions.$inferSelect;
+
 // Page Permissions - controls which pages users can access
 export const pagePermissions = pgTable("page_permissions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

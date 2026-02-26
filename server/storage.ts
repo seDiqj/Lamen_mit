@@ -124,6 +124,7 @@ import {
   type InsertParCategory,
   type ParCategory,
   lookupRoles,
+  rolePagePermissions,
   type InsertLookupRole,
   type LookupRole,
 } from "@shared/schema";
@@ -320,6 +321,12 @@ export interface IStorage {
   setPagePermission(userId: string, pageName: string, canAccess: boolean, grantedBy: string): Promise<void>;
   getUsersWithPermissions(): Promise<any[]>;
   getAllPages(): string[];
+  
+  // Role Page Permissions
+  getRolePagePermissions(roleValue: string): Promise<any[]>;
+  setRolePagePermission(roleValue: string, pageName: string, canAccess: boolean): Promise<void>;
+  applyRolePermissionsToUser(roleValue: string, userId: string, grantedBy: string): Promise<void>;
+  getAllRolePagePermissions(): Promise<any[]>;
   
   // Accounting - Chart of Accounts
   getAccounts(filters?: { search?: string; accountType?: string }): Promise<any[]>;
@@ -3269,6 +3276,45 @@ export class DatabaseStorage implements IStorage {
       "hr-holidays",
       "disbursement-targets",
     ];
+  }
+
+  // Role Page Permissions
+  async getRolePagePermissions(roleValue: string): Promise<any[]> {
+    return await db.select().from(rolePagePermissions).where(eq(rolePagePermissions.roleValue, roleValue));
+  }
+
+  async getAllRolePagePermissions(): Promise<any[]> {
+    return await db.select().from(rolePagePermissions);
+  }
+
+  async setRolePagePermission(roleValue: string, pageName: string, canAccess: boolean): Promise<void> {
+    const existing = await db.select().from(rolePagePermissions)
+      .where(and(
+        eq(rolePagePermissions.roleValue, roleValue),
+        eq(rolePagePermissions.pageName, pageName)
+      ));
+
+    if (existing.length > 0) {
+      await db.update(rolePagePermissions)
+        .set({ canAccess })
+        .where(and(
+          eq(rolePagePermissions.roleValue, roleValue),
+          eq(rolePagePermissions.pageName, pageName)
+        ));
+    } else {
+      await db.insert(rolePagePermissions).values({
+        roleValue,
+        pageName,
+        canAccess,
+      });
+    }
+  }
+
+  async applyRolePermissionsToUser(roleValue: string, userId: string, grantedBy: string): Promise<void> {
+    const rolePerms = await this.getRolePagePermissions(roleValue);
+    for (const perm of rolePerms) {
+      await this.setPagePermission(userId, perm.pageName, perm.canAccess, grantedBy);
+    }
   }
 
   // Seed Data

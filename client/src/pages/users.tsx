@@ -302,6 +302,11 @@ export default function UsersPage() {
   const [permissionsUser, setPermissionsUser] = useState<User | null>(null);
   const [userPermissions, setUserPermissions] = useState<UserPermissions>({});
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+  const [permissionsSearch, setPermissionsSearch] = useState("");
+  const [permissionsRole, setPermissionsRole] = useState<LookupRole | null>(null);
+  const [rolePermissions, setRolePermissions] = useState<UserPermissions>({});
+  const [roleExpandedCategories, setRoleExpandedCategories] = useState<Record<string, boolean>>({});
+  const [rolePermissionsSearch, setRolePermissionsSearch] = useState("");
   const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false);
   const [editRole, setEditRole] = useState<LookupRole | null>(null);
   const [deleteRole, setDeleteRole] = useState<LookupRole | null>(null);
@@ -402,6 +407,7 @@ export default function UsersPage() {
 
   const openPermissionsDialog = async (user: User) => {
     setPermissionsUser(user);
+    setPermissionsSearch("");
     try {
       const res = await fetch(`/api/admin/user-permissions/${user.id}`, { credentials: "include" });
       if (res.ok) {
@@ -419,6 +425,47 @@ export default function UsersPage() {
     if (!permissionsUser) return;
     setUserPermissions(prev => ({ ...prev, [pageName]: canAccess }));
     updatePermissionMutation.mutate({ userId: permissionsUser.id, pageName, canAccess });
+  };
+
+  const updateRolePermissionMutation = useMutation({
+    mutationFn: async ({ roleValue, pageName, canAccess }: { roleValue: string; pageName: string; canAccess: boolean }) => {
+      const res = await apiRequest("POST", "/api/role-permissions", { roleValue, pageName, canAccess });
+      return res.json();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to update role permission", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const openRolePermissionsDialog = async (role: LookupRole) => {
+    setPermissionsRole(role);
+    setRolePermissionsSearch("");
+    try {
+      const res = await fetch(`/api/role-permissions/${role.value}`, { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        setRolePermissions(data.permissions || {});
+      } else {
+        setRolePermissions({});
+      }
+    } catch {
+      setRolePermissions({});
+    }
+  };
+
+  const handleRolePermissionChange = (pageName: string, canAccess: boolean) => {
+    if (!permissionsRole) return;
+    setRolePermissions(prev => ({ ...prev, [pageName]: canAccess }));
+    updateRolePermissionMutation.mutate({ roleValue: permissionsRole.value, pageName, canAccess });
+  };
+
+  const getFilteredCategories = (searchTerm: string) => {
+    if (!searchTerm.trim()) return PAGE_CATEGORIES;
+    const lower = searchTerm.toLowerCase();
+    return PAGE_CATEGORIES.map(cat => ({
+      ...cat,
+      pages: cat.pages.filter(p => p.label.toLowerCase().includes(lower) || p.id.toLowerCase().includes(lower)),
+    })).filter(cat => cat.pages.length > 0 || cat.label.toLowerCase().includes(lower));
   };
 
   const { data: financeOfficers = [] } = useQuery<FinanceOfficerItem[]>({
@@ -933,6 +980,15 @@ export default function UsersPage() {
                         <TableCell className="text-muted-foreground text-sm">{role.description || "-"}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openRolePermissionsDialog(role)}
+                              data-testid={`button-role-permissions-${role.id}`}
+                              title="Manage Page Permissions"
+                            >
+                              <Lock className="h-4 w-4 text-purple-600" />
+                            </Button>
                             <Button variant="ghost" size="icon" onClick={() => openEditRoleDialog(role)} data-testid={`button-edit-role-${role.id}`}>
                               <Pencil className="h-4 w-4" />
                             </Button>
@@ -1198,8 +1254,8 @@ export default function UsersPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Page Permissions Dialog */}
-      <Dialog open={!!permissionsUser} onOpenChange={(open) => { if (!open) { setPermissionsUser(null); setExpandedCategories({}); } }}>
+      {/* Page Permissions Dialog - User */}
+      <Dialog open={!!permissionsUser} onOpenChange={(open) => { if (!open) { setPermissionsUser(null); setExpandedCategories({}); setPermissionsSearch(""); } }}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg">
@@ -1209,21 +1265,33 @@ export default function UsersPage() {
               Page Access for {permissionsUser?.firstName} {permissionsUser?.lastName}
             </DialogTitle>
           </DialogHeader>
-          <div className="py-4 flex-1 overflow-y-auto">
-            <p className="text-sm text-muted-foreground mb-4">
-              Expand each category to toggle access to individual pages. Changes are saved automatically.
+          <div className="py-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search pages..."
+                value={permissionsSearch}
+                onChange={(e) => setPermissionsSearch(e.target.value)}
+                className="pl-9"
+                data-testid="input-search-user-permissions"
+              />
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            <p className="text-sm text-muted-foreground mb-3">
+              Toggle access to individual pages. Changes are saved automatically.
             </p>
             <div className="space-y-3">
-              {PAGE_CATEGORIES.map((category) => {
-                const isExpanded = expandedCategories[category.id] === true;
+              {getFilteredCategories(permissionsSearch).map((category) => {
+                const isExpanded = expandedCategories[category.id] === true || permissionsSearch.trim() !== "";
                 const CategoryIcon = category.icon;
                 const enabledCount = category.pages.filter(p => userPermissions[p.id] === true).length;
                 const totalCount = category.pages.length;
-                const allEnabled = enabledCount === totalCount;
+                const allEnabled = enabledCount === totalCount && totalCount > 0;
                 const someEnabled = enabledCount > 0 && enabledCount < totalCount;
                 
                 return (
-                  <div key={category.id} className="border rounded-lg overflow-hidden" data-testid={`category-${category.id}`}>
+                  <div key={category.id} className="border rounded-lg overflow-hidden" data-testid={`user-category-${category.id}`}>
                     <Collapsible 
                       open={isExpanded} 
                       onOpenChange={(open) => setExpandedCategories(prev => ({ ...prev, [category.id]: open }))}
@@ -1277,7 +1345,7 @@ export default function UsersPage() {
                                   }
                                 });
                               }}
-                              data-testid={`enable-all-${category.id}`}
+                              data-testid={`user-enable-all-${category.id}`}
                             >
                               Enable All
                             </Button>
@@ -1292,7 +1360,7 @@ export default function UsersPage() {
                                   }
                                 });
                               }}
-                              data-testid={`disable-all-${category.id}`}
+                              data-testid={`user-disable-all-${category.id}`}
                             >
                               Disable All
                             </Button>
@@ -1310,7 +1378,7 @@ export default function UsersPage() {
                                     ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800" 
                                     : "bg-background border-muted"
                                 )}
-                                data-testid={`permission-toggle-${page.id}`}
+                                data-testid={`user-permission-${page.id}`}
                               >
                                 <div className="flex items-center gap-2">
                                   <PageIcon className={cn("h-4 w-4", hasAccess ? "text-green-600" : "text-muted-foreground")} />
@@ -1326,7 +1394,7 @@ export default function UsersPage() {
                                     checked={hasAccess}
                                     onCheckedChange={(checked) => handlePermissionChange(page.id, checked)}
                                     disabled={updatePermissionMutation.isPending}
-                                    data-testid={`switch-${page.id}`}
+                                    data-testid={`user-switch-${page.id}`}
                                   />
                                 </div>
                               </div>
@@ -1338,10 +1406,191 @@ export default function UsersPage() {
                   </div>
                 );
               })}
+              {getFilteredCategories(permissionsSearch).length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Search className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                  <p>No pages found matching "{permissionsSearch}"</p>
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPermissionsUser(null)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Page Permissions Dialog - Role */}
+      <Dialog open={!!permissionsRole} onOpenChange={(open) => { if (!open) { setPermissionsRole(null); setRoleExpandedCategories({}); setRolePermissionsSearch(""); } }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center">
+                <Shield className="h-4 w-4 text-white" />
+              </div>
+              Default Page Access for Role: {permissionsRole?.label}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search pages..."
+                value={rolePermissionsSearch}
+                onChange={(e) => setRolePermissionsSearch(e.target.value)}
+                className="pl-9"
+                data-testid="input-search-role-permissions"
+              />
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            <p className="text-sm text-muted-foreground mb-3">
+              Set default page access for this role. When a user is assigned this role, they will automatically receive these permissions.
+            </p>
+            {permissionsRole?.roleType === "admin" || permissionsRole?.roleType === "manager" ? (
+              <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 mb-3">
+                <p className="text-sm text-amber-700 dark:text-amber-400">
+                  <strong>Note:</strong> Users with {permissionsRole?.roleType === "admin" ? "Admin" : "Managerial"} role type automatically get access to all pages. These defaults will be saved but won't restrict their access.
+                </p>
+              </div>
+            ) : null}
+            <div className="space-y-3">
+              {getFilteredCategories(rolePermissionsSearch).map((category) => {
+                const isExpanded = roleExpandedCategories[category.id] === true || rolePermissionsSearch.trim() !== "";
+                const CategoryIcon = category.icon;
+                const enabledCount = category.pages.filter(p => rolePermissions[p.id] === true).length;
+                const totalCount = category.pages.length;
+                const allEnabled = enabledCount === totalCount && totalCount > 0;
+                const someEnabled = enabledCount > 0 && enabledCount < totalCount;
+                
+                return (
+                  <div key={category.id} className="border rounded-lg overflow-hidden" data-testid={`role-category-${category.id}`}>
+                    <Collapsible 
+                      open={isExpanded} 
+                      onOpenChange={(open) => setRoleExpandedCategories(prev => ({ ...prev, [category.id]: open }))}
+                    >
+                      <CollapsibleTrigger asChild>
+                        <div className={cn(
+                          "flex items-center justify-between p-3 cursor-pointer transition-colors hover:bg-muted/50",
+                          isExpanded && "border-b"
+                        )}>
+                          <div className="flex items-center gap-3">
+                            <div className={`h-8 w-8 rounded-lg bg-gradient-to-br ${category.color} flex items-center justify-center`}>
+                              <CategoryIcon className="h-4 w-4 text-white" />
+                            </div>
+                            <div>
+                              <div className="font-medium">{category.label}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {enabledCount} of {totalCount} pages enabled
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <Badge 
+                              variant={allEnabled ? "default" : someEnabled ? "secondary" : "outline"}
+                              className={cn(
+                                "text-xs",
+                                allEnabled && "bg-green-500 hover:bg-green-600",
+                                someEnabled && "bg-amber-500/20 text-amber-700 dark:text-amber-400"
+                              )}
+                            >
+                              {allEnabled ? "Full Access" : someEnabled ? "Partial" : "No Access"}
+                            </Badge>
+                            {isExpanded ? (
+                              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                            )}
+                          </div>
+                        </div>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <div className="p-3 bg-muted/20 space-y-2">
+                          <div className="flex justify-end gap-2 mb-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-xs h-7"
+                              onClick={() => {
+                                category.pages.forEach(page => {
+                                  if (!rolePermissions[page.id]) {
+                                    handleRolePermissionChange(page.id, true);
+                                  }
+                                });
+                              }}
+                              data-testid={`role-enable-all-${category.id}`}
+                            >
+                              Enable All
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-xs h-7"
+                              onClick={() => {
+                                category.pages.forEach(page => {
+                                  if (rolePermissions[page.id]) {
+                                    handleRolePermissionChange(page.id, false);
+                                  }
+                                });
+                              }}
+                              data-testid={`role-disable-all-${category.id}`}
+                            >
+                              Disable All
+                            </Button>
+                          </div>
+                          {category.pages.map((page) => {
+                            const PageIcon = page.icon;
+                            const hasAccess = rolePermissions[page.id] === true;
+                            
+                            return (
+                              <div
+                                key={page.id}
+                                className={cn(
+                                  "flex items-center justify-between p-2.5 rounded-lg border transition-colors",
+                                  hasAccess 
+                                    ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800" 
+                                    : "bg-background border-muted"
+                                )}
+                                data-testid={`role-permission-${page.id}`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <PageIcon className={cn("h-4 w-4", hasAccess ? "text-green-600" : "text-muted-foreground")} />
+                                  <span className="text-sm font-medium">{page.label}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {hasAccess ? (
+                                    <Unlock className="h-3.5 w-3.5 text-green-600" />
+                                  ) : (
+                                    <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+                                  )}
+                                  <Switch
+                                    checked={hasAccess}
+                                    onCheckedChange={(checked) => handleRolePermissionChange(page.id, checked)}
+                                    disabled={updateRolePermissionMutation.isPending}
+                                    data-testid={`role-switch-${page.id}`}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </div>
+                );
+              })}
+              {getFilteredCategories(rolePermissionsSearch).length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Search className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                  <p>No pages found matching "{rolePermissionsSearch}"</p>
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPermissionsRole(null)}>
               Close
             </Button>
           </DialogFooter>

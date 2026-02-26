@@ -32,6 +32,7 @@ Preferred communication style: Simple, everyday language.
 - **Key Tables**:
   - `users`, `sessions` - Authentication (required by Replit Auth)
   - `userRoles` - Role-based access control
+  - `rolePagePermissions` - Default page permissions per role (auto-applied on user creation/role change)
   - `branches`, `financeOfficers` - Organization structure
   - `customers`, `customerBusinesses`, `businessLicenses` - Customer data
   - `loans`, `collaterals`, `guarantors` - Loan information
