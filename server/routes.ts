@@ -3424,7 +3424,7 @@ export async function registerRoutes(
   // Create user (admin only)
   app.post("/api/admin/users", isAuthenticated, requireRole("admin"), async (req: any, res) => {
     try {
-      const { username, password, firstName, lastName, email, role, financeOfficerId } = req.body;
+      const { username, password, firstName, lastName, email, role, financeOfficerId, branchId } = req.body;
       
       if (!username || !password || !firstName || !lastName) {
         return res.status(400).json({ message: "All required fields must be provided" });
@@ -3446,6 +3446,7 @@ export async function registerRoutes(
         firstName,
         lastName,
         email: email || null,
+        branchId: branchId || null,
       });
 
       await storage.setUserRole({ userId: user.id, role: role || "user" });
@@ -3479,7 +3480,7 @@ export async function registerRoutes(
   // Update user (admin only)
   app.patch("/api/admin/users/:id", isAuthenticated, requireRole("admin"), async (req: any, res) => {
     try {
-      const { username, password, firstName, lastName, email, role, financeOfficerId } = req.body;
+      const { username, password, firstName, lastName, email, role, financeOfficerId, branchId } = req.body;
       const userId = req.params.id;
 
       const existingUser = await storage.getUserById(userId);
@@ -3499,6 +3500,7 @@ export async function registerRoutes(
       if (firstName) updateData.firstName = firstName;
       if (lastName) updateData.lastName = lastName;
       if (email !== undefined) updateData.email = email || null;
+      if (branchId !== undefined) updateData.branchId = branchId || null;
       if (password) {
         if (password.length < 6) {
           return res.status(400).json({ message: "Password must be at least 6 characters" });

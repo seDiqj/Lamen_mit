@@ -3111,15 +3111,18 @@ export class DatabaseStorage implements IStorage {
         firstName: users.firstName,
         lastName: users.lastName,
         profileImageUrl: users.profileImageUrl,
+        branchId: users.branchId,
         isActive: users.isActive,
         createdAt: users.createdAt,
         role: userRoles.role,
         roleLabel: lookupRoles.label,
         roleType: lookupRoles.roleType,
+        branchName: branches.name,
       })
       .from(users)
       .leftJoin(userRoles, eq(users.id, userRoles.userId))
       .leftJoin(lookupRoles, eq(userRoles.role, lookupRoles.value))
+      .leftJoin(branches, eq(users.branchId, branches.id))
       .where(
         search
           ? or(
@@ -3143,15 +3146,18 @@ export class DatabaseStorage implements IStorage {
         firstName: users.firstName,
         lastName: users.lastName,
         profileImageUrl: users.profileImageUrl,
+        branchId: users.branchId,
         isActive: users.isActive,
         createdAt: users.createdAt,
         role: userRoles.role,
         roleLabel: lookupRoles.label,
         roleType: lookupRoles.roleType,
+        branchName: branches.name,
       })
       .from(users)
       .leftJoin(userRoles, eq(users.id, userRoles.userId))
       .leftJoin(lookupRoles, eq(userRoles.role, lookupRoles.value))
+      .leftJoin(branches, eq(users.branchId, branches.id))
       .where(eq(users.id, id));
     return result;
   }

@@ -256,6 +256,8 @@ interface User {
   role: string | null;
   roleLabel: string | null;
   roleType: string | null;
+  branchId: string | null;
+  branchName: string | null;
   isActive: boolean | null;
   createdAt: string;
 }
@@ -268,6 +270,13 @@ interface UserFormData {
   email: string;
   role: string;
   financeOfficerId: string;
+  branchId: string;
+}
+
+interface BranchItem {
+  id: string;
+  name: string;
+  code: string | null;
 }
 
 interface LookupRole {
@@ -323,6 +332,7 @@ export default function UsersPage() {
     email: "",
     role: "user",
     financeOfficerId: "",
+    branchId: "",
   });
 
   const { data: users = [], isLoading } = useQuery<User[]>({
@@ -489,6 +499,10 @@ export default function UsersPage() {
     queryKey: ["/api/finance-officers"],
   });
 
+  const { data: branches = [] } = useQuery<BranchItem[]>({
+    queryKey: ["/api/branches"],
+  });
+
   const { data: lookupRoles = [], isLoading: rolesLoading } = useQuery<LookupRole[]>({
     queryKey: ["/api/lookup-roles"],
   });
@@ -577,6 +591,7 @@ export default function UsersPage() {
       email: "",
       role: "user",
       financeOfficerId: "",
+      branchId: "",
     });
   };
 
@@ -590,6 +605,7 @@ export default function UsersPage() {
       email: user.email || "",
       role: user.role || "user",
       financeOfficerId: linkedOfficer?.id || "",
+      branchId: user.branchId || "",
     });
     setEditUser(user);
   };
@@ -604,6 +620,7 @@ export default function UsersPage() {
         email: formData.email,
         role: formData.role,
         financeOfficerId: formData.role === "finance_officer" ? formData.financeOfficerId : "",
+        branchId: formData.branchId,
       };
       if (formData.password) {
         updateData.password = formData.password;
@@ -777,6 +794,26 @@ export default function UsersPage() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="branchId">Branch</Label>
+                <Select value={formData.branchId} onValueChange={(value) => setFormData({ ...formData, branchId: value === "_none" ? "" : value })}>
+                  <SelectTrigger data-testid="select-branch">
+                    <SelectValue placeholder="Select branch (optional)..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">No Branch</SelectItem>
+                    {branches.map((branch) => (
+                      <SelectItem key={branch.id} value={branch.id}>
+                        <div className="flex items-center gap-2">
+                          <Building2 className="h-4 w-4 text-blue-500" />
+                          <span>{branch.name}</span>
+                          {branch.code && <span className="text-muted-foreground text-xs">({branch.code})</span>}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               {formData.role === "finance_officer" && (
                 <div className="space-y-2">
                   <Label htmlFor="financeOfficerId">Link to Financing Officer *</Label>
@@ -857,6 +894,7 @@ export default function UsersPage() {
                     <TableHead className="font-semibold">Username</TableHead>
                     <TableHead className="font-semibold">Email</TableHead>
                     <TableHead className="font-semibold">Role</TableHead>
+                    <TableHead className="font-semibold">Branch</TableHead>
                     <TableHead className="font-semibold">Status</TableHead>
                     <TableHead className="font-semibold">Created</TableHead>
                     <TableHead className="text-right font-semibold">Actions</TableHead>
@@ -882,6 +920,16 @@ export default function UsersPage() {
                           {getRoleIcon(getRoleTypeForUser(user))}
                           {getRoleLabel(user)}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {user.branchName ? (
+                          <span className="flex items-center gap-1.5 text-sm">
+                            <Building2 className="h-3.5 w-3.5 text-blue-500" />
+                            {user.branchName}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className={cn(
@@ -1228,6 +1276,26 @@ export default function UsersPage() {
                       <div className="flex items-center gap-2">
                         <Shield className="h-4 w-4 text-purple-500" />
                         {role.label}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-branchId">Branch</Label>
+              <Select value={formData.branchId} onValueChange={(value) => setFormData({ ...formData, branchId: value === "_none" ? "" : value })}>
+                <SelectTrigger data-testid="select-edit-branch">
+                  <SelectValue placeholder="Select branch (optional)..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">No Branch</SelectItem>
+                  {branches.map((branch) => (
+                    <SelectItem key={branch.id} value={branch.id}>
+                      <div className="flex items-center gap-2">
+                        <Building2 className="h-4 w-4 text-blue-500" />
+                        <span>{branch.name}</span>
+                        {branch.code && <span className="text-muted-foreground text-xs">({branch.code})</span>}
                       </div>
                     </SelectItem>
                   ))}
