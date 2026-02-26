@@ -347,7 +347,7 @@ export function AppSidebar() {
         { title: "Lookup", url: "/lookup", icon: Layers, iconColor: "text-emerald-500" },
         { title: "PAR Categories", url: "/par-categories", icon: AlertTriangle, iconColor: "text-amber-500" },
         { title: "Disbursement Targets", url: "/disbursement-targets", icon: Target, iconColor: "text-rose-500" },
-        { title: "Users", url: "/users", icon: Shield, iconColor: "text-red-500" },
+        { title: "Access Control", url: "/users", icon: Shield, iconColor: "text-red-500" },
       ],
     },
     {

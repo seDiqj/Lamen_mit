@@ -604,7 +604,7 @@ export default function UsersPage() {
             <Shield className="h-6 w-6 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold" data-testid="text-page-title">User & Role Management</h1>
+            <h1 className="text-2xl font-bold" data-testid="text-page-title">Access Control</h1>
             <p className="text-muted-foreground">Manage system users, roles and access permissions</p>
           </div>
         </div>
