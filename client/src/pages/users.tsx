@@ -7,9 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -267,6 +269,22 @@ interface UserFormData {
   financeOfficerId: string;
 }
 
+interface LookupRole {
+  id: number;
+  value: string;
+  label: string;
+  roleType: string;
+  description: string | null;
+  isActive: boolean;
+}
+
+interface RoleFormData {
+  value: string;
+  label: string;
+  description: string;
+  roleType: string;
+}
+
 interface FinanceOfficerItem {
   id: string;
   name: string;
@@ -284,6 +302,12 @@ export default function UsersPage() {
   const [permissionsUser, setPermissionsUser] = useState<User | null>(null);
   const [userPermissions, setUserPermissions] = useState<UserPermissions>({});
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+  const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false);
+  const [editRole, setEditRole] = useState<LookupRole | null>(null);
+  const [deleteRole, setDeleteRole] = useState<LookupRole | null>(null);
+  const [roleFormData, setRoleFormData] = useState<RoleFormData>({
+    value: "", label: "", description: "", roleType: "user",
+  });
   const [formData, setFormData] = useState<UserFormData>({
     username: "",
     password: "",
@@ -401,11 +425,84 @@ export default function UsersPage() {
     queryKey: ["/api/finance-officers"],
   });
 
-  const { data: lookupRoles = [] } = useQuery<{ id: number; value: string; label: string; roleType: string; isActive: boolean }[]>({
+  const { data: lookupRoles = [], isLoading: rolesLoading } = useQuery<LookupRole[]>({
     queryKey: ["/api/lookup-roles"],
   });
 
   const systemRoles = lookupRoles.filter(r => r.isActive).map(r => ({ value: r.value, label: r.label }));
+
+  const createRoleMutation = useMutation({
+    mutationFn: async (data: RoleFormData) => {
+      const res = await apiRequest("POST", "/api/lookup-roles", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/lookup-roles"] });
+      toast({ title: "Role created successfully" });
+      setIsRoleDialogOpen(false);
+      resetRoleForm();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to create role", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const updateRoleMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: RoleFormData }) => {
+      const res = await apiRequest("PATCH", `/api/lookup-roles/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/lookup-roles"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      toast({ title: "Role updated successfully" });
+      setIsRoleDialogOpen(false);
+      setEditRole(null);
+      resetRoleForm();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to update role", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteRoleMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest("DELETE", `/api/lookup-roles/${id}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/lookup-roles"] });
+      toast({ title: "Role deleted successfully" });
+      setDeleteRole(null);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to delete role", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const resetRoleForm = () => {
+    setRoleFormData({ value: "", label: "", description: "", roleType: "user" });
+  };
+
+  const openEditRoleDialog = (role: LookupRole) => {
+    setRoleFormData({
+      value: role.value,
+      label: role.label,
+      description: role.description || "",
+      roleType: role.roleType,
+    });
+    setEditRole(role);
+    setIsRoleDialogOpen(true);
+  };
+
+  const handleRoleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editRole) {
+      updateRoleMutation.mutate({ id: editRole.id, data: roleFormData });
+    } else {
+      createRoleMutation.mutate(roleFormData);
+    }
+  };
 
   const resetForm = () => {
     setFormData({
@@ -507,10 +604,26 @@ export default function UsersPage() {
             <Shield className="h-6 w-6 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold" data-testid="text-page-title">User Management</h1>
-            <p className="text-muted-foreground">Manage system users and their access roles</p>
+            <h1 className="text-2xl font-bold" data-testid="text-page-title">User & Role Management</h1>
+            <p className="text-muted-foreground">Manage system users, roles and access permissions</p>
           </div>
         </div>
+      </div>
+
+      <Tabs defaultValue="users" className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="users" className="flex items-center gap-2" data-testid="tab-users">
+            <Users className="h-4 w-4" />
+            Users
+          </TabsTrigger>
+          <TabsTrigger value="roles" className="flex items-center gap-2" data-testid="tab-roles">
+            <Shield className="h-4 w-4" />
+            Roles
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="users" className="mt-4 space-y-4">
+        <div className="flex justify-end">
         <Dialog open={isCreateOpen} onOpenChange={(open) => { setIsCreateOpen(open); if (!open) resetForm(); }}>
           <DialogTrigger asChild>
             <Button data-testid="button-create-user">
@@ -747,6 +860,199 @@ export default function UsersPage() {
           )}
         </CardContent>
       </Card>
+      </TabsContent>
+
+      <TabsContent value="roles" className="mt-4 space-y-4">
+        <div className="flex justify-end">
+          <Button onClick={() => { resetRoleForm(); setEditRole(null); setIsRoleDialogOpen(true); }} data-testid="button-create-role">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Role
+          </Button>
+        </div>
+        <Card className="border-0 shadow-lg overflow-hidden">
+          <div className="h-1 bg-gradient-to-r from-purple-500 to-violet-500" />
+          <CardHeader className="bg-gradient-to-r from-purple-500/5 to-violet-500/5">
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              All Roles
+              <Badge variant="outline" className="ml-2 bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/30">
+                {lookupRoles.length}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {rolesLoading ? (
+              <div className="p-6 space-y-3">
+                {[...Array(5)].map((_, i) => (
+                  <Skeleton key={i} className="h-12 w-full" />
+                ))}
+              </div>
+            ) : lookupRoles.length === 0 ? (
+              <div className="text-center py-16">
+                <Shield className="h-16 w-16 mx-auto mb-4 text-muted-foreground/30" />
+                <p className="text-muted-foreground text-lg">No roles defined</p>
+                <p className="text-sm text-muted-foreground/70 mt-1">Create your first role to get started</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/30 hover:bg-muted/30">
+                      <TableHead className="font-semibold w-12">#</TableHead>
+                      <TableHead className="font-semibold">Role Value</TableHead>
+                      <TableHead className="font-semibold">Display Label</TableHead>
+                      <TableHead className="font-semibold">Role Type</TableHead>
+                      <TableHead className="font-semibold">Description</TableHead>
+                      <TableHead className="text-right font-semibold">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {lookupRoles.map((role, index) => (
+                      <TableRow key={role.id} data-testid={`row-role-${role.id}`}>
+                        <TableCell className="font-medium">{index + 1}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/30">
+                            {role.value}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            <Shield className="h-4 w-4 text-purple-600" />
+                            {role.label}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={
+                            role.roleType === "admin" ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30" :
+                            role.roleType === "manager" ? "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30" :
+                            "bg-slate-500/10 text-slate-700 dark:text-slate-400 border-slate-500/30"
+                          }>
+                            {role.roleType === "admin" ? "Admin" : role.roleType === "manager" ? "Managerial" : "User"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-sm">{role.description || "-"}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button variant="ghost" size="icon" onClick={() => openEditRoleDialog(role)} data-testid={`button-edit-role-${role.id}`}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => setDeleteRole(role)} data-testid={`button-delete-role-${role.id}`}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </TabsContent>
+      </Tabs>
+
+      {/* Create/Edit Role Dialog */}
+      <Dialog open={isRoleDialogOpen} onOpenChange={(open) => { if (!open) { setIsRoleDialogOpen(false); setEditRole(null); resetRoleForm(); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center">
+                {editRole ? <Pencil className="h-4 w-4 text-white" /> : <Plus className="h-4 w-4 text-white" />}
+              </div>
+              {editRole ? "Edit Role" : "Create New Role"}
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleRoleSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="role-value">Role Value *</Label>
+                <Input
+                  id="role-value"
+                  value={roleFormData.value}
+                  onChange={(e) => setRoleFormData({ ...roleFormData, value: e.target.value })}
+                  placeholder="e.g., cfo"
+                  required
+                  disabled={!!editRole}
+                  data-testid="input-role-value"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="role-label">Display Label *</Label>
+                <Input
+                  id="role-label"
+                  value={roleFormData.label}
+                  onChange={(e) => setRoleFormData({ ...roleFormData, label: e.target.value })}
+                  placeholder="e.g., CFO"
+                  required
+                  data-testid="input-role-label"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="role-type">Role Type *</Label>
+              <Select value={roleFormData.roleType} onValueChange={(value) => setRoleFormData({ ...roleFormData, roleType: value })}>
+                <SelectTrigger data-testid="select-role-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="user">User</SelectItem>
+                  <SelectItem value="manager">Managerial</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Determines system access level: User = page-level permissions, Managerial = full page access, Admin = full system access
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="role-description">Description</Label>
+              <Input
+                id="role-description"
+                value={roleFormData.description}
+                onChange={(e) => setRoleFormData({ ...roleFormData, description: e.target.value })}
+                placeholder="Brief description of this role"
+                data-testid="input-role-description"
+              />
+            </div>
+            <DialogFooter className="pt-4">
+              <Button type="button" variant="outline" onClick={() => { setIsRoleDialogOpen(false); setEditRole(null); resetRoleForm(); }}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={createRoleMutation.isPending || updateRoleMutation.isPending} data-testid="button-submit-role">
+                {createRoleMutation.isPending || updateRoleMutation.isPending ? "Saving..." : editRole ? "Save Changes" : "Create Role"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Role Confirmation */}
+      <AlertDialog open={!!deleteRole} onOpenChange={(open) => { if (!open) setDeleteRole(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-lg bg-red-500/10 flex items-center justify-center">
+                <Trash2 className="h-4 w-4 text-red-600" />
+              </div>
+              Delete Role
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the role <span className="font-semibold">{deleteRole?.label}</span>? Users currently assigned this role may lose access.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteRole && deleteRoleMutation.mutate(deleteRole.id)}
+              className="bg-red-600 hover:bg-red-700"
+              data-testid="button-confirm-delete-role"
+            >
+              {deleteRoleMutation.isPending ? "Deleting..." : "Delete Role"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Edit User Dialog */}
       <Dialog open={!!editUser} onOpenChange={(open) => { if (!open) { setEditUser(null); resetForm(); } }}>
