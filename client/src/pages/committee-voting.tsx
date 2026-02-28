@@ -197,7 +197,7 @@ export default function CommitteeVotingPage() {
     setComments("");
   };
 
-  const isCfo = (user as any)?.role === "cfo";
+  const isCfo = ((user as any)?.role || "").toLowerCase() === "cfo";
 
   const handleVote = (vote: "approved" | "rejected") => {
     if (!selectedLoanId) return;

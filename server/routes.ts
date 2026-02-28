@@ -2979,7 +2979,7 @@ export async function registerRoutes(
         });
       }
 
-      if (fundingSourceId && userRole.role === "cfo") {
+      if (fundingSourceId && userRole.role.toLowerCase() === "cfo") {
         await storage.updateLoan(loanId, { fundingSourceId });
         await logActivity(req, "set_funding_source", "loan", loanId, `CFO set funding source: ${fundingSourceId}`);
       }
