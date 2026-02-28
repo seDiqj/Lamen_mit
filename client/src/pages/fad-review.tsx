@@ -54,7 +54,7 @@ import {
   Trash2
 } from "lucide-react";
 import { format } from "date-fns";
-import type { Branch, FinanceOfficer, FundingSource, Sector, Business } from "@shared/schema";
+import type { Branch, FinanceOfficer, FundingSource, Sector, Business, Province, District, LicenseType } from "@shared/schema";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn, toPersianDate, calculateAge } from "@/lib/utils";
 import { MessageCircle } from "lucide-react";
@@ -222,7 +222,9 @@ export default function FadReviewPage() {
 
   const { data: branches = [] } = useQuery<Branch[]>({ queryKey: ["/api/branches"] });
   const { data: financeOfficers = [] } = useQuery<FinanceOfficer[]>({ queryKey: ["/api/finance-officers"] });
-  const { data: provinces = [] } = useQuery<any[]>({ queryKey: ["/api/provinces"] });
+  const { data: provinces = [] } = useQuery<Province[]>({ queryKey: ["/api/provinces"] });
+  const { data: districts = [] } = useQuery<(District & { provinceName?: string })[]>({ queryKey: ["/api/districts"] });
+  const { data: licenseTypes = [] } = useQuery<LicenseType[]>({ queryKey: ["/api/license-types"] });
   const { data: sectors = [] } = useQuery<Sector[]>({ queryKey: ["/api/sectors"] });
   const { data: businesses = [] } = useQuery<Business[]>({ queryKey: ["/api/businesses"] });
   const { data: fundingSources = [] } = useQuery<FundingSource[]>({ queryKey: ["/api/funding-sources"] });
@@ -1014,47 +1016,87 @@ export default function FadReviewPage() {
                     <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
                       <Building2 className="h-5 w-5 text-white" />
                     </div>
-                    <CardTitle>Business Information</CardTitle>
+                    <div>
+                      <CardTitle>Business & License Information</CardTitle>
+                      <p className="text-xs text-muted-foreground">Customer's business details and license</p>
+                    </div>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <FormField control={form.control} name="businessName" render={({ field }) => (
-                      <FormItem><FormLabel>Business Name</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-businessName" /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={form.control} name="businessProvince" render={({ field }) => (
-                      <FormItem><FormLabel>Province</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-businessProvince" /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={form.control} name="businessDistrict" render={({ field }) => (
-                      <FormItem><FormLabel>District</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-businessDistrict" /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={form.control} name="businessVillage" render={({ field }) => (
-                      <FormItem><FormLabel>Village</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-businessVillage" /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={form.control} name="businessDetailedAddress" render={({ field }) => (
-                      <FormItem className="col-span-2"><FormLabel>Detailed Address</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-businessAddress" /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={form.control} name="businessYearsOfExperience" render={({ field }) => (
-                      <FormItem><FormLabel>Years of Experience</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} data-testid="input-businessExp" /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={form.control} name="businessMonthlyIncomeAmount" render={({ field }) => (
-                      <FormItem><FormLabel>Monthly Income (AFN)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} data-testid="input-biz-monthly-income" /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={form.control} name="licenseType" render={({ field }) => (
-                      <FormItem><FormLabel>License Type</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-licenseType" /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={form.control} name="licenseNumber" render={({ field }) => (
-                      <FormItem><FormLabel>License Number</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-licenseNumber" /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={form.control} name="licensePresident" render={({ field }) => (
-                      <FormItem><FormLabel>License President</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-licensePresident" /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={form.control} name="licenseRegisterDate" render={({ field }) => (
-                      <FormItem><FormLabel>Register Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-licenseRegister" /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={form.control} name="licenseExpiryDate" render={({ field }) => (
-                      <FormItem><FormLabel>Expiry Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-licenseExpiry" /></FormControl><FormMessage /></FormItem>
-                    )} />
+                <CardContent className="space-y-4">
+                  <div>
+                    <h3 className="text-xs font-semibold text-muted-foreground mb-2">Business Details</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                      <FormField control={form.control} name="businessName" render={({ field }) => (
+                        <FormItem><FormLabel className="text-xs">Business Name</FormLabel><FormControl><Input disabled={!isEditing} className="h-9" {...field} data-testid="input-businessName" /></FormControl><FormMessage /></FormItem>
+                      )} />
+                      <FormField control={form.control} name="businessProvince" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Province</FormLabel>
+                          <Select disabled={!isEditing} onValueChange={(value) => {
+                            const prov = provinces.find((p: any) => p.id.toString() === value);
+                            field.onChange(prov?.name || "");
+                            form.setValue("businessDistrict", "");
+                          }} value={provinces.find((p: any) => p.name === field.value)?.id.toString() || ""}>
+                            <FormControl><SelectTrigger className="h-9" data-testid="select-businessProvince"><SelectValue placeholder="Select province" /></SelectTrigger></FormControl>
+                            <SelectContent>{provinces.map((p: any) => <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>)}</SelectContent>
+                          </Select><FormMessage />
+                        </FormItem>
+                      )} />
+                      <FormField control={form.control} name="businessDistrict" render={({ field }) => {
+                        const selectedProvince = provinces.find((p: any) => p.name === form.watch("businessProvince"));
+                        const provinceDistricts = districts.filter((d: any) => d.provinceId === selectedProvince?.id);
+                        return (
+                          <FormItem>
+                            <FormLabel className="text-xs">District</FormLabel>
+                            <Select disabled={!isEditing || !selectedProvince} onValueChange={(value) => {
+                              const dist = provinceDistricts.find((d: any) => d.id.toString() === value);
+                              field.onChange(dist?.name || "");
+                            }} value={provinceDistricts.find((d: any) => d.name === field.value)?.id.toString() || ""}>
+                              <FormControl><SelectTrigger className="h-9" data-testid="select-businessDistrict"><SelectValue placeholder={selectedProvince ? "Select district" : "Select province first"} /></SelectTrigger></FormControl>
+                              <SelectContent>{provinceDistricts.map((d: any) => <SelectItem key={d.id} value={d.id.toString()}>{d.name}</SelectItem>)}</SelectContent>
+                            </Select><FormMessage />
+                          </FormItem>
+                        );
+                      }} />
+                      <FormField control={form.control} name="businessVillage" render={({ field }) => (
+                        <FormItem><FormLabel className="text-xs">Village</FormLabel><FormControl><Input disabled={!isEditing} className="h-9" {...field} data-testid="input-businessVillage" /></FormControl><FormMessage /></FormItem>
+                      )} />
+                      <FormField control={form.control} name="businessDetailedAddress" render={({ field }) => (
+                        <FormItem><FormLabel className="text-xs">Detailed Address</FormLabel><FormControl><Input disabled={!isEditing} className="h-9" {...field} data-testid="input-businessAddress" /></FormControl><FormMessage /></FormItem>
+                      )} />
+                      <FormField control={form.control} name="businessYearsOfExperience" render={({ field }) => (
+                        <FormItem><FormLabel className="text-xs">Years of Experience</FormLabel><FormControl><Input type="number" disabled={!isEditing} className="h-9" {...field} data-testid="input-businessExp" /></FormControl><FormMessage /></FormItem>
+                      )} />
+                      <FormField control={form.control} name="businessMonthlyIncomeAmount" render={({ field }) => (
+                        <FormItem><FormLabel className="text-xs">Monthly Income (AFN)</FormLabel><FormControl><Input type="number" disabled={!isEditing} className="h-9" {...field} data-testid="input-biz-monthly-income" /></FormControl><FormMessage /></FormItem>
+                      )} />
+                    </div>
+                  </div>
+                  <div className="border-t pt-3">
+                    <h3 className="text-xs font-semibold text-muted-foreground mb-2">License Details</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                      <FormField control={form.control} name="licenseType" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Type of License</FormLabel>
+                          <Select disabled={!isEditing} onValueChange={field.onChange} value={field.value || ""}>
+                            <FormControl><SelectTrigger className="h-9" data-testid="select-licenseType"><SelectValue placeholder="Select license type" /></SelectTrigger></FormControl>
+                            <SelectContent>{licenseTypes.map((lt: any) => <SelectItem key={lt.id} value={lt.name}>{lt.name}</SelectItem>)}</SelectContent>
+                          </Select><FormMessage />
+                        </FormItem>
+                      )} />
+                      <FormField control={form.control} name="licensePresident" render={({ field }) => (
+                        <FormItem><FormLabel className="text-xs">President</FormLabel><FormControl><Input disabled={!isEditing} className="h-9" {...field} data-testid="input-licensePresident" /></FormControl><FormMessage /></FormItem>
+                      )} />
+                      <FormField control={form.control} name="licenseNumber" render={({ field }) => (
+                        <FormItem><FormLabel className="text-xs">License Number</FormLabel><FormControl><Input disabled={!isEditing} className="h-9" {...field} data-testid="input-licenseNumber" /></FormControl><FormMessage /></FormItem>
+                      )} />
+                      <FormField control={form.control} name="licenseRegisterDate" render={({ field }) => (
+                        <FormItem><FormLabel className="text-xs">Register Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel><FormControl><Input type="date" disabled={!isEditing} className="h-9" {...field} data-testid="input-licenseRegister" /></FormControl><FormMessage /></FormItem>
+                      )} />
+                      <FormField control={form.control} name="licenseExpiryDate" render={({ field }) => (
+                        <FormItem><FormLabel className="text-xs">Expiry Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel><FormControl><Input type="date" disabled={!isEditing} className="h-9" {...field} data-testid="input-licenseExpiry" /></FormControl><FormMessage /></FormItem>
+                      )} />
+                    </div>
                   </div>
                 </CardContent>
               </Card>
