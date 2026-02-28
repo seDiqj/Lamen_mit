@@ -51,7 +51,8 @@ import {
   Upload,
   X,
   File,
-  Trash2
+  Trash2,
+  FolderUp
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Branch, FinanceOfficer, FundingSource, Sector, Business, Province, District, LicenseType } from "@shared/schema";
@@ -195,7 +196,8 @@ const steps = [
   { id: 3, title: "Business", icon: Building2, color: "from-blue-500 to-indigo-500" },
   { id: 4, title: "Collateral", icon: Shield, color: "from-orange-500 to-red-500" },
   { id: 5, title: "Guarantors", icon: Users, color: "from-teal-500 to-cyan-500" },
-  { id: 6, title: "Review", icon: ClipboardCheck, color: "from-purple-500 to-violet-500" },
+  { id: 6, title: "Documents", icon: FolderUp, color: "from-purple-500 to-violet-500" },
+  { id: 7, title: "Review", icon: ClipboardCheck, color: "from-red-500 to-rose-500" },
 ];
 
 const loanProducts = [
@@ -546,7 +548,7 @@ export default function FadReviewPage() {
     });
   };
 
-  const nextStep = () => { if (currentStep < 6) setCurrentStep(currentStep + 1); };
+  const nextStep = () => { if (currentStep < 7) setCurrentStep(currentStep + 1); };
   const prevStep = () => { if (currentStep > 1) setCurrentStep(currentStep - 1); };
   const goToStep = (step: number) => setCurrentStep(step);
 
@@ -772,164 +774,33 @@ export default function FadReviewPage() {
                     )} />
                   </div>
 
-                  {/* Photo & Documents Section */}
+                  {/* Customer Photo Section */}
                   <div className="border-t pt-3 mt-4">
-                    <h3 className="text-xs font-semibold text-muted-foreground mb-3">Photo & Documents</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-xs font-medium">Customer Photo</label>
-                        <div className="w-24 h-24 border-2 border-dashed rounded-lg flex items-center justify-center bg-muted/50 overflow-hidden">
-                          {customerPhotoUrl ? (
-                            <img src={customerPhotoUrl} alt="Customer" className="w-full h-full object-cover" />
-                          ) : (
-                            <Camera className="h-8 w-8 text-muted-foreground" />
+                    <h3 className="text-xs font-semibold text-muted-foreground mb-3">Customer Photo</h3>
+                    <div className="space-y-2">
+                      <div className="w-24 h-24 border-2 border-dashed rounded-lg flex items-center justify-center bg-muted/50 overflow-hidden">
+                        {customerPhotoUrl ? (
+                          <img src={customerPhotoUrl} alt="Customer" className="w-full h-full object-cover" />
+                        ) : (
+                          <Camera className="h-8 w-8 text-muted-foreground" />
+                        )}
+                      </div>
+                      {isEditing && (
+                        <div className="flex items-center gap-2">
+                          <input type="file" accept="image/*" className="hidden" id="fad-edit-photo-upload" onChange={handlePhotoUpload} disabled={uploadingPhoto} data-testid="input-fad-edit-photo" />
+                          <Button type="button" variant="outline" size="sm" asChild disabled={uploadingPhoto}>
+                            <label htmlFor="fad-edit-photo-upload" className="cursor-pointer">
+                              {uploadingPhoto ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Upload className="h-4 w-4 mr-1" />}
+                              {customerPhotoUrl ? "Change" : "Upload"}
+                            </label>
+                          </Button>
+                          {customerPhotoUrl && (
+                            <Button type="button" variant="ghost" size="sm" onClick={() => setCustomerPhotoUrl(null)} data-testid="button-remove-fad-edit-photo">
+                              <X className="h-4 w-4" />
+                            </Button>
                           )}
                         </div>
-                        {isEditing && (
-                          <div className="flex items-center gap-2">
-                            <input type="file" accept="image/*" className="hidden" id="fad-edit-photo-upload" onChange={handlePhotoUpload} disabled={uploadingPhoto} data-testid="input-fad-edit-photo" />
-                            <Button type="button" variant="outline" size="sm" asChild disabled={uploadingPhoto}>
-                              <label htmlFor="fad-edit-photo-upload" className="cursor-pointer">
-                                {uploadingPhoto ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Upload className="h-4 w-4 mr-1" />}
-                                {customerPhotoUrl ? "Change" : "Upload"}
-                              </label>
-                            </Button>
-                            {customerPhotoUrl && (
-                              <Button type="button" variant="ghost" size="sm" onClick={() => setCustomerPhotoUrl(null)} data-testid="button-remove-fad-edit-photo">
-                                <X className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-xs font-medium">Uploaded Documents</label>
-                        {loanDetails?.customerDocuments && loanDetails.customerDocuments.length > 0 ? (
-                          <div className="space-y-2">
-                            {(() => {
-                              const docs = loanDetails.customerDocuments as any[];
-                              const sections = DOCUMENT_SECTIONS.filter(s => docs.some(d => d.section === s.value));
-                              const unsectioned = docs.filter(d => !d.section || !DOCUMENT_SECTIONS.some(s => s.value === d.section));
-                              return (
-                                <>
-                                  {sections.map(s => (
-                                    <div key={s.value}>
-                                      <p className="text-xs font-semibold text-muted-foreground mb-1">{s.label}</p>
-                                      <div className="space-y-1">
-                                        {docs.filter(d => d.section === s.value).map((doc: any) => (
-                                          <div key={doc.id} className="flex items-center gap-2 text-sm p-2 bg-muted/50 rounded-md" data-testid={`doc-item-${doc.id}`}>
-                                            <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                                            <span className="flex-1 truncate">{doc.fileName || doc.documentType || 'Document'}</span>
-                                            <Badge variant="secondary" className="text-xs">{doc.documentType}</Badge>
-                                            {doc.fileUrl && (
-                                              <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                                                <ExternalLink className="h-3.5 w-3.5" />
-                                              </a>
-                                            )}
-                                            {isEditing && (
-                                              <Button size="icon" variant="ghost" className="text-destructive" data-testid={`button-delete-doc-${doc.id}`} disabled={deleteDocumentMutation.isPending} onClick={() => deleteDocumentMutation.mutate(doc.id)}>
-                                                <Trash2 className="h-3.5 w-3.5" />
-                                              </Button>
-                                            )}
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  ))}
-                                  {unsectioned.length > 0 && (
-                                    <div>
-                                      {sections.length > 0 && <p className="text-xs font-semibold text-muted-foreground mb-1">Other</p>}
-                                      <div className="space-y-1">
-                                        {unsectioned.map((doc: any) => (
-                                          <div key={doc.id} className="flex items-center gap-2 text-sm p-2 bg-muted/50 rounded-md" data-testid={`doc-item-${doc.id}`}>
-                                            <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                                            <span className="flex-1 truncate">{doc.fileName || doc.documentType || 'Document'}</span>
-                                            <Badge variant="secondary" className="text-xs">{doc.documentType}</Badge>
-                                            {doc.fileUrl && (
-                                              <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                                                <ExternalLink className="h-3.5 w-3.5" />
-                                              </a>
-                                            )}
-                                            {isEditing && (
-                                              <Button size="icon" variant="ghost" className="text-destructive" data-testid={`button-delete-doc-${doc.id}`} disabled={deleteDocumentMutation.isPending} onClick={() => deleteDocumentMutation.mutate(doc.id)}>
-                                                <Trash2 className="h-3.5 w-3.5" />
-                                              </Button>
-                                            )}
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-                                </>
-                              );
-                            })()}
-                          </div>
-                        ) : (
-                          <p className="text-xs text-muted-foreground">No documents uploaded</p>
-                        )}
-                        {newDocuments.length > 0 && (
-                          <div className="space-y-2">
-                            {DOCUMENT_SECTIONS.filter(s => newDocuments.some(d => d.section === s.value)).map(s => (
-                              <div key={s.value}>
-                                <p className="text-xs font-semibold text-green-700 dark:text-green-400 mb-1">{s.label} (new)</p>
-                                <div className="space-y-1">
-                                  {newDocuments.filter(d => d.section === s.value).map((doc) => {
-                                    const globalIndex = newDocuments.indexOf(doc);
-                                    return (
-                                      <div key={globalIndex} className="flex items-center gap-2 text-sm p-2 bg-green-50 dark:bg-green-900/20 rounded-md">
-                                        <File className="h-4 w-4 text-green-600 flex-shrink-0" />
-                                        <span className="flex-1 truncate">{doc.fileName}</span>
-                                        <Badge variant="secondary" className="text-xs">{doc.documentType}</Badge>
-                                        <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => setNewDocuments(newDocuments.filter((_, i) => i !== globalIndex))}>
-                                          <X className="h-3 w-3" />
-                                        </Button>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        {isEditing && (
-                          <div className="space-y-2 border-t pt-2 mt-2">
-                            <div className="grid grid-cols-2 gap-2">
-                              <Select value={newDocSection} onValueChange={setNewDocSection}>
-                                <SelectTrigger className="h-8 text-xs" data-testid="select-fad-edit-doc-section">
-                                  <SelectValue placeholder="Section" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {DOCUMENT_SECTIONS.map((s) => (
-                                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <Select value={newDocType} onValueChange={(val) => { setNewDocType(val); if (val !== "__custom") setCustomDocType(""); }}>
-                                <SelectTrigger className="h-8 text-xs" data-testid="select-fad-edit-doc-type">
-                                  <SelectValue placeholder="Document Type" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {documentTypes.map((type) => (
-                                    <SelectItem key={type} value={type}>{type}</SelectItem>
-                                  ))}
-                                  <SelectItem value="__custom">Other (type your own)</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            {newDocType === "__custom" && (
-                              <Input placeholder="Enter custom document type..." value={customDocType} onChange={(e) => setCustomDocType(e.target.value)} className="h-8 text-xs" data-testid="input-fad-edit-custom-doc-type" />
-                            )}
-                            <Input placeholder="File name (optional)" value={newDocName} onChange={(e) => setNewDocName(e.target.value)} className="h-8 text-xs" data-testid="input-fad-edit-doc-name" />
-                            <input type="file" className="hidden" id="fad-edit-doc-upload" onChange={handleDocumentUpload} disabled={uploadingDoc || !resolvedDocType || !newDocSection} data-testid="input-fad-edit-doc-file" />
-                            <Button type="button" variant="outline" size="sm" asChild disabled={uploadingDoc || !resolvedDocType || !newDocSection} className="w-full">
-                              <label htmlFor="fad-edit-doc-upload" className="cursor-pointer">
-                                {uploadingDoc ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Upload className="h-4 w-4 mr-1" />}
-                                Upload Document
-                              </label>
-                            </Button>
-                          </div>
-                        )}
-                      </div>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -1412,6 +1283,163 @@ export default function FadReviewPage() {
             {currentStep === 6 && (
               <Card className="border-0 shadow-lg overflow-hidden">
                 <div className="h-1 bg-gradient-to-r from-purple-500 to-violet-500" />
+                <CardHeader className="py-3 px-4">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow">
+                      <FolderUp className="h-4 w-4 text-white" />
+                    </div>
+                    <CardTitle className="text-base">Documents</CardTitle>
+                    {loanDetails?.customerDocuments && loanDetails.customerDocuments.length > 0 && (
+                      <Badge variant="secondary" className="ml-auto">{(loanDetails.customerDocuments as any[]).length} uploaded</Badge>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent className="px-4 pb-4 space-y-4">
+                  {loanDetails?.customerDocuments && loanDetails.customerDocuments.length > 0 ? (
+                    <div className="space-y-3">
+                      {(() => {
+                        const docs = loanDetails.customerDocuments as any[];
+                        const sections = DOCUMENT_SECTIONS.filter(s => docs.some(d => d.section === s.value));
+                        const unsectioned = docs.filter(d => !d.section || !DOCUMENT_SECTIONS.some(s => s.value === d.section));
+                        return (
+                          <>
+                            {sections.map(s => (
+                              <div key={s.value} className="border rounded-lg p-3">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <h4 className="text-sm font-semibold">{s.label}</h4>
+                                  <Badge variant="outline" className="text-xs">{docs.filter(d => d.section === s.value).length}</Badge>
+                                </div>
+                                <div className="space-y-1">
+                                  {docs.filter(d => d.section === s.value).map((doc: any) => (
+                                    <div key={doc.id} className="flex items-center gap-2 text-sm p-2 bg-muted/50 rounded-md" data-testid={`doc-item-${doc.id}`}>
+                                      <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                      <span className="flex-1 truncate">{doc.fileName || doc.documentType || 'Document'}</span>
+                                      <Badge variant="secondary" className="text-xs">{doc.documentType}</Badge>
+                                      {doc.fileUrl && (
+                                        <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                                          <ExternalLink className="h-3.5 w-3.5" />
+                                        </a>
+                                      )}
+                                      {isEditing && (
+                                        <Button size="icon" variant="ghost" className="text-destructive" data-testid={`button-delete-doc-${doc.id}`} disabled={deleteDocumentMutation.isPending} onClick={() => deleteDocumentMutation.mutate(doc.id)}>
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                            {unsectioned.length > 0 && (
+                              <div className="border rounded-lg p-3">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <h4 className="text-sm font-semibold">Other</h4>
+                                  <Badge variant="outline" className="text-xs">{unsectioned.length}</Badge>
+                                </div>
+                                <div className="space-y-1">
+                                  {unsectioned.map((doc: any) => (
+                                    <div key={doc.id} className="flex items-center gap-2 text-sm p-2 bg-muted/50 rounded-md" data-testid={`doc-item-${doc.id}`}>
+                                      <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                      <span className="flex-1 truncate">{doc.fileName || doc.documentType || 'Document'}</span>
+                                      <Badge variant="secondary" className="text-xs">{doc.documentType}</Badge>
+                                      {doc.fileUrl && (
+                                        <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                                          <ExternalLink className="h-3.5 w-3.5" />
+                                        </a>
+                                      )}
+                                      {isEditing && (
+                                        <Button size="icon" variant="ghost" className="text-destructive" data-testid={`button-delete-doc-${doc.id}`} disabled={deleteDocumentMutation.isPending} onClick={() => deleteDocumentMutation.mutate(doc.id)}>
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 text-muted-foreground">
+                      <FolderUp className="h-10 w-10 mx-auto mb-2 opacity-40" />
+                      <p className="text-sm">No documents uploaded</p>
+                    </div>
+                  )}
+                  {newDocuments.length > 0 && (
+                    <div className="space-y-3">
+                      {DOCUMENT_SECTIONS.filter(s => newDocuments.some(d => d.section === s.value)).map(s => (
+                        <div key={s.value} className="border border-green-200 dark:border-green-800 rounded-lg p-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h4 className="text-sm font-semibold text-green-700 dark:text-green-400">{s.label} (new)</h4>
+                            <Badge variant="outline" className="text-xs">{newDocuments.filter(d => d.section === s.value).length}</Badge>
+                          </div>
+                          <div className="space-y-1">
+                            {newDocuments.filter(d => d.section === s.value).map((doc) => {
+                              const globalIndex = newDocuments.indexOf(doc);
+                              return (
+                                <div key={globalIndex} className="flex items-center gap-2 text-sm p-2 bg-green-50 dark:bg-green-900/20 rounded-md">
+                                  <File className="h-4 w-4 text-green-600 flex-shrink-0" />
+                                  <span className="flex-1 truncate">{doc.fileName}</span>
+                                  <Badge variant="secondary" className="text-xs">{doc.documentType}</Badge>
+                                  <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => setNewDocuments(newDocuments.filter((_, i) => i !== globalIndex))}>
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {isEditing && (
+                    <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
+                      <h4 className="text-sm font-semibold">Upload New Document</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <Select value={newDocSection} onValueChange={setNewDocSection}>
+                          <SelectTrigger className="h-9" data-testid="select-fad-edit-doc-section">
+                            <SelectValue placeholder="Select Section" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {DOCUMENT_SECTIONS.map((s) => (
+                              <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select value={newDocType} onValueChange={(val) => { setNewDocType(val); if (val !== "__custom") setCustomDocType(""); }}>
+                          <SelectTrigger className="h-9" data-testid="select-fad-edit-doc-type">
+                            <SelectValue placeholder="Document Type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {documentTypes.map((type) => (
+                              <SelectItem key={type} value={type}>{type}</SelectItem>
+                            ))}
+                            <SelectItem value="__custom">Other (type your own)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {newDocType === "__custom" && (
+                        <Input placeholder="Enter custom document type..." value={customDocType} onChange={(e) => setCustomDocType(e.target.value)} className="h-9" data-testid="input-fad-edit-custom-doc-type" />
+                      )}
+                      <Input placeholder="File name (optional)" value={newDocName} onChange={(e) => setNewDocName(e.target.value)} className="h-9" data-testid="input-fad-edit-doc-name" />
+                      <input type="file" className="hidden" id="fad-edit-doc-upload" onChange={handleDocumentUpload} disabled={uploadingDoc || !resolvedDocType || !newDocSection} data-testid="input-fad-edit-doc-file" />
+                      <Button type="button" variant="outline" size="sm" asChild disabled={uploadingDoc || !resolvedDocType || !newDocSection} className="w-full">
+                        <label htmlFor="fad-edit-doc-upload" className="cursor-pointer">
+                          {uploadingDoc ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Upload className="h-4 w-4 mr-1" />}
+                          Upload Document
+                        </label>
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {currentStep === 7 && (
+              <Card className="border-0 shadow-lg overflow-hidden">
+                <div className="h-1 bg-gradient-to-r from-red-500 to-rose-500" />
                 <CardHeader className="pb-4">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-lg">
@@ -1568,7 +1596,7 @@ export default function FadReviewPage() {
           </Button>
           <Button 
             onClick={nextStep} 
-            disabled={currentStep === 6}
+            disabled={currentStep === 7}
             className="bg-gradient-to-r from-amber-500 to-yellow-500"
             data-testid="button-next-step"
           >

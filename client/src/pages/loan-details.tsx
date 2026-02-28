@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { 
-  User, FileText, Building2, Shield, Users, UserCheck, 
+  User, FileText, Building2, Shield, Users, UserCheck, FolderUp,
   ChevronLeft, ChevronRight, Save, ArrowLeft, Loader2, Check, Eye, Edit2,
   XCircle, AlertTriangle, CheckCircle2, Clock, Camera, ExternalLink,
   Upload, X, File, Trash2, QrCode, Download
@@ -142,6 +142,7 @@ const steps = [
   { id: 3, title: "Business", icon: Building2, color: "from-blue-500 to-indigo-500" },
   { id: 4, title: "Collateral", icon: Shield, color: "from-orange-500 to-red-500" },
   { id: 5, title: "Guarantors", icon: Users, color: "from-teal-500 to-cyan-500" },
+  { id: 6, title: "Documents", icon: FolderUp, color: "from-purple-500 to-violet-500" },
 ];
 
 const loanProducts = [
@@ -388,7 +389,7 @@ export default function LoanDetailsPage() {
     updateMutation.mutate(data);
   };
 
-  const nextStep = () => { if (currentStep < 5) setCurrentStep(currentStep + 1); };
+  const nextStep = () => { if (currentStep < 6) setCurrentStep(currentStep + 1); };
   const prevStep = () => { if (currentStep > 1) setCurrentStep(currentStep - 1); };
   const goToStep = (step: number) => { setCurrentStep(step); };
 
@@ -745,107 +746,33 @@ export default function LoanDetailsPage() {
                   )} />
                 </div>
 
-                {/* Photo & Documents Section */}
+                {/* Customer Photo Section */}
                 <div className="border-t pt-3 mt-4">
-                  <h3 className="text-xs font-semibold text-muted-foreground mb-3">Photo & Documents</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-xs font-medium">Customer Photo</label>
-                      <div className="w-24 h-24 border-2 border-dashed rounded-lg flex items-center justify-center bg-muted/50 overflow-hidden">
-                        {customerPhotoUrl ? (
-                          <img src={customerPhotoUrl} alt="Customer" className="w-full h-full object-cover" />
-                        ) : (
-                          <Camera className="h-8 w-8 text-muted-foreground" />
+                  <h3 className="text-xs font-semibold text-muted-foreground mb-3">Customer Photo</h3>
+                  <div className="space-y-2">
+                    <div className="w-24 h-24 border-2 border-dashed rounded-lg flex items-center justify-center bg-muted/50 overflow-hidden">
+                      {customerPhotoUrl ? (
+                        <img src={customerPhotoUrl} alt="Customer" className="w-full h-full object-cover" />
+                      ) : (
+                        <Camera className="h-8 w-8 text-muted-foreground" />
+                      )}
+                    </div>
+                    {isEditing && (
+                      <div className="flex items-center gap-2">
+                        <input type="file" accept="image/*" className="hidden" id="edit-photo-upload" onChange={handlePhotoUpload} disabled={uploadingPhoto} data-testid="input-edit-photo" />
+                        <Button type="button" variant="outline" size="sm" asChild disabled={uploadingPhoto}>
+                          <label htmlFor="edit-photo-upload" className="cursor-pointer">
+                            {uploadingPhoto ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Upload className="h-4 w-4 mr-1" />}
+                            {customerPhotoUrl ? "Change" : "Upload"}
+                          </label>
+                        </Button>
+                        {customerPhotoUrl && (
+                          <Button type="button" variant="ghost" size="sm" onClick={() => setCustomerPhotoUrl(null)} data-testid="button-remove-edit-photo">
+                            <X className="h-4 w-4" />
+                          </Button>
                         )}
                       </div>
-                      {isEditing && (
-                        <div className="flex items-center gap-2">
-                          <input type="file" accept="image/*" className="hidden" id="edit-photo-upload" onChange={handlePhotoUpload} disabled={uploadingPhoto} data-testid="input-edit-photo" />
-                          <Button type="button" variant="outline" size="sm" asChild disabled={uploadingPhoto}>
-                            <label htmlFor="edit-photo-upload" className="cursor-pointer">
-                              {uploadingPhoto ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Upload className="h-4 w-4 mr-1" />}
-                              {customerPhotoUrl ? "Change" : "Upload"}
-                            </label>
-                          </Button>
-                          {customerPhotoUrl && (
-                            <Button type="button" variant="ghost" size="sm" onClick={() => setCustomerPhotoUrl(null)} data-testid="button-remove-edit-photo">
-                              <X className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-medium">Uploaded Documents</label>
-                      {loanData?.customerDocuments && loanData.customerDocuments.length > 0 ? (
-                        <div className="space-y-1">
-                          {loanData.customerDocuments.map((doc: any) => (
-                            <div key={doc.id} className="flex items-center gap-2 text-sm p-2 bg-muted/50 rounded-md" data-testid={`doc-item-${doc.id}`}>
-                              <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                              <span className="flex-1 truncate">{doc.fileName || doc.documentType || 'Document'}</span>
-                              <Badge variant="secondary" className="text-xs">{doc.documentType}</Badge>
-                              {doc.fileUrl && (
-                                <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                                  <ExternalLink className="h-3.5 w-3.5" />
-                                </a>
-                              )}
-                              {isEditing && (
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="text-destructive"
-                                  data-testid={`button-delete-doc-${doc.id}`}
-                                  disabled={deleteDocumentMutation.isPending}
-                                  onClick={() => deleteDocumentMutation.mutate(doc.id)}
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-xs text-muted-foreground">No documents uploaded</p>
-                      )}
-                      {newDocuments.length > 0 && (
-                        <div className="space-y-1">
-                          {newDocuments.map((doc, index) => (
-                            <div key={index} className="flex items-center gap-2 text-sm p-2 bg-green-50 dark:bg-green-900/20 rounded-md">
-                              <File className="h-4 w-4 text-green-600 flex-shrink-0" />
-                              <span className="flex-1 truncate">{doc.fileName}</span>
-                              <Badge variant="secondary" className="text-xs">{doc.documentType}</Badge>
-                              <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => setNewDocuments(newDocuments.filter((_, i) => i !== index))}>
-                                <X className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {isEditing && (
-                        <div className="space-y-2 border-t pt-2 mt-2">
-                          <div className="flex gap-2">
-                            <Select value={newDocType} onValueChange={setNewDocType}>
-                              <SelectTrigger className="h-8 text-xs" data-testid="select-edit-doc-type">
-                                <SelectValue placeholder="Document Type" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {documentTypes.map((type) => (
-                                  <SelectItem key={type} value={type}>{type}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <Input placeholder="File name (optional)" value={newDocName} onChange={(e) => setNewDocName(e.target.value)} className="h-8 text-xs" data-testid="input-edit-doc-name" />
-                          </div>
-                          <input type="file" className="hidden" id="edit-doc-upload" onChange={handleDocumentUpload} disabled={uploadingDoc || !newDocType} data-testid="input-edit-doc-file" />
-                          <Button type="button" variant="outline" size="sm" asChild disabled={uploadingDoc || !newDocType} className="w-full">
-                            <label htmlFor="edit-doc-upload" className="cursor-pointer">
-                              {uploadingDoc ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Upload className="h-4 w-4 mr-1" />}
-                              Upload Document
-                            </label>
-                          </Button>
-                        </div>
-                      )}
-                    </div>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -1251,6 +1178,90 @@ export default function LoanDetailsPage() {
             </Card>
           )}
 
+          {currentStep === 6 && (
+            <Card className="border-0 shadow-lg overflow-hidden">
+              <div className="h-1 bg-gradient-to-r from-purple-500 to-violet-500" />
+              <CardHeader className="py-3 px-4">
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow">
+                    <FolderUp className="h-4 w-4 text-white" />
+                  </div>
+                  <CardTitle className="text-base">Documents</CardTitle>
+                  {loanData?.customerDocuments && loanData.customerDocuments.length > 0 && (
+                    <Badge variant="secondary" className="ml-auto">{loanData.customerDocuments.length} uploaded</Badge>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 space-y-4">
+                {loanData?.customerDocuments && loanData.customerDocuments.length > 0 ? (
+                  <div className="space-y-1">
+                    {loanData.customerDocuments.map((doc: any) => (
+                      <div key={doc.id} className="flex items-center gap-2 text-sm p-2 bg-muted/50 rounded-md" data-testid={`doc-item-${doc.id}`}>
+                        <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <span className="flex-1 truncate">{doc.fileName || doc.documentType || 'Document'}</span>
+                        <Badge variant="secondary" className="text-xs">{doc.documentType}</Badge>
+                        {doc.fileUrl && (
+                          <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </a>
+                        )}
+                        {isEditing && (
+                          <Button size="icon" variant="ghost" className="text-destructive" data-testid={`button-delete-doc-${doc.id}`} disabled={deleteDocumentMutation.isPending} onClick={() => deleteDocumentMutation.mutate(doc.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6 text-muted-foreground">
+                    <FolderUp className="h-10 w-10 mx-auto mb-2 opacity-40" />
+                    <p className="text-sm">No documents uploaded</p>
+                  </div>
+                )}
+                {newDocuments.length > 0 && (
+                  <div className="space-y-1">
+                    {newDocuments.map((doc, index) => (
+                      <div key={index} className="flex items-center gap-2 text-sm p-2 bg-green-50 dark:bg-green-900/20 rounded-md">
+                        <File className="h-4 w-4 text-green-600 flex-shrink-0" />
+                        <span className="flex-1 truncate">{doc.fileName}</span>
+                        <Badge variant="secondary" className="text-xs">{doc.documentType}</Badge>
+                        <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => setNewDocuments(newDocuments.filter((_, i) => i !== index))}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {isEditing && (
+                  <div className="space-y-2 border-t pt-3">
+                    <h4 className="text-sm font-semibold">Upload New Document</h4>
+                    <div className="flex gap-2">
+                      <Select value={newDocType} onValueChange={setNewDocType}>
+                        <SelectTrigger className="h-8 text-xs" data-testid="select-edit-doc-type">
+                          <SelectValue placeholder="Document Type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {documentTypes.map((type) => (
+                            <SelectItem key={type} value={type}>{type}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input placeholder="File name (optional)" value={newDocName} onChange={(e) => setNewDocName(e.target.value)} className="h-8 text-xs" data-testid="input-edit-doc-name" />
+                    </div>
+                    <input type="file" className="hidden" id="edit-doc-upload" onChange={handleDocumentUpload} disabled={uploadingDoc || !newDocType} data-testid="input-edit-doc-file" />
+                    <Button type="button" variant="outline" size="sm" asChild disabled={uploadingDoc || !newDocType} className="w-full">
+                      <label htmlFor="edit-doc-upload" className="cursor-pointer">
+                        {uploadingDoc ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Upload className="h-4 w-4 mr-1" />}
+                        Upload Document
+                      </label>
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           <div className="flex items-center justify-between pt-6">
             <Button type="button" variant="outline" onClick={prevStep} disabled={currentStep === 1} className="gap-2">
               <ChevronLeft className="h-4 w-4" /> Previous
@@ -1261,7 +1272,7 @@ export default function LoanDetailsPage() {
                   {updateMutation.isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</> : <><Save className="h-4 w-4" /> Save Changes</>}
                 </Button>
               )}
-              {currentStep < 5 && (
+              {currentStep < 6 && (
                 <Button type="button" onClick={nextStep} className="gap-2 bg-gradient-to-r from-blue-500 to-indigo-500">
                   Next <ChevronRight className="h-4 w-4" />
                 </Button>
