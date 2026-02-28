@@ -23,6 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
@@ -73,10 +74,17 @@ export default function DisbursementsPage() {
   const [qrLoanInfo, setQrLoanInfo] = useState<QRLoanData | null>(null);
   const [bulkResults, setBulkResults] = useState<BulkResponse | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [customDisbursementDate, setCustomDisbursementDate] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  const { data: roleData } = useQuery<{ role: string; roleType: string }>({
+    queryKey: ["/api/user/role"],
+  });
+  const userRole = roleData?.role || "";
+  const canPickDate = userRole === "ceo" || userRole === "admin";
 
   const { data: loans, isLoading } = useQuery<ApprovedLoan[]>({
     queryKey: ["/api/loans/approved", search],
@@ -92,7 +100,11 @@ export default function DisbursementsPage() {
 
   const disburseMutation = useMutation({
     mutationFn: async (loanId: string) => {
-      const res = await apiRequest("POST", `/api/loans/${loanId}/disburse`, {});
+      const body: any = {};
+      if (canPickDate && customDisbursementDate) {
+        body.disbursementDate = customDisbursementDate;
+      }
+      const res = await apiRequest("POST", `/api/loans/${loanId}/disburse`, body);
       return res.json();
     },
     onSuccess: async (data) => {
@@ -109,7 +121,7 @@ export default function DisbursementsPage() {
           applicationId: selectedLoan.applicationId || "",
           customerName: selectedLoan.customerName || "Unknown",
           amount: selectedLoan.approvedAmount || selectedLoan.requestAmount || "0",
-          disbursementDate: new Date().toISOString().split("T")[0],
+          disbursementDate: (canPickDate && customDisbursementDate) ? customDisbursementDate : new Date().toISOString().split("T")[0],
           productName: selectedLoan.productName || "Murabaha",
           durationMonths: selectedLoan.financingDurationMonths || 12,
         };
@@ -124,6 +136,7 @@ export default function DisbursementsPage() {
         }
       }
       setSelectedLoan(null);
+      setCustomDisbursementDate("");
     },
     onError: (error: Error) => {
       toast({
@@ -547,6 +560,23 @@ export default function DisbursementsPage() {
                 </p>
               </div>
             </div>
+            {canPickDate && (
+              <div className="space-y-2">
+                <Label htmlFor="disbursement-date">Disbursement Date</Label>
+                <Input
+                  id="disbursement-date"
+                  type="date"
+                  value={customDisbursementDate}
+                  onChange={(e) => setCustomDisbursementDate(e.target.value)}
+                  data-testid="input-disbursement-date"
+                />
+                <p className="text-xs text-muted-foreground">
+                  {customDisbursementDate
+                    ? `Disbursement will be recorded on ${customDisbursementDate}`
+                    : "Leave empty to use today's date"}
+                </p>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDisburseDialog(false)}>

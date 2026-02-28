@@ -2301,26 +2301,45 @@ export async function registerRoutes(
       if (!loan) {
         return res.status(404).json({ message: "Loan not found" });
       }
-      
-      const today = new Date();
-      const dayOfMonth = today.getDate();
+
+      const userId = req.session.userId || (req.user?.claims?.sub);
+      const userRoleRecord = userId ? await storage.getUserRole(userId) : undefined;
+      const userRoleValue = userRoleRecord?.role || "";
+      const canPickDate = userRoleValue === "ceo" || userRoleValue === "admin";
+
+      let baseDate: Date;
+      if (canPickDate && req.body.disbursementDate && typeof req.body.disbursementDate === "string") {
+        const dateStr = req.body.disbursementDate;
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+          return res.status(400).json({ message: "Invalid disbursement date format. Use YYYY-MM-DD." });
+        }
+        const parsed = new Date(dateStr + "T00:00:00");
+        if (isNaN(parsed.getTime())) {
+          return res.status(400).json({ message: "Invalid disbursement date" });
+        }
+        baseDate = parsed;
+      } else {
+        baseDate = new Date();
+      }
+
+      const dayOfMonth = baseDate.getDate();
       const duration = loan.financingDurationMonths || 12;
 
       let firstInstallmentDate: Date;
       if (dayOfMonth >= 25) {
-        firstInstallmentDate = new Date(today.getFullYear(), today.getMonth() + 2, 1);
+        firstInstallmentDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + 2, 1);
       } else {
-        firstInstallmentDate = new Date(today.getFullYear(), today.getMonth() + 1, dayOfMonth);
+        firstInstallmentDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, dayOfMonth);
       }
       
       const maturityDate = new Date(firstInstallmentDate);
       maturityDate.setMonth(maturityDate.getMonth() + duration - 1);
       
       const result = await storage.disburseLoan(req.params.id, {
-        disbursementDate: today.toISOString().split("T")[0],
+        disbursementDate: baseDate.toISOString().split("T")[0],
         firstInstallmentDate: firstInstallmentDate.toISOString().split("T")[0],
         maturityDate: maturityDate.toISOString().split("T")[0],
-        disbursedById: req.session.userId || (req.user?.claims?.sub) || "unknown",
+        disbursedById: userId || "unknown",
       });
       
       await logActivity(req, "disburse_loan", "loan", req.params.id, `Disbursed loan: ${loan.applicationId}`);
@@ -2351,7 +2370,7 @@ export async function registerRoutes(
 
         if (debitAccount && creditAccount && disbursementAmount > 0) {
           const entryNumber = await storage.getNextEntryNumber();
-          const entryDate = today.toISOString().split("T")[0];
+          const entryDate = baseDate.toISOString().split("T")[0];
           const description = `Disbursement: ${customerName} (${loan.applicationId}) - AFN ${disbursementAmount.toLocaleString()}`;
 
           const lines: any[] = [
