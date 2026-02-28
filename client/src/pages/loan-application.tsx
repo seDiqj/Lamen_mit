@@ -11,8 +11,9 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
 import { 
-  User, FileText, Building2, Shield, Users, 
+  User, FileText, Building2, Shield, Users, FolderUp,
   ChevronLeft, ChevronRight, Save, ArrowLeft, Loader2, Check,
   Camera, Upload, X, File
 } from "lucide-react";
@@ -120,11 +121,12 @@ const loanApplicationSchema = z.object({
 type LoanApplicationFormData = z.infer<typeof loanApplicationSchema>;
 
 const steps = [
-  { id: 1, title: "Customer", icon: User, color: "from-green-500 to-emerald-500" },
-  { id: 2, title: "Financing Details", icon: FileText, color: "from-yellow-500 to-amber-500" },
-  { id: 3, title: "Business", icon: Building2, color: "from-blue-500 to-indigo-500" },
-  { id: 4, title: "Collateral", icon: Shield, color: "from-orange-500 to-red-500" },
-  { id: 5, title: "Guarantors", icon: Users, color: "from-teal-500 to-cyan-500" },
+  { id: 1, title: "Customer", icon: User, color: "from-green-500 to-emerald-500", docSection: "customer_info" },
+  { id: 2, title: "Financing Details", icon: FileText, color: "from-yellow-500 to-amber-500", docSection: "financing_details" },
+  { id: 3, title: "Business", icon: Building2, color: "from-blue-500 to-indigo-500", docSection: "business_license" },
+  { id: 4, title: "Collateral", icon: Shield, color: "from-orange-500 to-red-500", docSection: "collateral" },
+  { id: 5, title: "Guarantors", icon: Users, color: "from-teal-500 to-cyan-500", docSection: "guarantors" },
+  { id: 6, title: "Documents", icon: FolderUp, color: "from-purple-500 to-violet-500", docSection: null },
 ];
 
 const loanProducts = [
@@ -336,23 +338,19 @@ export default function LoanApplicationPage() {
   };
   
   const handleManualSubmit = () => {
-    if (currentStep !== 5) {
+    if (currentStep !== 6) {
       return;
     }
     form.handleSubmit(onSubmit)();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    // Prevent Enter key from submitting form on steps 1-4
-    // Allow Enter only on step 5 (Guarantors - final step) for form submission
     if (e.key === 'Enter') {
       const target = e.target as HTMLElement;
-      // Allow Enter in textareas for multi-line input
       if (target.tagName === 'TEXTAREA') {
         return;
       }
-      // Prevent form submission on all steps except the final step
-      if (currentStep !== 5) {
+      if (currentStep !== 6) {
         e.preventDefault();
         e.stopPropagation();
       }
@@ -360,7 +358,7 @@ export default function LoanApplicationPage() {
   };
 
   const nextStep = () => {
-    if (currentStep < 5) setCurrentStep(currentStep + 1);
+    if (currentStep < 6) setCurrentStep(currentStep + 1);
   };
 
   const prevStep = () => {
@@ -385,58 +383,68 @@ export default function LoanApplicationPage() {
             <p className="text-xs text-muted-foreground">
               {prefilledCustomer
                 ? `For: ${prefilledCustomer.firstName} ${prefilledCustomer.lastName || ""} ${prefilledCustomer.customerNo ? `(${prefilledCustomer.customerNo})` : ""}`
-                : `Step ${currentStep} of 5`}
+                : `Step ${currentStep} of 6`}
             </p>
           </div>
         </div>
       </div>
 
       <div className="flex items-center justify-between mb-4">
-        {steps.map((step, index) => (
-          <div key={step.id} className="flex items-center flex-1">
-            <button
-              onClick={() => goToStep(step.id)}
-              className={cn(
-                "flex flex-col items-center gap-1 group cursor-pointer transition-all",
-                currentStep === step.id ? "scale-105" : ""
+        {steps.map((step, index) => {
+          const docCount = step.docSection ? documents.filter(d => d.section === step.docSection).length : 0;
+          return (
+            <div key={step.id} className="flex items-center flex-1">
+              <button
+                onClick={() => goToStep(step.id)}
+                className={cn(
+                  "flex flex-col items-center gap-1 group cursor-pointer transition-all relative",
+                  currentStep === step.id ? "scale-105" : ""
+                )}
+                data-testid={`step-${step.id}`}
+              >
+                <div className="relative">
+                  <div
+                    className={cn(
+                      "w-10 h-10 rounded-full flex items-center justify-center shadow-md transition-all",
+                      currentStep === step.id
+                        ? `bg-gradient-to-r ${step.color} text-white`
+                        : currentStep > step.id
+                        ? "bg-green-500 text-white"
+                        : "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    {currentStep > step.id ? (
+                      <Check className="h-4 w-4" />
+                    ) : (
+                      <step.icon className="h-4 w-4" />
+                    )}
+                  </div>
+                  {docCount > 0 && (
+                    <Badge className="absolute -top-2 -right-2 h-5 min-w-[20px] px-1 text-[10px] bg-blue-600 hover:bg-blue-600 text-white rounded-full flex items-center justify-center" data-testid={`badge-docs-step-${step.id}`}>
+                      {docCount}
+                    </Badge>
+                  )}
+                </div>
+                <span
+                  className={cn(
+                    "text-xs font-medium hidden sm:block",
+                    currentStep === step.id ? "text-foreground" : "text-muted-foreground"
+                  )}
+                >
+                  {step.title}
+                </span>
+              </button>
+              {index < steps.length - 1 && (
+                <div
+                  className={cn(
+                    "flex-1 h-0.5 mx-2 rounded-full transition-all",
+                    currentStep > step.id ? "bg-green-500" : "bg-muted"
+                  )}
+                />
               )}
-              data-testid={`step-${step.id}`}
-            >
-              <div
-                className={cn(
-                  "w-10 h-10 rounded-full flex items-center justify-center shadow-md transition-all",
-                  currentStep === step.id
-                    ? `bg-gradient-to-r ${step.color} text-white`
-                    : currentStep > step.id
-                    ? "bg-green-500 text-white"
-                    : "bg-muted text-muted-foreground"
-                )}
-              >
-                {currentStep > step.id ? (
-                  <Check className="h-4 w-4" />
-                ) : (
-                  <step.icon className="h-4 w-4" />
-                )}
-              </div>
-              <span
-                className={cn(
-                  "text-xs font-medium hidden sm:block",
-                  currentStep === step.id ? "text-foreground" : "text-muted-foreground"
-                )}
-              >
-                {step.title}
-              </span>
-            </button>
-            {index < steps.length - 1 && (
-              <div
-                className={cn(
-                  "flex-1 h-0.5 mx-2 rounded-full transition-all",
-                  currentStep > step.id ? "bg-green-500" : "bg-muted"
-                )}
-              />
-            )}
-          </div>
-        ))}
+            </div>
+          );
+        })}
       </div>
 
       <Form {...form}>
@@ -682,135 +690,41 @@ export default function LoanApplicationPage() {
                   )} />
                 </div>
 
-                {/* Photo & Documents Section */}
+                {/* Customer Photo Section */}
                 <div className="border-t pt-3 mt-4">
-                  <h3 className="text-xs font-semibold text-muted-foreground mb-3">Photo & Documents</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Customer Photo */}
-                    <div className="space-y-2">
-                      <label className="text-xs font-medium">Customer Photo</label>
-                      <div className="flex items-start gap-3">
-                        <div className="w-24 h-24 border-2 border-dashed rounded-lg flex items-center justify-center bg-muted/50 overflow-hidden">
-                          {customerPhoto ? (
-                            <img src={customerPhoto.url} alt="Customer" className="w-full h-full object-cover" />
-                          ) : (
-                            <Camera className="h-8 w-8 text-muted-foreground" />
-                          )}
-                        </div>
-                        <div className="flex flex-col gap-2">
-                          <label className="cursor-pointer">
-                            <input
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={handlePhotoUpload}
-                              disabled={uploadingPhoto}
-                              data-testid="input-customer-photo"
-                            />
-                            <Button type="button" variant="outline" size="sm" asChild disabled={uploadingPhoto}>
-                              <span>
-                                {uploadingPhoto ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Upload className="h-4 w-4 mr-1" />}
-                                Upload Photo
-                              </span>
-                            </Button>
-                          </label>
-                          {customerPhoto && (
-                            <Button type="button" variant="ghost" size="sm" onClick={() => setCustomerPhoto(null)} data-testid="button-remove-photo">
-                              <X className="h-4 w-4 mr-1" /> Remove
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Documents Upload */}
-                    <div className="space-y-2">
-                      <label className="text-xs font-medium">Upload Documents</label>
-                      <div className="space-y-2">
-                        <div className="grid grid-cols-2 gap-2">
-                          <Select value={newDocSection} onValueChange={setNewDocSection}>
-                            <SelectTrigger className="h-9" data-testid="select-doc-section">
-                              <SelectValue placeholder="Section" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {DOCUMENT_SECTIONS.map((s) => (
-                                <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Select value={newDocType} onValueChange={(val) => { setNewDocType(val); if (val !== "__custom") setCustomDocType(""); }}>
-                            <SelectTrigger className="h-9" data-testid="select-doc-type">
-                              <SelectValue placeholder="Document Type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {documentTypes.map((type) => (
-                                <SelectItem key={type} value={type}>{type}</SelectItem>
-                              ))}
-                              <SelectItem value="__custom">Other (type your own)</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        {newDocType === "__custom" && (
-                          <Input
-                            placeholder="Enter custom document type..."
-                            className="h-9"
-                            value={customDocType}
-                            onChange={(e) => setCustomDocType(e.target.value)}
-                            data-testid="input-custom-doc-type"
-                          />
+                  <h3 className="text-xs font-semibold text-muted-foreground mb-3">Customer Photo</h3>
+                  <div className="space-y-2">
+                    <div className="flex items-start gap-3">
+                      <div className="w-24 h-24 border-2 border-dashed rounded-lg flex items-center justify-center bg-muted/50 overflow-hidden">
+                        {customerPhoto ? (
+                          <img src={customerPhoto.url} alt="Customer" className="w-full h-full object-cover" />
+                        ) : (
+                          <Camera className="h-8 w-8 text-muted-foreground" />
                         )}
-                        <Input
-                          placeholder="File name (optional)"
-                          className="h-9"
-                          value={newDocName}
-                          onChange={(e) => setNewDocName(e.target.value)}
-                          data-testid="input-doc-name"
-                        />
-                        <label className="cursor-pointer block">
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <label className="cursor-pointer">
                           <input
                             type="file"
-                            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                            accept="image/*"
                             className="hidden"
-                            onChange={handleDocumentUpload}
-                            disabled={uploadingDoc || !resolvedDocType || !newDocSection}
-                            data-testid="input-document-file"
+                            onChange={handlePhotoUpload}
+                            disabled={uploadingPhoto}
+                            data-testid="input-customer-photo"
                           />
-                          <Button type="button" variant="outline" size="sm" asChild disabled={uploadingDoc || !resolvedDocType || !newDocSection} className="w-full">
+                          <Button type="button" variant="outline" size="sm" asChild disabled={uploadingPhoto}>
                             <span>
-                              {uploadingDoc ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Upload className="h-4 w-4 mr-1" />}
-                              Upload Document
+                              {uploadingPhoto ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Upload className="h-4 w-4 mr-1" />}
+                              Upload Photo
                             </span>
                           </Button>
                         </label>
+                        {customerPhoto && (
+                          <Button type="button" variant="ghost" size="sm" onClick={() => setCustomerPhoto(null)} data-testid="button-remove-photo">
+                            <X className="h-4 w-4 mr-1" /> Remove
+                          </Button>
+                        )}
                       </div>
-
-                      {/* Uploaded Documents List - grouped by section */}
-                      {documents.length > 0 && (
-                        <div className="space-y-2 mt-2">
-                          {DOCUMENT_SECTIONS.filter(s => documents.some(d => d.section === s.value)).map(s => (
-                            <div key={s.value}>
-                              <p className="text-xs font-semibold text-muted-foreground mb-1">{s.label}</p>
-                              <div className="space-y-1">
-                                {documents.filter(d => d.section === s.value).map((doc) => {
-                                  const globalIndex = documents.indexOf(doc);
-                                  return (
-                                    <div key={globalIndex} className="flex items-center justify-between bg-muted/50 rounded px-2 py-1.5 text-sm" data-testid={`document-item-${globalIndex}`}>
-                                      <div className="flex items-center gap-2">
-                                        <File className="h-4 w-4 text-muted-foreground" />
-                                        <span className="font-medium">{doc.documentType}</span>
-                                        <span className="text-muted-foreground">- {doc.fileName}</span>
-                                      </div>
-                                      <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeDocument(globalIndex)} data-testid={`button-remove-doc-${globalIndex}`}>
-                                        <X className="h-3 w-3" />
-                                      </Button>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -1687,6 +1601,119 @@ export default function LoanApplicationPage() {
             </Card>
           )}
 
+          {currentStep === 6 && (
+            <Card className="border-0 shadow-md overflow-hidden">
+              <div className="h-1 bg-gradient-to-r from-purple-500 to-violet-500" />
+              <CardHeader className="py-3 px-4">
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow">
+                    <FolderUp className="h-4 w-4 text-white" />
+                  </div>
+                  <CardTitle className="text-base">Documents</CardTitle>
+                  {documents.length > 0 && (
+                    <Badge variant="secondary" className="ml-auto">{documents.length} uploaded</Badge>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 space-y-4">
+                <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
+                  <h4 className="text-sm font-semibold">Upload New Document</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <Select value={newDocSection} onValueChange={setNewDocSection}>
+                      <SelectTrigger className="h-9" data-testid="select-doc-section">
+                        <SelectValue placeholder="Select Section" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {DOCUMENT_SECTIONS.map((s) => (
+                          <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select value={newDocType} onValueChange={(val) => { setNewDocType(val); if (val !== "__custom") setCustomDocType(""); }}>
+                      <SelectTrigger className="h-9" data-testid="select-doc-type">
+                        <SelectValue placeholder="Document Type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {documentTypes.map((type) => (
+                          <SelectItem key={type} value={type}>{type}</SelectItem>
+                        ))}
+                        <SelectItem value="__custom">Other (type your own)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {newDocType === "__custom" && (
+                    <Input
+                      placeholder="Enter custom document type..."
+                      className="h-9"
+                      value={customDocType}
+                      onChange={(e) => setCustomDocType(e.target.value)}
+                      data-testid="input-custom-doc-type"
+                    />
+                  )}
+                  <Input
+                    placeholder="File name (optional)"
+                    className="h-9"
+                    value={newDocName}
+                    onChange={(e) => setNewDocName(e.target.value)}
+                    data-testid="input-doc-name"
+                  />
+                  <label className="cursor-pointer block">
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                      className="hidden"
+                      onChange={handleDocumentUpload}
+                      disabled={uploadingDoc || !resolvedDocType || !newDocSection}
+                      data-testid="input-document-file"
+                    />
+                    <Button type="button" variant="outline" size="sm" asChild disabled={uploadingDoc || !resolvedDocType || !newDocSection} className="w-full">
+                      <span>
+                        {uploadingDoc ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Upload className="h-4 w-4 mr-1" />}
+                        Upload Document
+                      </span>
+                    </Button>
+                  </label>
+                </div>
+
+                {documents.length > 0 ? (
+                  <div className="space-y-3">
+                    {DOCUMENT_SECTIONS.filter(s => documents.some(d => d.section === s.value)).map(s => (
+                      <div key={s.value} className="border rounded-lg p-3">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h4 className="text-sm font-semibold">{s.label}</h4>
+                          <Badge variant="outline" className="text-xs">{documents.filter(d => d.section === s.value).length}</Badge>
+                        </div>
+                        <div className="space-y-1">
+                          {documents.filter(d => d.section === s.value).map((doc) => {
+                            const globalIndex = documents.indexOf(doc);
+                            return (
+                              <div key={globalIndex} className="flex items-center justify-between bg-muted/50 rounded px-3 py-2 text-sm" data-testid={`document-item-${globalIndex}`}>
+                                <div className="flex items-center gap-2">
+                                  <File className="h-4 w-4 text-muted-foreground" />
+                                  <span className="font-medium">{doc.documentType}</span>
+                                  <span className="text-muted-foreground">- {doc.fileName}</span>
+                                </div>
+                                <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeDocument(globalIndex)} data-testid={`button-remove-doc-${globalIndex}`}>
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <FolderUp className="h-10 w-10 mx-auto mb-2 opacity-40" />
+                    <p className="text-sm">No documents uploaded yet</p>
+                    <p className="text-xs">Select a section and document type above to upload</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           <div className="flex items-center justify-between pt-4">
             <Button
               type="button"
@@ -1697,7 +1724,7 @@ export default function LoanApplicationPage() {
             >
               <ChevronLeft className="h-4 w-4 mr-1" /> Previous
             </Button>
-            {currentStep === 5 ? (
+            {currentStep === 6 ? (
               <Button
                 type="button"
                 onClick={handleManualSubmit}
