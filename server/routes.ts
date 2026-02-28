@@ -1786,6 +1786,7 @@ export async function registerRoutes(
         for (const doc of data.documents) {
           await storage.createCustomerDocument({
             customerId,
+            section: doc.section || null,
             documentType: doc.documentType,
             fileName: doc.fileName,
             fileUrl: doc.fileUrl,
@@ -2058,6 +2059,7 @@ export async function registerRoutes(
           for (const doc of data.documents) {
             await storage.createCustomerDocument({
               customerId: loan.customerId,
+              section: doc.section || null,
               documentType: doc.documentType,
               fileName: doc.fileName,
               fileUrl: doc.fileUrl,

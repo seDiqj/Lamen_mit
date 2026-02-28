@@ -213,9 +213,11 @@ export default function FadReviewPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [customerPhotoUrl, setCustomerPhotoUrl] = useState<string | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [newDocuments, setNewDocuments] = useState<{documentType: string; fileName: string; fileUrl: string}[]>([]);
+  const [newDocuments, setNewDocuments] = useState<{section: string; documentType: string; fileName: string; fileUrl: string}[]>([]);
   const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [newDocSection, setNewDocSection] = useState("");
   const [newDocType, setNewDocType] = useState("");
+  const [customDocType, setCustomDocType] = useState("");
   const [newDocName, setNewDocName] = useState("");
   const [comments, setComments] = useState("");
   const [dataQualityScore, setDataQualityScore] = useState(80);
@@ -293,10 +295,21 @@ export default function FadReviewPage() {
     }
   }, [loanDetails]);
 
-  const documentTypes = [
-    "National ID", "Tazkira", "Business License", "Bank Statement",
-    "Property Document", "Salary Slip", "Tax Certificate", "Other"
+  const DOCUMENT_SECTIONS = [
+    { value: "customer_info", label: "Customer Information" },
+    { value: "financing_details", label: "Financing Details" },
+    { value: "business_license", label: "Business & License" },
+    { value: "collateral", label: "Collateral" },
+    { value: "guarantors", label: "Guarantors" },
   ];
+
+  const documentTypes = [
+    "Tazkira", "Electricity Bill", "Qawala", "License Copy",
+    "Bank Statement", "Business License", "Property Document",
+    "Salary Slip", "Tax Certificate"
+  ];
+
+  const resolvedDocType = newDocType === "__custom" ? customDocType : newDocType;
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -318,8 +331,8 @@ export default function FadReviewPage() {
 
   const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !newDocType) {
-      toast({ title: "Error", description: "Please select a document type first", variant: "destructive" });
+    if (!file || !resolvedDocType || !newDocSection) {
+      toast({ title: "Error", description: "Please select a section and document type first", variant: "destructive" });
       return;
     }
     setUploadingDoc(true);
@@ -329,8 +342,10 @@ export default function FadReviewPage() {
       const response = await fetch("/api/upload/document", { method: "POST", body: formData, credentials: "include" });
       if (!response.ok) throw new Error("Upload failed");
       const result = await response.json();
-      setNewDocuments([...newDocuments, { documentType: newDocType, fileName: newDocName || result.filename, fileUrl: result.url }]);
+      setNewDocuments([...newDocuments, { section: newDocSection, documentType: resolvedDocType, fileName: newDocName || result.filename, fileUrl: result.url }]);
+      setNewDocSection("");
       setNewDocType("");
+      setCustomDocType("");
       setNewDocName("");
       toast({ title: "Success", description: "Document uploaded successfully" });
     } catch {
@@ -790,53 +805,106 @@ export default function FadReviewPage() {
                       <div className="space-y-2">
                         <label className="text-xs font-medium">Uploaded Documents</label>
                         {loanDetails?.customerDocuments && loanDetails.customerDocuments.length > 0 ? (
-                          <div className="space-y-1">
-                            {loanDetails.customerDocuments.map((doc: any) => (
-                              <div key={doc.id} className="flex items-center gap-2 text-sm p-2 bg-muted/50 rounded-md" data-testid={`doc-item-${doc.id}`}>
-                                <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                                <span className="flex-1 truncate">{doc.fileName || doc.documentType || 'Document'}</span>
-                                <Badge variant="secondary" className="text-xs">{doc.documentType}</Badge>
-                                {doc.fileUrl && (
-                                  <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                                    <ExternalLink className="h-3.5 w-3.5" />
-                                  </a>
-                                )}
-                                {isEditing && (
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="text-destructive"
-                                    data-testid={`button-delete-doc-${doc.id}`}
-                                    disabled={deleteDocumentMutation.isPending}
-                                    onClick={() => deleteDocumentMutation.mutate(doc.id)}
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </Button>
-                                )}
-                              </div>
-                            ))}
+                          <div className="space-y-2">
+                            {(() => {
+                              const docs = loanDetails.customerDocuments as any[];
+                              const sections = DOCUMENT_SECTIONS.filter(s => docs.some(d => d.section === s.value));
+                              const unsectioned = docs.filter(d => !d.section || !DOCUMENT_SECTIONS.some(s => s.value === d.section));
+                              return (
+                                <>
+                                  {sections.map(s => (
+                                    <div key={s.value}>
+                                      <p className="text-xs font-semibold text-muted-foreground mb-1">{s.label}</p>
+                                      <div className="space-y-1">
+                                        {docs.filter(d => d.section === s.value).map((doc: any) => (
+                                          <div key={doc.id} className="flex items-center gap-2 text-sm p-2 bg-muted/50 rounded-md" data-testid={`doc-item-${doc.id}`}>
+                                            <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                            <span className="flex-1 truncate">{doc.fileName || doc.documentType || 'Document'}</span>
+                                            <Badge variant="secondary" className="text-xs">{doc.documentType}</Badge>
+                                            {doc.fileUrl && (
+                                              <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                                                <ExternalLink className="h-3.5 w-3.5" />
+                                              </a>
+                                            )}
+                                            {isEditing && (
+                                              <Button size="icon" variant="ghost" className="text-destructive" data-testid={`button-delete-doc-${doc.id}`} disabled={deleteDocumentMutation.isPending} onClick={() => deleteDocumentMutation.mutate(doc.id)}>
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                              </Button>
+                                            )}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ))}
+                                  {unsectioned.length > 0 && (
+                                    <div>
+                                      {sections.length > 0 && <p className="text-xs font-semibold text-muted-foreground mb-1">Other</p>}
+                                      <div className="space-y-1">
+                                        {unsectioned.map((doc: any) => (
+                                          <div key={doc.id} className="flex items-center gap-2 text-sm p-2 bg-muted/50 rounded-md" data-testid={`doc-item-${doc.id}`}>
+                                            <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                            <span className="flex-1 truncate">{doc.fileName || doc.documentType || 'Document'}</span>
+                                            <Badge variant="secondary" className="text-xs">{doc.documentType}</Badge>
+                                            {doc.fileUrl && (
+                                              <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                                                <ExternalLink className="h-3.5 w-3.5" />
+                                              </a>
+                                            )}
+                                            {isEditing && (
+                                              <Button size="icon" variant="ghost" className="text-destructive" data-testid={`button-delete-doc-${doc.id}`} disabled={deleteDocumentMutation.isPending} onClick={() => deleteDocumentMutation.mutate(doc.id)}>
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                              </Button>
+                                            )}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </div>
                         ) : (
                           <p className="text-xs text-muted-foreground">No documents uploaded</p>
                         )}
                         {newDocuments.length > 0 && (
-                          <div className="space-y-1">
-                            {newDocuments.map((doc, index) => (
-                              <div key={index} className="flex items-center gap-2 text-sm p-2 bg-green-50 dark:bg-green-900/20 rounded-md">
-                                <File className="h-4 w-4 text-green-600 flex-shrink-0" />
-                                <span className="flex-1 truncate">{doc.fileName}</span>
-                                <Badge variant="secondary" className="text-xs">{doc.documentType}</Badge>
-                                <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => setNewDocuments(newDocuments.filter((_, i) => i !== index))}>
-                                  <X className="h-3 w-3" />
-                                </Button>
+                          <div className="space-y-2">
+                            {DOCUMENT_SECTIONS.filter(s => newDocuments.some(d => d.section === s.value)).map(s => (
+                              <div key={s.value}>
+                                <p className="text-xs font-semibold text-green-700 dark:text-green-400 mb-1">{s.label} (new)</p>
+                                <div className="space-y-1">
+                                  {newDocuments.filter(d => d.section === s.value).map((doc) => {
+                                    const globalIndex = newDocuments.indexOf(doc);
+                                    return (
+                                      <div key={globalIndex} className="flex items-center gap-2 text-sm p-2 bg-green-50 dark:bg-green-900/20 rounded-md">
+                                        <File className="h-4 w-4 text-green-600 flex-shrink-0" />
+                                        <span className="flex-1 truncate">{doc.fileName}</span>
+                                        <Badge variant="secondary" className="text-xs">{doc.documentType}</Badge>
+                                        <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => setNewDocuments(newDocuments.filter((_, i) => i !== globalIndex))}>
+                                          <X className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
                               </div>
                             ))}
                           </div>
                         )}
                         {isEditing && (
                           <div className="space-y-2 border-t pt-2 mt-2">
-                            <div className="flex gap-2">
-                              <Select value={newDocType} onValueChange={setNewDocType}>
+                            <div className="grid grid-cols-2 gap-2">
+                              <Select value={newDocSection} onValueChange={setNewDocSection}>
+                                <SelectTrigger className="h-8 text-xs" data-testid="select-fad-edit-doc-section">
+                                  <SelectValue placeholder="Section" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {DOCUMENT_SECTIONS.map((s) => (
+                                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <Select value={newDocType} onValueChange={(val) => { setNewDocType(val); if (val !== "__custom") setCustomDocType(""); }}>
                                 <SelectTrigger className="h-8 text-xs" data-testid="select-fad-edit-doc-type">
                                   <SelectValue placeholder="Document Type" />
                                 </SelectTrigger>
@@ -844,12 +912,16 @@ export default function FadReviewPage() {
                                   {documentTypes.map((type) => (
                                     <SelectItem key={type} value={type}>{type}</SelectItem>
                                   ))}
+                                  <SelectItem value="__custom">Other (type your own)</SelectItem>
                                 </SelectContent>
                               </Select>
-                              <Input placeholder="File name (optional)" value={newDocName} onChange={(e) => setNewDocName(e.target.value)} className="h-8 text-xs" data-testid="input-fad-edit-doc-name" />
                             </div>
-                            <input type="file" className="hidden" id="fad-edit-doc-upload" onChange={handleDocumentUpload} disabled={uploadingDoc || !newDocType} data-testid="input-fad-edit-doc-file" />
-                            <Button type="button" variant="outline" size="sm" asChild disabled={uploadingDoc || !newDocType} className="w-full">
+                            {newDocType === "__custom" && (
+                              <Input placeholder="Enter custom document type..." value={customDocType} onChange={(e) => setCustomDocType(e.target.value)} className="h-8 text-xs" data-testid="input-fad-edit-custom-doc-type" />
+                            )}
+                            <Input placeholder="File name (optional)" value={newDocName} onChange={(e) => setNewDocName(e.target.value)} className="h-8 text-xs" data-testid="input-fad-edit-doc-name" />
+                            <input type="file" className="hidden" id="fad-edit-doc-upload" onChange={handleDocumentUpload} disabled={uploadingDoc || !resolvedDocType || !newDocSection} data-testid="input-fad-edit-doc-file" />
+                            <Button type="button" variant="outline" size="sm" asChild disabled={uploadingDoc || !resolvedDocType || !newDocSection} className="w-full">
                               <label htmlFor="fad-edit-doc-upload" className="cursor-pointer">
                                 {uploadingDoc ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Upload className="h-4 w-4 mr-1" />}
                                 Upload Document

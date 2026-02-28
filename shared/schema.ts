@@ -129,6 +129,7 @@ export const customers = pgTable("customers", {
 export const customerDocuments = pgTable("customer_documents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   customerId: varchar("customer_id").references(() => customers.id),
+  section: varchar("section", { length: 100 }),
   documentType: varchar("document_type", { length: 100 }),
   fileName: varchar("file_name", { length: 255 }),
   fileUrl: text("file_url"),

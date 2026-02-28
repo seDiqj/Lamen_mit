@@ -135,16 +135,30 @@ const loanProducts = [
 ];
 
 interface UploadedDocument {
+  section: string;
   documentType: string;
   fileName: string;
   fileUrl: string;
 }
+
+const DOCUMENT_SECTIONS = [
+  { value: "customer_info", label: "Customer Information" },
+  { value: "financing_details", label: "Financing Details" },
+  { value: "business_license", label: "Business & License" },
+  { value: "collateral", label: "Collateral" },
+  { value: "guarantors", label: "Guarantors" },
+] as const;
 
 const documentTypes = [
   "Tazkira",
   "Electricity Bill",
   "Qawala",
   "License Copy",
+  "Bank Statement",
+  "Business License",
+  "Property Document",
+  "Salary Slip",
+  "Tax Certificate",
 ];
 
 export default function LoanApplicationPage() {
@@ -159,7 +173,9 @@ export default function LoanApplicationPage() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [documents, setDocuments] = useState<UploadedDocument[]>([]);
   const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [newDocSection, setNewDocSection] = useState("");
   const [newDocType, setNewDocType] = useState("");
+  const [customDocType, setCustomDocType] = useState("");
   const [newDocName, setNewDocName] = useState("");
   const [customerPrefilled, setCustomerPrefilled] = useState(false);
 
@@ -252,10 +268,12 @@ export default function LoanApplicationPage() {
     }
   };
 
+  const resolvedDocType = newDocType === "__custom" ? customDocType : newDocType;
+
   const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !newDocType) {
-      toast({ title: "Error", description: "Please select a document type first", variant: "destructive" });
+    if (!file || !resolvedDocType || !newDocSection) {
+      toast({ title: "Error", description: "Please select a section and document type first", variant: "destructive" });
       return;
     }
     
@@ -271,11 +289,14 @@ export default function LoanApplicationPage() {
       if (!response.ok) throw new Error("Upload failed");
       const result = await response.json();
       setDocuments([...documents, {
-        documentType: newDocType,
+        section: newDocSection,
+        documentType: resolvedDocType,
         fileName: newDocName || result.filename,
         fileUrl: result.url,
       }]);
+      setNewDocSection("");
       setNewDocType("");
+      setCustomDocType("");
       setNewDocName("");
       toast({ title: "Success", description: "Document uploaded successfully" });
     } catch {
@@ -706,35 +727,55 @@ export default function LoanApplicationPage() {
                     <div className="space-y-2">
                       <label className="text-xs font-medium">Upload Documents</label>
                       <div className="space-y-2">
-                        <div className="flex gap-2">
-                          <Select value={newDocType} onValueChange={setNewDocType}>
-                            <SelectTrigger className="h-9 w-40" data-testid="select-doc-type">
+                        <div className="grid grid-cols-2 gap-2">
+                          <Select value={newDocSection} onValueChange={setNewDocSection}>
+                            <SelectTrigger className="h-9" data-testid="select-doc-section">
+                              <SelectValue placeholder="Section" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {DOCUMENT_SECTIONS.map((s) => (
+                                <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Select value={newDocType} onValueChange={(val) => { setNewDocType(val); if (val !== "__custom") setCustomDocType(""); }}>
+                            <SelectTrigger className="h-9" data-testid="select-doc-type">
                               <SelectValue placeholder="Document Type" />
                             </SelectTrigger>
                             <SelectContent>
                               {documentTypes.map((type) => (
                                 <SelectItem key={type} value={type}>{type}</SelectItem>
                               ))}
+                              <SelectItem value="__custom">Other (type your own)</SelectItem>
                             </SelectContent>
                           </Select>
-                          <Input
-                            placeholder="File name (optional)"
-                            className="h-9 flex-1"
-                            value={newDocName}
-                            onChange={(e) => setNewDocName(e.target.value)}
-                            data-testid="input-doc-name"
-                          />
                         </div>
+                        {newDocType === "__custom" && (
+                          <Input
+                            placeholder="Enter custom document type..."
+                            className="h-9"
+                            value={customDocType}
+                            onChange={(e) => setCustomDocType(e.target.value)}
+                            data-testid="input-custom-doc-type"
+                          />
+                        )}
+                        <Input
+                          placeholder="File name (optional)"
+                          className="h-9"
+                          value={newDocName}
+                          onChange={(e) => setNewDocName(e.target.value)}
+                          data-testid="input-doc-name"
+                        />
                         <label className="cursor-pointer block">
                           <input
                             type="file"
                             accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                             className="hidden"
                             onChange={handleDocumentUpload}
-                            disabled={uploadingDoc || !newDocType}
+                            disabled={uploadingDoc || !resolvedDocType || !newDocSection}
                             data-testid="input-document-file"
                           />
-                          <Button type="button" variant="outline" size="sm" asChild disabled={uploadingDoc || !newDocType} className="w-full">
+                          <Button type="button" variant="outline" size="sm" asChild disabled={uploadingDoc || !resolvedDocType || !newDocSection} className="w-full">
                             <span>
                               {uploadingDoc ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Upload className="h-4 w-4 mr-1" />}
                               Upload Document
@@ -743,19 +784,29 @@ export default function LoanApplicationPage() {
                         </label>
                       </div>
 
-                      {/* Uploaded Documents List */}
+                      {/* Uploaded Documents List - grouped by section */}
                       {documents.length > 0 && (
-                        <div className="space-y-1 mt-2">
-                          {documents.map((doc, index) => (
-                            <div key={index} className="flex items-center justify-between bg-muted/50 rounded px-2 py-1.5 text-sm" data-testid={`document-item-${index}`}>
-                              <div className="flex items-center gap-2">
-                                <File className="h-4 w-4 text-muted-foreground" />
-                                <span className="font-medium">{doc.documentType}</span>
-                                <span className="text-muted-foreground">- {doc.fileName}</span>
+                        <div className="space-y-2 mt-2">
+                          {DOCUMENT_SECTIONS.filter(s => documents.some(d => d.section === s.value)).map(s => (
+                            <div key={s.value}>
+                              <p className="text-xs font-semibold text-muted-foreground mb-1">{s.label}</p>
+                              <div className="space-y-1">
+                                {documents.filter(d => d.section === s.value).map((doc) => {
+                                  const globalIndex = documents.indexOf(doc);
+                                  return (
+                                    <div key={globalIndex} className="flex items-center justify-between bg-muted/50 rounded px-2 py-1.5 text-sm" data-testid={`document-item-${globalIndex}`}>
+                                      <div className="flex items-center gap-2">
+                                        <File className="h-4 w-4 text-muted-foreground" />
+                                        <span className="font-medium">{doc.documentType}</span>
+                                        <span className="text-muted-foreground">- {doc.fileName}</span>
+                                      </div>
+                                      <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeDocument(globalIndex)} data-testid={`button-remove-doc-${globalIndex}`}>
+                                        <X className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  );
+                                })}
                               </div>
-                              <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeDocument(index)} data-testid={`button-remove-doc-${index}`}>
-                                <X className="h-3 w-3" />
-                              </Button>
                             </div>
                           ))}
                         </div>
