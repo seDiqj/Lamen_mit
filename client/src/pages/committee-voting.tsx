@@ -634,6 +634,45 @@ export default function CommitteeVotingPage() {
                         <span className="text-muted-foreground">Duration:</span>
                         <span className="font-medium">{loanDetails?.loan?.financingDurationMonths} months</span>
                       </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Product:</span>
+                        <span className="font-medium">{loanDetails?.loan?.productName || "—"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Margin Amount:</span>
+                        <span className="font-medium text-emerald-600">
+                          {(() => {
+                            const amt = parseFloat(loanDetails?.loan?.requestAmount || "0");
+                            let margin = parseFloat(loanDetails?.loan?.marginRate || "0");
+                            if (margin > 0 && margin < 1) margin = margin * 100;
+                            const dur = Number(loanDetails?.loan?.financingDurationMonths) || 0;
+                            if (amt > 0 && margin > 0 && dur > 0) {
+                              const totalMargin = (amt * (margin / 100) / 12) * dur;
+                              return `${totalMargin.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} AFN`;
+                            }
+                            return "—";
+                          })()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Monthly Installment:</span>
+                        <span className="font-medium text-blue-600">
+                          {(() => {
+                            const amt = parseFloat(loanDetails?.loan?.requestAmount || "0");
+                            let margin = parseFloat(loanDetails?.loan?.marginRate || "0");
+                            if (margin > 0 && margin < 1) margin = margin * 100;
+                            const dur = Number(loanDetails?.loan?.financingDurationMonths) || 0;
+                            const inst = Number(loanDetails?.loan?.numberOfInstallments) || 0;
+                            if (amt > 0 && margin > 0 && dur > 0) {
+                              const totalMargin = (amt * (margin / 100) / 12) * dur;
+                              const totalRepayment = amt + totalMargin;
+                              const monthly = inst > 0 ? totalRepayment / inst : totalRepayment / dur;
+                              return `${monthly.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} AFN`;
+                            }
+                            return "—";
+                          })()}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
