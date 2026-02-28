@@ -673,7 +673,7 @@ export default function FadReviewPage() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     <FormField control={form.control} name="customerNo" render={({ field }) => (
                       <FormItem><FormLabel>Customer No</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-customerNo" /></FormControl><FormMessage /></FormItem>
                     )} />
@@ -819,7 +819,7 @@ export default function FadReviewPage() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     <FormField control={form.control} name="branchId" render={({ field }) => (
                       <FormItem><FormLabel>Branch</FormLabel>
                         <Select disabled={!isEditing} onValueChange={field.onChange} value={field.value}>
@@ -1057,7 +1057,7 @@ export default function FadReviewPage() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     <FormField control={form.control} name="collateralOwnerName" render={({ field }) => (
                       <FormItem><FormLabel>Owner Name</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-collateralOwner" /></FormControl><FormMessage /></FormItem>
                     )} />
@@ -1100,7 +1100,7 @@ export default function FadReviewPage() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                       <FormField control={form.control} name="financialGuarantorFullName" render={({ field }) => (
                         <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-finGuarantorName" /></FormControl><FormMessage /></FormItem>
                       )} />
@@ -1168,7 +1168,7 @@ export default function FadReviewPage() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                       <FormField control={form.control} name="financialGuarantor2FullName" render={({ field }) => (
                         <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-finGuarantor2Name" /></FormControl><FormMessage /></FormItem>
                       )} />
@@ -1236,7 +1236,7 @@ export default function FadReviewPage() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                       <FormField control={form.control} name="familyGuarantorFullName" render={({ field }) => (
                         <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-famGuarantorName" /></FormControl><FormMessage /></FormItem>
                       )} />

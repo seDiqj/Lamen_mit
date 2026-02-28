@@ -295,7 +295,7 @@ export default function RiskCompliancePage() {
                   <User className="h-5 w-5 text-violet-500" />
                   Customer Information
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {renderViewField("Customer No", loanDetails?.customer?.customerNo)}
                   {renderViewField("First Name", loanDetails?.customer?.firstName)}
                   {renderViewField("Last Name", loanDetails?.customer?.lastName)}
@@ -344,7 +344,7 @@ export default function RiskCompliancePage() {
                   <FileText className="h-5 w-5 text-blue-500" />
                   Loan Details
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {renderViewField("Branch", loanDetails?.loan?.branchName)}
                   {renderViewField("Finance Officer", loanDetails?.loan?.financeOfficerName)}
                   {renderViewField("Product Name", loanDetails?.loan?.productName)}
@@ -412,7 +412,7 @@ export default function RiskCompliancePage() {
                   <Building2 className="h-5 w-5 text-emerald-500" />
                   Business Information
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {renderViewField("Business Name", loanDetails?.business?.businessName)}
                   {renderViewField("Sector", loanDetails?.business?.sector)}
                   {renderViewField("Business Type", loanDetails?.business?.businessType)}
@@ -426,7 +426,7 @@ export default function RiskCompliancePage() {
                 {loanDetails?.license && (
                   <>
                     <h4 className="text-md font-semibold mt-6">Business License</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                       {renderViewField("License Type", loanDetails?.license?.licenseType)}
                       {renderViewField("License Number", loanDetails?.license?.licenseNumber)}
                       {renderViewField("President", loanDetails?.license?.president)}
@@ -444,7 +444,7 @@ export default function RiskCompliancePage() {
                   <Shield className="h-5 w-5 text-amber-500" />
                   Collateral Information
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {renderViewField("Owner Name", loanDetails?.collateral?.ownerName)}
                   {renderViewField("Owner National ID", loanDetails?.collateral?.ownerNationalId)}
                   {renderDateViewField("Owner NID Expiry", loanDetails?.collateral?.ownerNidExpiryDate)}
@@ -478,7 +478,7 @@ export default function RiskCompliancePage() {
                           </CardTitle>
                         </CardHeader>
                         <CardContent>
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                             {renderViewField("Full Name", g.fullName)}
                             {renderViewField("Father Name", g.fatherName)}
                             {renderDobViewField("Date of Birth", g.dateOfBirth)}

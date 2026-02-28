@@ -485,7 +485,7 @@ export default function LoanDetailsPage() {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                   {(() => {
                     const fadReview = loanData?.fadReview;
                     const rcReview = loanData?.riskComplianceReview;
@@ -628,7 +628,7 @@ export default function LoanDetailsPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   <FormField control={form.control} name="customerNo" render={({ field }) => (
                     <FormItem><FormLabel>Customer No</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
@@ -791,7 +791,7 @@ export default function LoanDetailsPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   <FormField control={form.control} name="branchId" render={({ field }) => (
                     <FormItem><FormLabel>Branch</FormLabel>
                       <Select disabled={!isEditing} onValueChange={field.onChange} value={field.value}>
@@ -916,7 +916,7 @@ export default function LoanDetailsPage() {
               <CardContent className="space-y-6">
                 <div>
                   <h3 className="text-sm font-semibold text-muted-foreground mb-3">Business Details</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     <FormField control={form.control} name="businessName" render={({ field }) => (
                       <FormItem><FormLabel>Business Name</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
@@ -942,7 +942,7 @@ export default function LoanDetailsPage() {
                 </div>
                 <div className="border-t pt-6">
                   <h3 className="text-sm font-semibold text-muted-foreground mb-3">License Details</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     <FormField control={form.control} name="licenseType" render={({ field }) => (
                       <FormItem><FormLabel>License Type</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
@@ -976,7 +976,7 @@ export default function LoanDetailsPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   <FormField control={form.control} name="collateralOwnerName" render={({ field }) => (
                     <FormItem><FormLabel>Owner Name</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
@@ -1020,7 +1020,7 @@ export default function LoanDetailsPage() {
               <CardContent className="space-y-6">
                 <div>
                   <h3 className="text-sm font-semibold text-teal-600 mb-3 flex items-center gap-2"><Users className="h-4 w-4" /> Financial Guarantor</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     <FormField control={form.control} name="financialGuarantorFullName" render={({ field }) => (
                       <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
@@ -1077,7 +1077,7 @@ export default function LoanDetailsPage() {
                 </div>
                 <div className="border-t pt-6">
                   <h3 className="text-sm font-semibold text-teal-600 mb-3 flex items-center gap-2"><Users className="h-4 w-4" /> Financial Guarantor 2</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     <FormField control={form.control} name="financialGuarantor2FullName" render={({ field }) => (
                       <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-fin-guarantor2-name" /></FormControl><FormMessage /></FormItem>
                     )} />
@@ -1134,7 +1134,7 @@ export default function LoanDetailsPage() {
                 </div>
                 <div className="border-t pt-6">
                   <h3 className="text-sm font-semibold text-pink-600 mb-3 flex items-center gap-2"><UserCheck className="h-4 w-4" /> Family Guarantor</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     <FormField control={form.control} name="familyGuarantorFullName" render={({ field }) => (
                       <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
