@@ -2305,7 +2305,7 @@ export async function registerRoutes(
       const userId = req.session.userId || (req.user?.claims?.sub);
       const userRoleRecord = userId ? await storage.getUserRole(userId) : undefined;
       const userRoleValue = userRoleRecord?.role || "";
-      const canPickDate = userRoleValue === "ceo" || userRoleValue === "admin";
+      const canPickDate = userRoleValue.toLowerCase() === "ceo" || userRoleValue.toLowerCase() === "admin";
 
       let baseDate: Date;
       if (canPickDate && req.body.disbursementDate && typeof req.body.disbursementDate === "string") {

@@ -83,7 +83,7 @@ export default function DisbursementsPage() {
   const { data: roleData } = useQuery<{ role: string; roleType: string }>({
     queryKey: ["/api/user/role"],
   });
-  const userRole = roleData?.role || "";
+  const userRole = (roleData?.role || "").toLowerCase();
   const canPickDate = userRole === "ceo" || userRole === "admin";
 
   const { data: loans, isLoading } = useQuery<ApprovedLoan[]>({
