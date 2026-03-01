@@ -44,6 +44,7 @@ const customerFormSchema = z.object({
   homeAddress: z.string().optional(),
   province: z.string().optional(),
   district: z.string().optional(),
+  areaType: z.string().optional().default("Rural"),
   phoneNumber: z.string().optional(),
   secondPhoneNumber: z.string().optional(),
   numberOfDependents: z.coerce.number().optional(),
@@ -78,6 +79,7 @@ export function NewCustomerDialog({ open, onOpenChange }: NewCustomerDialogProps
       homeAddress: "",
       province: "",
       district: "",
+      areaType: "Rural",
       phoneNumber: "",
       secondPhoneNumber: "",
       numberOfDependents: undefined,
@@ -368,6 +370,28 @@ export function NewCustomerDialog({ open, onOpenChange }: NewCustomerDialogProps
                     </FormItem>
                   );
                 }}
+              />
+
+              <FormField
+                control={form.control}
+                name="areaType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Urban / Rural</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || "Rural"}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-area-type">
+                          <SelectValue placeholder="Select area type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="Urban">Urban</SelectItem>
+                        <SelectItem value="Rural">Rural</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
 
               <FormField

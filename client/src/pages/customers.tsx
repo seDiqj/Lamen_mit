@@ -106,7 +106,9 @@ export default function CustomersPage() {
         "Customer No": c.customerNo || "",
         "National ID": c.nationalId || "",
         "Phone": c.phoneNumber || "",
+        "Province": c.province || "",
         "District": c.district || "",
+        "Urban/Rural": c.areaType || "Rural",
         "Active Loans": c.activeLoans || 0,
       }));
       const ws = XLSX.utils.json_to_sheet(rows);
@@ -132,11 +134,13 @@ export default function CustomersPage() {
         c.customerNo || "-",
         c.nationalId || "-",
         c.phoneNumber || "-",
+        c.province || "-",
         c.district || "-",
+        c.areaType || "Rural",
         String(c.activeLoans || 0),
       ]);
       autoTable(doc, {
-        head: [["Customer Name", "Customer No", "National ID", "Phone", "District", "Active Loans"]],
+        head: [["Customer Name", "Customer No", "National ID", "Phone", "Province", "District", "Urban/Rural", "Active Loans"]],
         body: rows,
         startY: 28,
         styles: { fontSize: 9 },
@@ -234,7 +238,9 @@ export default function CustomersPage() {
                   <TableHead className="font-semibold">Customer No.</TableHead>
                   <TableHead className="font-semibold">National ID</TableHead>
                   <TableHead className="font-semibold">Phone</TableHead>
+                  <TableHead className="font-semibold">Province</TableHead>
                   <TableHead className="font-semibold">District</TableHead>
+                  <TableHead className="font-semibold">Urban/Rural</TableHead>
                   <TableHead className="font-semibold">Active Loans</TableHead>
                   <TableHead className="text-right font-semibold">Actions</TableHead>
                 </TableRow>
@@ -243,7 +249,7 @@ export default function CustomersPage() {
                 {isLoading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
-                      {Array.from({ length: 7 }).map((_, j) => (
+                      {Array.from({ length: 9 }).map((_, j) => (
                         <TableCell key={j}>
                           <Skeleton className="h-4 w-full" />
                         </TableCell>
@@ -286,7 +292,9 @@ export default function CustomersPage() {
                           </div>
                         )}
                       </TableCell>
+                      <TableCell>{customer.province || "-"}</TableCell>
                       <TableCell>{customer.district || "-"}</TableCell>
+                      <TableCell>{customer.areaType || "Rural"}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className={`${customer.activeLoans ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30' : 'bg-muted text-muted-foreground'}`}>
                           {customer.activeLoans || 0} active

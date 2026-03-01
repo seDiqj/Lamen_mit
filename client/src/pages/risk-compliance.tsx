@@ -313,6 +313,7 @@ export default function RiskCompliancePage() {
                   {renderViewField("Home Address", loanDetails?.customer?.homeAddress)}
                   {renderViewField("Province", loanDetails?.customer?.province)}
                   {renderViewField("District", loanDetails?.customer?.district)}
+                  {renderViewField("Urban / Rural", loanDetails?.customer?.areaType || "Rural")}
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                   {renderViewField("Total Dependents", loanDetails?.customer?.numberOfDependents)}

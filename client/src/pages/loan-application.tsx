@@ -37,6 +37,7 @@ const loanApplicationSchema = z.object({
   homeAddress: z.string().optional(),
   province: z.string().optional(),
   district: z.string().optional(),
+  areaType: z.string().optional().default("Rural"),
   phoneNumber: z.string().optional(),
   secondPhoneNumber: z.string().optional(),
   numberOfDependents: z.coerce.number().optional(),
@@ -231,6 +232,7 @@ export default function LoanApplicationPage() {
         homeAddress: prefilledCustomer.homeAddress || "",
         province: prefilledCustomer.province || "",
         district: prefilledCustomer.district || "",
+        areaType: prefilledCustomer.areaType || "Rural",
         phoneNumber: prefilledCustomer.phoneNumber || "",
         secondPhoneNumber: prefilledCustomer.secondPhoneNumber || "",
         numberOfDependents: prefilledCustomer.numberOfDependents || undefined,
@@ -639,6 +641,23 @@ export default function LoanApplicationPage() {
                       </FormItem>
                     );
                   }} />
+                  <FormField control={form.control} name="areaType" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs">Urban / Rural</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value || "Rural"}>
+                        <FormControl>
+                          <SelectTrigger className="h-9" data-testid="select-customer-area-type">
+                            <SelectValue placeholder="Select area type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="Urban">Urban</SelectItem>
+                          <SelectItem value="Rural">Rural</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
                   <FormField control={form.control} name="phoneNumber" render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-xs">Phone Number</FormLabel>

@@ -107,6 +107,7 @@ const fadReviewSchema = z.object({
   homeAddress: z.string().optional(),
   province: z.string().optional(),
   district: z.string().optional(),
+  areaType: z.string().optional().default("Rural"),
   phoneNumber: z.string().optional(),
   secondPhoneNumber: z.string().optional(),
   numberOfDependents: z.coerce.number().optional(),
@@ -376,6 +377,7 @@ export default function FadReviewPage() {
         homeAddress: d.customer?.homeAddress || "",
         province: d.customer?.province || "",
         district: d.customer?.district || "",
+        areaType: d.customer?.areaType || "Rural",
         phoneNumber: d.customer?.phoneNumber || "",
         secondPhoneNumber: d.customer?.secondPhoneNumber || "",
         numberOfDependents: d.customer?.numberOfDependents || 0,
@@ -762,6 +764,18 @@ export default function FadReviewPage() {
                     )} />
                     <FormField control={form.control} name="district" render={({ field }) => (
                       <FormItem><FormLabel>District</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-district" /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="areaType" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Urban / Rural</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value || "Rural"} disabled={!isEditing}>
+                          <FormControl><SelectTrigger data-testid="select-fad-customer-area-type"><SelectValue placeholder="Select area type" /></SelectTrigger></FormControl>
+                          <SelectContent>
+                            <SelectItem value="Urban">Urban</SelectItem>
+                            <SelectItem value="Rural">Rural</SelectItem>
+                          </SelectContent>
+                        </Select><FormMessage />
+                      </FormItem>
                     )} />
                     <FormField control={form.control} name="phoneNumber" render={({ field }) => (
                       <FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-phoneNumber" /></FormControl><FormMessage /></FormItem>

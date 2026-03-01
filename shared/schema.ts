@@ -113,6 +113,7 @@ export const customers = pgTable("customers", {
   homeAddress: text("home_address"),
   province: varchar("province", { length: 255 }),
   district: varchar("district", { length: 255 }),
+  areaType: varchar("area_type", { length: 20 }).default("Rural"),
   phoneNumber: varchar("phone_number", { length: 50 }),
   secondPhoneNumber: varchar("second_phone_number", { length: 50 }),
   numberOfDependents: integer("number_of_dependents"),

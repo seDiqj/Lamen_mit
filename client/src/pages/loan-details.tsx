@@ -53,6 +53,7 @@ const loanDetailsSchema = z.object({
   homeAddress: z.string().optional(),
   province: z.string().optional(),
   district: z.string().optional(),
+  areaType: z.string().optional().default("Rural"),
   phoneNumber: z.string().optional(),
   secondPhoneNumber: z.string().optional(),
   numberOfDependents: optNum,
@@ -268,6 +269,7 @@ export default function LoanDetailsPage() {
         homeAddress: d.customer?.homeAddress ?? "",
         province: d.customer?.province ?? "",
         district: d.customer?.district ?? "",
+        areaType: d.customer?.areaType ?? "Rural",
         phoneNumber: d.customer?.phoneNumber ?? "",
         secondPhoneNumber: d.customer?.secondPhoneNumber ?? "",
         numberOfDependents: toNum(d.customer?.numberOfDependents),
@@ -723,6 +725,19 @@ export default function LoanDetailsPage() {
                       </FormItem>
                     );
                   }} />
+                  <FormField control={form.control} name="areaType" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Urban / Rural</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value || "Rural"} disabled={!isEditing}>
+                        <FormControl><SelectTrigger data-testid="select-customer-area-type"><SelectValue placeholder="Select area type" /></SelectTrigger></FormControl>
+                        <SelectContent>
+                          <SelectItem value="Urban">Urban</SelectItem>
+                          <SelectItem value="Rural">Rural</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
                   <FormField control={form.control} name="phoneNumber" render={({ field }) => (
                     <FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
