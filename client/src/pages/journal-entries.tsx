@@ -59,6 +59,12 @@ type JournalLine = {
   creditAmount: string;
 };
 
+type FundingSource = {
+  id: string;
+  name: string;
+  code: string;
+};
+
 type JournalEntry = {
   id: string;
   entryNumber: string;
@@ -66,6 +72,8 @@ type JournalEntry = {
   description: string;
   reference: string | null;
   referenceType: string | null;
+  fundingSourceId: string | null;
+  fundingSourceName: string | null;
   isPosted: boolean;
   isReversed: boolean;
   totalDebit: string;
@@ -91,12 +99,14 @@ export default function JournalEntries() {
   const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
   const [postConfirmOpen, setPostConfirmOpen] = useState(false);
   const [entryToPost, setEntryToPost] = useState<JournalEntry | null>(null);
+  const [fundingSourceFilter, setFundingSourceFilter] = useState("all");
 
   const [formData, setFormData] = useState({
     entryDate: new Date().toISOString().split("T")[0],
     description: "",
     reference: "",
     referenceType: "manual",
+    fundingSourceId: "",
   });
 
   const [lines, setLines] = useState<JournalLine[]>([
@@ -105,10 +115,11 @@ export default function JournalEntries() {
   ]);
 
   const { data: paginatedData, isLoading } = useQuery<PaginatedResponse>({
-    queryKey: ["/api/journal-entries", searchTerm, currentPage],
+    queryKey: ["/api/journal-entries", searchTerm, currentPage, fundingSourceFilter],
     queryFn: async () => {
       const params = new URLSearchParams({ page: String(currentPage), limit: "50" });
       if (searchTerm) params.set("search", searchTerm);
+      if (fundingSourceFilter && fundingSourceFilter !== "all") params.set("fundingSourceId", fundingSourceFilter);
       const res = await fetch(`/api/journal-entries?${params}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch journal entries");
       return res.json();
@@ -123,8 +134,12 @@ export default function JournalEntries() {
     queryKey: ["/api/accounts"],
   });
 
+  const { data: fundingSources = [] } = useQuery<FundingSource[]>({
+    queryKey: ["/api/funding-sources"],
+  });
+
   const createMutation = useMutation({
-    mutationFn: (data: { entryDate: string; description: string; reference: string; referenceType: string; lines: JournalLine[] }) =>
+    mutationFn: (data: { entryDate: string; description: string; reference: string; referenceType: string; fundingSourceId: string; lines: JournalLine[] }) =>
       apiRequest("POST", "/api/journal-entries", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/journal-entries"] });
@@ -156,7 +171,7 @@ export default function JournalEntries() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: { id: string; entryDate: string; description: string; reference: string; referenceType: string; lines: JournalLine[] }) =>
+    mutationFn: (data: { id: string; entryDate: string; description: string; reference: string; referenceType: string; fundingSourceId: string; lines: JournalLine[] }) =>
       apiRequest("PATCH", `/api/journal-entries/${data.id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/journal-entries"] });
@@ -179,6 +194,7 @@ export default function JournalEntries() {
         description: fullEntry.description || "",
         reference: fullEntry.reference || "",
         referenceType: fullEntry.referenceType || "manual",
+        fundingSourceId: fullEntry.fundingSourceId || "",
       });
       setLines(
         fullEntry.lines?.map((line: any) => ({
@@ -198,7 +214,7 @@ export default function JournalEntries() {
   };
 
   const resetForm = () => {
-    setFormData({ entryDate: new Date().toISOString().split("T")[0], description: "", reference: "", referenceType: "manual" });
+    setFormData({ entryDate: new Date().toISOString().split("T")[0], description: "", reference: "", referenceType: "manual", fundingSourceId: "" });
     setLines([
       { accountId: "", description: "", debitAmount: "", creditAmount: "" },
       { accountId: "", description: "", debitAmount: "", creditAmount: "" },
@@ -280,7 +296,7 @@ export default function JournalEntries() {
               <DialogTitle>{editingEntry ? "Edit Journal Entry" : "Create Journal Entry"}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-4 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="entryDate">Entry Date</Label>
                   <Input id="entryDate" type="date" value={formData.entryDate} onChange={(e) => setFormData(prev => ({ ...prev, entryDate: e.target.value }))} required data-testid="input-entry-date" />
@@ -301,6 +317,20 @@ export default function JournalEntries() {
                       <SelectItem value="loan_repayment">Financing Repayment</SelectItem>
                       <SelectItem value="expense">Expense</SelectItem>
                       <SelectItem value="income">Income</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="fundingSource">Fund</Label>
+                  <Select value={formData.fundingSourceId} onValueChange={(val) => setFormData(prev => ({ ...prev, fundingSourceId: val === "none" ? "" : val }))}>
+                    <SelectTrigger data-testid="select-funding-source">
+                      <SelectValue placeholder="Select fund..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {fundingSources.map((fs) => (
+                        <SelectItem key={fs.id} value={fs.id}>{fs.code} - {fs.name}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -382,9 +412,22 @@ export default function JournalEntries() {
 
       <Card>
         <CardHeader className="pb-3">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search entries..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} className="pl-9" data-testid="input-search" />
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Search entries..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} className="pl-9" data-testid="input-search" />
+            </div>
+            <Select value={fundingSourceFilter} onValueChange={(val) => { setFundingSourceFilter(val); setCurrentPage(1); }}>
+              <SelectTrigger className="w-[200px]" data-testid="filter-funding-source">
+                <SelectValue placeholder="All Funds" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Funds</SelectItem>
+                {fundingSources.map((fs) => (
+                  <SelectItem key={fs.id} value={fs.id}>{fs.code} - {fs.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </CardHeader>
         <CardContent>
@@ -400,6 +443,7 @@ export default function JournalEntries() {
                   <TableHead>Date</TableHead>
                   <TableHead>Description</TableHead>
                   <TableHead>Reference</TableHead>
+                  <TableHead>Fund</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Actions</TableHead>
@@ -412,6 +456,7 @@ export default function JournalEntries() {
                     <TableCell>{formatDate(entry.entryDate)}</TableCell>
                     <TableCell className="max-w-[200px] truncate">{entry.description}</TableCell>
                     <TableCell>{entry.reference || "-"}</TableCell>
+                    <TableCell className="text-sm">{(entry as any).fundingSourceName || "-"}</TableCell>
                     <TableCell className="text-right font-mono">{formatCurrency(entry.totalDebit)}</TableCell>
                     <TableCell>
                       {entry.isReversed ? (
@@ -447,7 +492,7 @@ export default function JournalEntries() {
                   </TableRow>
                 )) : (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                       No journal entries found. Click "New Entry" to create one.
                     </TableCell>
                   </TableRow>
@@ -497,10 +542,11 @@ export default function JournalEntries() {
           </DialogHeader>
           {selectedEntry && (
             <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-4 text-sm">
+              <div className="grid grid-cols-2 gap-4 text-sm">
                 <div><span className="text-muted-foreground">Date:</span> {formatDate(selectedEntry.entryDate)}</div>
                 <div><span className="text-muted-foreground">Reference:</span> {selectedEntry.reference || "-"}</div>
                 <div><span className="text-muted-foreground">Type:</span> {selectedEntry.referenceType}</div>
+                <div><span className="text-muted-foreground">Fund:</span> {(selectedEntry as any).fundingSourceName || "-"}</div>
               </div>
               <div><span className="text-muted-foreground text-sm">Description:</span> <p>{selectedEntry.description}</p></div>
               <Table>

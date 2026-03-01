@@ -2408,6 +2408,7 @@ export async function registerRoutes(
               reference: loan.applicationId,
               referenceType: "disbursement",
               referenceId: loan.id,
+              fundingSourceId: loan.fundingSourceId || null,
               isPosted: true,
               createdBy: req.session.userId,
               postedBy: req.session.userId,
@@ -2556,6 +2557,7 @@ export async function registerRoutes(
                 reference: appId,
                 referenceType: "disbursement",
                 referenceId: loan.id,
+                fundingSourceId: loan.fundingSourceId || null,
                 isPosted: true,
                 createdBy: req.session.userId,
                 postedBy: req.session.userId,
@@ -2729,6 +2731,7 @@ export async function registerRoutes(
                     reference: applicationId,
                     referenceType: "disbursement",
                     referenceId: loan.id,
+                    fundingSourceId: loan.fundingSourceId || null,
                     isPosted: true,
                     createdBy: userId,
                     postedBy: userId,
@@ -3144,6 +3147,7 @@ export async function registerRoutes(
               reference: loanAppId,
               referenceType: "collection",
               referenceId: firstInstallment.id,
+              fundingSourceId: loan?.fundingSourceId || null,
               isPosted: true,
               createdBy: req.session.userId,
               postedBy: req.session.userId,
@@ -4189,15 +4193,23 @@ export async function registerRoutes(
   app.get("/api/journal-entries", isAuthenticated, async (req, res) => {
     try {
       const { search, startDate, endDate, isPosted, page, limit } = req.query;
+      const fundingSourceId = req.query.fundingSourceId as string | undefined;
       const result = await storage.getJournalEntries({
         search: search as string,
         startDate: startDate as string,
         endDate: endDate as string,
         isPosted: isPosted === 'true' ? true : isPosted === 'false' ? false : undefined,
+        fundingSourceId: fundingSourceId && fundingSourceId !== "all" ? fundingSourceId : undefined,
         page: page ? parseInt(page as string) : 1,
         limit: limit ? parseInt(limit as string) : 50,
       });
-      res.json(result);
+      const allFundingSources = await storage.getFundingSources();
+      const fsMap = new Map(allFundingSources.map((fs: any) => [fs.id, fs.name]));
+      const enrichedEntries = result.entries.map((e: any) => ({
+        ...e,
+        fundingSourceName: e.fundingSourceId ? fsMap.get(e.fundingSourceId) || null : null,
+      }));
+      res.json({ ...result, entries: enrichedEntries });
     } catch (error) {
       console.error("Error fetching journal entries:", error);
       res.status(500).json({ message: "Failed to fetch journal entries" });
@@ -4220,7 +4232,12 @@ export async function registerRoutes(
       if (!entry) {
         return res.status(404).json({ message: "Journal entry not found" });
       }
-      res.json(entry);
+      let fundingSourceName = null;
+      if (entry.fundingSourceId) {
+        const fs = await storage.getFundingSource(entry.fundingSourceId);
+        fundingSourceName = fs?.name || null;
+      }
+      res.json({ ...entry, fundingSourceName });
     } catch (error) {
       console.error("Error fetching journal entry:", error);
       res.status(500).json({ message: "Failed to fetch journal entry" });
@@ -4277,7 +4294,7 @@ export async function registerRoutes(
   app.patch("/api/journal-entries/:id", isAuthenticated, async (req: any, res) => {
     try {
       const { id } = req.params;
-      const { entryDate, description, reference, referenceType, lines } = req.body;
+      const { entryDate, description, reference, referenceType, fundingSourceId, lines } = req.body;
       
       // Get existing entry
       const existingEntry = await storage.getJournalEntry(id);
@@ -4314,6 +4331,7 @@ export async function registerRoutes(
         description,
         reference: reference || null,
         referenceType: referenceType || null,
+        fundingSourceId: fundingSourceId || null,
         totalDebit: String(totalDebit),
         totalCredit: String(totalCredit),
         lines,

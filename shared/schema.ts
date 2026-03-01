@@ -543,6 +543,7 @@ export const journalEntries = pgTable("journal_entries", {
   reference: varchar("reference", { length: 255 }), // e.g., Loan ID, Invoice No
   referenceType: varchar("reference_type", { length: 50 }), // loan_disbursement, payment, manual
   referenceId: varchar("reference_id"), // ID of related entity
+  fundingSourceId: varchar("funding_source_id").references(() => fundingSources.id),
   fiscalPeriodId: varchar("fiscal_period_id").references(() => fiscalPeriods.id),
   totalDebit: decimal("total_debit", { precision: 15, scale: 2 }).default("0"),
   totalCredit: decimal("total_credit", { precision: 15, scale: 2 }).default("0"),

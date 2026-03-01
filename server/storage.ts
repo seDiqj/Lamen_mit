@@ -343,7 +343,7 @@ export interface IStorage {
   closeFiscalPeriod(id: string, closedBy: string): Promise<void>;
   
   // Accounting - Journal Entries
-  getJournalEntries(filters?: { search?: string; startDate?: string; endDate?: string; isPosted?: boolean; page?: number; limit?: number }): Promise<{ entries: any[]; total: number; page: number; totalPages: number }>;
+  getJournalEntries(filters?: { search?: string; startDate?: string; endDate?: string; isPosted?: boolean; fundingSourceId?: string; page?: number; limit?: number }): Promise<{ entries: any[]; total: number; page: number; totalPages: number }>;
   getJournalEntry(id: string): Promise<any | undefined>;
   createJournalEntry(header: any, lines: any[]): Promise<any>;
   updateJournalEntry(id: string, data: any): Promise<any>;
@@ -3854,7 +3854,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Journal Entries
-  async getJournalEntries(filters?: { search?: string; startDate?: string; endDate?: string; isPosted?: boolean; page?: number; limit?: number }): Promise<{ entries: any[]; total: number; page: number; totalPages: number }> {
+  async getJournalEntries(filters?: { search?: string; startDate?: string; endDate?: string; isPosted?: boolean; fundingSourceId?: string; page?: number; limit?: number }): Promise<{ entries: any[]; total: number; page: number; totalPages: number }> {
     const page = filters?.page || 1;
     const limit = filters?.limit || 50;
     const offset = (page - 1) * limit;
@@ -3875,6 +3875,9 @@ export class DatabaseStorage implements IStorage {
     }
     if (filters?.isPosted !== undefined) {
       conditions.push(eq(journalEntries.isPosted, filters.isPosted));
+    }
+    if (filters?.fundingSourceId) {
+      conditions.push(eq(journalEntries.fundingSourceId, filters.fundingSourceId));
     }
     
     // Get total count
@@ -4072,6 +4075,7 @@ export class DatabaseStorage implements IStorage {
       reference: original.reference,
       referenceType: 'reversal',
       referenceId: original.id,
+      fundingSourceId: original.fundingSourceId,
       createdBy,
     }, reversedLines);
     
