@@ -5262,11 +5262,12 @@ export async function registerRoutes(
 
   app.get("/api/reports/account-statement/:accountId", isAuthenticated, async (req, res) => {
     try {
-      const { startDate, endDate } = req.query;
+      const { startDate, endDate, fundingSourceId } = req.query;
       const statement = await storage.getAccountStatement(
         req.params.accountId,
         startDate as string,
-        endDate as string
+        endDate as string,
+        fundingSourceId as string | undefined
       );
       if (!statement) {
         return res.status(404).json({ message: "Account not found" });

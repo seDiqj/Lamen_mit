@@ -357,7 +357,7 @@ export interface IStorage {
   getTrialBalance(asOfDate?: string): Promise<any[]>;
   getIncomeStatement(startDate: string, endDate: string): Promise<any>;
   getBalanceSheet(asOfDate: string): Promise<any>;
-  getAccountStatement(accountId: string, startDate?: string, endDate?: string): Promise<any>;
+  getAccountStatement(accountId: string, startDate?: string, endDate?: string, fundingSourceId?: string): Promise<any>;
   getCashFlowStatement(startDate: string, endDate: string): Promise<any>;
   getNextEntryNumber(): Promise<string>;
   
@@ -4573,14 +4573,23 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getAccountStatement(accountId: string, startDate?: string, endDate?: string): Promise<any> {
+  async getAccountStatement(accountId: string, startDate?: string, endDate?: string, fundingSourceId?: string): Promise<any> {
     const [account] = await db.select().from(accounts).where(eq(accounts.id, accountId));
     if (!account) return null;
 
     const baseOpeningBalance = Number(account.openingBalance || 0);
-    let openingBalance = baseOpeningBalance;
+    let openingBalance = fundingSourceId ? 0 : baseOpeningBalance;
 
     if (startDate) {
+      const priorConditions: any[] = [
+        eq(journalLines.accountId, accountId),
+        eq(journalEntries.isPosted, true),
+        sql`${journalEntries.entryDate} < ${startDate}`,
+      ];
+      if (fundingSourceId) {
+        priorConditions.push(eq(journalLines.fundingSourceId, fundingSourceId));
+      }
+
       const priorTxns = await db
         .select({
           debitAmount: journalLines.debitAmount,
@@ -4588,11 +4597,7 @@ export class DatabaseStorage implements IStorage {
         })
         .from(journalLines)
         .leftJoin(journalEntries, eq(journalLines.journalEntryId, journalEntries.id))
-        .where(and(
-          eq(journalLines.accountId, accountId),
-          eq(journalEntries.isPosted, true),
-          sql`${journalEntries.entryDate} < ${startDate}`
-        ));
+        .where(and(...priorConditions));
 
       for (const tx of priorTxns) {
         const debit = Number(tx.debitAmount || 0);
@@ -4611,6 +4616,9 @@ export class DatabaseStorage implements IStorage {
     ];
     if (startDate) conditions.push(gte(journalEntries.entryDate, startDate));
     if (endDate) conditions.push(lte(journalEntries.entryDate, endDate));
+    if (fundingSourceId) {
+      conditions.push(eq(journalLines.fundingSourceId, fundingSourceId));
+    }
 
     const transactions = await db
       .select({
@@ -4620,6 +4628,7 @@ export class DatabaseStorage implements IStorage {
         reference: journalEntries.reference,
         debitAmount: journalLines.debitAmount,
         creditAmount: journalLines.creditAmount,
+        fundingSourceId: journalLines.fundingSourceId,
       })
       .from(journalLines)
       .leftJoin(journalEntries, eq(journalLines.journalEntryId, journalEntries.id))

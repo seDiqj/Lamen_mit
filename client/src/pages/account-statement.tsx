@@ -6,6 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableAccountSelect } from "@/components/searchable-account-select";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -27,6 +34,12 @@ type Account = {
   accountType: string;
 };
 
+type FundingSource = {
+  id: string;
+  name: string;
+  code: string;
+};
+
 type Transaction = {
   entryDate: string;
   entryNumber: string;
@@ -46,6 +59,7 @@ type StatementData = {
 
 export default function AccountStatement() {
   const [selectedAccount, setSelectedAccount] = useState<string>("");
+  const [selectedFundingSource, setSelectedFundingSource] = useState<string>("all");
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
     d.setMonth(d.getMonth() - 1);
@@ -59,11 +73,19 @@ export default function AccountStatement() {
     queryKey: ["/api/accounts"],
   });
 
+  const { data: fundingSources = [] } = useQuery<FundingSource[]>({
+    queryKey: ["/api/funding-sources"],
+  });
+
   const fetchStatement = async () => {
     if (!selectedAccount) return;
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/reports/account-statement/${selectedAccount}?startDate=${startDate}&endDate=${endDate}`, { credentials: "include" });
+      const params = new URLSearchParams({ startDate, endDate });
+      if (selectedFundingSource && selectedFundingSource !== "all") {
+        params.set("fundingSourceId", selectedFundingSource);
+      }
+      const res = await fetch(`/api/reports/account-statement/${selectedAccount}?${params}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
       setStatement(data);
@@ -313,6 +335,20 @@ export default function AccountStatement() {
                 />
               </div>
               <div className="space-y-2">
+                <Label>Fund</Label>
+                <Select value={selectedFundingSource} onValueChange={setSelectedFundingSource}>
+                  <SelectTrigger className="w-[180px]" data-testid="select-funding-source">
+                    <SelectValue placeholder="All Funds" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Funds</SelectItem>
+                    {fundingSources.map((fs) => (
+                      <SelectItem key={fs.id} value={fs.id}>{fs.code} - {fs.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
                 <Label>Start Date</Label>
                 <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} data-testid="input-start-date" />
               </div>
@@ -336,6 +372,10 @@ export default function AccountStatement() {
                 <CardTitle className="text-xl">{statement.account.accountCode} - {statement.account.accountName}</CardTitle>
                 <p className="text-muted-foreground text-sm mt-1">
                   Statement period: {formatDate(startDate)} to {formatDate(endDate)}
+                  {selectedFundingSource !== "all" && (() => {
+                    const fs = fundingSources.find(f => f.id === selectedFundingSource);
+                    return fs ? ` | Fund: ${fs.code} - ${fs.name}` : "";
+                  })()}
                 </p>
               </div>
               <div className="text-right">
