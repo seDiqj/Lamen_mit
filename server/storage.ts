@@ -358,6 +358,7 @@ export interface IStorage {
   getIncomeStatement(startDate: string, endDate: string): Promise<any>;
   getBalanceSheet(asOfDate: string): Promise<any>;
   getAccountStatement(accountId: string, startDate?: string, endDate?: string, fundingSourceId?: string): Promise<any>;
+  getFundingSourceStatement(fundingSourceId: string, startDate?: string, endDate?: string): Promise<any>;
   getCashFlowStatement(startDate: string, endDate: string): Promise<any>;
   getNextEntryNumber(): Promise<string>;
   
@@ -4654,6 +4655,80 @@ export class DatabaseStorage implements IStorage {
 
     return {
       account,
+      openingBalance,
+      transactions: statement,
+      closingBalance: runningBalance,
+    };
+  }
+
+  async getFundingSourceStatement(fundingSourceId: string, startDate?: string, endDate?: string): Promise<any> {
+    const [fund] = await db.select().from(fundingSources).where(eq(fundingSources.id, fundingSourceId));
+    if (!fund) return null;
+
+    let openingBalance = 0;
+
+    if (startDate) {
+      const priorTxns = await db
+        .select({
+          debitAmount: journalLines.debitAmount,
+          creditAmount: journalLines.creditAmount,
+          accountType: accounts.accountType,
+        })
+        .from(journalLines)
+        .leftJoin(journalEntries, eq(journalLines.journalEntryId, journalEntries.id))
+        .leftJoin(accounts, eq(journalLines.accountId, accounts.id))
+        .where(and(
+          eq(journalLines.fundingSourceId, fundingSourceId),
+          eq(journalEntries.isPosted, true),
+          sql`${journalEntries.entryDate} < ${startDate}`
+        ));
+
+      for (const tx of priorTxns) {
+        const debit = Number(tx.debitAmount || 0);
+        const credit = Number(tx.creditAmount || 0);
+        openingBalance += credit - debit;
+      }
+    }
+
+    const conditions: any[] = [
+      eq(journalLines.fundingSourceId, fundingSourceId),
+      eq(journalEntries.isPosted, true),
+    ];
+    if (startDate) conditions.push(gte(journalEntries.entryDate, startDate));
+    if (endDate) conditions.push(lte(journalEntries.entryDate, endDate));
+
+    const transactions = await db
+      .select({
+        entryDate: journalEntries.entryDate,
+        entryNumber: journalEntries.entryNumber,
+        description: journalLines.description,
+        reference: journalEntries.reference,
+        accountCode: accounts.accountCode,
+        accountName: accounts.accountName,
+        accountType: accounts.accountType,
+        debitAmount: journalLines.debitAmount,
+        creditAmount: journalLines.creditAmount,
+      })
+      .from(journalLines)
+      .leftJoin(journalEntries, eq(journalLines.journalEntryId, journalEntries.id))
+      .leftJoin(accounts, eq(journalLines.accountId, accounts.id))
+      .where(and(...conditions))
+      .orderBy(asc(journalEntries.entryDate));
+
+    let runningBalance = openingBalance;
+    const statement = transactions.map(tx => {
+      const debit = Number(tx.debitAmount || 0);
+      const credit = Number(tx.creditAmount || 0);
+      runningBalance += credit - debit;
+
+      return {
+        ...tx,
+        balance: runningBalance,
+      };
+    });
+
+    return {
+      fundingSource: fund,
       openingBalance,
       transactions: statement,
       closingBalance: runningBalance,

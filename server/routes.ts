@@ -5279,6 +5279,24 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/reports/funding-source-statement/:fundingSourceId", isAuthenticated, async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      const statement = await storage.getFundingSourceStatement(
+        req.params.fundingSourceId,
+        startDate as string,
+        endDate as string
+      );
+      if (!statement) {
+        return res.status(404).json({ message: "Funding source not found" });
+      }
+      res.json(statement);
+    } catch (error) {
+      console.error("Error fetching funding source statement:", error);
+      res.status(500).json({ message: "Failed to fetch funding source statement" });
+    }
+  });
+
   // ============== HR Module Routes ==============
   
   // HR Departments
