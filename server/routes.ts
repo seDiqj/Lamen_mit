@@ -2376,18 +2376,21 @@ export async function registerRoutes(
           const entryDate = baseDate.toISOString().split("T")[0];
           const description = `Disbursement: ${customerName} (${loan.applicationId}) - AFN ${disbursementAmount.toLocaleString()}`;
 
+          const loanFundId = loan.fundingSourceId || null;
           const lines: any[] = [
             {
               accountId: debitAccount.id,
               description: `Loan receivable - ${customerName} (${loan.applicationId})`,
               debitAmount: totalReceivableAmount.toFixed(2),
               creditAmount: "0",
+              fundingSourceId: loanFundId,
             },
             {
               accountId: creditAccount.id,
               description: `Cash disbursed - ${customerName} (${loan.applicationId})`,
               debitAmount: "0",
               creditAmount: disbursementAmount.toFixed(2),
+              fundingSourceId: loanFundId,
             },
           ];
 
@@ -2397,6 +2400,7 @@ export async function registerRoutes(
               description: `Loan margin - ${customerName} (${loan.applicationId})`,
               debitAmount: "0",
               creditAmount: marginAmount.toFixed(2),
+              fundingSourceId: loanFundId,
             });
           }
 
@@ -2408,7 +2412,7 @@ export async function registerRoutes(
               reference: loan.applicationId,
               referenceType: "disbursement",
               referenceId: loan.id,
-              fundingSourceId: loan.fundingSourceId || null,
+              fundingSourceId: loanFundId,
               isPosted: true,
               createdBy: req.session.userId,
               postedBy: req.session.userId,
@@ -2505,6 +2509,7 @@ export async function registerRoutes(
               description: `Loan margin - ${customerName} (${appId})`,
               debitAmount: "0",
               creditAmount: marginAmount.toFixed(2),
+              fundingSourceId: loan.fundingSourceId || null,
             });
 
             const debitLine = existingLines.find((line: any) => parseFloat(line.debitAmount || "0") > 0);
@@ -2528,24 +2533,28 @@ export async function registerRoutes(
             const entryNumber = await storage.getNextEntryNumber();
             const description = `Disbursement: ${customerName} (${appId}) - AFN ${principalAmount.toLocaleString()}`;
 
+            const fixFundId = loan.fundingSourceId || null;
             const lines: any[] = [
               {
                 accountId: debitAccount.id,
                 description: `Loan receivable - ${customerName} (${appId})`,
                 debitAmount: totalReceivableAmount.toFixed(2),
                 creditAmount: "0",
+                fundingSourceId: fixFundId,
               },
               {
                 accountId: creditAccount.id,
                 description: `Cash disbursed - ${customerName} (${appId})`,
                 debitAmount: "0",
                 creditAmount: principalAmount.toFixed(2),
+                fundingSourceId: fixFundId,
               },
               {
                 accountId: marginCreditAccount.id,
                 description: `Loan margin - ${customerName} (${appId})`,
                 debitAmount: "0",
                 creditAmount: marginAmount.toFixed(2),
+                fundingSourceId: fixFundId,
               },
             ];
 
@@ -2557,7 +2566,7 @@ export async function registerRoutes(
                 reference: appId,
                 referenceType: "disbursement",
                 referenceId: loan.id,
-                fundingSourceId: loan.fundingSourceId || null,
+                fundingSourceId: fixFundId,
                 isPosted: true,
                 createdBy: req.session.userId,
                 postedBy: req.session.userId,
@@ -2711,9 +2720,10 @@ export async function registerRoutes(
 
               if (debitAccount && creditAccount && disbursementAmount > 0) {
                 const entryNumber = await storage.getNextEntryNumber();
+                const bulkFundId = loan.fundingSourceId || null;
                 const bulkLines: any[] = [
-                  { accountId: debitAccount.id, description: `Loan receivable - ${customerName}`, debitAmount: bulkTotalReceivable.toFixed(2), creditAmount: "0" },
-                  { accountId: creditAccount.id, description: `Cash disbursed - ${customerName}`, debitAmount: "0", creditAmount: disbursementAmount.toFixed(2) },
+                  { accountId: debitAccount.id, description: `Loan receivable - ${customerName}`, debitAmount: bulkTotalReceivable.toFixed(2), creditAmount: "0", fundingSourceId: bulkFundId },
+                  { accountId: creditAccount.id, description: `Cash disbursed - ${customerName}`, debitAmount: "0", creditAmount: disbursementAmount.toFixed(2), fundingSourceId: bulkFundId },
                 ];
                 if (bulkMarginCreditAccount && bulkMarginAmount > 0) {
                   bulkLines.push({
@@ -2721,6 +2731,7 @@ export async function registerRoutes(
                     description: `Loan margin - ${customerName} (${applicationId})`,
                     debitAmount: "0",
                     creditAmount: bulkMarginAmount.toFixed(2),
+                    fundingSourceId: bulkFundId,
                   });
                 }
                 await storage.createJournalEntry(
@@ -2731,7 +2742,7 @@ export async function registerRoutes(
                     reference: applicationId,
                     referenceType: "disbursement",
                     referenceId: loan.id,
-                    fundingSourceId: loan.fundingSourceId || null,
+                    fundingSourceId: bulkFundId,
                     isPosted: true,
                     createdBy: userId,
                     postedBy: userId,
@@ -3124,18 +3135,21 @@ export async function registerRoutes(
           const entryDate = parsed.paymentDate || new Date().toISOString().split("T")[0];
           const description = `Collection: ${customerName} (${loanAppId}) - Inst ${installmentNums} - AFN ${parsed.amount.toLocaleString()}`;
 
+          const collFundId = loan?.fundingSourceId || null;
           const lines: any[] = [
             {
               accountId: debitAccount.id,
               description: `Cash received - ${customerName} Inst ${installmentNums}`,
               debitAmount: result.totalApplied.toFixed(2),
               creditAmount: "0",
+              fundingSourceId: collFundId,
             },
             {
               accountId: creditAccount.id,
               description: `Loan receivable - ${customerName} Inst ${installmentNums}`,
               debitAmount: "0",
               creditAmount: result.totalApplied.toFixed(2),
+              fundingSourceId: collFundId,
             },
           ];
 
@@ -3147,7 +3161,7 @@ export async function registerRoutes(
               reference: loanAppId,
               referenceType: "collection",
               referenceId: firstInstallment.id,
-              fundingSourceId: loan?.fundingSourceId || null,
+              fundingSourceId: collFundId,
               isPosted: true,
               createdBy: req.session.userId,
               postedBy: req.session.userId,

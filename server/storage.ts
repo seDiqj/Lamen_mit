@@ -3877,7 +3877,12 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(journalEntries.isPosted, filters.isPosted));
     }
     if (filters?.fundingSourceId) {
-      conditions.push(eq(journalEntries.fundingSourceId, filters.fundingSourceId));
+      conditions.push(
+        or(
+          eq(journalEntries.fundingSourceId, filters.fundingSourceId),
+          sql`EXISTS (SELECT 1 FROM journal_lines WHERE journal_lines.journal_entry_id = journal_entries.id AND journal_lines.funding_source_id = ${filters.fundingSourceId})`
+        )
+      );
     }
     
     // Get total count
@@ -3920,9 +3925,12 @@ export class DatabaseStorage implements IStorage {
         description: journalLines.description,
         debitAmount: journalLines.debitAmount,
         creditAmount: journalLines.creditAmount,
+        fundingSourceId: journalLines.fundingSourceId,
+        fundingSourceName: fundingSources.name,
       })
       .from(journalLines)
       .leftJoin(accounts, eq(journalLines.accountId, accounts.id))
+      .leftJoin(fundingSources, eq(journalLines.fundingSourceId, fundingSources.id))
       .where(eq(journalLines.journalEntryId, id));
     
     return { ...entry, lines };
@@ -3969,7 +3977,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateJournalEntry(id: string, data: any): Promise<JournalEntry> {
-    const { entryDate, description, reference, referenceType, totalDebit, totalCredit, lines } = data;
+    const { entryDate, description, reference, referenceType, fundingSourceId, totalDebit, totalCredit, lines } = data;
     
     return await db.transaction(async (tx) => {
       const [entry] = await tx.update(journalEntries)
@@ -3978,6 +3986,7 @@ export class DatabaseStorage implements IStorage {
           description,
           reference,
           referenceType,
+          fundingSourceId: fundingSourceId || null,
           totalDebit,
           totalCredit,
         })
@@ -3993,6 +4002,7 @@ export class DatabaseStorage implements IStorage {
           description: line.description || null,
           debitAmount: String(line.debitAmount || "0"),
           creditAmount: String(line.creditAmount || "0"),
+          fundingSourceId: line.fundingSourceId || null,
         });
       }
       
@@ -4066,6 +4076,7 @@ export class DatabaseStorage implements IStorage {
       description: `Reversal: ${line.description || ''}`,
       debitAmount: line.creditAmount,
       creditAmount: line.debitAmount,
+      fundingSourceId: line.fundingSourceId || null,
     }));
     
     const reversalEntry = await this.createJournalEntry({

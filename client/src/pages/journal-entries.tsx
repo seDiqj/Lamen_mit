@@ -57,6 +57,7 @@ type JournalLine = {
   description: string;
   debitAmount: string;
   creditAmount: string;
+  fundingSourceId: string;
 };
 
 type FundingSource = {
@@ -106,12 +107,11 @@ export default function JournalEntries() {
     description: "",
     reference: "",
     referenceType: "manual",
-    fundingSourceId: "",
   });
 
   const [lines, setLines] = useState<JournalLine[]>([
-    { accountId: "", description: "", debitAmount: "", creditAmount: "" },
-    { accountId: "", description: "", debitAmount: "", creditAmount: "" },
+    { accountId: "", description: "", debitAmount: "", creditAmount: "", fundingSourceId: "" },
+    { accountId: "", description: "", debitAmount: "", creditAmount: "", fundingSourceId: "" },
   ]);
 
   const { data: paginatedData, isLoading } = useQuery<PaginatedResponse>({
@@ -139,7 +139,7 @@ export default function JournalEntries() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: { entryDate: string; description: string; reference: string; referenceType: string; fundingSourceId: string; lines: JournalLine[] }) =>
+    mutationFn: (data: { entryDate: string; description: string; reference: string; referenceType: string; lines: JournalLine[] }) =>
       apiRequest("POST", "/api/journal-entries", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/journal-entries"] });
@@ -171,7 +171,7 @@ export default function JournalEntries() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: { id: string; entryDate: string; description: string; reference: string; referenceType: string; fundingSourceId: string; lines: JournalLine[] }) =>
+    mutationFn: (data: { id: string; entryDate: string; description: string; reference: string; referenceType: string; lines: JournalLine[] }) =>
       apiRequest("PATCH", `/api/journal-entries/${data.id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/journal-entries"] });
@@ -194,7 +194,6 @@ export default function JournalEntries() {
         description: fullEntry.description || "",
         reference: fullEntry.reference || "",
         referenceType: fullEntry.referenceType || "manual",
-        fundingSourceId: fullEntry.fundingSourceId || "",
       });
       setLines(
         fullEntry.lines?.map((line: any) => ({
@@ -202,9 +201,10 @@ export default function JournalEntries() {
           description: line.description || "",
           debitAmount: line.debitAmount || "",
           creditAmount: line.creditAmount || "",
+          fundingSourceId: line.fundingSourceId || "",
         })) || [
-          { accountId: "", description: "", debitAmount: "", creditAmount: "" },
-          { accountId: "", description: "", debitAmount: "", creditAmount: "" },
+          { accountId: "", description: "", debitAmount: "", creditAmount: "", fundingSourceId: "" },
+          { accountId: "", description: "", debitAmount: "", creditAmount: "", fundingSourceId: "" },
         ]
       );
       setDialogOpen(true);
@@ -214,15 +214,15 @@ export default function JournalEntries() {
   };
 
   const resetForm = () => {
-    setFormData({ entryDate: new Date().toISOString().split("T")[0], description: "", reference: "", referenceType: "manual", fundingSourceId: "" });
+    setFormData({ entryDate: new Date().toISOString().split("T")[0], description: "", reference: "", referenceType: "manual" });
     setLines([
-      { accountId: "", description: "", debitAmount: "", creditAmount: "" },
-      { accountId: "", description: "", debitAmount: "", creditAmount: "" },
+      { accountId: "", description: "", debitAmount: "", creditAmount: "", fundingSourceId: "" },
+      { accountId: "", description: "", debitAmount: "", creditAmount: "", fundingSourceId: "" },
     ]);
   };
 
   const addLine = () => {
-    setLines([...lines, { accountId: "", description: "", debitAmount: "", creditAmount: "" }]);
+    setLines([...lines, { accountId: "", description: "", debitAmount: "", creditAmount: "", fundingSourceId: "" }]);
   };
 
   const removeLine = (index: number) => {
@@ -237,7 +237,9 @@ export default function JournalEntries() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const validLines = lines.filter(l => l.accountId && (Number(l.debitAmount) > 0 || Number(l.creditAmount) > 0));
+    const validLines = lines
+      .filter(l => l.accountId && (Number(l.debitAmount) > 0 || Number(l.creditAmount) > 0))
+      .map(l => ({ ...l, fundingSourceId: l.fundingSourceId || "" }));
     if (validLines.length < 2) {
       toast({ title: "Error", description: "At least two valid lines are required", variant: "destructive" });
       return;
@@ -296,7 +298,7 @@ export default function JournalEntries() {
               <DialogTitle>{editingEntry ? "Edit Journal Entry" : "Create Journal Entry"}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="entryDate">Entry Date</Label>
                   <Input id="entryDate" type="date" value={formData.entryDate} onChange={(e) => setFormData(prev => ({ ...prev, entryDate: e.target.value }))} required data-testid="input-entry-date" />
@@ -320,20 +322,6 @@ export default function JournalEntries() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="fundingSource">Fund</Label>
-                  <Select value={formData.fundingSourceId} onValueChange={(val) => setFormData(prev => ({ ...prev, fundingSourceId: val === "none" ? "" : val }))}>
-                    <SelectTrigger data-testid="select-funding-source">
-                      <SelectValue placeholder="Select fund..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      {fundingSources.map((fs) => (
-                        <SelectItem key={fs.id} value={fs.id}>{fs.code} - {fs.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="description">Description</Label>
@@ -350,10 +338,11 @@ export default function JournalEntries() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[250px]">Account</TableHead>
+                      <TableHead className="w-[220px]">Account</TableHead>
                       <TableHead>Description</TableHead>
-                      <TableHead className="w-32 text-right">Debit</TableHead>
-                      <TableHead className="w-32 text-right">Credit</TableHead>
+                      <TableHead className="w-[150px]">Fund</TableHead>
+                      <TableHead className="w-28 text-right">Debit</TableHead>
+                      <TableHead className="w-28 text-right">Credit</TableHead>
                       <TableHead className="w-12"></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -374,6 +363,19 @@ export default function JournalEntries() {
                           <Input value={line.description} onChange={(e) => updateLine(index, "description", e.target.value)} placeholder="Line description" data-testid={`input-line-desc-${index}`} />
                         </TableCell>
                         <TableCell>
+                          <Select value={line.fundingSourceId || "none"} onValueChange={(val) => updateLine(index, "fundingSourceId", val === "none" ? "" : val)}>
+                            <SelectTrigger className="h-9 text-xs" data-testid={`select-fund-${index}`}>
+                              <SelectValue placeholder="Fund..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">None</SelectItem>
+                              {fundingSources.map((fs) => (
+                                <SelectItem key={fs.id} value={fs.id}>{fs.code} - {fs.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
                           <Input type="number" step="0.01" min="0" value={line.debitAmount} onChange={(e) => updateLine(index, "debitAmount", e.target.value)} className="text-right" data-testid={`input-debit-${index}`} />
                         </TableCell>
                         <TableCell>
@@ -387,7 +389,7 @@ export default function JournalEntries() {
                       </TableRow>
                     ))}
                     <TableRow className="font-semibold bg-muted/50">
-                      <TableCell colSpan={2} className="text-right">Totals:</TableCell>
+                      <TableCell colSpan={3} className="text-right">Totals:</TableCell>
                       <TableCell className="text-right">{formatCurrency(totalDebit.toString())}</TableCell>
                       <TableCell className="text-right">{formatCurrency(totalCredit.toString())}</TableCell>
                       <TableCell />
@@ -536,17 +538,16 @@ export default function JournalEntries() {
       </Card>
 
       <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Journal Entry: {selectedEntry?.entryNumber}</DialogTitle>
           </DialogHeader>
           {selectedEntry && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-3 gap-4 text-sm">
                 <div><span className="text-muted-foreground">Date:</span> {formatDate(selectedEntry.entryDate)}</div>
                 <div><span className="text-muted-foreground">Reference:</span> {selectedEntry.reference || "-"}</div>
                 <div><span className="text-muted-foreground">Type:</span> {selectedEntry.referenceType}</div>
-                <div><span className="text-muted-foreground">Fund:</span> {(selectedEntry as any).fundingSourceName || "-"}</div>
               </div>
               <div><span className="text-muted-foreground text-sm">Description:</span> <p>{selectedEntry.description}</p></div>
               <Table>
@@ -554,6 +555,7 @@ export default function JournalEntries() {
                   <TableRow>
                     <TableHead>Account</TableHead>
                     <TableHead>Description</TableHead>
+                    <TableHead>Fund</TableHead>
                     <TableHead className="text-right">Debit</TableHead>
                     <TableHead className="text-right">Credit</TableHead>
                   </TableRow>
@@ -563,12 +565,13 @@ export default function JournalEntries() {
                     <TableRow key={idx}>
                       <TableCell>{line.accountCode} - {line.accountName}</TableCell>
                       <TableCell>{line.description || "-"}</TableCell>
+                      <TableCell className="text-sm">{(line as any).fundingSourceName || "-"}</TableCell>
                       <TableCell className="text-right font-mono">{Number(line.debitAmount) > 0 ? formatCurrency(line.debitAmount) : "-"}</TableCell>
                       <TableCell className="text-right font-mono">{Number(line.creditAmount) > 0 ? formatCurrency(line.creditAmount) : "-"}</TableCell>
                     </TableRow>
                   ))}
                   <TableRow className="font-semibold bg-muted/50">
-                    <TableCell colSpan={2} className="text-right">Totals:</TableCell>
+                    <TableCell colSpan={3} className="text-right">Totals:</TableCell>
                     <TableCell className="text-right">{formatCurrency(selectedEntry.totalDebit)}</TableCell>
                     <TableCell className="text-right">{formatCurrency(selectedEntry.totalCredit)}</TableCell>
                   </TableRow>
