@@ -309,10 +309,26 @@ export default function PaymentsPage() {
     if (installment.isPaid) {
       return { label: "Paid", variant: "success" as const };
     }
-    if (installment.dueDate && new Date(installment.dueDate) < new Date()) {
-      return { label: "Overdue", variant: "destructive" as const };
+    return { label: "Unpaid", variant: "destructive" as const };
+  };
+
+  const calcLateDays = (installment: InstallmentWithDetails): number => {
+    if (!installment.dueDate) return 0;
+    const dueDate = new Date(installment.dueDate);
+    dueDate.setHours(0, 0, 0, 0);
+    if (installment.isPaid && installment.paymentDate) {
+      const payDate = new Date(installment.paymentDate);
+      payDate.setHours(0, 0, 0, 0);
+      const diff = Math.floor((payDate.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+      return Math.max(0, diff);
     }
-    return { label: "Pending", variant: "warning" as const };
+    if (!installment.isPaid) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const diff = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+      return Math.max(0, diff);
+    }
+    return 0;
   };
 
   const getStatementData = (loan: LoanItem) => {
@@ -806,22 +822,21 @@ export default function PaymentsPage() {
                                 className={
                                   status.label === "Paid" 
                                     ? "bg-green-500/10 text-green-700 dark:text-green-400"
-                                    : status.label === "Overdue"
-                                      ? "bg-red-500/10 text-red-700 dark:text-red-400"
-                                      : "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400"
+                                    : "bg-red-500/10 text-red-700 dark:text-red-400"
                                 }
                               >
                                 {status.label}
                               </Badge>
                             </TableCell>
                             <TableCell>
-                              {installment.lateDays ? (
-                                <span className="text-red-600 dark:text-red-400">
-                                  {installment.lateDays} days
-                                </span>
-                              ) : (
-                                "-"
-                              )}
+                              {(() => {
+                                const days = calcLateDays(installment);
+                                return days > 0 ? (
+                                  <span className="text-red-600 dark:text-red-400">
+                                    {days} days
+                                  </span>
+                                ) : "-";
+                              })()}
                             </TableCell>
                           </TableRow>
                         );
