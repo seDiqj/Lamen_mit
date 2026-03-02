@@ -25,6 +25,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import {
   Search,
   Download,
   DollarSign,
@@ -42,15 +50,25 @@ import {
   Hash,
   Target,
   BarChart3,
+  Filter,
+  Building2,
+  X,
 } from "lucide-react";
 import type { Installment } from "@shared/schema";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
+type Branch = {
+  id: string;
+  name: string;
+  code: string;
+};
+
 type InstallmentWithDetails = Installment & {
   loanApplicationId?: string;
   customerName?: string;
+  branchName?: string;
 };
 
 type LoanItem = {
@@ -124,10 +142,18 @@ export default function PaymentsPage() {
   const [repaidExpanded, setRepaidExpanded] = useState(false);
   const [showStatementDialog, setShowStatementDialog] = useState(false);
   const [selectedLoan, setSelectedLoan] = useState<LoanItem | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterCustomerName, setFilterCustomerName] = useState("");
+  const [filterApplicationId, setFilterApplicationId] = useState("");
+  const [filterBranch, setFilterBranch] = useState("all");
+  const [filterStartDate, setFilterStartDate] = useState("");
+  const [filterEndDate, setFilterEndDate] = useState("");
   const limit = 10;
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  const hasActiveFilters = filterCustomerName || filterApplicationId || (filterBranch && filterBranch !== "all") || filterStartDate || filterEndDate;
 
   const { data, isLoading } = useQuery<{
     installments: InstallmentWithDetails[];
@@ -135,17 +161,26 @@ export default function PaymentsPage() {
     page: number;
     totalPages: number;
   }>({
-    queryKey: ["/api/installments", search, page, limit, "currentMonth"],
+    queryKey: ["/api/installments", search, page, limit, "currentMonth", filterCustomerName, filterApplicationId, filterBranch, filterStartDate, filterEndDate],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
       params.set("page", String(page));
       params.set("limit", String(limit));
       params.set("currentMonthOnly", "true");
+      if (filterCustomerName) params.set("customerName", filterCustomerName);
+      if (filterApplicationId) params.set("applicationId", filterApplicationId);
+      if (filterBranch && filterBranch !== "all") params.set("branchId", filterBranch);
+      if (filterStartDate) params.set("startDate", filterStartDate);
+      if (filterEndDate) params.set("endDate", filterEndDate);
       const res = await fetch(`/api/installments?${params.toString()}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch installments");
       return res.json();
     },
+  });
+
+  const { data: branchesData = [] } = useQuery<Branch[]>({
+    queryKey: ["/api/branches"],
   });
 
   const { data: roleData } = useQuery<{ role: string }>({
@@ -607,13 +642,104 @@ export default function PaymentsPage() {
         <TabsContent value="list" className="mt-4">
           <Card>
             <CardHeader>
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2">
-                  <CardTitle className="text-base">Payments This Month</CardTitle>
-                  <Badge variant="outline" className="text-xs">
-                    {new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}
-                  </Badge>
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-base">Payments This Month</CardTitle>
+                    <Badge variant="outline" className="text-xs">
+                      {new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                    </Badge>
+                  </div>
+                  <Button
+                    variant={showFilters ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setShowFilters(!showFilters)}
+                    className="gap-2"
+                    data-testid="button-toggle-filters"
+                  >
+                    <Filter className="h-4 w-4" />
+                    Filters
+                    {hasActiveFilters && (
+                      <Badge className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-[10px] bg-red-500 text-white">!</Badge>
+                    )}
+                  </Button>
                 </div>
+                {showFilters && (
+                  <div className="flex flex-wrap items-end gap-3 p-3 bg-muted/30 rounded-lg border">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Customer Name</Label>
+                      <Input
+                        placeholder="Search customer..."
+                        className="h-9 w-[160px]"
+                        value={filterCustomerName}
+                        onChange={(e) => { setFilterCustomerName(e.target.value); setPage(1); }}
+                        data-testid="input-filter-customer"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Application ID</Label>
+                      <Input
+                        placeholder="Search ID..."
+                        className="h-9 w-[140px]"
+                        value={filterApplicationId}
+                        onChange={(e) => { setFilterApplicationId(e.target.value); setPage(1); }}
+                        data-testid="input-filter-application-id"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Branch</Label>
+                      <Select value={filterBranch} onValueChange={(v) => { setFilterBranch(v); setPage(1); }}>
+                        <SelectTrigger className="h-9 w-[150px]" data-testid="select-filter-branch">
+                          <SelectValue placeholder="All Branches" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Branches</SelectItem>
+                          {branchesData.map((b) => (
+                            <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Start Date</Label>
+                      <Input
+                        type="date"
+                        className="h-9 w-[140px]"
+                        value={filterStartDate}
+                        onChange={(e) => { setFilterStartDate(e.target.value); setPage(1); }}
+                        data-testid="input-filter-start-date"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">End Date</Label>
+                      <Input
+                        type="date"
+                        className="h-9 w-[140px]"
+                        value={filterEndDate}
+                        onChange={(e) => { setFilterEndDate(e.target.value); setPage(1); }}
+                        data-testid="input-filter-end-date"
+                      />
+                    </div>
+                    {hasActiveFilters && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-9 gap-1 text-red-600 hover:text-red-700"
+                        onClick={() => {
+                          setFilterCustomerName("");
+                          setFilterApplicationId("");
+                          setFilterBranch("all");
+                          setFilterStartDate("");
+                          setFilterEndDate("");
+                          setPage(1);
+                        }}
+                        data-testid="button-clear-filters"
+                      >
+                        <X className="h-4 w-4" /> Clear
+                      </Button>
+                    )}
+                  </div>
+                )}
                 <div className="flex flex-col sm:flex-row gap-4">
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

@@ -252,7 +252,7 @@ export interface IStorage {
   resetCommitteeVotes(loanId: string): Promise<void>;
   
   // Installments
-  getInstallments(filters: { search?: string; page?: number; limit?: number; currentMonthOnly?: boolean; paidOnly?: boolean }): Promise<{ installments: any[]; total: number }>;
+  getInstallments(filters: { search?: string; page?: number; limit?: number; currentMonthOnly?: boolean; paidOnly?: boolean; customerName?: string; applicationId?: string; branchId?: string; startDate?: string; endDate?: string }): Promise<{ installments: any[]; total: number }>;
   markInstallmentPaid(id: string): Promise<Installment>;
   getCollectionInstallments(filters: { filter?: string; branch?: string; officer?: string; search?: string; page?: number; limit?: number }): Promise<{ installments: any[]; total: number; summary: any }>;
   recordPartialPayment(id: string, amount: number, paymentDateStr?: string): Promise<Installment>;
@@ -1421,20 +1421,35 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Installments
-  async getInstallments(filters: { search?: string; page?: number; limit?: number; currentMonthOnly?: boolean; paidOnly?: boolean }): Promise<{ installments: any[]; total: number }> {
-    const { search, page = 1, limit = 10, currentMonthOnly = false, paidOnly = false } = filters;
+  async getInstallments(filters: { search?: string; page?: number; limit?: number; currentMonthOnly?: boolean; paidOnly?: boolean; customerName?: string; applicationId?: string; branchId?: string; startDate?: string; endDate?: string }): Promise<{ installments: any[]; total: number }> {
+    const { search, page = 1, limit = 10, currentMonthOnly = false, paidOnly = false, customerName, applicationId, branchId, startDate, endDate } = filters;
     const offset = (page - 1) * limit;
 
     const conditions: any[] = [];
-    if (currentMonthOnly) {
+    if (currentMonthOnly && !startDate && !endDate) {
       const now = new Date();
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
       const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
       conditions.push(sql`${installments.paymentDate} >= ${monthStart}`);
       conditions.push(sql`${installments.paymentDate} <= ${monthEnd}`);
     }
+    if (startDate) {
+      conditions.push(sql`${installments.paymentDate} >= ${startDate}`);
+    }
+    if (endDate) {
+      conditions.push(sql`${installments.paymentDate} <= ${endDate}`);
+    }
     if (paidOnly) {
       conditions.push(eq(installments.isPaid, true));
+    }
+    if (customerName) {
+      conditions.push(sql`CONCAT(${customers.firstName}, ' ', ${customers.lastName}) ILIKE ${'%' + customerName + '%'}`);
+    }
+    if (applicationId) {
+      conditions.push(like(loans.applicationId, `%${applicationId}%`));
+    }
+    if (branchId) {
+      conditions.push(eq(loans.branchId, branchId));
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
@@ -1454,16 +1469,21 @@ export class DatabaseStorage implements IStorage {
         isPaid: installments.isPaid,
         loanApplicationId: loans.applicationId,
         customerName: sql<string>`CONCAT(${customers.firstName}, ' ', ${customers.lastName})`,
+        branchName: branches.name,
       })
       .from(installments)
       .leftJoin(loans, eq(installments.loanId, loans.id))
-      .leftJoin(customers, eq(loans.customerId, customers.id));
+      .leftJoin(customers, eq(loans.customerId, customers.id))
+      .leftJoin(branches, eq(loans.branchId, branches.id));
 
     const results = whereClause
       ? await query.where(whereClause).orderBy(installments.dueDate).limit(limit).offset(offset)
       : await query.orderBy(installments.dueDate).limit(limit).offset(offset);
 
-    const countQuery = db.select({ count: count() }).from(installments);
+    const countQuery = db.select({ count: count() }).from(installments)
+      .leftJoin(loans, eq(installments.loanId, loans.id))
+      .leftJoin(customers, eq(loans.customerId, customers.id))
+      .leftJoin(branches, eq(loans.branchId, branches.id));
     const [{ count: total }] = whereClause
       ? await countQuery.where(whereClause)
       : await countQuery;

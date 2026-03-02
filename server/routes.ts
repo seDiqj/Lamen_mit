@@ -3048,13 +3048,18 @@ export async function registerRoutes(
   // ===== INSTALLMENTS =====
   app.get("/api/installments", isAuthenticated, async (req, res) => {
     try {
-      const { search, page, limit, currentMonthOnly, paidOnly } = req.query;
+      const { search, page, limit, currentMonthOnly, paidOnly, customerName, applicationId, branchId, startDate, endDate } = req.query;
       const result = await storage.getInstallments({
         search: search as string | undefined,
         page: page ? parseInt(page as string) : 1,
         limit: limit ? parseInt(limit as string) : 10,
         currentMonthOnly: currentMonthOnly === "true",
         paidOnly: paidOnly === "true",
+        customerName: customerName as string | undefined,
+        applicationId: applicationId as string | undefined,
+        branchId: branchId as string | undefined,
+        startDate: startDate as string | undefined,
+        endDate: endDate as string | undefined,
       });
       res.json({
         ...result,

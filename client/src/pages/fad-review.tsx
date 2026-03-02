@@ -1695,10 +1695,7 @@ export default function FadReviewPage() {
                         <User className="h-4 w-4 text-muted-foreground" />
                         <div>
                           <div className="font-medium">
-                            {loan.customer?.firstName} {loan.customer?.lastName}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {loan.customer?.customerNo}
+                            {(loan as any).customerName || `${loan.customer?.firstName || ""} ${loan.customer?.lastName || ""}`.trim() || "-"}
                           </div>
                         </div>
                       </div>
@@ -1706,7 +1703,7 @@ export default function FadReviewPage() {
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Building2 className="h-4 w-4 text-muted-foreground" />
-                        {loan.branch?.name || "-"}
+                        {(loan as any).branchName || loan.branch?.name || "-"}
                       </div>
                     </TableCell>
                     <TableCell className="font-medium text-emerald-600">
@@ -1714,8 +1711,8 @@ export default function FadReviewPage() {
                     </TableCell>
                     <TableCell>{loan.financingDurationMonths} months</TableCell>
                     <TableCell>
-                      {loan.applicationDate
-                        ? format(new Date(loan.applicationDate), "dd-MMM-yyyy")
+                      {((loan as any).requestDate || loan.applicationDate)
+                        ? format(new Date((loan as any).requestDate || loan.applicationDate), "dd-MMM-yyyy")
                         : "-"}
                     </TableCell>
                     <TableCell>{getStatusBadge(loan.status)}</TableCell>
