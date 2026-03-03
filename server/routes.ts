@@ -7188,6 +7188,89 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/loans/:loanId/contract-data", isAuthenticated, async (req, res) => {
+    try {
+      const { loanId } = req.params;
+      const loan = await storage.getLoan(loanId);
+      if (!loan) {
+        return res.status(404).json({ message: "Loan not found" });
+      }
+
+      const customer = loan.customerId ? await storage.getCustomer(loan.customerId) : null;
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      const branch = loan.branchId ? await storage.getBranch(loan.branchId) : null;
+      const customerBusiness = loan.customerId ? await storage.getCustomerBusinessByCustomerId(loan.customerId) : null;
+      const disbursement = await storage.getDisbursementByLoan(loan.id);
+      const installments = await storage.getInstallmentsByLoan(loan.id);
+
+      const principleAmount = parseFloat(loan.principleAmount?.toString() || "0");
+      const marginRate = parseFloat(loan.marginRate?.toString() || "0");
+      const profit = parseFloat(loan.profit?.toString() || "0");
+      const totalReceivable = parseFloat(loan.totalReceivable?.toString() || "0");
+      const installmentAmount = parseFloat(loan.installmentAmount?.toString() || "0");
+
+      let firstInstDate = "";
+      let lastInstDate = "";
+      if (installments.length > 0) {
+        const sorted = [...installments].sort((a: any, b: any) => {
+          const da = a.dueDate ? new Date(a.dueDate).getTime() : 0;
+          const db = b.dueDate ? new Date(b.dueDate).getTime() : 0;
+          return da - db;
+        });
+        firstInstDate = sorted[0]?.dueDate || "";
+        lastInstDate = sorted[sorted.length - 1]?.dueDate || "";
+      }
+
+      res.json({
+        customer: {
+          name: `${customer.firstName || ""} ${customer.lastName || ""}`.trim(),
+          fullNameDari: customer.fullNameDari || "",
+          fatherName: customer.fatherName || "",
+          fatherNameDari: customer.fatherNameDari || "",
+          nationalId: customer.nationalId || "",
+          phoneNumber: customer.phoneNumber || "",
+          homeAddress: customer.homeAddress || "",
+          province: customer.province || "",
+          district: customer.district || "",
+        },
+        loan: {
+          applicationId: loan.applicationId || "",
+          productName: loan.productName || "",
+          financingDurationMonths: loan.financingDurationMonths || 0,
+          gracePeriod: loan.gracePeriod || 0,
+          numberOfInstallments: loan.numberOfInstallments || 0,
+          principleAmount,
+          marginRate,
+          profit,
+          totalReceivable,
+          installmentAmount,
+        },
+        branch: {
+          name: branch?.name || "",
+          code: branch?.code || "",
+          province: branch?.address || "",
+        },
+        business: {
+          businessType: customerBusiness?.businessType || "",
+          detailedAddress: customerBusiness?.detailedAddress || "",
+          businessName: customerBusiness?.businessName || "",
+        },
+        disbursement: {
+          disbursementDate: disbursement?.disbursementDate || "",
+          firstInstallmentDate: firstInstDate,
+          lastInstallmentDate: lastInstDate,
+          maturityDate: disbursement?.maturityDate || "",
+        },
+      });
+    } catch (error: any) {
+      console.error("Error fetching contract data:", error);
+      res.status(500).json({ message: "Failed to fetch contract data", error: error.message });
+    }
+  });
+
   // Seed data on startup
   try {
     await storage.seedData();

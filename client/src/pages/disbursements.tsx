@@ -109,6 +109,48 @@ type BSStatementData = {
   loanStatements: BSLoanStatement[];
 };
 
+type ContractData = {
+  customer: {
+    name: string;
+    fullNameDari: string;
+    fatherName: string;
+    fatherNameDari: string;
+    nationalId: string;
+    phoneNumber: string;
+    homeAddress: string;
+    province: string;
+    district: string;
+  };
+  loan: {
+    applicationId: string;
+    productName: string;
+    financingDurationMonths: number;
+    gracePeriod: number;
+    numberOfInstallments: number;
+    principleAmount: number;
+    marginRate: number;
+    profit: number;
+    totalReceivable: number;
+    installmentAmount: number;
+  };
+  branch: {
+    name: string;
+    code: string;
+    province: string;
+  };
+  business: {
+    businessType: string;
+    detailedAddress: string;
+    businessName: string;
+  };
+  disbursement: {
+    disbursementDate: string;
+    firstInstallmentDate: string;
+    lastInstallmentDate: string;
+    maturityDate: string;
+  };
+};
+
 const bsFormatNumber = (num: number) =>
   new Intl.NumberFormat("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
 
@@ -165,6 +207,7 @@ export default function DisbursementsPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [customDisbursementDate, setCustomDisbursementDate] = useState("");
   const [qrCustomerId, setQrCustomerId] = useState<string>("");
+  const [qrLoanId, setQrLoanId] = useState<string>("");
   const [qrDialogTab, setQrDialogTab] = useState<string>("qr-code");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -222,6 +265,7 @@ export default function DisbursementsPage() {
           setQrLoanInfo(qrData);
           setQrDataUrl(url);
           setQrCustomerId(selectedLoan.customerId || "");
+          setQrLoanId(selectedLoan.id || "");
           setQrDialogTab("qr-code");
           setShowQRDialog(true);
         } catch (err) {
@@ -289,6 +333,74 @@ export default function DisbursementsPage() {
     },
     enabled: showQRDialog && !!qrCustomerId,
   });
+
+  const { data: contractData, isLoading: contractLoading } = useQuery<ContractData>({
+    queryKey: ["/api/loans", qrLoanId, "contract-data"],
+    queryFn: async () => {
+      const res = await fetch(`/api/loans/${qrLoanId}/contract-data`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch contract data");
+      return res.json();
+    },
+    enabled: showQRDialog && !!qrLoanId,
+  });
+
+  const contractRef = useRef<HTMLDivElement>(null);
+
+  const exportContractPDF = async () => {
+    if (!contractRef.current || !contractData) return;
+    const html2canvas = (await import("html2canvas")).default;
+    const canvas = await html2canvas(contractRef.current, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: "#ffffff",
+    });
+    const imgData = canvas.toDataURL("image/png");
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 5;
+    const usableWidth = pageWidth - margin * 2;
+    const imgRatio = canvas.height / canvas.width;
+    const imgHeight = usableWidth * imgRatio;
+
+    if (imgHeight <= pageHeight - margin * 2) {
+      doc.addImage(imgData, "PNG", margin, margin, usableWidth, imgHeight);
+    } else {
+      let yOffset = 0;
+      const sliceHeight = ((pageHeight - margin * 2) / imgHeight) * canvas.height;
+      let pageNum = 0;
+      while (yOffset < canvas.height) {
+        if (pageNum > 0) doc.addPage();
+        const sliceCanvas = document.createElement("canvas");
+        sliceCanvas.width = canvas.width;
+        const currentSliceHeight = Math.min(sliceHeight, canvas.height - yOffset);
+        sliceCanvas.height = currentSliceHeight;
+        const ctx = sliceCanvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(canvas, 0, yOffset, canvas.width, currentSliceHeight, 0, 0, canvas.width, currentSliceHeight);
+        }
+        const sliceData = sliceCanvas.toDataURL("image/png");
+        const sliceImgHeight = usableWidth * (currentSliceHeight / canvas.width);
+        doc.addImage(sliceData, "PNG", margin, margin, usableWidth, sliceImgHeight);
+        yOffset += sliceHeight;
+        pageNum++;
+      }
+    }
+
+    doc.save(`Contract_${contractData.loan.applicationId}_${new Date().toISOString().split("T")[0]}.pdf`);
+    toast({ title: "PDF Exported", description: "Contract exported to PDF." });
+  };
+
+  const contractFormatDate = (dateStr: string | null | undefined) => {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    const day = d.getDate().toString().padStart(2, "0");
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return `${day}/${months[d.getMonth()]}/${d.getFullYear()}`;
+  };
+
+  const contractFormatAmount = (num: number) =>
+    new Intl.NumberFormat("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
 
   const exportBalanceStatementPDF = () => {
     if (!bsStatementData?.loanStatements?.length) return;
@@ -887,7 +999,7 @@ export default function DisbursementsPage() {
             </DialogDescription>
           </DialogHeader>
           <Tabs value={qrDialogTab} onValueChange={setQrDialogTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="qr-code" data-testid="tab-qr-code">
                 <QrCode className="h-4 w-4 mr-2" />
                 QR Code
@@ -895,6 +1007,10 @@ export default function DisbursementsPage() {
               <TabsTrigger value="balance-statement" data-testid="tab-balance-statement">
                 <FileText className="h-4 w-4 mr-2" />
                 Balance Statement
+              </TabsTrigger>
+              <TabsTrigger value="contract" data-testid="tab-contract">
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                Contract
               </TabsTrigger>
             </TabsList>
 
@@ -1141,6 +1257,249 @@ export default function DisbursementsPage() {
                       </div>
                     );
                   })}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setShowQRDialog(false)}>
+                  Close
+                </Button>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="contract">
+              {contractLoading && (
+                <div className="py-8 space-y-4">
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-64 w-full" />
+                </div>
+              )}
+
+              {!contractLoading && !contractData && (
+                <div className="py-8 text-center text-muted-foreground">
+                  No contract data available.
+                </div>
+              )}
+
+              {!contractLoading && contractData && (
+                <div className="space-y-4">
+                  <div className="flex justify-end">
+                    <Button onClick={exportContractPDF} className="bg-red-600 text-white" data-testid="button-contract-export-pdf">
+                      <FileText className="mr-2 h-4 w-4" />
+                      Download PDF
+                    </Button>
+                  </div>
+                  <div ref={contractRef} className="bg-white text-black p-6 text-sm leading-relaxed" dir="rtl" style={{ fontFamily: "Arial, Tahoma, sans-serif", direction: "rtl" }}>
+                    <div className="text-center mb-4">
+                      <p className="text-base font-bold mb-1">بسم الله الرحمن الرحیم</p>
+                    </div>
+
+                    <div className="text-center mb-6">
+                      <img src="/logo.jpeg" alt="Lamen" className="h-16 w-auto mx-auto mb-2" />
+                      <p className="text-lg font-bold text-green-700">لمن د وړو مالي تمویلونو مؤسسه</p>
+                      <p className="text-base font-bold mt-2">د مرابحې تمویل قرارداد</p>
+                    </div>
+
+                    <div className="border border-gray-400 rounded p-4 mb-4">
+                      <div className="flex justify-between items-start gap-4">
+                        <div className="text-right">
+                          <p className="mb-1">
+                            <span className="font-semibold">نوم / اسم: </span>
+                            <span className="bg-yellow-100 px-2 py-0.5 rounded" data-testid="contract-customer-name">{contractData.customer.fullNameDari || contractData.customer.name}</span>
+                          </p>
+                          <p>
+                            <span className="font-semibold">د اړېکې شمېره: </span>
+                            <span className="bg-yellow-100 px-2 py-0.5 rounded" data-testid="contract-phone">{contractData.customer.phoneNumber}</span>
+                          </p>
+                        </div>
+                        <div className="text-left" dir="ltr">
+                          <p className="mb-1">
+                            <span className="font-semibold">قرارداد نمبر: </span>
+                            <span className="bg-yellow-100 px-2 py-0.5 rounded" data-testid="contract-app-id">{contractData.loan.applicationId}</span>
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="text-center mb-4 text-sm">
+                      <span className="bg-yellow-100 px-2 py-0.5 rounded" data-testid="contract-year-date">
+                        {contractData.disbursement.disbursementDate ? new Date(contractData.disbursement.disbursementDate).getFullYear() : ""}
+                      </span>
+                    </div>
+
+                    <div className="mb-6">
+                      <h3 className="font-bold text-base mb-3 text-green-700 border-b border-green-700 pb-1">په قرارداد کې د ښکیلو لورو پېژندنه:</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="border border-gray-300 rounded p-3">
+                          <h4 className="font-bold mb-2 text-green-700">تمویل اخېستونکي (مشتري)</h4>
+                          <div className="space-y-1.5">
+                            <p><span className="font-semibold">نــوم: </span><span className="bg-yellow-100 px-1 rounded">{contractData.customer.fullNameDari || contractData.customer.name}</span></p>
+                            <p><span className="font-semibold">د پلار نوم: </span><span className="bg-yellow-100 px-1 rounded">{contractData.customer.fatherNameDari || contractData.customer.fatherName}</span></p>
+                            <p><span className="font-semibold">د تذکرې شمېره: </span><span className="bg-yellow-100 px-1 rounded">{contractData.customer.nationalId}</span></p>
+                            <p><span className="font-semibold">د اړېکې شمېرې: </span><span className="bg-yellow-100 px-1 rounded">{contractData.customer.phoneNumber}</span></p>
+                            <p><span className="font-semibold">پــتـه: </span><span className="bg-yellow-100 px-1 rounded">{contractData.customer.homeAddress}</span></p>
+                          </div>
+                        </div>
+                        <div className="border border-gray-300 rounded p-3">
+                          <h4 className="font-bold mb-2 text-green-700">تمویلونکی (لمن د وړو مالی تمویلونو مؤسسه)</h4>
+                          <p className="text-xs leading-relaxed">من د وړو مالي تمویلونو مؤسسه چې د افغانستان بانک له لورې د (۰۰۳) شمېرې جواز لرونکې ده، مرکزي دفتر یې د څلورمې ناحیې ، تایمني پروژې په دوهم سرک ، کابل - افغانستان کې دی.</p>
+                          <div className="mt-2 space-y-1">
+                            <p><span className="font-semibold">د څانګې کوډ نمبر: </span><span className="bg-yellow-100 px-1 rounded">{contractData.branch.code}</span></p>
+                            <p><span className="font-semibold">اړونـد ولایت: </span><span className="bg-yellow-100 px-1 rounded">{contractData.customer.province}</span></p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mb-6">
+                      <h3 className="font-bold text-base mb-3 text-green-700 border-b border-green-700 pb-1">د قرارداد موضوع:</h3>
+                      <p className="text-xs">د لمن مؤسسې له لورې، د مشتري د غوښتنې پر اساس، د توکو او اجناسو پیر او بیا یې مشتري ته د مرابحې تړون له مخې، پر ټاکلې ګټه او شرایطوپلورل.</p>
+                    </div>
+
+                    <div className="mb-6">
+                      <h3 className="font-bold text-base mb-3 text-green-700 border-b border-green-700 pb-1">د تړون اړوند عمومي معلومات:</h3>
+                      <table className="w-full border-collapse text-xs" dir="rtl">
+                        <tbody>
+                          <tr className="border-b border-gray-200">
+                            <td className="py-2 pr-2 font-semibold w-1/2">د فعالیت ډول (Type of Activity):</td>
+                            <td className="py-2"><span className="bg-yellow-100 px-1 rounded">{contractData.business.businessType}</span></td>
+                          </tr>
+                          <tr className="border-b border-gray-200">
+                            <td className="py-2 pr-2 font-semibold">د پېرېدونکي د فعالیت ځای/ساحه (Client's Business Location):</td>
+                            <td className="py-2"><span className="bg-yellow-100 px-1 rounded">{contractData.business.detailedAddress}</span></td>
+                          </tr>
+                          <tr className="border-b border-gray-200">
+                            <td className="py-2 pr-2 font-semibold">د تمویل شوې پانګې اندازه (Financing Amount):</td>
+                            <td className="py-2"><span className="bg-yellow-100 px-1 rounded" dir="ltr">{contractFormatAmount(contractData.loan.principleAmount)} افغانۍ</span></td>
+                          </tr>
+                          <tr className="border-b border-gray-200">
+                            <td className="py-2 pr-2 font-semibold">د ګټې اندازه (Markup):</td>
+                            <td className="py-2"><span className="bg-yellow-100 px-1 rounded" dir="ltr">{contractFormatAmount(contractData.loan.profit)} افغانۍ</span></td>
+                          </tr>
+                          <tr className="border-b border-gray-200">
+                            <td className="py-2 pr-2 font-semibold">د توکو د خرڅون مجموعي بیعه (Sale Price):</td>
+                            <td className="py-2"><span className="bg-yellow-100 px-1 rounded" dir="ltr">{contractFormatAmount(contractData.loan.totalReceivable)} افغانۍ</span></td>
+                          </tr>
+                          <tr className="border-b border-gray-200">
+                            <td className="py-2 pr-2 font-semibold">د قرارداد موده (Contract Period):</td>
+                            <td className="py-2"><span className="bg-yellow-100 px-1 rounded">{contractData.loan.financingDurationMonths} میاشتې</span></td>
+                          </tr>
+                          <tr className="border-b border-gray-200">
+                            <td className="py-2 pr-2 font-semibold">د قرارداد د پیل نېټه (Contract Start Date):</td>
+                            <td className="py-2"><span className="bg-yellow-100 px-1 rounded">{contractFormatDate(contractData.disbursement.disbursementDate)}</span></td>
+                          </tr>
+                          <tr className="border-b border-gray-200">
+                            <td className="py-2 pr-2 font-semibold">د قراراداد د پای نېټه (Contract End Date):</td>
+                            <td className="py-2"><span className="bg-yellow-100 px-1 rounded">{contractFormatDate(contractData.disbursement.lastInstallmentDate)}</span></td>
+                          </tr>
+                          <tr className="border-b border-gray-200">
+                            <td className="py-2 pr-2 font-semibold">د قسطونو شمېر (Number of Installments):</td>
+                            <td className="py-2"><span className="bg-yellow-100 px-1 rounded">{contractData.loan.numberOfInstallments}</span></td>
+                          </tr>
+                          <tr className="border-b border-gray-200">
+                            <td className="py-2 pr-2 font-semibold">د معافیت موده (Grace Period):</td>
+                            <td className="py-2"><span className="bg-yellow-100 px-1 rounded">{contractData.loan.gracePeriod} میاشتې</span></td>
+                          </tr>
+                          <tr className="border-b border-gray-200">
+                            <td className="py-2 pr-2 font-semibold">د هر قسط اندازه (Installment Amount):</td>
+                            <td className="py-2"><span className="bg-yellow-100 px-1 rounded" dir="ltr">{contractFormatAmount(contractData.loan.installmentAmount)} افغانۍ</span></td>
+                          </tr>
+                          <tr className="border-b border-gray-200">
+                            <td className="py-2 pr-2 font-semibold">د قسطونو تکرار (Frequency):</td>
+                            <td className="py-2">یو میاشتنۍ</td>
+                          </tr>
+                          <tr className="border-b border-gray-200">
+                            <td className="py-2 pr-2 font-semibold">د لومړني قسط د اداینې نېټه (First Installment Date):</td>
+                            <td className="py-2"><span className="bg-yellow-100 px-1 rounded">{contractFormatDate(contractData.disbursement.firstInstallmentDate)}</span></td>
+                          </tr>
+                          <tr className="border-b border-gray-200">
+                            <td className="py-2 pr-2 font-semibold">د وروستني قسط د اداینې نېټه (Last Installment Date):</td>
+                            <td className="py-2"><span className="bg-yellow-100 px-1 rounded">{contractFormatDate(contractData.disbursement.lastInstallmentDate)}</span></td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="mb-6">
+                      <h3 className="font-bold text-base mb-3 text-green-700 border-b border-green-700 pb-1">د طرفینو مسؤلیتونه:</h3>
+                      <div className="mb-3">
+                        <h4 className="font-bold mb-1">الف: د لمن مؤسسې مسؤلیتونه:</h4>
+                        <ul className="list-disc pr-5 space-y-1 text-xs">
+                          <li>د مشتری د غوښتنې پر اساس، د مشخص شوو توکو او مالونو اخېستل، او مشتري ته د مرابحې تمویل له مخې پلورل.</li>
+                          <li>لمن مؤسسه مکلفه ده چې په تمویل شوو توکو دولتي مالیات او لګښتونه، چې د دې تړون یا د توکو د اسنادو سره تړاو لري، د قانون مطابق پرې کړي.</li>
+                          <li>اخېستل شوي توکي (مال) په سلامت ډول مشتري ته سپارل.</li>
+                          <li>مشتري ته د جنس اصل قیمت (تمام شد) او د پلور قیمت (اصل قیمت + ګټه) ویل.</li>
+                          <li>د مرابحې تمویل اړونده اسنادو ترتیبول، لکه د فورمونو برابرول او ډکول، د قرارداد جوړول او داسې نور.</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <h4 className="font-bold mb-1">ب: د مشتري مسؤلیتونه:</h4>
+                        <ul className="list-disc pr-5 space-y-1 text-xs">
+                          <li>د اخېستل شوي جنس (توکي) قبولي او تسلېمېدل.</li>
+                          <li>د جنس له معاینې وروسته، د عیب د نه لرلو څخه ډاډ ترلاسه کول.</li>
+                          <li>د قسطونو پر خپل وخت ادا کول.</li>
+                        </ul>
+                      </div>
+                    </div>
+
+                    <div className="mb-6">
+                      <h3 className="font-bold text-base mb-3 text-green-700 border-b border-green-700 pb-1">د قرارداد فسخ:</h3>
+                      <ul className="list-disc pr-5 space-y-1 text-xs">
+                        <li>د قرارداد دواړه خواوې کولای شي، چې د دوه اړخېزې موافقې له مخې قرارداد هر وخت فسخ کړي، په دې شرط چې ټول حقوقي او مالي تعهدات تسویه شي.</li>
+                        <li>که چیرې مشتری د درې پرلپسې قسطونو له ورکړې څخه عاجز شي، لمن مؤسسه حق لري چې قرارداد فسخ کړي او پاتې پیسې یا مال بېرته تر لاسه کړي.</li>
+                        <li>د مشتري له لوري، په قرارداد کې د نورو مادو څخه په سرغړونه قرارداد فسخ کېدای شي.</li>
+                        <li>د قرارداد له فسخې څخه وروسته به مالي حسابونه تسویه کیږي.</li>
+                      </ul>
+                    </div>
+
+                    <div className="mb-6">
+                      <h3 className="font-bold text-base mb-3 text-green-700 border-b border-green-700 pb-1">حل منازعات (د مالي شخړو حل):</h3>
+                      <ul className="list-disc pr-5 space-y-1 text-xs">
+                        <li>طرفین مکلف دي هر ډول شخړې او اختلافونه د خپلمنځي خبرو له لارې حلوي.</li>
+                        <li>که چېرې ونه توانېدل ستونزه به د دواړو لورو له خوا ټاکل شوي درېیم‌ګړي حَکَم (arbitrator) ته وړاندې کېږي.</li>
+                        <li>که بیا هم ونه توانېدل، نو د افغانستان محاکمو ته به مراجعه کوي.</li>
+                      </ul>
+                    </div>
+
+                    <div className="mb-6">
+                      <h3 className="font-bold text-base mb-3 text-green-700 border-b border-green-700 pb-1">شخصي او مالي تضمینونه:</h3>
+                      <p className="text-xs leading-relaxed">مشتری مکلف دی چې د دې قرارداد د تضمین لپاره، له لمن مؤسسې سره همغږي شوي معتبر تضمیني اسناد وړاندې کړي. که مؤسسه د اضافي تضمین اړتیا ولري، مشتری باید نور لازم اسناد هم برابر کړي.</p>
+                      <p className="text-xs leading-relaxed mt-1">دا تضمینونه به تر هغه وخته پورې د اعتبار وړ وي، څو چې مشتری د دې قرارداد له مخې ټول مکلفیتونه او تادیات پوره ادا کړي نه وي.</p>
+                      <p className="text-xs leading-relaxed mt-1">لمن مؤسسه به تضمیني اسناد یوازې هغه مهال آزادوي، کله چې دې قرارداد پورې اړوند د مرابحې قیمت ټول قسطونه ادا شوي وي.</p>
+                      <p className="text-xs leading-relaxed mt-1">همدارنګه مشتري متعهد دی چې د خیانت، غفلت، یا کوتاهۍ په صورت کې به مسؤل وي، او د اړوند ضرر جبران به کوي.</p>
+                    </div>
+
+                    <div className="mb-6">
+                      <h3 className="font-bold text-base mb-3 text-green-700 border-b border-green-700 pb-1">عمومي شرایط:</h3>
+                      <ul className="list-disc pr-5 space-y-1 text-xs">
+                        <li>دا قرارداد د اسلامي شرعي اصولو له مخې ترتیب شوی دی.</li>
+                        <li>هیڅ لوری نه شي کولی د بل لورې له موافقې پرته قرارداد دریمګړي ته ورکړي.</li>
+                        <li>دا قرارداد په دوه کاپیانو کې ترتیب شوی، چې یوه یې تمویل ورکونکي (لمن مؤسسې) ته او بله یې تمویل اخېستونکي (مشتري) ته ورکول کیږي.</li>
+                        <li>دا قرارداد د دخیلو لورو په خوښه، بغیر له کوم جبر او اکراه څخه تړل کیږی.</li>
+                      </ul>
+                    </div>
+
+                    <div className="mt-8 border-t border-gray-400 pt-4">
+                      <div className="grid grid-cols-2 gap-8">
+                        <div className="text-center">
+                          <h4 className="font-bold mb-4 text-green-700">تمویل اخېستونکی:</h4>
+                          <div className="space-y-3 text-xs text-right">
+                            <p>نوم: ___________________________</p>
+                            <p>د تذکرې شمېره: ___________________________</p>
+                            <p>لاسلیک او ګوته: ___________________________</p>
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <h4 className="font-bold mb-4 text-green-700">د لمن مؤسسې استازی:</h4>
+                          <div className="space-y-3 text-xs text-right">
+                            <p>نوم: ___________________________</p>
+                            <p>وظیفه: ___________________________</p>
+                            <p>لاسلیک او ګوته: ___________________________</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
