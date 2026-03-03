@@ -34,6 +34,7 @@ import {
   Download,
   Upload,
   FileSpreadsheet,
+  FileText,
   CheckCircle2,
   XCircle,
   Loader2,
@@ -43,6 +44,94 @@ import {
 import { Link } from "wouter";
 import type { Loan } from "@shared/schema";
 import { generateQRText, generateQRWithLogo, downloadQRCode, type QRLoanData } from "@/lib/qr-generator";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+
+type BSScheduleRow = {
+  no: number;
+  installmentDate: string | null;
+  principleAmount: number;
+  marginAmount: number;
+  totalAmount: number;
+};
+
+type BSActualPaymentRow = {
+  no: number;
+  paymentDate: string | null;
+  principleAmount: number;
+  marginAmount: number;
+  totalAmount: number;
+  isPaid: boolean;
+  arears: number;
+};
+
+type BSLoanStatement = {
+  loan: {
+    id: string;
+    applicationId: string;
+    productName: string;
+    financingCycle: number;
+    financingAmount: number;
+    marginRate: number;
+    status: string;
+    principleAmount: number;
+    profit: number;
+    totalReceivable: number;
+    requestAmount: number;
+    numberOfInstallments: number;
+    financingDurationMonths: number;
+    gracePeriod: number;
+  };
+  branch: { name: string; shortName?: string } | null;
+  officer: { name: string } | null;
+  branchManager: string;
+  disbursement: {
+    disbursementDate: string;
+    firstInstallmentDate: string;
+    maturityDate: string;
+  } | null;
+  province: string;
+  district: string;
+  schedule: BSScheduleRow[];
+  actualPayments: BSActualPaymentRow[];
+  scheduleTotals: { principleAmount: number; marginAmount: number; totalAmount: number };
+  actualTotals: { principleAmount: number; marginAmount: number; totalAmount: number; arears: number };
+  outstanding: { principleAmount: number; marginAmount: number; totalAmount: number };
+};
+
+type BSStatementData = {
+  customer: {
+    id: string;
+    customerNo: string;
+    name: string;
+    fatherName: string;
+  };
+  loanStatements: BSLoanStatement[];
+};
+
+const bsFormatNumber = (num: number) =>
+  new Intl.NumberFormat("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
+
+const bsFormatDate = (dateStr: string | null) => {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+};
+
+const bsMonthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const bsFormatDateDMY = (dateStr: string | null) => {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  return `${d.getDate()}/${bsMonthNames[d.getMonth()]}/${d.getFullYear()}`;
+};
+
+const bsFormatDateTime = () => {
+  const now = new Date();
+  return {
+    date: `${now.getMonth() + 1}/${now.getDate()}/${now.getFullYear()}`,
+    time: now.toLocaleTimeString("en-US", { hour12: false }),
+  };
+};
 
 type ApprovedLoan = Loan & {
   customerName?: string;
@@ -75,6 +164,8 @@ export default function DisbursementsPage() {
   const [bulkResults, setBulkResults] = useState<BulkResponse | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [customDisbursementDate, setCustomDisbursementDate] = useState("");
+  const [qrCustomerId, setQrCustomerId] = useState<string>("");
+  const [qrDialogTab, setQrDialogTab] = useState<string>("qr-code");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const queryClient = useQueryClient();
@@ -130,6 +221,8 @@ export default function DisbursementsPage() {
           const url = await generateQRWithLogo(text, 450);
           setQrLoanInfo(qrData);
           setQrDataUrl(url);
+          setQrCustomerId(selectedLoan.customerId || "");
+          setQrDialogTab("qr-code");
           setShowQRDialog(true);
         } catch (err) {
           console.error("Failed to generate QR code:", err);
@@ -182,6 +275,195 @@ export default function DisbursementsPage() {
       });
     },
   });
+
+  const { data: userData } = useQuery<any>({
+    queryKey: ["/api/auth/user"],
+  });
+
+  const { data: bsStatementData, isLoading: bsLoading } = useQuery<BSStatementData>({
+    queryKey: ["/api/reports/citizen-balance-statement", qrCustomerId],
+    queryFn: async () => {
+      const res = await fetch(`/api/reports/citizen-balance-statement/${qrCustomerId}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch balance statement");
+      return res.json();
+    },
+    enabled: showQRDialog && !!qrCustomerId,
+  });
+
+  const exportBalanceStatementPDF = () => {
+    if (!bsStatementData?.loanStatements?.length) return;
+
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+
+    bsStatementData.loanStatements.forEach((ls, lsIdx) => {
+      if (lsIdx > 0) doc.addPage();
+      const { date: nowDate, time: nowTime } = bsFormatDateTime();
+
+      doc.setFontSize(14);
+      doc.setTextColor(30, 100, 50);
+      doc.text("Lamen", 14, 14);
+      doc.setFontSize(12);
+      doc.text("Citizen Balance Statement", 80, 14);
+
+      doc.setFontSize(8);
+      doc.setTextColor(60, 60, 60);
+      doc.text(`User: ${userData?.firstName || ""}`, 220, 10);
+      doc.text(`Date: ${nowDate}`, 220, 14);
+      doc.text(`Time: ${nowTime}`, 220, 18);
+
+      const infoY = 26;
+      doc.setFontSize(8);
+      doc.setTextColor(40, 40, 40);
+
+      const col1X = 14;
+      const col1V = 42;
+      const col2X = 105;
+      const col2V = 140;
+      const col3X = 195;
+      const col3V = 232;
+      const lineH = 4.5;
+
+      const infoFields: [string, string, number, number][] = [
+        ["Branch:", ls.branch?.name || "", col1X, col1V],
+        ["Financing Type:", ls.loan.productName, col1X, col1V],
+        ["Financing No./ Cycle:", `${ls.loan.applicationId} / ${ls.loan.financingCycle}`, col1X, col1V],
+        ["Client Name:", bsStatementData.customer.name, col1X, col1V],
+        ["Finance Officer:", ls.officer?.name || "", col1X, col1V],
+      ];
+      const infoFields2: [string, string, number, number][] = [
+        ["Principle Amount:", bsFormatNumber(ls.loan.principleAmount), col2X, col2V],
+        ["Margin Rate:", `${ls.loan.marginRate}%`, col2X, col2V],
+        ["Disbursement Date:", ls.disbursement?.disbursementDate ? bsFormatDateDMY(ls.disbursement.disbursementDate) : "", col2X, col2V],
+        ["No. of Installments:", `${ls.loan.numberOfInstallments}`, col2X, col2V],
+        ["Grace Period:", `${ls.loan.gracePeriod} months`, col2X, col2V],
+      ];
+      const infoFields3: [string, string, number, number][] = [
+        ["Province:", ls.province, col3X, col3V],
+        ["District:", ls.district, col3X, col3V],
+        ["Branch Manager:", ls.branchManager, col3X, col3V],
+        ["Financing Status:", ls.loan.status, col3X, col3V],
+      ];
+
+      const maxInfoRows = Math.max(infoFields.length, infoFields2.length, infoFields3.length);
+      for (let i = 0; i < maxInfoRows; i++) {
+        const y = infoY + i * lineH;
+        if (i < infoFields.length) {
+          doc.setFont("helvetica", "bold");
+          doc.text(infoFields[i][0], infoFields[i][2], y);
+          doc.setFont("helvetica", "normal");
+          doc.text(infoFields[i][1], infoFields[i][3], y);
+        }
+        if (i < infoFields2.length) {
+          doc.setFont("helvetica", "bold");
+          doc.text(infoFields2[i][0], infoFields2[i][2], y);
+          doc.setFont("helvetica", "normal");
+          doc.text(infoFields2[i][1], infoFields2[i][3], y);
+        }
+        if (i < infoFields3.length) {
+          doc.setFont("helvetica", "bold");
+          doc.text(infoFields3[i][0], infoFields3[i][2], y);
+          doc.setFont("helvetica", "normal");
+          doc.text(infoFields3[i][1], infoFields3[i][3], y);
+        }
+      }
+
+      const tableStartY = infoY + maxInfoRows * lineH + 4;
+
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.text("Schedule", 14, tableStartY);
+      doc.text("Actual Payment", 160, tableStartY);
+
+      const paidPayments = ls.actualPayments.filter(a => a.totalAmount > 0 || (a.paymentDate && a.paymentDate !== ""));
+      const paidPaymentCount = paidPayments.length;
+      const paymentTotalRowIdx = paidPaymentCount;
+      const paymentOutstandingRowIdx = paidPaymentCount + 1;
+      const rowCount = ls.schedule.length;
+      const scheduleTotalRowIdx = rowCount;
+      const combinedBody: any[][] = [];
+      for (let i = 0; i < Math.max(rowCount + 1, paidPaymentCount + 2); i++) {
+        const s = i < rowCount ? ls.schedule[i] : null;
+        const a = i < paidPaymentCount ? paidPayments[i] : null;
+        const isScheduleTotal = (i === rowCount);
+        const isPaymentTotal = (i === paymentTotalRowIdx);
+        const isPaymentOutstanding = (i === paymentOutstandingRowIdx);
+
+        combinedBody.push([
+          isScheduleTotal ? "" : (s ? s.no : ""),
+          isScheduleTotal ? "Total =" : (s ? bsFormatDate(s.installmentDate) : ""),
+          isScheduleTotal ? bsFormatNumber(ls.scheduleTotals.principleAmount) : (s ? bsFormatNumber(s.principleAmount) : ""),
+          isScheduleTotal ? bsFormatNumber(ls.scheduleTotals.marginAmount) : (s ? bsFormatNumber(s.marginAmount) : ""),
+          isScheduleTotal ? bsFormatNumber(ls.scheduleTotals.totalAmount) : (s ? bsFormatNumber(s.totalAmount) : ""),
+          "",
+          isPaymentTotal ? "" : (isPaymentOutstanding ? "" : (a ? a.no : "")),
+          isPaymentTotal ? "Total =" : (isPaymentOutstanding ? "Outstanding" : (a ? (a.paymentDate ? bsFormatDate(a.paymentDate) : "") : "")),
+          isPaymentTotal ? bsFormatNumber(ls.actualTotals.principleAmount) : (isPaymentOutstanding ? bsFormatNumber(ls.outstanding.principleAmount) : (a ? (a.principleAmount > 0 ? bsFormatNumber(a.principleAmount) : "") : "")),
+          isPaymentTotal ? bsFormatNumber(ls.actualTotals.marginAmount) : (isPaymentOutstanding ? bsFormatNumber(ls.outstanding.marginAmount) : (a ? (a.marginAmount > 0 ? bsFormatNumber(a.marginAmount) : "") : "")),
+          isPaymentTotal ? bsFormatNumber(ls.actualTotals.totalAmount) : (isPaymentOutstanding ? bsFormatNumber(ls.outstanding.totalAmount) : (a ? (a.totalAmount > 0 ? bsFormatNumber(a.totalAmount) : "") : "")),
+          isPaymentTotal ? (ls.actualTotals.arears > 0 ? ls.actualTotals.arears.toString() : "") : (isPaymentOutstanding ? "" : (a ? (a.arears > 0 ? a.arears.toString() : "") : "")),
+        ]);
+      }
+
+      autoTable(doc, {
+        startY: tableStartY + 2,
+        head: [["No.", "Installment Date", "Principle", "Margin", "Total", " ", "No.", "Payment Date", "Principle", "Margin", "Total", "PAR Days"]],
+        body: combinedBody,
+        margin: { left: 14, right: 10 },
+        styles: { fontSize: 7, cellPadding: 1.2, lineWidth: 0.3, lineColor: [60, 120, 80] },
+        headStyles: { fillColor: [60, 120, 80], textColor: 255, fontStyle: "bold" },
+        columnStyles: {
+          0: { cellWidth: 10 },
+          1: { cellWidth: 28 },
+          2: { cellWidth: 22 },
+          3: { cellWidth: 18 },
+          4: { cellWidth: 20 },
+          5: { cellWidth: 4, fillColor: [255, 255, 255], lineWidth: 0 },
+          6: { cellWidth: 10 },
+          7: { cellWidth: 28 },
+          8: { cellWidth: 22 },
+          9: { cellWidth: 18 },
+          10: { cellWidth: 20 },
+          11: { cellWidth: 20 },
+        },
+        didParseCell: (data: any) => {
+          const ri = data.row.index;
+          const ci = data.column.index;
+          if (ci === 5) {
+            data.cell.styles.fillColor = [255, 255, 255];
+            data.cell.styles.lineWidth = 0;
+            data.cell.styles.lineColor = [255, 255, 255];
+          }
+          const noPaymentData = ri >= paidPaymentCount && ri !== paymentTotalRowIdx && ri !== paymentOutstandingRowIdx;
+          if (data.section === "body" && noPaymentData && ci >= 6) {
+            data.cell.styles.fillColor = [255, 255, 255];
+            data.cell.styles.lineWidth = 0;
+            data.cell.styles.lineColor = [255, 255, 255];
+          }
+          const noScheduleData = ri >= rowCount && ri !== scheduleTotalRowIdx;
+          if (data.section === "body" && noScheduleData && ci < 5) {
+            data.cell.styles.fillColor = [255, 255, 255];
+            data.cell.styles.lineWidth = 0;
+            data.cell.styles.lineColor = [255, 255, 255];
+          }
+          if (data.section === "body" && ri === scheduleTotalRowIdx && ci < 5) {
+            data.cell.styles.fontStyle = "bold";
+            data.cell.styles.fillColor = [200, 230, 210];
+          }
+          if (data.section === "body" && ri === paymentTotalRowIdx && ci >= 6) {
+            data.cell.styles.fontStyle = "bold";
+            data.cell.styles.fillColor = [200, 230, 210];
+          }
+          if (data.section === "body" && ri === paymentOutstandingRowIdx && ci >= 6) {
+            data.cell.styles.fontStyle = "bold";
+            data.cell.styles.fillColor = [255, 243, 205];
+          }
+        },
+      });
+    });
+
+    doc.save(`Balance_Statement_${bsStatementData.customer.name.replace(/\s+/g, "_")}_${new Date().toISOString().split("T")[0]}.pdf`);
+    toast({ title: "PDF Exported", description: "Balance Statement exported to PDF." });
+  };
 
   const formatCurrency = (amount: string | number | null) => {
     if (!amount) return "AFN 0";
@@ -594,47 +876,281 @@ export default function DisbursementsPage() {
       </Dialog>
 
       <Dialog open={showQRDialog} onOpenChange={setShowQRDialog}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <QrCode className="h-5 w-5 text-primary" />
-              Loan QR Code
+              Disbursement - {qrLoanInfo?.applicationId}
             </DialogTitle>
             <DialogDescription>
-              Disbursement QR code for {qrLoanInfo?.applicationId}
+              QR code and balance statement for {qrLoanInfo?.customerName}
             </DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col items-center py-4 space-y-4">
-            {qrDataUrl && (
-              <div className="border-2 border-muted rounded-xl p-4 bg-white">
-                <img src={qrDataUrl} alt="Loan QR Code" className="w-[400px] h-[400px]" data-testid="img-qr-code" />
+          <Tabs value={qrDialogTab} onValueChange={setQrDialogTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="qr-code" data-testid="tab-qr-code">
+                <QrCode className="h-4 w-4 mr-2" />
+                QR Code
+              </TabsTrigger>
+              <TabsTrigger value="balance-statement" data-testid="tab-balance-statement">
+                <FileText className="h-4 w-4 mr-2" />
+                Balance Statement
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="qr-code">
+              <div className="flex flex-col items-center py-4 space-y-4">
+                {qrDataUrl && (
+                  <div className="border-2 border-muted rounded-xl p-4 bg-white">
+                    <img src={qrDataUrl} alt="Loan QR Code" className="w-[400px] h-[400px]" data-testid="img-qr-code" />
+                  </div>
+                )}
+                {qrLoanInfo && (
+                  <div className="text-xs text-muted-foreground text-center space-y-0.5">
+                    <p className="font-semibold text-foreground">{qrLoanInfo.applicationId}</p>
+                    <p>{qrLoanInfo.customerName}</p>
+                    <p>AFN {Number(qrLoanInfo.amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}</p>
+                    <p>{qrLoanInfo.productName} - {qrLoanInfo.durationMonths} months</p>
+                  </div>
+                )}
               </div>
-            )}
-            {qrLoanInfo && (
-              <div className="text-xs text-muted-foreground text-center space-y-0.5">
-                <p className="font-semibold text-foreground">{qrLoanInfo.applicationId}</p>
-                <p>{qrLoanInfo.customerName}</p>
-                <p>AFN {Number(qrLoanInfo.amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}</p>
-                <p>{qrLoanInfo.productName} - {qrLoanInfo.durationMonths} months</p>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setShowQRDialog(false)}>
+                  Close
+                </Button>
+                <Button
+                  onClick={() => {
+                    if (qrDataUrl && qrLoanInfo) {
+                      downloadQRCode(qrDataUrl, `QR_${qrLoanInfo.applicationId}.png`);
+                    }
+                  }}
+                  data-testid="button-download-qr"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download QR Code
+                </Button>
               </div>
-            )}
-          </div>
-          <DialogFooter className="flex gap-2">
-            <Button variant="outline" onClick={() => setShowQRDialog(false)}>
-              Close
-            </Button>
-            <Button
-              onClick={() => {
-                if (qrDataUrl && qrLoanInfo) {
-                  downloadQRCode(qrDataUrl, `QR_${qrLoanInfo.applicationId}.png`);
-                }
-              }}
-              data-testid="button-download-qr"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Download QR Code
-            </Button>
-          </DialogFooter>
+            </TabsContent>
+
+            <TabsContent value="balance-statement">
+              {bsLoading && (
+                <div className="py-8 space-y-4">
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-64 w-full" />
+                </div>
+              )}
+
+              {!bsLoading && (!bsStatementData || bsStatementData.loanStatements.length === 0) && (
+                <div className="py-8 text-center text-muted-foreground">
+                  No financing records found for this customer.
+                </div>
+              )}
+
+              {!bsLoading && bsStatementData && bsStatementData.loanStatements.length > 0 && (
+                <div className="space-y-4">
+                  <div className="flex justify-end">
+                    <Button onClick={exportBalanceStatementPDF} className="bg-red-600 text-white" data-testid="button-bs-export-pdf">
+                      <FileText className="mr-2 h-4 w-4" />
+                      Export PDF
+                    </Button>
+                  </div>
+                  {bsStatementData.loanStatements.map((ls, lsIdx) => {
+                    const { date: nowDate, time: nowTime } = bsFormatDateTime();
+                    return (
+                      <div key={ls.loan.id} className="border border-border rounded-md overflow-hidden">
+                        <div className="bg-muted/50 p-3 sm:p-4 border-b border-border">
+                          <div className="flex flex-wrap items-start justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                              <img src="/logo.jpeg" alt="Lamen" className="h-12 w-auto" />
+                              <div>
+                                <h2 className="text-lg font-bold text-green-700 dark:text-green-400">Lamen</h2>
+                                <p className="text-sm font-semibold">Citizen Balance Statement</p>
+                              </div>
+                            </div>
+                            <div className="text-right text-sm">
+                              <div className="flex justify-end gap-6">
+                                <span className="text-muted-foreground">User</span>
+                                <span className="font-medium">{userData?.firstName || ""}</span>
+                              </div>
+                              <div className="flex justify-end gap-6">
+                                <span className="text-muted-foreground">Date</span>
+                                <span className="font-medium">{nowDate}</span>
+                              </div>
+                              <div className="flex justify-end gap-6">
+                                <span className="text-muted-foreground">Time</span>
+                                <span className="font-medium">{nowTime}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="p-3 sm:p-4 border-b border-border">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="space-y-1.5 text-sm">
+                              <div className="flex gap-2">
+                                <span className="font-semibold text-muted-foreground w-32 shrink-0">Branch</span>
+                                <span className="font-medium">{ls.branch?.name || ""}</span>
+                              </div>
+                              <div className="flex gap-2">
+                                <span className="font-semibold text-muted-foreground w-32 shrink-0">Financing Type</span>
+                                <span className="font-medium">{ls.loan.productName}</span>
+                              </div>
+                              <div className="flex gap-2">
+                                <span className="font-semibold text-muted-foreground w-32 shrink-0">Financing No./ Cycle</span>
+                                <span className="font-medium">{ls.loan.applicationId} / {ls.loan.financingCycle}</span>
+                              </div>
+                              <div className="flex gap-2">
+                                <span className="font-semibold text-muted-foreground w-32 shrink-0">Client Name</span>
+                                <span className="font-medium">{bsStatementData.customer.name}</span>
+                              </div>
+                              <div className="flex gap-2">
+                                <span className="font-semibold text-muted-foreground w-32 shrink-0">Finance Officer</span>
+                                <span className="font-medium">{ls.officer?.name || ""}</span>
+                              </div>
+                            </div>
+                            <div className="space-y-1.5 text-sm">
+                              <div className="flex gap-2">
+                                <span className="font-semibold text-muted-foreground w-32 shrink-0">Principle Amount</span>
+                                <span className="font-medium">{bsFormatNumber(ls.loan.principleAmount)}</span>
+                              </div>
+                              <div className="flex gap-2">
+                                <span className="font-semibold text-muted-foreground w-32 shrink-0">Margin Rate</span>
+                                <span className="font-medium">{ls.loan.marginRate}%</span>
+                              </div>
+                              <div className="flex gap-2">
+                                <span className="font-semibold text-muted-foreground w-32 shrink-0">Disbursement Date</span>
+                                <span className="font-medium">{ls.disbursement?.disbursementDate ? bsFormatDateDMY(ls.disbursement.disbursementDate) : ""}</span>
+                              </div>
+                              <div className="flex gap-2">
+                                <span className="font-semibold text-muted-foreground w-32 shrink-0">No. of Installments</span>
+                                <span className="font-medium">{ls.loan.numberOfInstallments}</span>
+                              </div>
+                              <div className="flex gap-2">
+                                <span className="font-semibold text-muted-foreground w-32 shrink-0">Grace Period</span>
+                                <span className="font-medium">{ls.loan.gracePeriod} months</span>
+                              </div>
+                            </div>
+                            <div className="space-y-1.5 text-sm">
+                              <div className="flex gap-2">
+                                <span className="font-semibold text-muted-foreground w-32 shrink-0">Province</span>
+                                <span className="font-medium">{ls.province}</span>
+                              </div>
+                              <div className="flex gap-2">
+                                <span className="font-semibold text-muted-foreground w-32 shrink-0">District</span>
+                                <span className="font-medium">{ls.district}</span>
+                              </div>
+                              <div className="flex gap-2">
+                                <span className="font-semibold text-muted-foreground w-32 shrink-0">Branch Manager</span>
+                                <span className="font-medium">{ls.branchManager}</span>
+                              </div>
+                              <div className="flex gap-2">
+                                <span className="font-semibold text-muted-foreground w-32 shrink-0">Financing Status</span>
+                                <span className={`font-medium ${ls.loan.status === "active" || ls.loan.status === "disbursed" ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}`}>
+                                  {ls.loan.status ? ls.loan.status.charAt(0).toUpperCase() + ls.loan.status.slice(1) : ""}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="p-3 sm:p-4">
+                          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                            <div>
+                              <h3 className="text-sm font-bold mb-2 text-green-700 dark:text-green-400">Schedule</h3>
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-sm border-collapse border border-green-700" data-testid={`bs-table-schedule-${lsIdx}`}>
+                                  <thead>
+                                    <tr className="bg-green-700 dark:bg-green-800 text-white">
+                                      <th className="px-2 py-1.5 text-left font-medium border border-green-600">No.</th>
+                                      <th className="px-2 py-1.5 text-left font-medium border border-green-600">Installment Date</th>
+                                      <th className="px-2 py-1.5 text-right font-medium border border-green-600">Principle</th>
+                                      <th className="px-2 py-1.5 text-right font-medium border border-green-600">Margin</th>
+                                      <th className="px-2 py-1.5 text-right font-medium border border-green-600">Total</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {ls.schedule.map((s, idx) => (
+                                      <tr key={idx} className={idx % 2 === 0 ? "bg-background" : "bg-muted/30"}>
+                                        <td className="px-2 py-1 border border-border text-center">{s.no}</td>
+                                        <td className="px-2 py-1 border border-border">{bsFormatDate(s.installmentDate)}</td>
+                                        <td className="px-2 py-1 border border-border text-right">{bsFormatNumber(s.principleAmount)}</td>
+                                        <td className="px-2 py-1 border border-border text-right">{bsFormatNumber(s.marginAmount)}</td>
+                                        <td className="px-2 py-1 border border-border text-right">{bsFormatNumber(s.totalAmount)}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                  <tfoot>
+                                    <tr className="bg-green-100 dark:bg-green-900/30 font-semibold">
+                                      <td className="px-2 py-1.5 border border-border" colSpan={2}>Total =</td>
+                                      <td className="px-2 py-1.5 border border-border text-right">{bsFormatNumber(ls.scheduleTotals.principleAmount)}</td>
+                                      <td className="px-2 py-1.5 border border-border text-right">{bsFormatNumber(ls.scheduleTotals.marginAmount)}</td>
+                                      <td className="px-2 py-1.5 border border-border text-right">{bsFormatNumber(ls.scheduleTotals.totalAmount)}</td>
+                                    </tr>
+                                  </tfoot>
+                                </table>
+                              </div>
+                            </div>
+
+                            <div>
+                              <h3 className="text-sm font-bold mb-2 text-green-700 dark:text-green-400">Actual Payment</h3>
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-sm border-collapse border border-green-700" data-testid={`bs-table-actual-${lsIdx}`}>
+                                  <thead>
+                                    <tr className="bg-green-700 dark:bg-green-800 text-white">
+                                      <th className="px-2 py-1.5 text-left font-medium border border-green-600">No.</th>
+                                      <th className="px-2 py-1.5 text-left font-medium border border-green-600">Payment Date</th>
+                                      <th className="px-2 py-1.5 text-right font-medium border border-green-600">Principle</th>
+                                      <th className="px-2 py-1.5 text-right font-medium border border-green-600">Margin</th>
+                                      <th className="px-2 py-1.5 text-right font-medium border border-green-600">Total</th>
+                                      <th className="px-2 py-1.5 text-right font-medium border border-green-600">PAR Days</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {ls.actualPayments.filter(a => a.totalAmount > 0 || (a.paymentDate && a.paymentDate !== "")).map((a, idx) => (
+                                      <tr key={idx} className={idx % 2 === 0 ? "bg-background" : "bg-muted/30"}>
+                                        <td className="px-2 py-1 border border-border text-center">{a.no}</td>
+                                        <td className="px-2 py-1 border border-border">{a.paymentDate ? bsFormatDate(a.paymentDate) : ""}</td>
+                                        <td className="px-2 py-1 border border-border text-right">{a.principleAmount > 0 ? bsFormatNumber(a.principleAmount) : ""}</td>
+                                        <td className="px-2 py-1 border border-border text-right">{a.marginAmount > 0 ? bsFormatNumber(a.marginAmount) : ""}</td>
+                                        <td className="px-2 py-1 border border-border text-right">{a.totalAmount > 0 ? bsFormatNumber(a.totalAmount) : ""}</td>
+                                        <td className="px-2 py-1 border border-border text-right">{a.arears > 0 ? a.arears : ""}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                  <tfoot>
+                                    <tr className="bg-green-100 dark:bg-green-900/30 font-semibold">
+                                      <td className="px-2 py-1.5 border border-border" colSpan={2}>Total =</td>
+                                      <td className="px-2 py-1.5 border border-border text-right">{bsFormatNumber(ls.actualTotals.principleAmount)}</td>
+                                      <td className="px-2 py-1.5 border border-border text-right">{bsFormatNumber(ls.actualTotals.marginAmount)}</td>
+                                      <td className="px-2 py-1.5 border border-border text-right">{bsFormatNumber(ls.actualTotals.totalAmount)}</td>
+                                      <td className="px-2 py-1.5 border border-border text-right">{ls.actualTotals.arears > 0 ? ls.actualTotals.arears : ""}</td>
+                                    </tr>
+                                    <tr className="bg-yellow-100 dark:bg-yellow-900/30 font-semibold">
+                                      <td className="px-2 py-1.5 border border-border" colSpan={2}>Outstanding</td>
+                                      <td className="px-2 py-1.5 border border-border text-right">{bsFormatNumber(ls.outstanding.principleAmount)}</td>
+                                      <td className="px-2 py-1.5 border border-border text-right">{bsFormatNumber(ls.outstanding.marginAmount)}</td>
+                                      <td className="px-2 py-1.5 border border-border text-right">{bsFormatNumber(ls.outstanding.totalAmount)}</td>
+                                      <td className="px-2 py-1.5 border border-border text-right"></td>
+                                    </tr>
+                                  </tfoot>
+                                </table>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setShowQRDialog(false)}>
+                  Close
+                </Button>
+              </div>
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
     </div>
