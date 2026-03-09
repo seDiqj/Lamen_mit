@@ -579,27 +579,40 @@ export default function CitizenBalanceStatementPage() {
       const imgRatio = canvas.height / canvas.width;
       const imgHeight = usableWidth * imgRatio;
 
-      if (imgHeight <= pageHeight - margin * 2) {
+      const usableHeight = pageHeight - margin * 2;
+      if (imgHeight <= usableHeight) {
         doc.addImage(imgData, "PNG", margin, margin, usableWidth, imgHeight);
       } else {
-        let yOffset = 0;
-        const sliceHeight = ((pageHeight - margin * 2) / imgHeight) * canvas.height;
-        let pageNum = 0;
-        while (yOffset < canvas.height) {
-          if (pageNum > 0) doc.addPage();
-          const sliceCanvas = document.createElement("canvas");
-          sliceCanvas.width = canvas.width;
-          const currentSliceHeight = Math.min(sliceHeight, canvas.height - yOffset);
-          sliceCanvas.height = currentSliceHeight;
-          const ctx = sliceCanvas.getContext("2d");
-          if (ctx) {
-            ctx.drawImage(canvas, 0, yOffset, canvas.width, currentSliceHeight, 0, 0, canvas.width, currentSliceHeight);
+        const sections = contractRef.current!.querySelectorAll("[data-contract-section]");
+        if (sections.length > 0) {
+          let currentPageY = 0;
+          let pageNum = 0;
+          const pxPerMm = usableWidth / 794;
+          for (let i = 0; i < sections.length; i++) {
+            const section = sections[i] as HTMLElement;
+            const sectionTop = section.offsetTop * pxPerMm;
+            const sectionHeight = section.offsetHeight * pxPerMm;
+            if (currentPageY + sectionHeight > usableHeight && currentPageY > 0) {
+              doc.addPage();
+              pageNum++;
+              currentPageY = 0;
+            }
+            const srcY = section.offsetTop * (canvas.height / contractRef.current!.scrollHeight);
+            const srcH = section.offsetHeight * (canvas.height / contractRef.current!.scrollHeight);
+            const sliceCanvas = document.createElement("canvas");
+            sliceCanvas.width = canvas.width;
+            sliceCanvas.height = Math.ceil(srcH);
+            const ctx = sliceCanvas.getContext("2d");
+            if (ctx) {
+              ctx.drawImage(canvas, 0, Math.floor(srcY), canvas.width, Math.ceil(srcH), 0, 0, canvas.width, Math.ceil(srcH));
+            }
+            const sliceData = sliceCanvas.toDataURL("image/png");
+            const sliceImgHeight = usableWidth * (sliceCanvas.height / sliceCanvas.width);
+            doc.addImage(sliceData, "PNG", margin, margin + currentPageY, usableWidth, sliceImgHeight);
+            currentPageY += sliceImgHeight;
           }
-          const sliceData = sliceCanvas.toDataURL("image/png");
-          const sliceImgHeight = usableWidth * (currentSliceHeight / canvas.width);
-          doc.addImage(sliceData, "PNG", margin, margin, usableWidth, sliceImgHeight);
-          yOffset += sliceHeight;
-          pageNum++;
+        } else {
+          doc.addImage(imgData, "PNG", margin, margin, usableWidth, imgHeight);
         }
       }
 
@@ -1815,113 +1828,111 @@ export default function CitizenBalanceStatementPage() {
           <div ref={contractRef} style={{ width: "794px", background: "#ffffff" }}>
             {contractDataList.map((cd, cdIdx) => (
               <div key={cdIdx} className="bg-white text-black p-6 text-sm leading-relaxed" dir="rtl" style={{ fontFamily: "Arial, Tahoma, sans-serif", direction: "rtl", pageBreakAfter: cdIdx < contractDataList.length - 1 ? "always" : "auto" }}>
-                <div className="text-center mb-4">
+                <div data-contract-section className="text-center mb-4">
                   <p className="text-base font-bold mb-1">بسم الله الرحمن الرحیم</p>
-                </div>
-                <div className="text-center mb-6">
                   <img src="/logo.jpeg" alt="Lamen" className="h-16 w-auto mx-auto mb-2" />
                   <p className="text-lg font-bold" style={{ color: "#15803d" }}>لمن د وړو مالي تمویلونو مؤسسه</p>
                   <p className="text-base font-bold mt-2">د مرابحې تمویل قرارداد</p>
                 </div>
-                <div style={{ border: "1px solid #9ca3af", borderRadius: "4px", padding: "16px", marginBottom: "16px" }}>
+                <div data-contract-section style={{ border: "1px solid #9ca3af", borderRadius: "4px", padding: "16px", marginBottom: "16px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px" }}>
                     <div style={{ textAlign: "right" }}>
                       <p style={{ marginBottom: "4px" }}>
                         <span style={{ fontWeight: 600 }}>نوم / اسم: </span>
-                        <span style={{ background: "#fef9c3", padding: "2px 8px", borderRadius: "4px" }}>{cd.customer.fullNameDari || cd.customer.name}</span>
+                        <span>{cd.customer.fullNameDari || cd.customer.name}</span>
                       </p>
                       <p>
                         <span style={{ fontWeight: 600 }}>د اړېکې شمېره: </span>
-                        <span style={{ background: "#fef9c3", padding: "2px 8px", borderRadius: "4px" }}>{cd.customer.phoneNumber}</span>
+                        <span>{cd.customer.phoneNumber}</span>
                       </p>
                     </div>
                     <div style={{ textAlign: "left" }} dir="ltr">
                       <p style={{ marginBottom: "4px" }}>
                         <span style={{ fontWeight: 600 }}>قرارداد نمبر: </span>
-                        <span style={{ background: "#fef9c3", padding: "2px 8px", borderRadius: "4px" }}>{cd.loan.applicationId}</span>
+                        <span>{cd.loan.applicationId}</span>
                       </p>
                     </div>
                   </div>
                 </div>
-                <div style={{ textAlign: "center", marginBottom: "16px", fontSize: "0.875rem" }}>
-                  <span style={{ background: "#fef9c3", padding: "2px 8px", borderRadius: "4px" }}>
+                <div data-contract-section style={{ textAlign: "center", marginBottom: "16px", fontSize: "0.875rem" }}>
+                  <span>
                     {cd.disbursement.disbursementDate ? new Date(cd.disbursement.disbursementDate).getFullYear() : ""}
                   </span>
                 </div>
-                <div style={{ marginBottom: "24px" }}>
+                <div data-contract-section style={{ marginBottom: "24px" }}>
                   <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "12px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>په قرارداد کې د ښکیلو لورو پېژندنه:</h3>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
                     <div style={{ border: "1px solid #d1d5db", borderRadius: "4px", padding: "12px" }}>
                       <h4 style={{ fontWeight: 700, marginBottom: "8px", color: "#15803d" }}>تمویل اخېستونکي (مشتري)</h4>
                       <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                        <p><span style={{ fontWeight: 600 }}>نــوم: </span><span style={{ background: "#fef9c3", padding: "1px 4px", borderRadius: "4px" }}>{cd.customer.fullNameDari || cd.customer.name}</span></p>
-                        <p><span style={{ fontWeight: 600 }}>د پلار نوم: </span><span style={{ background: "#fef9c3", padding: "1px 4px", borderRadius: "4px" }}>{cd.customer.fatherNameDari || cd.customer.fatherName}</span></p>
-                        <p><span style={{ fontWeight: 600 }}>د تذکرې شمېره: </span><span style={{ background: "#fef9c3", padding: "1px 4px", borderRadius: "4px" }}>{cd.customer.nationalId}</span></p>
-                        <p><span style={{ fontWeight: 600 }}>د اړېکې شمېرې: </span><span style={{ background: "#fef9c3", padding: "1px 4px", borderRadius: "4px" }}>{cd.customer.phoneNumber}</span></p>
-                        <p><span style={{ fontWeight: 600 }}>پــتـه: </span><span style={{ background: "#fef9c3", padding: "1px 4px", borderRadius: "4px" }}>{cd.customer.homeAddress}</span></p>
+                        <p><span style={{ fontWeight: 600 }}>نــوم: </span><span>{cd.customer.fullNameDari || cd.customer.name}</span></p>
+                        <p><span style={{ fontWeight: 600 }}>د پلار نوم: </span><span>{cd.customer.fatherNameDari || cd.customer.fatherName}</span></p>
+                        <p><span style={{ fontWeight: 600 }}>د تذکرې شمېره: </span><span>{cd.customer.nationalId}</span></p>
+                        <p><span style={{ fontWeight: 600 }}>د اړېکې شمېرې: </span><span>{cd.customer.phoneNumber}</span></p>
+                        <p><span style={{ fontWeight: 600 }}>پــتـه: </span><span>{cd.customer.homeAddress}</span></p>
                       </div>
                     </div>
                     <div style={{ border: "1px solid #d1d5db", borderRadius: "4px", padding: "12px" }}>
                       <h4 style={{ fontWeight: 700, marginBottom: "8px", color: "#15803d" }}>تمویلونکی (لمن د وړو مالی تمویلونو مؤسسه)</h4>
                       <p style={{ fontSize: "0.75rem", lineHeight: 1.6 }}>من د وړو مالي تمویلونو مؤسسه چې د افغانستان بانک له لورې د (۰۰۳) شمېرې جواز لرونکې ده، مرکزي دفتر یې د څلورمې ناحیې ، تایمني پروژې په دوهم سرک ، کابل - افغانستان کې دی.</p>
                       <div style={{ marginTop: "8px", display: "flex", flexDirection: "column", gap: "4px" }}>
-                        <p><span style={{ fontWeight: 600 }}>د څانګې کوډ نمبر: </span><span style={{ background: "#fef9c3", padding: "1px 4px", borderRadius: "4px" }}>{cd.branch.code}</span></p>
-                        <p><span style={{ fontWeight: 600 }}>اړونـد ولایت: </span><span style={{ background: "#fef9c3", padding: "1px 4px", borderRadius: "4px" }}>{cd.customer.province}</span></p>
+                        <p><span style={{ fontWeight: 600 }}>د څانګې کوډ نمبر: </span><span>{cd.branch.code}</span></p>
+                        <p><span style={{ fontWeight: 600 }}>اړونـد ولایت: </span><span>{cd.customer.province}</span></p>
                       </div>
                     </div>
                   </div>
                 </div>
-                <div style={{ marginBottom: "24px" }}>
+                <div data-contract-section style={{ marginBottom: "24px" }}>
                   <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "12px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>د قرارداد موضوع:</h3>
                   <p style={{ fontSize: "0.75rem" }}>د لمن مؤسسې له لورې، د مشتري د غوښتنې پر اساس، د توکو او اجناسو پیر او بیا یې مشتري ته د مرابحې تړون له مخې، پر ټاکلې ګټه او شرایطوپلورل.</p>
                 </div>
-                <div style={{ marginBottom: "24px" }}>
+                <div data-contract-section style={{ marginBottom: "24px" }}>
                   <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "12px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>د تړون اړوند عمومي معلومات:</h3>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.75rem" }} dir="rtl">
                     <tbody>
                       <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
                         <td style={{ padding: "8px 8px 8px 0", fontWeight: 600, width: "50%" }}>د فعالیت ډول (Type of Activity):</td>
-                        <td style={{ padding: "8px 0" }}><span style={{ background: "#fef9c3", padding: "1px 4px", borderRadius: "4px" }}>{cd.business.businessType}</span></td>
+                        <td style={{ padding: "8px 0" }}>{cd.business.businessType}</td>
                       </tr>
                       <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
                         <td style={{ padding: "8px 8px 8px 0", fontWeight: 600 }}>د پېرېدونکي د فعالیت ځای/ساحه:</td>
-                        <td style={{ padding: "8px 0" }}><span style={{ background: "#fef9c3", padding: "1px 4px", borderRadius: "4px" }}>{cd.business.detailedAddress}</span></td>
+                        <td style={{ padding: "8px 0" }}>{cd.business.detailedAddress}</td>
                       </tr>
                       <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
                         <td style={{ padding: "8px 8px 8px 0", fontWeight: 600 }}>د تمویل شوې پانګې اندازه (Financing Amount):</td>
-                        <td style={{ padding: "8px 0" }}><span style={{ background: "#fef9c3", padding: "1px 4px", borderRadius: "4px" }} dir="ltr">{contractFormatAmount(cd.loan.principleAmount)} افغانۍ</span></td>
+                        <td style={{ padding: "8px 0" }} dir="ltr">{contractFormatAmount(cd.loan.principleAmount)} افغانۍ</td>
                       </tr>
                       <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
                         <td style={{ padding: "8px 8px 8px 0", fontWeight: 600 }}>د ګټې اندازه (Markup):</td>
-                        <td style={{ padding: "8px 0" }}><span style={{ background: "#fef9c3", padding: "1px 4px", borderRadius: "4px" }} dir="ltr">{contractFormatAmount(cd.loan.profit)} افغانۍ</span></td>
+                        <td style={{ padding: "8px 0" }} dir="ltr">{contractFormatAmount(cd.loan.profit)} افغانۍ</td>
                       </tr>
                       <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
                         <td style={{ padding: "8px 8px 8px 0", fontWeight: 600 }}>د توکو د خرڅون مجموعي بیعه (Sale Price):</td>
-                        <td style={{ padding: "8px 0" }}><span style={{ background: "#fef9c3", padding: "1px 4px", borderRadius: "4px" }} dir="ltr">{contractFormatAmount(cd.loan.totalReceivable)} افغانۍ</span></td>
+                        <td style={{ padding: "8px 0" }} dir="ltr">{contractFormatAmount(cd.loan.totalReceivable)} افغانۍ</td>
                       </tr>
                       <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
                         <td style={{ padding: "8px 8px 8px 0", fontWeight: 600 }}>د قرارداد موده (Contract Period):</td>
-                        <td style={{ padding: "8px 0" }}><span style={{ background: "#fef9c3", padding: "1px 4px", borderRadius: "4px" }}>{cd.loan.financingDurationMonths} میاشتې</span></td>
+                        <td style={{ padding: "8px 0" }}>{cd.loan.financingDurationMonths} میاشتې</td>
                       </tr>
                       <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
                         <td style={{ padding: "8px 8px 8px 0", fontWeight: 600 }}>د قرارداد د پیل نېټه (Contract Start Date):</td>
-                        <td style={{ padding: "8px 0" }}><span style={{ background: "#fef9c3", padding: "1px 4px", borderRadius: "4px" }}>{contractFormatDate(cd.disbursement.disbursementDate)}</span></td>
+                        <td style={{ padding: "8px 0" }}>{contractFormatDate(cd.disbursement.disbursementDate)}</td>
                       </tr>
                       <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
                         <td style={{ padding: "8px 8px 8px 0", fontWeight: 600 }}>د قراراداد د پای نېټه (Contract End Date):</td>
-                        <td style={{ padding: "8px 0" }}><span style={{ background: "#fef9c3", padding: "1px 4px", borderRadius: "4px" }}>{contractFormatDate(cd.disbursement.lastInstallmentDate)}</span></td>
+                        <td style={{ padding: "8px 0" }}>{contractFormatDate(cd.disbursement.lastInstallmentDate)}</td>
                       </tr>
                       <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
                         <td style={{ padding: "8px 8px 8px 0", fontWeight: 600 }}>د قسطونو شمېر (Number of Installments):</td>
-                        <td style={{ padding: "8px 0" }}><span style={{ background: "#fef9c3", padding: "1px 4px", borderRadius: "4px" }}>{cd.loan.numberOfInstallments}</span></td>
+                        <td style={{ padding: "8px 0" }}>{cd.loan.numberOfInstallments}</td>
                       </tr>
                       <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
                         <td style={{ padding: "8px 8px 8px 0", fontWeight: 600 }}>د معافیت موده (Grace Period):</td>
-                        <td style={{ padding: "8px 0" }}><span style={{ background: "#fef9c3", padding: "1px 4px", borderRadius: "4px" }}>{cd.loan.gracePeriod} میاشتې</span></td>
+                        <td style={{ padding: "8px 0" }}>{cd.loan.gracePeriod} میاشتې</td>
                       </tr>
                       <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
                         <td style={{ padding: "8px 8px 8px 0", fontWeight: 600 }}>د هر قسط اندازه (Installment Amount):</td>
-                        <td style={{ padding: "8px 0" }}><span style={{ background: "#fef9c3", padding: "1px 4px", borderRadius: "4px" }} dir="ltr">{contractFormatAmount(cd.loan.installmentAmount)} افغانۍ</span></td>
+                        <td style={{ padding: "8px 0" }} dir="ltr">{contractFormatAmount(cd.loan.installmentAmount)} افغانۍ</td>
                       </tr>
                       <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
                         <td style={{ padding: "8px 8px 8px 0", fontWeight: 600 }}>د قسطونو تکرار (Frequency):</td>
@@ -1929,16 +1940,16 @@ export default function CitizenBalanceStatementPage() {
                       </tr>
                       <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
                         <td style={{ padding: "8px 8px 8px 0", fontWeight: 600 }}>د لومړني قسط د اداینې نېټه (First Installment Date):</td>
-                        <td style={{ padding: "8px 0" }}><span style={{ background: "#fef9c3", padding: "1px 4px", borderRadius: "4px" }}>{contractFormatDate(cd.disbursement.firstInstallmentDate)}</span></td>
+                        <td style={{ padding: "8px 0" }}>{contractFormatDate(cd.disbursement.firstInstallmentDate)}</td>
                       </tr>
                       <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
                         <td style={{ padding: "8px 8px 8px 0", fontWeight: 600 }}>د وروستني قسط د اداینې نېټه (Last Installment Date):</td>
-                        <td style={{ padding: "8px 0" }}><span style={{ background: "#fef9c3", padding: "1px 4px", borderRadius: "4px" }}>{contractFormatDate(cd.disbursement.lastInstallmentDate)}</span></td>
+                        <td style={{ padding: "8px 0" }}>{contractFormatDate(cd.disbursement.lastInstallmentDate)}</td>
                       </tr>
                     </tbody>
                   </table>
                 </div>
-                <div style={{ marginBottom: "24px" }}>
+                <div data-contract-section style={{ marginBottom: "24px" }}>
                   <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "12px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>د طرفینو مسؤلیتونه:</h3>
                   <div style={{ marginBottom: "12px" }}>
                     <h4 style={{ fontWeight: 700, marginBottom: "4px" }}>الف: د لمن مؤسسې مسؤلیتونه:</h4>
@@ -1959,7 +1970,7 @@ export default function CitizenBalanceStatementPage() {
                     </ul>
                   </div>
                 </div>
-                <div style={{ marginBottom: "24px" }}>
+                <div data-contract-section style={{ marginBottom: "24px" }}>
                   <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "12px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>د قرارداد فسخ:</h3>
                   <ul style={{ listStyleType: "disc", paddingRight: "20px", fontSize: "0.75rem", display: "flex", flexDirection: "column", gap: "4px" }}>
                     <li>د قرارداد دواړه خواوې کولای شي، چې د دوه اړخېزې موافقې له مخې قرارداد هر وخت فسخ کړي، په دې شرط چې ټول حقوقي او مالي تعهدات تسویه شي.</li>
@@ -1968,7 +1979,7 @@ export default function CitizenBalanceStatementPage() {
                     <li>د قرارداد له فسخې څخه وروسته به مالي حسابونه تسویه کیږي.</li>
                   </ul>
                 </div>
-                <div style={{ marginBottom: "24px" }}>
+                <div data-contract-section style={{ marginBottom: "24px" }}>
                   <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "12px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>حل منازعات (د مالي شخړو حل):</h3>
                   <ul style={{ listStyleType: "disc", paddingRight: "20px", fontSize: "0.75rem", display: "flex", flexDirection: "column", gap: "4px" }}>
                     <li>طرفین مکلف دي هر ډول شخړې او اختلافونه د خپلمنځي خبرو له لارې حلوي.</li>
@@ -1976,14 +1987,14 @@ export default function CitizenBalanceStatementPage() {
                     <li>که بیا هم ونه توانېدل، نو د افغانستان محاکمو ته به مراجعه کوي.</li>
                   </ul>
                 </div>
-                <div style={{ marginBottom: "24px" }}>
+                <div data-contract-section style={{ marginBottom: "24px" }}>
                   <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "12px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>شخصي او مالي تضمینونه:</h3>
                   <p style={{ fontSize: "0.75rem", lineHeight: 1.6 }}>مشتری مکلف دی چې د دې قرارداد د تضمین لپاره، له لمن مؤسسې سره همغږي شوي معتبر تضمیني اسناد وړاندې کړي. که مؤسسه د اضافي تضمین اړتیا ولري، مشتری باید نور لازم اسناد هم برابر کړي.</p>
                   <p style={{ fontSize: "0.75rem", lineHeight: 1.6, marginTop: "4px" }}>دا تضمینونه به تر هغه وخته پورې د اعتبار وړ وي، څو چې مشتری د دې قرارداد له مخې ټول مکلفیتونه او تادیات پوره ادا کړي نه وي.</p>
                   <p style={{ fontSize: "0.75rem", lineHeight: 1.6, marginTop: "4px" }}>لمن مؤسسه به تضمیني اسناد یوازې هغه مهال آزادوي، کله چې دې قرارداد پورې اړوند د مرابحې قیمت ټول قسطونه ادا شوي وي.</p>
                   <p style={{ fontSize: "0.75rem", lineHeight: 1.6, marginTop: "4px" }}>همدارنګه مشتري متعهد دی چې د خیانت، غفلت، یا کوتاهۍ په صورت کې به مسؤل وي، او د اړوند ضرر جبران به کوي.</p>
                 </div>
-                <div style={{ marginBottom: "24px" }}>
+                <div data-contract-section style={{ marginBottom: "24px" }}>
                   <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "12px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>عمومي شرایط:</h3>
                   <ul style={{ listStyleType: "disc", paddingRight: "20px", fontSize: "0.75rem", display: "flex", flexDirection: "column", gap: "4px" }}>
                     <li>دا قرارداد د اسلامي شرعي اصولو له مخې ترتیب شوی دی.</li>
@@ -1992,7 +2003,7 @@ export default function CitizenBalanceStatementPage() {
                     <li>دا قرارداد د دخیلو لورو په خوښه، بغیر له کوم جبر او اکراه څخه تړل کیږی.</li>
                   </ul>
                 </div>
-                <div style={{ marginTop: "32px", borderTop: "1px solid #9ca3af", paddingTop: "16px" }}>
+                <div data-contract-section style={{ marginTop: "32px", borderTop: "1px solid #9ca3af", paddingTop: "16px" }}>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "32px" }}>
                     <div style={{ textAlign: "center" }}>
                       <h4 style={{ fontWeight: 700, marginBottom: "16px", color: "#15803d" }}>تمویل اخېستونکی:</h4>
