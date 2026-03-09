@@ -1872,38 +1872,6 @@ export default function CitizenBalanceStatementPage() {
                       {cd.disbursement.disbursementDate ? new Date(cd.disbursement.disbursementDate).getFullYear() : ""}
                     </span>
                   </div>
-                  <div style={{ marginBottom: "16px" }}>
-                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "8px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>د قرارداد موضوع:</h3>
-                    <p style={{ fontSize: "0.75rem" }}>د لمن مؤسسې له لورې، د مشتري د غوښتنې پر اساس، د توکو او اجناسو پیر او بیا یې مشتري ته د مرابحې تړون له مخې، پر ټاکلې ګټه او شرایطوپلورل.</p>
-                  </div>
-                  <div style={{ marginBottom: "16px" }}>
-                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "8px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>د تړون اړوند عمومي معلومات:</h3>
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.75rem" }} dir="rtl">
-                      <tbody>
-                        {[
-                          ["د فعالیت ډول (Type of Activity):", cd.business.businessType],
-                          ["د پېرېدونکي د فعالیت ځای/ساحه:", cd.business.detailedAddress],
-                          ["د تمویل شوې پانګې اندازه (Financing Amount):", `${contractFormatAmount(cd.loan.principleAmount)} افغانۍ`],
-                          ["د ګټې اندازه (Markup):", `${contractFormatAmount(cd.loan.profit)} افغانۍ`],
-                          ["د توکو د خرڅون مجموعي بیعه (Sale Price):", `${contractFormatAmount(cd.loan.totalReceivable)} افغانۍ`],
-                          ["د قرارداد موده (Contract Period):", `${cd.loan.financingDurationMonths} میاشتې`],
-                          ["د قرارداد د پیل نېټه (Contract Start Date):", contractFormatDate(cd.disbursement.disbursementDate)],
-                          ["د قراراداد د پای نېټه (Contract End Date):", contractFormatDate(cd.disbursement.lastInstallmentDate)],
-                          ["د قسطونو شمېر (Number of Installments):", cd.loan.numberOfInstallments],
-                          ["د معافیت موده (Grace Period):", `${cd.loan.gracePeriod} میاشتې`],
-                          ["د هر قسط اندازه (Installment Amount):", `${contractFormatAmount(cd.loan.installmentAmount)} افغانۍ`],
-                          ["د قسطونو تکرار (Frequency):", "یو میاشتنۍ"],
-                          ["د لومړني قسط د اداینې نېټه (First Installment Date):", contractFormatDate(cd.disbursement.firstInstallmentDate)],
-                          ["د وروستني قسط د اداینې نېټه (Last Installment Date):", contractFormatDate(cd.disbursement.lastInstallmentDate)],
-                        ].map(([label, value], ri) => (
-                          <tr key={ri} style={{ borderBottom: "1px solid #e5e7eb" }}>
-                            <td style={{ padding: "6px 8px 6px 0", fontWeight: 600, width: "50%", background: "#dcfce7", color: "#15803d" }}>{label}</td>
-                            <td style={{ padding: "6px 0" }}>{value}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
                 </div>
                 {/* PAGE 2 */}
                 <div data-contract-section style={{ padding: "24px" }}>
@@ -1937,6 +1905,38 @@ export default function CitizenBalanceStatementPage() {
                             </div>
                           </td>
                         </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div style={{ marginBottom: "16px" }}>
+                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "8px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>د قرارداد موضوع:</h3>
+                    <p style={{ fontSize: "0.75rem" }}>د لمن مؤسسې له لورې، د مشتري د غوښتنې پر اساس، د توکو او اجناسو پیر او بیا یې مشتري ته د مرابحې تړون له مخې، پر ټاکلې ګټه او شرایطوپلورل.</p>
+                  </div>
+                  <div style={{ marginBottom: "16px" }}>
+                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "8px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>د تړون اړوند عمومي معلومات:</h3>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.75rem" }} dir="rtl">
+                      <tbody>
+                        {[
+                          ["د فعالیت ډول (Type of Activity):", cd.business.businessType],
+                          ["د پېرېدونکي د فعالیت ځای/ساحه:", cd.business.detailedAddress],
+                          ["د تمویل شوې پانګې اندازه (Financing Amount):", `${contractFormatAmount(cd.loan.principleAmount)} افغانۍ`],
+                          ["د ګټې اندازه (Markup):", `${contractFormatAmount(cd.loan.profit)} افغانۍ`],
+                          ["د توکو د خرڅون مجموعي بیعه (Sale Price):", `${contractFormatAmount(cd.loan.totalReceivable)} افغانۍ`],
+                          ["د قرارداد موده (Contract Period):", `${cd.loan.financingDurationMonths} میاشتې`],
+                          ["د قرارداد د پیل نېټه (Contract Start Date):", contractFormatDate(cd.disbursement.disbursementDate)],
+                          ["د قراراداد د پای نېټه (Contract End Date):", contractFormatDate(cd.disbursement.lastInstallmentDate)],
+                          ["د قسطونو شمېر (Number of Installments):", cd.loan.numberOfInstallments],
+                          ["د معافیت موده (Grace Period):", `${cd.loan.gracePeriod} میاشتې`],
+                          ["د هر قسط اندازه (Installment Amount):", `${contractFormatAmount(cd.loan.installmentAmount)} افغانۍ`],
+                          ["د قسطونو تکرار (Frequency):", "یو میاشتنۍ"],
+                          ["د لومړني قسط د اداینې نېټه (First Installment Date):", contractFormatDate(cd.disbursement.firstInstallmentDate)],
+                          ["د وروستني قسط د اداینې نېټه (Last Installment Date):", contractFormatDate(cd.disbursement.lastInstallmentDate)],
+                        ].map(([label, value], ri) => (
+                          <tr key={ri} style={{ borderBottom: "1px solid #e5e7eb" }}>
+                            <td style={{ padding: "6px 8px 6px 0", fontWeight: 600, width: "50%", background: "#dcfce7", color: "#15803d" }}>{label}</td>
+                            <td style={{ padding: "6px 0" }}>{value}</td>
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   </div>
