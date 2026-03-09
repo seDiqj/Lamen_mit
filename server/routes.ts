@@ -7235,6 +7235,7 @@ export async function registerRoutes(
           homeAddress: customer.homeAddress || "",
           province: customer.province || "",
           district: customer.district || "",
+          photoUrl: customer.photoUrl || "",
         },
         loan: {
           applicationId: loan.applicationId || "",
