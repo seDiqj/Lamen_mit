@@ -1908,27 +1908,37 @@ export default function CitizenBalanceStatementPage() {
                 {/* PAGE 2 */}
                 <div data-contract-section style={{ padding: "24px" }}>
                   <div style={{ marginBottom: "20px" }}>
-                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "10px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>په قرارداد کې د ښکیلو لورو پېژندنه:</h3>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-                      <div style={{ border: "1px solid #d1d5db", borderRadius: "4px", padding: "12px" }}>
-                        <h4 style={{ fontWeight: 700, marginBottom: "8px", color: "#15803d" }}>تمویل اخېستونکي (مشتري)</h4>
-                        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                          <p><span style={{ fontWeight: 600 }}>نــوم: </span><span>{cd.customer.fullNameDari || cd.customer.name}</span></p>
-                          <p><span style={{ fontWeight: 600 }}>د پلار نوم: </span><span>{cd.customer.fatherNameDari || cd.customer.fatherName}</span></p>
-                          <p><span style={{ fontWeight: 600 }}>د تذکرې شمېره: </span><span>{cd.customer.nationalId}</span></p>
-                          <p><span style={{ fontWeight: 600 }}>د اړېکې شمېرې: </span><span>{cd.customer.phoneNumber}</span></p>
-                          <p><span style={{ fontWeight: 600 }}>پــتـه: </span><span>{cd.customer.homeAddress}</span></p>
-                        </div>
-                      </div>
-                      <div style={{ border: "1px solid #d1d5db", borderRadius: "4px", padding: "12px" }}>
-                        <h4 style={{ fontWeight: 700, marginBottom: "8px", color: "#15803d" }}>تمویلونکی (لمن د وړو مالی تمویلونو مؤسسه)</h4>
-                        <p style={{ fontSize: "0.75rem", lineHeight: 1.6 }}>من د وړو مالي تمویلونو مؤسسه چې د افغانستان بانک له لورې د (۰۰۳) شمېرې جواز لرونکې ده، مرکزي دفتر یې د څلورمې ناحیې ، تایمني پروژې په دوهم سرک ، کابل - افغانستان کې دی.</p>
-                        <div style={{ marginTop: "8px", display: "flex", flexDirection: "column", gap: "4px" }}>
-                          <p><span style={{ fontWeight: 600 }}>د څانګې کوډ نمبر: </span><span>{cd.branch.code}</span></p>
-                          <p><span style={{ fontWeight: 600 }}>اړونـد ولایت: </span><span>{cd.customer.province}</span></p>
-                        </div>
-                      </div>
-                    </div>
+                    <h3 style={{ fontWeight: 700, fontSize: "1.1rem", marginBottom: "10px", color: "#15803d" }}>
+                      <span style={{ background: "#dcfce7", padding: "4px 12px", borderRadius: "4px", display: "inline-block" }}>1 .  په قرارداد کې د ښکیلو لورو پېژندنه:</span>
+                    </h3>
+                    <table style={{ width: "100%", borderCollapse: "collapse", border: "2px solid #333", fontSize: "0.8rem" }} dir="rtl">
+                      <thead>
+                        <tr>
+                          <td style={{ padding: "8px 12px", fontWeight: 700, background: "#15803d", color: "#ffffff", textAlign: "center", border: "1px solid #333", width: "50%" }}>تمویلونکی (لمن د وړو مالی تمویلونو مؤسسه)</td>
+                          <td style={{ padding: "8px 12px", fontWeight: 700, background: "#15803d", color: "#ffffff", textAlign: "center", border: "1px solid #333", width: "50%" }}>تمویل اخېستونکي (مشتري)</td>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td style={{ padding: "12px", border: "1px solid #333", verticalAlign: "top", lineHeight: 1.8 }}>
+                            <p style={{ marginBottom: "8px" }}>من د وړو مالي تمویلونو مؤسسه چې د افغانستان بانک له لورې د (۰۰۳) شمېرې جواز لرونکې ده، مرکزي دفتر یې د څلورمې ناحیې ، تایمني پروژې په دوهم سرک ، کابل - افغانستان کې دی.</p>
+                            <p><span style={{ fontWeight: 600 }}>د څانګې کوډ نمبر: </span><span style={{ background: "#fef08a", padding: "1px 6px" }}>{cd.branch.code}</span></p>
+                            <p><span style={{ fontWeight: 600 }}>اړونـد ولایت: </span><span style={{ background: "#fef08a", padding: "1px 6px" }}>{cd.customer.province}</span></p>
+                            <p><span style={{ fontWeight: 600 }}>ولـسـوالي: </span><span>{cd.customer.district}</span></p>
+                            <p><span style={{ fontWeight: 600 }}>د خانګي موقعیت: </span><span>{cd.customer.homeAddress}</span></p>
+                          </td>
+                          <td style={{ padding: "12px", border: "1px solid #333", verticalAlign: "top" }}>
+                            <div style={{ border: "1px solid #999", padding: "10px", marginBottom: "8px", lineHeight: 2 }}>
+                              <p style={{ marginBottom: "2px" }}><span style={{ fontWeight: 600 }}>نــوم: </span><span style={{ background: "#fef08a", padding: "1px 6px" }}>{cd.customer.fullNameDari || cd.customer.name}</span></p>
+                              <p style={{ marginBottom: "2px" }}><span style={{ fontWeight: 600 }}>د پلار نوم: </span><span style={{ background: "#fef08a", padding: "1px 6px" }}>{cd.customer.fatherNameDari || cd.customer.fatherName}</span></p>
+                              <p style={{ marginBottom: "2px" }}><span style={{ fontWeight: 600 }}>د تذکرې شمېره: </span><span style={{ background: "#fef08a", padding: "1px 6px" }}>{cd.customer.nationalId}</span></p>
+                              <p style={{ marginBottom: "2px" }}><span style={{ fontWeight: 600 }}>د اړېکې شمېرې: </span><span style={{ background: "#fef08a", padding: "1px 6px" }}>{cd.customer.phoneNumber}</span></p>
+                              <p><span style={{ fontWeight: 600 }}>پــتـه: </span><span style={{ background: "#fef08a", padding: "1px 6px" }}>{cd.customer.homeAddress}</span></p>
+                            </div>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                   <div style={{ marginBottom: "20px" }}>
                     <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "10px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>د طرفینو مسؤلیتونه:</h3>
