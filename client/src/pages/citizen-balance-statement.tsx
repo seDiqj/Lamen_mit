@@ -1873,7 +1873,7 @@ export default function CitizenBalanceStatementPage() {
                     </span>
                   </div>
                 </div>
-                {/* PAGE 2 */}
+                {/* PAGE 2: Section 1 - Party Identification + Contract Subject + Details Table */}
                 <div data-contract-section style={{ padding: "24px" }}>
                   <div style={{ marginBottom: "20px" }}>
                     <h3 style={{ fontWeight: 700, fontSize: "1.1rem", marginBottom: "10px", color: "#15803d" }}>
@@ -1940,6 +1940,9 @@ export default function CitizenBalanceStatementPage() {
                       </tbody>
                     </table>
                   </div>
+                </div>
+                {/* PAGE 3: Responsibilities + Terms */}
+                <div data-contract-section style={{ padding: "24px" }}>
                   <div style={{ marginBottom: "20px" }}>
                     <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "10px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>د طرفینو مسؤلیتونه:</h3>
                     <div style={{ marginBottom: "10px" }}>
@@ -1978,6 +1981,9 @@ export default function CitizenBalanceStatementPage() {
                       <li>که بیا هم ونه توانېدل، نو د افغانستان محاکمو ته به مراجعه کوي.</li>
                     </ul>
                   </div>
+                </div>
+                {/* PAGE 4: Guarantees + General Terms + Signatures */}
+                <div data-contract-section style={{ padding: "24px" }}>
                   <div style={{ marginBottom: "20px" }}>
                     <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "10px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>شخصي او مالي تضمینونه:</h3>
                     <p style={{ fontSize: "0.75rem", lineHeight: 1.6 }}>مشتری مکلف دی چې د دې قرارداد د تضمین لپاره، له لمن مؤسسې سره همغږي شوي معتبر تضمیني اسناد وړاندې کړي. که مؤسسه د اضافي تضمین اړتیا ولري، مشتری باید نور لازم اسناد هم برابر کړي.</p>
