@@ -1909,11 +1909,11 @@ export default function CitizenBalanceStatementPage() {
                     </table>
                   </div>
                   <div style={{ marginBottom: "16px" }}>
-                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "8px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>د قرارداد موضوع:</h3>
+                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "8px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>2 .  د قرارداد موضوع:</h3>
                     <p style={{ fontSize: "0.75rem" }}>د لمن مؤسسې له لورې، د مشتري د غوښتنې پر اساس، د توکو او اجناسو پیر او بیا یې مشتري ته د مرابحې تړون له مخې، پر ټاکلې ګټه او شرایطوپلورل.</p>
                   </div>
                   <div style={{ marginBottom: "16px" }}>
-                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "8px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>د تړون اړوند عمومي معلومات:</h3>
+                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "8px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>3 .  د تړون اړوند عمومي معلومات:</h3>
                     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.75rem" }} dir="rtl">
                       <tbody>
                         {[
@@ -1944,10 +1944,10 @@ export default function CitizenBalanceStatementPage() {
                 {/* PAGE 3: Responsibilities + Terms */}
                 <div data-contract-section style={{ padding: "24px" }}>
                   <div style={{ marginBottom: "20px" }}>
-                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "10px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>د طرفینو مسؤلیتونه:</h3>
+                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "10px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>4 .  د طرفینو مسؤلیتونه:</h3>
                     <div style={{ marginBottom: "10px" }}>
                       <h4 style={{ fontWeight: 700, marginBottom: "4px" }}>الف: د لمن مؤسسې مسؤلیتونه:</h4>
-                      <ul style={{ listStyleType: "disc", listStylePosition: "inside", paddingRight: "0", paddingLeft: "0", marginRight: "8px", fontSize: "0.75rem", display: "flex", flexDirection: "column", gap: "4px", textAlign: "right" }}>
+                      <ul dir="rtl" style={{ listStyleType: "disc", paddingRight: "20px", paddingLeft: "0", marginRight: "0", marginLeft: "0", fontSize: "0.75rem", display: "flex", flexDirection: "column", gap: "4px", textAlign: "right", direction: "rtl" }}>
                         <li>د مشتری د غوښتنې پر اساس، د مشخص شوو توکو او مالونو اخېستل، او مشتري ته د مرابحې تمویل له مخې پلورل.</li>
                         <li>لمن مؤسسه مکلفه ده چې په تمویل شوو توکو دولتي مالیات او لګښتونه، چې د دې تړون یا د توکو د اسنادو سره تړاو لري، د قانون مطابق پرې کړي.</li>
                         <li>اخېستل شوي توکي (مال) په سلامت ډول مشتري ته سپارل.</li>
@@ -1957,7 +1957,7 @@ export default function CitizenBalanceStatementPage() {
                     </div>
                     <div>
                       <h4 style={{ fontWeight: 700, marginBottom: "4px" }}>ب: د مشتري مسؤلیتونه:</h4>
-                      <ul style={{ listStyleType: "disc", listStylePosition: "inside", paddingRight: "0", paddingLeft: "0", marginRight: "8px", fontSize: "0.75rem", display: "flex", flexDirection: "column", gap: "4px", textAlign: "right" }}>
+                      <ul dir="rtl" style={{ listStyleType: "disc", paddingRight: "20px", paddingLeft: "0", marginRight: "0", marginLeft: "0", fontSize: "0.75rem", display: "flex", flexDirection: "column", gap: "4px", textAlign: "right", direction: "rtl" }}>
                         <li>د اخېستل شوي جنس (توکي) قبولي او تسلېمېدل.</li>
                         <li>د جنس له معاینې وروسته، د عیب د نه لرلو څخه ډاډ ترلاسه کول.</li>
                         <li>د قسطونو پر خپل وخت ادا کول.</li>
@@ -1965,8 +1965,8 @@ export default function CitizenBalanceStatementPage() {
                     </div>
                   </div>
                   <div style={{ marginBottom: "20px" }}>
-                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "10px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>د قرارداد فسخ:</h3>
-                    <ul style={{ listStyleType: "disc", listStylePosition: "inside", paddingRight: "0", paddingLeft: "0", marginRight: "8px", fontSize: "0.75rem", display: "flex", flexDirection: "column", gap: "4px", textAlign: "right" }}>
+                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "10px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>5 .  د قرارداد فسخ:</h3>
+                    <ul dir="rtl" style={{ listStyleType: "disc", paddingRight: "20px", paddingLeft: "0", marginRight: "0", marginLeft: "0", fontSize: "0.75rem", display: "flex", flexDirection: "column", gap: "4px", textAlign: "right", direction: "rtl" }}>
                       <li>د قرارداد دواړه خواوې کولای شي، چې د دوه اړخېزې موافقې له مخې قرارداد هر وخت فسخ کړي، په دې شرط چې ټول حقوقي او مالي تعهدات تسویه شي.</li>
                       <li>که چیرې مشتری د درې پرلپسې قسطونو له ورکړې څخه عاجز شي، لمن مؤسسه حق لري چې قرارداد فسخ کړي او پاتې پیسې یا مال بېرته تر لاسه کړي.</li>
                       <li>د مشتري له لوري، په قرارداد کې د نورو مادو څخه په سرغړونه قرارداد فسخ کېدای شي.</li>
@@ -1974,8 +1974,8 @@ export default function CitizenBalanceStatementPage() {
                     </ul>
                   </div>
                   <div style={{ marginBottom: "20px" }}>
-                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "10px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>حل منازعات (د مالي شخړو حل):</h3>
-                    <ul style={{ listStyleType: "disc", listStylePosition: "inside", paddingRight: "0", paddingLeft: "0", marginRight: "8px", fontSize: "0.75rem", display: "flex", flexDirection: "column", gap: "4px", textAlign: "right" }}>
+                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "10px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>6 .  حل منازعات (د مالي شخړو حل):</h3>
+                    <ul dir="rtl" style={{ listStyleType: "disc", paddingRight: "20px", paddingLeft: "0", marginRight: "0", marginLeft: "0", fontSize: "0.75rem", display: "flex", flexDirection: "column", gap: "4px", textAlign: "right", direction: "rtl" }}>
                       <li>طرفین مکلف دي هر ډول شخړې او اختلافونه د خپلمنځي خبرو له لارې حلوي.</li>
                       <li>که چېرې ونه توانېدل ستونزه به د دواړو لورو له خوا ټاکل شوي درېیم‌ګړي حَکَم (arbitrator) ته وړاندې کېږي.</li>
                       <li>که بیا هم ونه توانېدل، نو د افغانستان محاکمو ته به مراجعه کوي.</li>
@@ -1985,15 +1985,15 @@ export default function CitizenBalanceStatementPage() {
                 {/* PAGE 4: Guarantees + General Terms + Signatures */}
                 <div data-contract-section style={{ padding: "24px" }}>
                   <div style={{ marginBottom: "20px" }}>
-                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "10px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>شخصي او مالي تضمینونه:</h3>
+                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "10px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>7 .  شخصي او مالي تضمینونه:</h3>
                     <p style={{ fontSize: "0.75rem", lineHeight: 1.6 }}>مشتری مکلف دی چې د دې قرارداد د تضمین لپاره، له لمن مؤسسې سره همغږي شوي معتبر تضمیني اسناد وړاندې کړي. که مؤسسه د اضافي تضمین اړتیا ولري، مشتری باید نور لازم اسناد هم برابر کړي.</p>
                     <p style={{ fontSize: "0.75rem", lineHeight: 1.6, marginTop: "4px" }}>دا تضمینونه به تر هغه وخته پورې د اعتبار وړ وي، څو چې مشتری د دې قرارداد له مخې ټول مکلفیتونه او تادیات پوره ادا کړي نه وي.</p>
                     <p style={{ fontSize: "0.75rem", lineHeight: 1.6, marginTop: "4px" }}>لمن مؤسسه به تضمیني اسناد یوازې هغه مهال آزادوي، کله چې دې قرارداد پورې اړوند د مرابحې قیمت ټول قسطونه ادا شوي وي.</p>
                     <p style={{ fontSize: "0.75rem", lineHeight: 1.6, marginTop: "4px" }}>همدارنګه مشتري متعهد دی چې د خیانت، غفلت، یا کوتاهۍ په صورت کې به مسؤل وي، او د اړوند ضرر جبران به کوي.</p>
                   </div>
                   <div style={{ marginBottom: "20px" }}>
-                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "10px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>عمومي شرایط:</h3>
-                    <ul style={{ listStyleType: "disc", listStylePosition: "inside", paddingRight: "0", paddingLeft: "0", marginRight: "8px", fontSize: "0.75rem", display: "flex", flexDirection: "column", gap: "4px", textAlign: "right" }}>
+                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "10px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>8 .  عمومي شرایط:</h3>
+                    <ul dir="rtl" style={{ listStyleType: "disc", paddingRight: "20px", paddingLeft: "0", marginRight: "0", marginLeft: "0", fontSize: "0.75rem", display: "flex", flexDirection: "column", gap: "4px", textAlign: "right", direction: "rtl" }}>
                       <li>دا قرارداد د اسلامي شرعي اصولو له مخې ترتیب شوی دی.</li>
                       <li>هیڅ لوری نه شي کولی د بل لورې له موافقې پرته قرارداد دریمګړي ته ورکړي.</li>
                       <li>دا قرارداد په دوه کاپیانو کې ترتیب شوی، چې یوه یې تمویل ورکونکي (لمن مؤسسې) ته او بله یې تمویل اخېستونکي (مشتري) ته ورکول کیږي.</li>
