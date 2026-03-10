@@ -1833,13 +1833,13 @@ export default function CitizenBalanceStatementPage() {
                   <div style={{ textAlign: "center", marginBottom: "12px" }}>
                     <p style={{ fontSize: "1rem", fontWeight: 700, marginBottom: "4px" }}>بسم الله الرحمن الرحیم</p>
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
-                    <div style={{ textAlign: "right" }}>
+                  <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-start", marginBottom: "12px", position: "relative" }}>
+                    <div style={{ textAlign: "center" }}>
                       <img src="/logo.jpeg" alt="Lamen" style={{ height: "60px", width: "auto", marginBottom: "4px" }} />
                       <p style={{ fontSize: "1rem", fontWeight: 700, color: "#15803d" }}>لمن د وړو مالي تمویلونو مؤسسه</p>
                     </div>
                     {cd.customer.photoUrl && (
-                      <div style={{ width: "90px", height: "110px", border: "1px solid #d1d5db", borderRadius: "4px", overflow: "hidden" }}>
+                      <div style={{ width: "90px", height: "110px", border: "1px solid #d1d5db", borderRadius: "4px", overflow: "hidden", position: "absolute", left: "0", top: "0" }}>
                         <img src={cd.customer.photoUrl} alt="Customer" style={{ width: "100%", height: "100%", objectFit: "cover" }} crossOrigin="anonymous" />
                       </div>
                     )}
