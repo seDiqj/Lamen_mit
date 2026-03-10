@@ -1829,49 +1829,37 @@ export default function CitizenBalanceStatementPage() {
             {contractDataList.map((cd, cdIdx) => (
               <div key={cdIdx} className="bg-white text-black text-sm leading-relaxed" dir="rtl" style={{ fontFamily: "Arial, Tahoma, sans-serif", direction: "rtl" }}>
                 {/* PAGE 1 */}
-                <div data-contract-section style={{ padding: "24px", minHeight: "1100px" }}>
-                  <div style={{ textAlign: "center", marginBottom: "12px" }}>
-                    <p style={{ fontSize: "1rem", fontWeight: 700, marginBottom: "4px" }}>بسم الله الرحمن الرحیم</p>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "center", alignItems: "flex-start", marginBottom: "12px", position: "relative" }}>
-                    <div style={{ textAlign: "center" }}>
-                      <img src="/logo.jpeg" alt="Lamen" style={{ height: "60px", width: "auto", marginBottom: "4px" }} />
-                      <p style={{ fontSize: "1rem", fontWeight: 700, color: "#15803d" }}>لمن د وړو مالي تمویلونو مؤسسه</p>
+                <div data-contract-section style={{ padding: "32px 24px", minHeight: "1100px", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
+                  <p style={{ fontSize: "1.1rem", fontWeight: 700, marginBottom: "20px", textAlign: "center" }}>بسم الله الرحمن الرحیم</p>
+                  <img src="/logo.jpeg" alt="Lamen" style={{ height: "80px", width: "auto", marginBottom: "8px" }} />
+                  <p style={{ fontSize: "1.2rem", fontWeight: 700, color: "#15803d", marginBottom: "24px", textAlign: "center" }}>لمن د وړو مالي تمویلونو مؤسسه</p>
+                  <div style={{ width: "60%", height: "2px", background: "linear-gradient(to right, transparent, #15803d, transparent)", marginBottom: "24px" }} />
+                  <p style={{ fontSize: "1.3rem", fontWeight: 700, marginBottom: "32px", textAlign: "center" }}>د مرابحې تمویل قرارداد</p>
+                  {cd.customer.photoUrl && (
+                    <div style={{ width: "100px", height: "120px", border: "2px solid #15803d", borderRadius: "4px", overflow: "hidden", marginBottom: "24px" }}>
+                      <img src={cd.customer.photoUrl} alt="Customer" style={{ width: "100%", height: "100%", objectFit: "cover" }} crossOrigin="anonymous" />
                     </div>
-                    {cd.customer.photoUrl && (
-                      <div style={{ width: "90px", height: "110px", border: "1px solid #d1d5db", borderRadius: "4px", overflow: "hidden", position: "absolute", left: "0", top: "0" }}>
-                        <img src={cd.customer.photoUrl} alt="Customer" style={{ width: "100%", height: "100%", objectFit: "cover" }} crossOrigin="anonymous" />
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ textAlign: "center", marginBottom: "12px" }}>
-                    <p style={{ fontSize: "1rem", fontWeight: 700 }}>د مرابحې تمویل قرارداد</p>
-                  </div>
-                  <div style={{ border: "1px solid #9ca3af", borderRadius: "4px", padding: "12px", marginBottom: "12px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px" }}>
-                      <div style={{ textAlign: "right" }}>
-                        <p style={{ marginBottom: "4px" }}>
-                          <span style={{ fontWeight: 600 }}>نوم / اسم: </span>
-                          <span>{cd.customer.fullNameDari || cd.customer.name}</span>
-                        </p>
-                        <p>
-                          <span style={{ fontWeight: 600 }}>د اړېکې شمېره: </span>
-                          <span>{cd.customer.phoneNumber}</span>
-                        </p>
-                      </div>
-                      <div style={{ textAlign: "left" }} dir="ltr">
-                        <p style={{ marginBottom: "4px" }}>
-                          <span style={{ fontWeight: 600 }}>قرارداد نمبر: </span>
-                          <span>{cd.loan.applicationId}</span>
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{ textAlign: "center", marginBottom: "12px", fontSize: "0.875rem" }}>
-                    <span>
-                      {cd.disbursement.disbursementDate ? new Date(cd.disbursement.disbursementDate).getFullYear() : ""}
-                    </span>
-                  </div>
+                  )}
+                  <table style={{ width: "80%", borderCollapse: "collapse", marginBottom: "16px", direction: "rtl" }}>
+                    <tbody>
+                      <tr>
+                        <td style={{ padding: "8px 12px", border: "1px solid #d1d5db", fontWeight: 600, background: "#dcfce7", color: "#15803d", width: "35%", textAlign: "right" }}>نوم / اسم</td>
+                        <td style={{ padding: "8px 12px", border: "1px solid #d1d5db", textAlign: "right" }}>{cd.customer.fullNameDari || cd.customer.name}</td>
+                      </tr>
+                      <tr>
+                        <td style={{ padding: "8px 12px", border: "1px solid #d1d5db", fontWeight: 600, background: "#dcfce7", color: "#15803d", textAlign: "right" }}>د اړېکې شمېره</td>
+                        <td style={{ padding: "8px 12px", border: "1px solid #d1d5db", textAlign: "right" }}>{cd.customer.phoneNumber}</td>
+                      </tr>
+                      <tr>
+                        <td style={{ padding: "8px 12px", border: "1px solid #d1d5db", fontWeight: 600, background: "#dcfce7", color: "#15803d", textAlign: "right" }}>قرارداد نمبر</td>
+                        <td style={{ padding: "8px 12px", border: "1px solid #d1d5db", textAlign: "right" }}>{cd.loan.applicationId}</td>
+                      </tr>
+                      <tr>
+                        <td style={{ padding: "8px 12px", border: "1px solid #d1d5db", fontWeight: 600, background: "#dcfce7", color: "#15803d", textAlign: "right" }}>کال</td>
+                        <td style={{ padding: "8px 12px", border: "1px solid #d1d5db", textAlign: "right" }}>{cd.disbursement.disbursementDate ? new Date(cd.disbursement.disbursementDate).getFullYear() : ""}</td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
                 {/* PAGE 2: Section 1 - Party Identification + Contract Subject + Details Table */}
                 <div data-contract-section style={{ padding: "24px" }}>
