@@ -1860,11 +1860,11 @@ export default function CitizenBalanceStatementPage() {
                           <td style={{ padding: "12px", border: "1px solid #333", verticalAlign: "top" }}>
                             <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
                               <div style={{ flex: 1, border: "1px solid #999", padding: "10px", lineHeight: 2 }}>
-                                <p style={{ marginBottom: "2px" }}><span style={{ fontWeight: 600 }}>نــــــوم : </span><span style={{ background: "#fef08a", padding: "1px 6px" }}>{cd.customer.fullNameDari || cd.customer.name}</span></p>
-                                <p style={{ marginBottom: "2px" }}><span style={{ fontWeight: 600 }}>د پلار نوم : </span><span style={{ background: "#fef08a", padding: "1px 6px" }}>{cd.customer.fatherNameDari || cd.customer.fatherName}</span></p>
-                                <p style={{ marginBottom: "2px" }}><span style={{ fontWeight: 600 }}>د تذکرې شمېره : </span><span style={{ background: "#fef08a", padding: "1px 6px" }}>{cd.customer.nationalId}</span></p>
-                                <p style={{ marginBottom: "2px" }}><span style={{ fontWeight: 600 }}>د اړېکې شمېرې: </span><span style={{ background: "#fef08a", padding: "1px 6px" }}>{cd.customer.phoneNumber}</span></p>
-                                <p><span style={{ fontWeight: 600 }}>پــــــتـــــه: </span><span style={{ background: "#fef08a", padding: "1px 6px" }}>{cd.customer.homeAddress}</span></p>
+                                <p style={{ marginBottom: "2px" }}><span style={{ fontWeight: 600 }}>نــــــوم : </span><span>{cd.customer.fullNameDari || cd.customer.name}</span></p>
+                                <p style={{ marginBottom: "2px" }}><span style={{ fontWeight: 600 }}>د پلار نوم : </span><span>{cd.customer.fatherNameDari || cd.customer.fatherName}</span></p>
+                                <p style={{ marginBottom: "2px" }}><span style={{ fontWeight: 600 }}>د تذکرې شمېره : </span><span>{cd.customer.nationalId}</span></p>
+                                <p style={{ marginBottom: "2px" }}><span style={{ fontWeight: 600 }}>د اړېکې شمېرې: </span><span>{cd.customer.phoneNumber}</span></p>
+                                <p><span style={{ fontWeight: 600 }}>پــــــتـــــه: </span><span>{cd.customer.homeAddress}</span></p>
                               </div>
                               <div style={{ width: "90px", height: "120px", border: "2px solid #333", overflow: "hidden", flexShrink: 0 }}>
                                 {cd.customer.photoUrl && cd.customer.photoUrl.length > 0 ? (
@@ -1877,15 +1877,15 @@ export default function CitizenBalanceStatementPage() {
                           </td>
                           <td style={{ padding: "12px", border: "1px solid #333", verticalAlign: "top", lineHeight: 1.8 }}>
                             <p style={{ marginBottom: "8px" }}>لمن د وړو مالي تمویلونو مؤسسه چې د افغانستان بانک له لورې د (۰۰۳) شمېرې جواز لرونکې ده، مرکزي دفتر یې د څلورمې ناحیې ، تایمني پروژې په دوهم سرک ، کابل - افغانستان کې دی.</p>
-                            <p><span style={{ fontWeight: 600 }}>د څانګې کوډ نمبر: </span><span style={{ background: "#fef08a", padding: "1px 6px" }}>{cd.branch.code}</span></p>
-                            <p><span style={{ fontWeight: 600 }}>اړونــــد ولایــــــت: </span><span style={{ background: "#fef08a", padding: "1px 6px" }}>{cd.customer.province}</span></p>
+                            <p><span style={{ fontWeight: 600 }}>د څانګې کوډ نمبر: </span><span>{cd.branch.code}</span></p>
+                            <p><span style={{ fontWeight: 600 }}>اړونــــد ولایــــــت: </span><span>{cd.customer.province}</span></p>
                             <p><span style={{ fontWeight: 600 }}>ولســـــــــــوالـــي: </span><span>{cd.customer.district}</span></p>
                             <p><span style={{ fontWeight: 600 }}>د څانګې موقعیت: </span><span>{cd.customer.homeAddress}</span></p>
                           </td>
                         </tr>
                         <tr>
                           <td colSpan={2} style={{ padding: "8px 12px", border: "1px solid #333" }}>
-                            <span style={{ fontWeight: 600 }}>تړون نمبر: </span><span style={{ background: "#fef08a", padding: "1px 6px" }}>{cd.loan.applicationId}</span>
+                            <span style={{ fontWeight: 600 }}>تړون نمبر: </span><span>{cd.loan.applicationId}</span>
                           </td>
                         </tr>
                       </tbody>
