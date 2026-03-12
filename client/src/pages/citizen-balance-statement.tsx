@@ -1836,29 +1836,47 @@ export default function CitizenBalanceStatementPage() {
                     <span style={{ color: "#15803d" }}>لمن</span> د وړو مالي تمویلونو مؤسسه
                   </p>
                   <p style={{ fontSize: "1.5rem", fontWeight: 700, marginBottom: "60px", textAlign: "center" }}>د مرابحې تمویل تړون</p>
-                  <div dir="rtl" style={{ width: "100%", display: "flex", flexDirection: "row-reverse", justifyContent: "center", alignItems: "flex-start", gap: "40px", marginBottom: "20px" }}>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "12px", fontSize: "0.85rem" }}>
-                      <div style={{ display: "flex", flexDirection: "row-reverse", alignItems: "center", gap: "8px" }}>
-                        <span style={{ fontWeight: 700, fontSize: "0.85rem", whiteSpace: "nowrap" }}>نوم / اسم:</span>
-                        <div style={{ border: "1px solid #333", padding: "4px 16px", minWidth: "220px", fontSize: "0.85rem", textAlign: "center" }}>{cd.customer.fullNameDari || cd.customer.name}</div>
-                      </div>
-                      <div style={{ display: "flex", flexDirection: "row-reverse", alignItems: "center", gap: "8px" }}>
-                        <span style={{ fontWeight: 700, fontSize: "0.85rem", whiteSpace: "nowrap" }}>د اړېکې شمېره:</span>
-                        <div style={{ border: "1px solid #333", padding: "4px 16px", minWidth: "220px", fontSize: "0.85rem", textAlign: "center" }}>{cd.customer.phoneNumber}</div>
-                      </div>
-                    </div>
-                    <div style={{ width: "100px", height: "130px", border: "2px solid #333", overflow: "hidden", flexShrink: 0 }}>
-                      {cd.customer.photoUrl && cd.customer.photoUrl.length > 0 ? (
-                        <img src={cd.customer.photoUrl.startsWith("http") ? cd.customer.photoUrl : `${window.location.origin}${cd.customer.photoUrl}`} alt="Customer" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                      ) : (
-                        <div style={{ width: "100%", height: "100%", background: "#f3f4f6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", color: "#9ca3af" }}>عکس</div>
-                      )}
-                    </div>
-                  </div>
-                  <div style={{ width: "100%", display: "flex", flexDirection: "row-reverse", justifyContent: "center", alignItems: "center", gap: "8px", marginBottom: "20px", fontSize: "0.85rem" }}>
-                    <span style={{ fontWeight: 700, fontSize: "0.85rem", whiteSpace: "nowrap" }}>تړون نمبر:</span>
-                    <div style={{ border: "1px solid #333", padding: "4px 16px", minWidth: "220px", fontSize: "0.85rem", textAlign: "center" }}>{cd.loan.applicationId}</div>
-                  </div>
+                  <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "12px" }} dir="rtl">
+                    <tbody>
+                      <tr>
+                        <td style={{ verticalAlign: "top", paddingTop: "4px" }}>
+                          <table style={{ borderCollapse: "collapse" }}>
+                            <tbody>
+                              <tr>
+                                <td style={{ fontWeight: 700, fontSize: "0.85rem", padding: "8px 0 8px 10px", whiteSpace: "nowrap", textAlign: "right" }}>نوم / اسم:</td>
+                                <td style={{ padding: "8px 0" }}><div style={{ border: "1px solid #333", padding: "4px 16px", minWidth: "220px", fontSize: "0.85rem", textAlign: "center" }}>{cd.customer.fullNameDari || cd.customer.name}</div></td>
+                              </tr>
+                              <tr>
+                                <td style={{ fontWeight: 700, fontSize: "0.85rem", padding: "8px 0 8px 10px", whiteSpace: "nowrap", textAlign: "right" }}>د اړېکې شمېره:</td>
+                                <td style={{ padding: "8px 0" }}><div style={{ border: "1px solid #333", padding: "4px 16px", minWidth: "220px", fontSize: "0.85rem", textAlign: "center" }}>{cd.customer.phoneNumber}</div></td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </td>
+                        <td style={{ width: "110px", verticalAlign: "top", textAlign: "left" }}>
+                          <div style={{ width: "100px", height: "130px", border: "2px solid #333", overflow: "hidden" }}>
+                            {cd.customer.photoUrl && cd.customer.photoUrl.length > 0 ? (
+                              <img src={cd.customer.photoUrl.startsWith("http") ? cd.customer.photoUrl : `${window.location.origin}${cd.customer.photoUrl}`} alt="Customer" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                            ) : (
+                              <div style={{ width: "100%", height: "100%", background: "#f3f4f6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", color: "#9ca3af" }}>عکس</div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td colSpan={2} style={{ paddingTop: "16px" }}>
+                          <table style={{ borderCollapse: "collapse" }}>
+                            <tbody>
+                              <tr>
+                                <td style={{ fontWeight: 700, fontSize: "0.85rem", padding: "8px 0 8px 10px", whiteSpace: "nowrap", textAlign: "right" }}>تړون نمبر:</td>
+                                <td style={{ padding: "8px 0" }}><div style={{ border: "1px solid #333", padding: "4px 16px", minWidth: "220px", fontSize: "0.85rem", textAlign: "center" }}>{cd.loan.applicationId}</div></td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
                   <div style={{ flexGrow: 1 }} />
                   <div style={{ textAlign: "center", marginBottom: "40px" }}>
                     <p style={{ fontSize: "0.9rem", fontWeight: 600 }}>
