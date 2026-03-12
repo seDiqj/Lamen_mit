@@ -1836,15 +1836,15 @@ export default function CitizenBalanceStatementPage() {
                     <span style={{ color: "#15803d" }}>لمن</span> د وړو مالي تمویلونو مؤسسه
                   </p>
                   <p style={{ fontSize: "1.5rem", fontWeight: 700, marginBottom: "60px", textAlign: "center" }}>د مرابحې تمویل تړون</p>
-                  <div dir="rtl" style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "20px", direction: "rtl" }}>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "8px", alignItems: "flex-end", fontSize: "0.85rem" }}>
-                      <div dir="rtl" style={{ display: "flex", alignItems: "center", gap: "8px", direction: "rtl" }}>
-                        <span style={{ fontWeight: 700, fontSize: "0.85rem" }}>نوم / اسم:</span>
-                        <div style={{ border: "1px solid #333", padding: "4px 16px", minWidth: "200px", fontSize: "0.85rem" }}>{cd.customer.fullNameDari || cd.customer.name}</div>
+                  <div dir="rtl" style={{ width: "100%", display: "flex", flexDirection: "row-reverse", justifyContent: "center", alignItems: "flex-start", gap: "40px", marginBottom: "20px" }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "12px", fontSize: "0.85rem" }}>
+                      <div style={{ display: "flex", flexDirection: "row-reverse", alignItems: "center", gap: "8px" }}>
+                        <span style={{ fontWeight: 700, fontSize: "0.85rem", whiteSpace: "nowrap" }}>نوم / اسم:</span>
+                        <div style={{ border: "1px solid #333", padding: "4px 16px", minWidth: "220px", fontSize: "0.85rem", textAlign: "center" }}>{cd.customer.fullNameDari || cd.customer.name}</div>
                       </div>
-                      <div dir="rtl" style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "4px", direction: "rtl" }}>
-                        <span style={{ fontWeight: 700, fontSize: "0.85rem" }}>د اړېکې شمېره:</span>
-                        <div style={{ border: "1px solid #333", padding: "4px 16px", minWidth: "200px", fontSize: "0.85rem" }}>{cd.customer.phoneNumber}</div>
+                      <div style={{ display: "flex", flexDirection: "row-reverse", alignItems: "center", gap: "8px" }}>
+                        <span style={{ fontWeight: 700, fontSize: "0.85rem", whiteSpace: "nowrap" }}>د اړېکې شمېره:</span>
+                        <div style={{ border: "1px solid #333", padding: "4px 16px", minWidth: "220px", fontSize: "0.85rem", textAlign: "center" }}>{cd.customer.phoneNumber}</div>
                       </div>
                     </div>
                     <div style={{ width: "100px", height: "130px", border: "2px solid #333", overflow: "hidden", flexShrink: 0 }}>
@@ -1855,9 +1855,9 @@ export default function CitizenBalanceStatementPage() {
                       )}
                     </div>
                   </div>
-                  <div dir="rtl" style={{ width: "100%", display: "flex", justifyContent: "flex-start", alignItems: "center", gap: "8px", marginBottom: "20px", fontSize: "0.85rem", direction: "rtl" }}>
-                    <span style={{ fontWeight: 700, fontSize: "0.85rem" }}>تړون نمبر:</span>
-                    <div style={{ border: "1px solid #333", padding: "4px 16px", minWidth: "200px", fontSize: "0.85rem" }}>{cd.loan.applicationId}</div>
+                  <div style={{ width: "100%", display: "flex", flexDirection: "row-reverse", justifyContent: "center", alignItems: "center", gap: "8px", marginBottom: "20px", fontSize: "0.85rem" }}>
+                    <span style={{ fontWeight: 700, fontSize: "0.85rem", whiteSpace: "nowrap" }}>تړون نمبر:</span>
+                    <div style={{ border: "1px solid #333", padding: "4px 16px", minWidth: "220px", fontSize: "0.85rem", textAlign: "center" }}>{cd.loan.applicationId}</div>
                   </div>
                   <div style={{ flexGrow: 1 }} />
                   <div style={{ textAlign: "center", marginBottom: "40px" }}>
@@ -1931,17 +1931,17 @@ export default function CitizenBalanceStatementPage() {
                         ))}
                       </tbody>
                     </table>
-                    <div dir="rtl" style={{ fontSize: "14px", marginTop: "10px", display: "flex", flexDirection: "column", gap: "4px", textAlign: "right", direction: "rtl" }}>
-                      <p>د توکو (جنس) مشخصات: د مهربانۍ له مخې یې په ضمیمه شوي جدول (A) کې وګورئ.</p>
-                      <p>د قسطونود تادیې جدول (مهالوېش): د مهربانۍ له مخې یې په ضمیمه شوي جدول (B) کې وګورئ.</p>
-                      <p>مشتري مکلف دی د قسطونو پیسې (مبلغ) د ټاکل شویو نېټو سره سم، د لمن مؤسسې هغې څانګې ته چې تړون په کې لاسلیک شوی، د دفتر د کاري ساعتونو په جریان کې تسلیم، او خپل رسید ترلاسه کړي.</p>
-                      <p>مشتري کولی شوي چې د مرابحې قسطونه د وروستنۍ ټاکل شوې نېټې څخه مخکې تصفیه کړي.</p>
-                      <p>که د قسط د ورکونې نېټه د رخصتیو ورځو سره برابره وي، نو مشتری مکلف دی چې قسط له رخصتۍ څخه دمخه په کاري ورځ کې ادا کړي.</p>
-                    </div>
                   </div>
                 </div>
-                {/* PAGE 3: Responsibilities + Terms */}
+                {/* PAGE 3: Notes + Responsibilities + Terms */}
                 <div data-contract-section style={{ padding: "24px" }}>
+                  <div dir="rtl" style={{ fontSize: "14px", marginBottom: "16px", display: "flex", flexDirection: "column", gap: "4px", textAlign: "right", direction: "rtl" }}>
+                    <p><span style={{ fontWeight: 700, color: "#15803d" }}>د توکو (جنس) مشخصات:</span> د مهربانۍ له مخې یې په ضمیمه شوي جدول (A) کې وګورئ.</p>
+                    <p><span style={{ fontWeight: 700, color: "#15803d" }}>د قسطونود تادیې جدول (مهالوېش):</span> د مهربانۍ له مخې یې په ضمیمه شوي جدول (B) کې وګورئ.</p>
+                    <p>مشتري مکلف دی د قسطونو پیسې (مبلغ) د ټاکل شویو نېټو سره سم، د لمن مؤسسې هغې څانګې ته چې تړون په کې لاسلیک شوی، د دفتر د کاري ساعتونو په جریان کې تسلیم، او خپل رسید ترلاسه کړي.</p>
+                    <p>مشتري کولی شوي چې د مرابحې قسطونه د وروستنۍ ټاکل شوې نېټې څخه مخکې تصفیه کړي.</p>
+                    <p>که د قسط د ورکونې نېټه د رخصتیو ورځو سره برابره وي، نو مشتری مکلف دی چې قسط له رخصتۍ څخه دمخه په کاري ورځ کې ادا کړي.</p>
+                  </div>
                   <div style={{ marginBottom: "20px" }}>
                     <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "10px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>د طرفینو مسؤلیتونه:</h3>
                     <div style={{ marginBottom: "10px" }}>
