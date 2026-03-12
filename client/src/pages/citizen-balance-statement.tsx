@@ -1828,97 +1828,87 @@ export default function CitizenBalanceStatementPage() {
           <div ref={contractRef} style={{ width: "794px", background: "#ffffff" }}>
             {contractDataList.map((cd, cdIdx) => (
               <div key={cdIdx} className="bg-white text-black text-sm leading-relaxed" dir="rtl" style={{ fontFamily: "Arial, Tahoma, sans-serif", direction: "rtl" }}>
-                {/* PAGE 1 */}
-                <div data-contract-section style={{ padding: "32px 24px", minHeight: "1100px", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
-                  <p style={{ fontSize: "1.1rem", fontWeight: 700, marginBottom: "20px", textAlign: "center" }}>بسم الله الرحمن الرحیم</p>
-                  <img src="/logo.jpeg" alt="Lamen" style={{ height: "80px", width: "auto", marginBottom: "8px" }} />
-                  <p style={{ fontSize: "1.2rem", fontWeight: 700, color: "#15803d", marginBottom: "24px", textAlign: "center" }}>لمن د وړو مالي تمویلونو مؤسسه</p>
-                  <div style={{ width: "60%", height: "2px", background: "linear-gradient(to right, transparent, #15803d, transparent)", marginBottom: "24px" }} />
-                  <p style={{ fontSize: "1.3rem", fontWeight: 700, marginBottom: "32px", textAlign: "center" }}>د مرابحې تمویل قرارداد</p>
+                {/* PAGE 1 - Cover */}
+                <div data-contract-section style={{ padding: "40px 32px", minHeight: "1100px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                  <p style={{ fontSize: "1rem", fontWeight: 700, marginBottom: "40px", textAlign: "center" }}>بسم الله الرحمن الرحیم</p>
+                  <img src="/logo.jpeg" alt="Lamen" style={{ height: "90px", width: "auto", marginBottom: "16px" }} />
+                  <p style={{ fontSize: "1.1rem", fontWeight: 700, color: "#15803d", marginBottom: "40px", textAlign: "center" }}>لمن د وړو مالي تمویلونو مؤسسه</p>
+                  <p style={{ fontSize: "1.2rem", fontWeight: 700, marginBottom: "60px", textAlign: "center" }}>د مرابحې تمویل تړون</p>
                   {cd.customer.photoUrl && (
-                    <div style={{ width: "100px", height: "120px", border: "2px solid #15803d", borderRadius: "4px", overflow: "hidden", marginBottom: "24px" }}>
+                    <div style={{ width: "100px", height: "120px", border: "2px solid #333", overflow: "hidden", marginBottom: "40px" }}>
                       <img src={cd.customer.photoUrl} alt="Customer" style={{ width: "100%", height: "100%", objectFit: "cover" }} crossOrigin="anonymous" />
                     </div>
                   )}
-                  <table style={{ width: "80%", borderCollapse: "collapse", marginBottom: "16px", direction: "rtl" }}>
-                    <tbody>
-                      <tr>
-                        <td style={{ padding: "8px 12px", border: "1px solid #d1d5db", fontWeight: 600, background: "#dcfce7", color: "#15803d", width: "35%", textAlign: "right" }}>نوم / اسم</td>
-                        <td style={{ padding: "8px 12px", border: "1px solid #d1d5db", textAlign: "right" }}>{cd.customer.fullNameDari || cd.customer.name}</td>
-                      </tr>
-                      <tr>
-                        <td style={{ padding: "8px 12px", border: "1px solid #d1d5db", fontWeight: 600, background: "#dcfce7", color: "#15803d", textAlign: "right" }}>د اړېکې شمېره</td>
-                        <td style={{ padding: "8px 12px", border: "1px solid #d1d5db", textAlign: "right" }}>{cd.customer.phoneNumber}</td>
-                      </tr>
-                      <tr>
-                        <td style={{ padding: "8px 12px", border: "1px solid #d1d5db", fontWeight: 600, background: "#dcfce7", color: "#15803d", textAlign: "right" }}>قرارداد نمبر</td>
-                        <td style={{ padding: "8px 12px", border: "1px solid #d1d5db", textAlign: "right" }}>{cd.loan.applicationId}</td>
-                      </tr>
-                      <tr>
-                        <td style={{ padding: "8px 12px", border: "1px solid #d1d5db", fontWeight: 600, background: "#dcfce7", color: "#15803d", textAlign: "right" }}>کال</td>
-                        <td style={{ padding: "8px 12px", border: "1px solid #d1d5db", textAlign: "right" }}>{cd.disbursement.disbursementDate ? new Date(cd.disbursement.disbursementDate).getFullYear() : ""}</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                  <div style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px", fontSize: "0.85rem" }}>
+                    <div style={{ textAlign: "left" }} dir="ltr">
+                      <p><span style={{ fontWeight: 600 }}>تړون نمبر: </span><span>{cd.loan.applicationId}</span></p>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <p style={{ marginBottom: "6px" }}><span style={{ fontWeight: 600 }}>نوم / اسم: </span><span>{cd.customer.fullNameDari || cd.customer.name}</span></p>
+                      <p><span style={{ fontWeight: 600 }}>د اړېکې شمېره: </span><span>{cd.customer.phoneNumber}</span></p>
+                    </div>
+                  </div>
+                  <div style={{ width: "100%", textAlign: "center", marginTop: "40px", fontSize: "0.9rem", fontWeight: 600 }}>
+                    {cd.disbursement.disbursementDate ? `${new Date(cd.disbursement.disbursementDate).getFullYear()}` : ""}
+                  </div>
                 </div>
                 {/* PAGE 2: Section 1 - Party Identification + Contract Subject + Details Table */}
                 <div data-contract-section style={{ padding: "24px" }}>
                   <div style={{ marginBottom: "20px" }}>
-                    <h3 style={{ fontWeight: 700, fontSize: "1.1rem", marginBottom: "10px", color: "#15803d" }}>
-                      <span style={{ background: "#dcfce7", padding: "4px 12px", borderRadius: "4px", display: "inline-block" }}>1 .  په قرارداد کې د ښکیلو لورو پېژندنه:</span>
-                    </h3>
+                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "10px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>په تړون کې د ښکیلو لورو پېژندنه:</h3>
                     <table style={{ width: "100%", borderCollapse: "collapse", border: "2px solid #333", fontSize: "0.8rem" }} dir="rtl">
                       <thead>
                         <tr>
-                          <td style={{ padding: "8px 12px", fontWeight: 700, background: "#15803d", color: "#ffffff", textAlign: "center", border: "1px solid #333", width: "50%" }}>تمویلونکی (لمن د وړو مالی تمویلونو مؤسسه)</td>
                           <td style={{ padding: "8px 12px", fontWeight: 700, background: "#15803d", color: "#ffffff", textAlign: "center", border: "1px solid #333", width: "50%" }}>تمویل اخېستونکي (مشتري)</td>
+                          <td style={{ padding: "8px 12px", fontWeight: 700, background: "#15803d", color: "#ffffff", textAlign: "center", border: "1px solid #333", width: "50%" }}>تمویلونکی (لمن د وړو مالی تمویلونو مؤسسه)</td>
                         </tr>
                       </thead>
                       <tbody>
                         <tr>
-                          <td style={{ padding: "12px", border: "1px solid #333", verticalAlign: "top", lineHeight: 1.8 }}>
-                            <p style={{ marginBottom: "8px" }}>من د وړو مالي تمویلونو مؤسسه چې د افغانستان بانک له لورې د (۰۰۳) شمېرې جواز لرونکې ده، مرکزي دفتر یې د څلورمې ناحیې ، تایمني پروژې په دوهم سرک ، کابل - افغانستان کې دی.</p>
-                            <p><span style={{ fontWeight: 600 }}>د څانګې کوډ نمبر: </span><span style={{ background: "#fef08a", padding: "1px 6px" }}>{cd.branch.code}</span></p>
-                            <p><span style={{ fontWeight: 600 }}>اړونـد ولایت: </span><span style={{ background: "#fef08a", padding: "1px 6px" }}>{cd.customer.province}</span></p>
-                            <p><span style={{ fontWeight: 600 }}>ولـسـوالي: </span><span>{cd.customer.district}</span></p>
-                            <p><span style={{ fontWeight: 600 }}>د خانګي موقعیت: </span><span>{cd.customer.homeAddress}</span></p>
-                          </td>
                           <td style={{ padding: "12px", border: "1px solid #333", verticalAlign: "top" }}>
                             <div style={{ border: "1px solid #999", padding: "10px", marginBottom: "8px", lineHeight: 2 }}>
-                              <p style={{ marginBottom: "2px" }}><span style={{ fontWeight: 600 }}>نــوم: </span><span style={{ background: "#fef08a", padding: "1px 6px" }}>{cd.customer.fullNameDari || cd.customer.name}</span></p>
-                              <p style={{ marginBottom: "2px" }}><span style={{ fontWeight: 600 }}>د پلار نوم: </span><span style={{ background: "#fef08a", padding: "1px 6px" }}>{cd.customer.fatherNameDari || cd.customer.fatherName}</span></p>
-                              <p style={{ marginBottom: "2px" }}><span style={{ fontWeight: 600 }}>د تذکرې شمېره: </span><span style={{ background: "#fef08a", padding: "1px 6px" }}>{cd.customer.nationalId}</span></p>
+                              <p style={{ marginBottom: "2px" }}><span style={{ fontWeight: 600 }}>نــــــوم : </span><span style={{ background: "#fef08a", padding: "1px 6px" }}>{cd.customer.fullNameDari || cd.customer.name}</span></p>
+                              <p style={{ marginBottom: "2px" }}><span style={{ fontWeight: 600 }}>د پلار نوم : </span><span style={{ background: "#fef08a", padding: "1px 6px" }}>{cd.customer.fatherNameDari || cd.customer.fatherName}</span></p>
+                              <p style={{ marginBottom: "2px" }}><span style={{ fontWeight: 600 }}>د تذکرې شمېره : </span><span style={{ background: "#fef08a", padding: "1px 6px" }}>{cd.customer.nationalId}</span></p>
                               <p style={{ marginBottom: "2px" }}><span style={{ fontWeight: 600 }}>د اړېکې شمېرې: </span><span style={{ background: "#fef08a", padding: "1px 6px" }}>{cd.customer.phoneNumber}</span></p>
-                              <p><span style={{ fontWeight: 600 }}>پــتـه: </span><span style={{ background: "#fef08a", padding: "1px 6px" }}>{cd.customer.homeAddress}</span></p>
+                              <p><span style={{ fontWeight: 600 }}>پــــــتـــــه: </span><span style={{ background: "#fef08a", padding: "1px 6px" }}>{cd.customer.homeAddress}</span></p>
                             </div>
+                          </td>
+                          <td style={{ padding: "12px", border: "1px solid #333", verticalAlign: "top", lineHeight: 1.8 }}>
+                            <p style={{ marginBottom: "8px" }}>لمن د وړو مالي تمویلونو مؤسسه چې د افغانستان بانک له لورې د (۰۰۳) شمېرې جواز لرونکې ده، مرکزي دفتر یې د څلورمې ناحیې ، تایمني پروژې په دوهم سرک ، کابل - افغانستان کې دی.</p>
+                            <p><span style={{ fontWeight: 600 }}>د څانګې کوډ نمبر: </span><span style={{ background: "#fef08a", padding: "1px 6px" }}>{cd.branch.code}</span></p>
+                            <p><span style={{ fontWeight: 600 }}>اړونــــد ولایــــــت: </span><span style={{ background: "#fef08a", padding: "1px 6px" }}>{cd.customer.province}</span></p>
+                            <p><span style={{ fontWeight: 600 }}>ولســـــــــــوالـــي: </span><span>{cd.customer.district}</span></p>
+                            <p><span style={{ fontWeight: 600 }}>د څانګې موقعیت: </span><span>{cd.customer.homeAddress}</span></p>
                           </td>
                         </tr>
                       </tbody>
                     </table>
                   </div>
                   <div style={{ marginBottom: "16px" }}>
-                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "8px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>2 .  د قرارداد موضوع:</h3>
-                    <p style={{ fontSize: "0.75rem" }}>د لمن مؤسسې له لورې، د مشتري د غوښتنې پر اساس، د توکو او اجناسو پیر او بیا یې مشتري ته د مرابحې تړون له مخې، پر ټاکلې ګټه او شرایطوپلورل.</p>
+                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "8px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>د تړون موضوع:</h3>
+                    <p style={{ fontSize: "0.75rem" }}>د لمن مؤسسې له لوري، د مشتري د غوښتنې پر اساس، د توکو او اجناسو پیر او بیا یې مشتري ته د مرابحې تړون له مخې، پر ټاکلې ګټه او شرایطو پلورل.</p>
                   </div>
                   <div style={{ marginBottom: "16px" }}>
-                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "8px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>3 .  د تړون اړوند عمومي معلومات:</h3>
+                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "8px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>د تړون اړوند عمومي معلومات:</h3>
                     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.75rem" }} dir="rtl">
                       <tbody>
                         {[
                           ["د فعالیت ډول (Type of Activity):", cd.business.businessType],
-                          ["د پېرېدونکي د فعالیت ځای/ساحه:", cd.business.detailedAddress],
-                          ["د تمویل شوې پانګې اندازه (Financing Amount):", `${contractFormatAmount(cd.loan.principleAmount)} افغانۍ`],
-                          ["د ګټې اندازه (Markup):", `${contractFormatAmount(cd.loan.principleAmount * cd.loan.marginRate)} افغانۍ`],
-                          ["د توکو د خرڅون مجموعي بیعه (Sale Price):", `${contractFormatAmount(cd.loan.totalReceivable)} افغانۍ`],
-                          ["د قرارداد موده (Contract Period):", `${cd.loan.financingDurationMonths} میاشتې`],
-                          ["د قرارداد د پیل نېټه (Contract Start Date):", contractFormatDate(cd.disbursement.disbursementDate)],
-                          ["د قراراداد د پای نېټه (Contract End Date):", contractFormatDate(cd.disbursement.lastInstallmentDate)],
+                          ["د توکو (اجناسو) نوم  (Name of Good / Items):", ""],
+                          ["د  پېرېدونکي د فعالیت ځای/ساحه  (Client's Business Location):", cd.business.detailedAddress],
+                          ["د تمویل شوې پانګې اندازه (مبلغ) (Financing Amount):", `${contractFormatAmount(cd.loan.principleAmount)} افغانۍ`],
+                          ["د ګټې اندازه (Markup) په پولي واحد باندې:", `${contractFormatAmount(cd.loan.principleAmount * cd.loan.marginRate)} افغانۍ`],
+                          ["د توکو (اجناسو) د خرڅون مجموعي بیعه: (Sale Price)", `${contractFormatAmount(cd.loan.totalReceivable)} افغانۍ`],
+                          ["د تړون موده  (Contract Period):", `${cd.loan.financingDurationMonths} میاشتې`],
+                          ["د تړون د پیل نېټه  (Contract Start Date):", contractFormatDate(cd.disbursement.disbursementDate)],
+                          ["د تړون د پای نېټه  (Contract End Date):", contractFormatDate(cd.disbursement.lastInstallmentDate)],
                           ["د قسطونو شمېر (Number of Installments):", cd.loan.numberOfInstallments],
-                          ["د معافیت موده (Grace Period):", `${cd.loan.gracePeriod} میاشتې`],
-                          ["د هر قسط اندازه (Installment Amount):", `${contractFormatAmount(cd.loan.installmentAmount)} افغانۍ`],
-                          ["د قسطونو تکرار (Frequency):", "یو میاشتنۍ"],
-                          ["د لومړني قسط د اداینې نېټه (First Installment Date):", contractFormatDate(cd.disbursement.firstInstallmentDate)],
-                          ["د وروستني قسط د اداینې نېټه (Last Installment Date):", contractFormatDate(cd.disbursement.lastInstallmentDate)],
+                          ["د معافیت موده  (Grace Period):", `${cd.loan.gracePeriod} میاشتې`],
+                          ["د هر قسط اندازه (مبلغ)(Installment Amount):", `${contractFormatAmount(cd.loan.installmentAmount)} افغانۍ`],
+                          ["د قسطونو تکرار  (Frequency of Installments):", "یو میاشتنی"],
+                          ["د لومړني قسط د اداینې نېټه  (First Installment Date):", contractFormatDate(cd.disbursement.firstInstallmentDate)],
+                          ["د وروستني قسط د اداینې نېټه  (Last Installment Date):", contractFormatDate(cd.disbursement.lastInstallmentDate)],
                         ].map(([label, value], ri) => (
                           <tr key={ri} style={{ borderBottom: "1px solid #e5e7eb" }}>
                             <td style={{ padding: "6px 8px 6px 0", fontWeight: 600, width: "50%", background: "#dcfce7", color: "#15803d" }}>{label}</td>
@@ -1927,16 +1917,23 @@ export default function CitizenBalanceStatementPage() {
                         ))}
                       </tbody>
                     </table>
+                    <div dir="rtl" style={{ fontSize: "0.75rem", marginTop: "10px", display: "flex", flexDirection: "column", gap: "4px", textAlign: "right", direction: "rtl" }}>
+                      <p>د توکو (جنس) مشخصات: د مهربانۍ له مخې یې په ضمیمه شوي جدول (A) کې وګورئ.</p>
+                      <p>د قسطونود تادیې جدول (مهالوېش): د مهربانۍ له مخې یې په ضمیمه شوي جدول (B) کې وګورئ.</p>
+                      <p>مشتري مکلف دی د قسطونو پیسې (مبلغ) د ټاکل شویو نېټو سره سم، د لمن مؤسسې هغې څانګې ته چې تړون په کې لاسلیک شوی، د دفتر د کاري ساعتونو په جریان کې تسلیم، او خپل رسید ترلاسه کړي.</p>
+                      <p>مشتري کولی شوي چې د مرابحې قسطونه د وروستنۍ ټاکل شوې نېټې څخه مخکې تصفیه کړي.</p>
+                      <p>که د قسط د ورکونې نېټه د رخصتیو ورځو سره برابره وي، نو مشتری مکلف دی چې قسط له رخصتۍ څخه دمخه په کاري ورځ کې ادا کړي.</p>
+                    </div>
                   </div>
                 </div>
                 {/* PAGE 3: Responsibilities + Terms */}
                 <div data-contract-section style={{ padding: "24px" }}>
                   <div style={{ marginBottom: "20px" }}>
-                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "10px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>4 .  د طرفینو مسؤلیتونه:</h3>
+                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "10px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>د طرفینو مسؤلیتونه:</h3>
                     <div style={{ marginBottom: "10px" }}>
-                      <h4 style={{ fontWeight: 700, marginBottom: "4px" }}>الف: د لمن مؤسسې مسؤلیتونه:</h4>
+                      <h4 style={{ fontWeight: 700, marginBottom: "4px" }}>الف:  د لمن مؤسسې مسؤلیتونه:</h4>
                       <div dir="rtl" style={{ paddingRight: "0", fontSize: "0.75rem", display: "flex", flexDirection: "column", gap: "4px", textAlign: "right", direction: "rtl" }}>
-                        <p>د مشتری د غوښتنې پر اساس، د مشخص شوو توکو او مالونو اخېستل، او مشتري ته د مرابحې تمویل له مخې پلورل.</p>
+                        <p>د مشتري د غوښتنې پر اساس، د مشخص شوو توکو او مالونو اخېستل، او مشتري ته د مرابحې تمویل له مخې پلورل.</p>
                         <p>لمن مؤسسه مکلفه ده چې په تمویل شوو توکو دولتي مالیات او لګښتونه، چې د دې تړون یا د توکو د اسنادو سره تړاو لري، د قانون مطابق پرې کړي.</p>
                         <p>اخېستل شوي توکي (مال) په سلامت ډول مشتري ته سپارل.</p>
                         <p>مشتري ته د جنس اصل قیمت (تمام شد) او د پلور قیمت (اصل قیمت + ګټه) ویل.</p>
@@ -1953,7 +1950,7 @@ export default function CitizenBalanceStatementPage() {
                     </div>
                   </div>
                   <div style={{ marginBottom: "20px" }}>
-                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "10px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>5 .  د قرارداد فسخ:</h3>
+                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "10px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>د تړون فسخ:</h3>
                     <div dir="rtl" style={{ paddingRight: "0", fontSize: "0.75rem", display: "flex", flexDirection: "column", gap: "4px", textAlign: "right", direction: "rtl" }}>
                       <p>د قرارداد دواړه خواوې کولای شي، چې د دوه اړخېزې موافقې له مخې قرارداد هر وخت فسخ کړي، په دې شرط چې ټول حقوقي او مالي تعهدات تسویه شي.</p>
                       <p>که چیرې مشتری د درې پرلپسې قسطونو له ورکړې څخه عاجز شي، لمن مؤسسه حق لري چې قرارداد فسخ کړي او پاتې پیسې یا مال بېرته تر لاسه کړي.</p>
@@ -1962,10 +1959,10 @@ export default function CitizenBalanceStatementPage() {
                     </div>
                   </div>
                   <div style={{ marginBottom: "20px" }}>
-                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "10px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>6 .  حل منازعات (د مالي شخړو حل):</h3>
+                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "10px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>حل منازعات (د مالي شخړو حل):</h3>
                     <div dir="rtl" style={{ paddingRight: "0", fontSize: "0.75rem", display: "flex", flexDirection: "column", gap: "4px", textAlign: "right", direction: "rtl" }}>
                       <p>طرفین مکلف دي هر ډول شخړې او اختلافونه د خپلمنځي خبرو له لارې حلوي.</p>
-                      <p>که چېرې ونه توانېدل ستونزه به د دواړو لورو له خوا ټاکل شوي درېیم‌ګړي حَکَم (arbitrator) ته وړاندې کېږي.</p>
+                      <p>که چېرې ونه توانېدل ستونزه به د دواړو لورو له خوا ټاکل شوي درېیم‌ګړي حَکَم (Arbitrator) ته وړاندې کېږي.</p>
                       <p>که بیا هم ونه توانېدل، نو د افغانستان محاکمو ته به مراجعه کوي.</p>
                     </div>
                   </div>
@@ -1973,19 +1970,21 @@ export default function CitizenBalanceStatementPage() {
                 {/* PAGE 4: Guarantees + General Terms + Signatures */}
                 <div data-contract-section style={{ padding: "24px" }}>
                   <div style={{ marginBottom: "20px" }}>
-                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "10px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>7 .  شخصي او مالي تضمینونه:</h3>
-                    <p style={{ fontSize: "0.75rem", lineHeight: 1.6 }}>مشتری مکلف دی چې د دې قرارداد د تضمین لپاره، له لمن مؤسسې سره همغږي شوي معتبر تضمیني اسناد وړاندې کړي. که مؤسسه د اضافي تضمین اړتیا ولري، مشتری باید نور لازم اسناد هم برابر کړي.</p>
-                    <p style={{ fontSize: "0.75rem", lineHeight: 1.6, marginTop: "4px" }}>دا تضمینونه به تر هغه وخته پورې د اعتبار وړ وي، څو چې مشتری د دې قرارداد له مخې ټول مکلفیتونه او تادیات پوره ادا کړي نه وي.</p>
-                    <p style={{ fontSize: "0.75rem", lineHeight: 1.6, marginTop: "4px" }}>لمن مؤسسه به تضمیني اسناد یوازې هغه مهال آزادوي، کله چې دې قرارداد پورې اړوند د مرابحې قیمت ټول قسطونه ادا شوي وي.</p>
-                    <p style={{ fontSize: "0.75rem", lineHeight: 1.6, marginTop: "4px" }}>همدارنګه مشتري متعهد دی چې د خیانت، غفلت، یا کوتاهۍ په صورت کې به مسؤل وي، او د اړوند ضرر جبران به کوي.</p>
+                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "10px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>شخصي او مالي تضمینونه:</h3>
+                    <div dir="rtl" style={{ fontSize: "0.75rem", display: "flex", flexDirection: "column", gap: "4px", textAlign: "right", direction: "rtl" }}>
+                      <p>مشتری مکلف دی چې د دې تړون د تضمین لپاره، له لمن مؤسسې سره همغږي شوي معتبر تضمیني اسناد وړاندې کړي. که مؤسسه د اضافي تضمین اړتیا ولري، مشتری باید نور لازم اسناد هم ورته برابر کړي.</p>
+                      <p>دا تضمینونه به تر هغه وخته پورې د اعتبار وړ وي، څو چې مشتری د دې تړون له مخې ټول مکلفیتونه او تادیات پوره ادا کړي نه وي.</p>
+                      <p>لمن مؤسسه به تضمیني اسناد یوازې هغه مهال آزادوي (بېرته ورکوي)، کله چې د تړون پورې اړوند د مرابحې قیمت ټول قسطونه ادا شوي وي.</p>
+                      <p>همدارنګه مشتري متعهد دی چې د خیانت، غفلت، یا کوتاهۍ په صورت کې به مسؤل وي، او د اړوند ضرر جبران به کوي. د سرغړونې په صورت کې به عدلي او قضايي چلند سره مخ کیږي.</p>
+                    </div>
                   </div>
                   <div style={{ marginBottom: "20px" }}>
-                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "10px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>8 .  عمومي شرایط:</h3>
+                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "10px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>عمومي شرایط:</h3>
                     <div dir="rtl" style={{ paddingRight: "0", fontSize: "0.75rem", display: "flex", flexDirection: "column", gap: "4px", textAlign: "right", direction: "rtl" }}>
-                      <p>دا قرارداد د اسلامي شرعي اصولو له مخې ترتیب شوی دی.</p>
+                      <p>دا تړون د اسلامي شرعي اصولو له مخې ترتیب شوی دی.</p>
                       <p>هیڅ لوری نه شي کولی د بل لورې له موافقې پرته قرارداد دریمګړي ته ورکړي.</p>
-                      <p>دا قرارداد په دوه کاپیانو کې ترتیب شوی، چې یوه یې تمویل ورکونکي (لمن مؤسسې) ته او بله یې تمویل اخېستونکي (مشتري) ته ورکول کیږي.</p>
-                      <p>دا قرارداد د دخیلو لورو په خوښه، بغیر له کوم جبر او اکراه څخه تړل کیږی.</p>
+                      <p>دا قرارداد په دوه کاپیانو کې ترتیب شوی، چې یوه یې تمویل ورکونکي (لمن مؤسسې ) ته او بله یې تمویل اخېستونکي (مشتري) ته ورکول کیږي، چې دواړه کاپیانې به یو شان قانوني حیثیت ولري.</p>
+                      <p>دا تړون د دخیلو لورو په خوښه ، بغیر له کوم جبر او اکراه څخه تړل کیږی، او داواړه لوري په خپل اقرار کې صادق دي.</p>
                     </div>
                   </div>
                   <div style={{ marginTop: "24px", borderTop: "1px solid #9ca3af", paddingTop: "16px" }}>
@@ -1994,7 +1993,7 @@ export default function CitizenBalanceStatementPage() {
                         <h4 style={{ fontWeight: 700, marginBottom: "16px", color: "#15803d" }}>تمویل اخېستونکی:</h4>
                         <div style={{ display: "flex", flexDirection: "column", gap: "12px", fontSize: "0.75rem", textAlign: "right" }}>
                           <p>نوم: ___________________________</p>
-                          <p>د تذکرې شمېره: ___________________________</p>
+                          <p>د تذکرې شمېره : ___________________________</p>
                           <p>لاسلیک او ګوته: ___________________________</p>
                         </div>
                       </div>
@@ -2002,7 +2001,7 @@ export default function CitizenBalanceStatementPage() {
                         <h4 style={{ fontWeight: 700, marginBottom: "16px", color: "#15803d" }}>د لمن مؤسسې استازی:</h4>
                         <div style={{ display: "flex", flexDirection: "column", gap: "12px", fontSize: "0.75rem", textAlign: "right" }}>
                           <p>نوم: ___________________________</p>
-                          <p>وظیفه: ___________________________</p>
+                          <p>وظیفه : ___________________________</p>
                           <p>لاسلیک او ګوته: ___________________________</p>
                         </div>
                       </div>
