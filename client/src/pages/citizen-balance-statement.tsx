@@ -1848,10 +1848,10 @@ export default function CitizenBalanceStatementPage() {
                       </div>
                     </div>
                     <div style={{ width: "100px", height: "130px", border: "2px solid #333", overflow: "hidden", flexShrink: 0 }}>
-                      {cd.customer.photoUrl ? (
-                        <img src={cd.customer.photoUrl} alt="Customer" style={{ width: "100%", height: "100%", objectFit: "cover" }} crossOrigin="anonymous" />
+                      {cd.customer.photoUrl && cd.customer.photoUrl.length > 0 ? (
+                        <img src={cd.customer.photoUrl.startsWith("http") ? cd.customer.photoUrl : `${window.location.origin}${cd.customer.photoUrl}`} alt="Customer" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                       ) : (
-                        <div style={{ width: "100%", height: "100%", background: "#f3f4f6" }} />
+                        <div style={{ width: "100%", height: "100%", background: "#f3f4f6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.6rem", color: "#9ca3af" }}>عکس</div>
                       )}
                     </div>
                   </div>
