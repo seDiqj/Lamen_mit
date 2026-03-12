@@ -1836,7 +1836,17 @@ export default function CitizenBalanceStatementPage() {
                     <span style={{ color: "#15803d" }}>لمن</span> د وړو مالي تمویلونو مؤسسه
                   </p>
                   <p style={{ fontSize: "1.5rem", fontWeight: 700, marginBottom: "60px", textAlign: "center" }}>د مرابحې تمویل تړون</p>
-                  <div style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "20px" }}>
+                  <div dir="rtl" style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "20px", direction: "rtl" }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px", alignItems: "flex-end", fontSize: "0.85rem" }}>
+                      <div dir="rtl" style={{ display: "flex", alignItems: "center", gap: "8px", direction: "rtl" }}>
+                        <span style={{ fontWeight: 700, fontSize: "0.85rem" }}>نوم / اسم:</span>
+                        <div style={{ border: "1px solid #333", padding: "4px 16px", minWidth: "200px", fontSize: "0.85rem" }}>{cd.customer.fullNameDari || cd.customer.name}</div>
+                      </div>
+                      <div dir="rtl" style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "4px", direction: "rtl" }}>
+                        <span style={{ fontWeight: 700, fontSize: "0.85rem" }}>د اړېکې شمېره:</span>
+                        <div style={{ border: "1px solid #333", padding: "4px 16px", minWidth: "200px", fontSize: "0.85rem" }}>{cd.customer.phoneNumber}</div>
+                      </div>
+                    </div>
                     <div style={{ width: "100px", height: "130px", border: "2px solid #333", overflow: "hidden", flexShrink: 0 }}>
                       {cd.customer.photoUrl ? (
                         <img src={cd.customer.photoUrl} alt="Customer" style={{ width: "100%", height: "100%", objectFit: "cover" }} crossOrigin="anonymous" />
@@ -1844,22 +1854,10 @@ export default function CitizenBalanceStatementPage() {
                         <div style={{ width: "100%", height: "100%", background: "#f3f4f6" }} />
                       )}
                     </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "8px", alignItems: "flex-end", fontSize: "0.85rem" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <div style={{ border: "1px solid #333", padding: "4px 16px", minWidth: "200px", fontSize: "0.85rem" }}>{cd.customer.fullNameDari || cd.customer.name}</div>
-                        <span style={{ fontWeight: 700, fontSize: "0.85rem" }}>نوم / اسم:</span>
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "4px" }}>
-                        <div style={{ border: "1px solid #333", padding: "4px 16px", minWidth: "200px", fontSize: "0.85rem" }}>{cd.customer.phoneNumber}</div>
-                        <span style={{ fontWeight: 700, fontSize: "0.85rem" }}>د اړېکې شمېره:</span>
-                      </div>
-                    </div>
                   </div>
-                  <div style={{ width: "100%", display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "8px", marginBottom: "20px", fontSize: "0.85rem" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <div style={{ border: "1px solid #333", padding: "4px 16px", minWidth: "200px", fontSize: "0.85rem" }}>{cd.loan.applicationId}</div>
-                      <span style={{ fontWeight: 700, fontSize: "0.85rem" }}>تړون نمبر:</span>
-                    </div>
+                  <div dir="rtl" style={{ width: "100%", display: "flex", justifyContent: "flex-start", alignItems: "center", gap: "8px", marginBottom: "20px", fontSize: "0.85rem", direction: "rtl" }}>
+                    <span style={{ fontWeight: 700, fontSize: "0.85rem" }}>تړون نمبر:</span>
+                    <div style={{ border: "1px solid #333", padding: "4px 16px", minWidth: "200px", fontSize: "0.85rem" }}>{cd.loan.applicationId}</div>
                   </div>
                   <div style={{ flexGrow: 1 }} />
                   <div style={{ textAlign: "center", marginBottom: "40px" }}>
