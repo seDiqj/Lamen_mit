@@ -1831,7 +1831,8 @@ export default function CitizenBalanceStatementPage() {
                 {/* PAGE 1 - Cover */}
                 <div data-contract-section style={{ padding: "30px 32px", minHeight: "1100px", display: "flex", flexDirection: "column", alignItems: "center" }}>
                   <p style={{ fontSize: "0.85rem", fontWeight: 700, marginBottom: "16px", textAlign: "center" }}>بسم الله الرحمن الرحیم</p>
-                  <img src="/logo.jpeg" alt="Lamen" style={{ height: "80px", width: "auto", marginBottom: "30px" }} />
+                  <div style={{ flexGrow: 1 }} />
+                  <img src="/logo.jpeg" alt="Lamen" style={{ height: "100px", width: "auto", marginBottom: "40px" }} />
                   <p style={{ fontSize: "2.5rem", fontWeight: 700, marginBottom: "20px", textAlign: "center", lineHeight: 1.4 }}>
                     <span style={{ color: "#15803d" }}>لمن</span> د وړو مالي تمویلونو مؤسسه
                   </p>
