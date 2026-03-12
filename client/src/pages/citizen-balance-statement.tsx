@@ -1844,11 +1844,11 @@ export default function CitizenBalanceStatementPage() {
                             <tbody>
                               <tr>
                                 <td style={{ fontWeight: 700, fontSize: "0.85rem", padding: "8px 0 8px 10px", whiteSpace: "nowrap", textAlign: "right" }}>نوم / اسم:</td>
-                                <td style={{ padding: "8px 0" }}><div style={{ border: "1px solid #333", padding: "4px 16px", minWidth: "220px", fontSize: "0.85rem", textAlign: "center" }}>{cd.customer.fullNameDari || cd.customer.name}</div></td>
+                                <td style={{ padding: "8px 0" }}><div style={{ padding: "4px 16px", minWidth: "220px", fontSize: "0.85rem", fontWeight: 700 }}>{cd.customer.fullNameDari || cd.customer.name}</div></td>
                               </tr>
                               <tr>
                                 <td style={{ fontWeight: 700, fontSize: "0.85rem", padding: "8px 0 8px 10px", whiteSpace: "nowrap", textAlign: "right" }}>د اړېکې شمېره:</td>
-                                <td style={{ padding: "8px 0" }}><div style={{ border: "1px solid #333", padding: "4px 16px", minWidth: "220px", fontSize: "0.85rem", textAlign: "center" }}>{cd.customer.phoneNumber}</div></td>
+                                <td style={{ padding: "8px 0" }}><div style={{ padding: "4px 16px", minWidth: "220px", fontSize: "0.85rem", fontWeight: 700 }}>{cd.customer.phoneNumber}</div></td>
                               </tr>
                             </tbody>
                           </table>
@@ -1869,7 +1869,7 @@ export default function CitizenBalanceStatementPage() {
                             <tbody>
                               <tr>
                                 <td style={{ fontWeight: 700, fontSize: "0.85rem", padding: "8px 0 8px 10px", whiteSpace: "nowrap", textAlign: "right" }}>تړون نمبر:</td>
-                                <td style={{ padding: "8px 0" }}><div style={{ border: "1px solid #333", padding: "4px 16px", minWidth: "220px", fontSize: "0.85rem", textAlign: "center" }}>{cd.loan.applicationId}</div></td>
+                                <td style={{ padding: "8px 0" }}><div style={{ padding: "4px 16px", minWidth: "220px", fontSize: "0.85rem", fontWeight: 700 }}>{cd.loan.applicationId}</div></td>
                               </tr>
                             </tbody>
                           </table>
@@ -1887,7 +1887,7 @@ export default function CitizenBalanceStatementPage() {
                 {/* PAGE 2: Section 1 - Party Identification + Contract Subject + Details Table */}
                 <div data-contract-section style={{ padding: "24px" }}>
                   <div style={{ marginBottom: "20px" }}>
-                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "10px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>په تړون کې د ښکیلو لورو پېژندنه:</h3>
+                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "10px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>۱. په تړون کې د ښکیلو لورو پېژندنه:</h3>
                     <table style={{ width: "100%", borderCollapse: "collapse", border: "2px solid #333", fontSize: "0.8rem" }} dir="rtl">
                       <thead>
                         <tr>
@@ -1918,11 +1918,11 @@ export default function CitizenBalanceStatementPage() {
                     </table>
                   </div>
                   <div style={{ marginBottom: "16px" }}>
-                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "8px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>د تړون موضوع:</h3>
+                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "8px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>۲. د تړون موضوع:</h3>
                     <p style={{ fontSize: "14px" }}>د لمن مؤسسې له لوري، د مشتري د غوښتنې پر اساس، د توکو او اجناسو پیر او بیا یې مشتري ته د مرابحې تړون له مخې، پر ټاکلې ګټه او شرایطو پلورل.</p>
                   </div>
                   <div style={{ marginBottom: "16px" }}>
-                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "8px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>د تړون اړوند عمومي معلومات:</h3>
+                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "8px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>۳. د تړون اړوند عمومي معلومات:</h3>
                     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }} dir="rtl">
                       <tbody>
                         {[
@@ -1961,7 +1961,7 @@ export default function CitizenBalanceStatementPage() {
                     <p>که د قسط د ورکونې نېټه د رخصتیو ورځو سره برابره وي، نو مشتری مکلف دی چې قسط له رخصتۍ څخه دمخه په کاري ورځ کې ادا کړي.</p>
                   </div>
                   <div style={{ marginBottom: "20px" }}>
-                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "10px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>د طرفینو مسؤلیتونه:</h3>
+                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "10px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>۴. د طرفینو مسؤلیتونه:</h3>
                     <div style={{ marginBottom: "10px" }}>
                       <h4 style={{ fontWeight: 700, marginBottom: "4px" }}>الف:  د لمن مؤسسې مسؤلیتونه:</h4>
                       <div dir="rtl" style={{ paddingRight: "0", fontSize: "14px", display: "flex", flexDirection: "column", gap: "4px", textAlign: "right", direction: "rtl" }}>
@@ -1982,7 +1982,7 @@ export default function CitizenBalanceStatementPage() {
                     </div>
                   </div>
                   <div style={{ marginBottom: "20px" }}>
-                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "10px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>د تړون فسخ:</h3>
+                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "10px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>۵. د تړون فسخ:</h3>
                     <div dir="rtl" style={{ paddingRight: "0", fontSize: "14px", display: "flex", flexDirection: "column", gap: "4px", textAlign: "right", direction: "rtl" }}>
                       <p>د قرارداد دواړه خواوې کولای شي، چې د دوه اړخېزې موافقې له مخې قرارداد هر وخت فسخ کړي، په دې شرط چې ټول حقوقي او مالي تعهدات تسویه شي.</p>
                       <p>که چیرې مشتری د درې پرلپسې قسطونو له ورکړې څخه عاجز شي، لمن مؤسسه حق لري چې قرارداد فسخ کړي او پاتې پیسې یا مال بېرته تر لاسه کړي.</p>
@@ -1991,7 +1991,7 @@ export default function CitizenBalanceStatementPage() {
                     </div>
                   </div>
                   <div style={{ marginBottom: "20px" }}>
-                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "10px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>حل منازعات (د مالي شخړو حل):</h3>
+                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "10px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>۶. حل منازعات (د مالي شخړو حل):</h3>
                     <div dir="rtl" style={{ paddingRight: "0", fontSize: "14px", display: "flex", flexDirection: "column", gap: "4px", textAlign: "right", direction: "rtl" }}>
                       <p>طرفین مکلف دي هر ډول شخړې او اختلافونه د خپلمنځي خبرو له لارې حلوي.</p>
                       <p>که چېرې ونه توانېدل ستونزه به د دواړو لورو له خوا ټاکل شوي درېیم‌ګړي حَکَم (Arbitrator) ته وړاندې کېږي.</p>
@@ -2002,7 +2002,7 @@ export default function CitizenBalanceStatementPage() {
                 {/* PAGE 4: Guarantees + General Terms + Signatures */}
                 <div data-contract-section style={{ padding: "24px" }}>
                   <div style={{ marginBottom: "20px" }}>
-                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "10px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>شخصي او مالي تضمینونه:</h3>
+                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "10px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>۷. شخصي او مالي تضمینونه:</h3>
                     <div dir="rtl" style={{ fontSize: "14px", display: "flex", flexDirection: "column", gap: "4px", textAlign: "right", direction: "rtl" }}>
                       <p>مشتری مکلف دی چې د دې تړون د تضمین لپاره، له لمن مؤسسې سره همغږي شوي معتبر تضمیني اسناد وړاندې کړي. که مؤسسه د اضافي تضمین اړتیا ولري، مشتری باید نور لازم اسناد هم ورته برابر کړي.</p>
                       <p>دا تضمینونه به تر هغه وخته پورې د اعتبار وړ وي، څو چې مشتری د دې تړون له مخې ټول مکلفیتونه او تادیات پوره ادا کړي نه وي.</p>
@@ -2011,7 +2011,7 @@ export default function CitizenBalanceStatementPage() {
                     </div>
                   </div>
                   <div style={{ marginBottom: "20px" }}>
-                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "10px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>عمومي شرایط:</h3>
+                    <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "10px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>۸. عمومي شرایط:</h3>
                     <div dir="rtl" style={{ paddingRight: "0", fontSize: "14px", display: "flex", flexDirection: "column", gap: "4px", textAlign: "right", direction: "rtl" }}>
                       <p>دا تړون د اسلامي شرعي اصولو له مخې ترتیب شوی دی.</p>
                       <p>هیڅ لوری نه شي کولی د بل لورې له موافقې پرته قرارداد دریمګړي ته ورکړي.</p>
