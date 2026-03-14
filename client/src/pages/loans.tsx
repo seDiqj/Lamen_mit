@@ -99,7 +99,6 @@ const WORKFLOW_STEPS = [
   { key: "committee_review", label: "Review" },
   { key: "approved", label: "Approved" },
   { key: "disbursed", label: "Disbursed" },
-  { key: "active", label: "Active" },
   { key: "completed", label: "Completed" },
 ];
 
@@ -113,9 +112,9 @@ function getWorkflowIndex(status: string): number {
     approved: 2,
     rejected: 2,
     disbursed: 3,
-    active: 4,
-    completed: 5,
-    defaulted: 4,
+    active: 3,
+    completed: 4,
+    defaulted: 3,
   };
   return map[status] ?? 0;
 }
