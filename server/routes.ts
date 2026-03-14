@@ -4163,57 +4163,173 @@ export async function registerRoutes(
       const assetTurnover = totalAssets > 0 ? totalRevenue / totalAssets : 0.5;
       const workingCapital = totalAssets - totalLiabilities;
       
+      // Journal entry stats
+      const journalResult = await storage.getJournalEntries({ limit: 10000 });
+      const journalEntries = journalResult.entries || [];
+      const totalJournalEntries = journalEntries.length;
+      const postedEntries = journalEntries.filter((e: any) => e.isPosted === true && e.isReversed !== true);
+      const draftEntries = journalEntries.filter((e: any) => e.isPosted !== true && e.isReversed !== true);
+      const reversedEntries = journalEntries.filter((e: any) => e.isReversed === true);
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const entriesLast30d = journalEntries.filter((e: any) => new Date(e.entryDate) >= thirtyDaysAgo).length;
+      
+      const totalDebits = postedEntries.reduce((sum: number, e: any) => sum + Number(e.totalDebit || 0), 0);
+      const totalCredits = postedEntries.reduce((sum: number, e: any) => sum + Number(e.totalCredit || 0), 0);
+      const isBalanced = Math.abs(totalDebits - totalCredits) < 0.01;
+
+      // Account type distribution
+      const activeAccounts = accounts.filter(a => a.isActive);
+      const accountTypeDist = [
+        { type: "asset", label: "Asset", count: assetAccounts.length, color: "#3b82f6" },
+        { type: "expense", label: "Expense", count: expenseAccounts.length, color: "#f59e0b" },
+        { type: "liability", label: "Liability", count: liabilityAccounts.length, color: "#10b981" },
+        { type: "income", label: "Income", count: incomeAccounts.length, color: "#ef4444" },
+        { type: "equity", label: "Equity", count: equityAccounts.length, color: "#6366f1" },
+      ];
+      const totalAccountsCount = accountTypeDist.reduce((s, a) => s + a.count, 0);
+      const accountTypeDistWithPct = accountTypeDist.map(a => ({
+        ...a,
+        percentage: totalAccountsCount > 0 ? Math.round((a.count / totalAccountsCount) * 100) : 0,
+      }));
+
+      // Accounts with activity (non-zero balance)
+      const accountsWithActivity = accounts.filter(a => Number(a.currentBalance || 0) !== 0).length;
+
+      // Pending expenses (draft expense journal lines)
+      const pendingExpenseEntries = draftEntries.filter((e: any) => {
+        return e.referenceType === 'expense' || e.description?.toLowerCase().includes('expense');
+      });
+      
+      // Recent journal entries (latest 6)
+      const recentJournalEntries = journalEntries
+        .sort((a: any, b: any) => new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime())
+        .slice(0, 6)
+        .map((e: any) => ({
+          id: e.id,
+          entryNumber: e.entryNumber,
+          description: e.description,
+          entryDate: e.entryDate,
+          referenceType: e.referenceType || 'manual',
+          totalDebit: Number(e.totalDebit || 0),
+          totalCredit: Number(e.totalCredit || 0),
+          isPosted: e.isPosted === true,
+          isReversed: e.isReversed === true,
+        }));
+
+      // Top account balances (top 8 by absolute balance)
+      const topAccountBalances = accounts
+        .filter(a => Number(a.currentBalance || 0) !== 0)
+        .sort((a, b) => Math.abs(Number(b.currentBalance || 0)) - Math.abs(Number(a.currentBalance || 0)))
+        .slice(0, 8)
+        .map(a => ({
+          accountCode: a.accountCode,
+          accountName: a.accountName,
+          accountType: a.accountType,
+          currentBalance: Number(a.currentBalance || 0),
+        }));
+
+      // Funding sources
+      let fundingSourcesData: any[] = [];
+      try {
+        const sources = await storage.getFundingSources();
+        fundingSourcesData = (sources || []).filter((s: any) => s.isActive !== false).map((s: any) => ({
+          id: s.id,
+          name: s.name,
+          sourceType: s.sourceType,
+          totalCommitted: Number(s.totalCommitted || 0),
+          totalUtilized: Number(s.totalUtilized || 0),
+          availableBalance: Number(s.availableBalance || 0),
+        }));
+      } catch (e) {}
+
+      // Accounting equation check
+      const equationDiff = totalAssets - totalLiabilities - totalEquity;
+      const equationBalanced = Math.abs(equationDiff) < 0.01;
+
+      // Income breakdown detail (leaf accounts)
+      const incomeDetail = incomeAccounts
+        .filter(a => Number(a.currentBalance || 0) !== 0 && !incomeAccounts.some(c => c.parentId === a.id))
+        .sort((a, b) => Number(b.currentBalance || 0) - Number(a.currentBalance || 0))
+        .map(a => ({
+          name: a.accountName,
+          amount: Number(a.currentBalance || 0),
+          percentage: totalRevenue > 0 ? Math.round((Number(a.currentBalance || 0) / totalRevenue) * 100) : 0,
+        }));
+
+      // Expense breakdown detail (leaf accounts)
+      const expenseDetail = expenseAccounts
+        .filter(a => Math.abs(Number(a.currentBalance || 0)) > 0 && !expenseAccounts.some(c => c.parentId === a.id))
+        .sort((a, b) => Math.abs(Number(b.currentBalance || 0)) - Math.abs(Number(a.currentBalance || 0)))
+        .map(a => ({
+          name: a.accountName,
+          amount: Math.abs(Number(a.currentBalance || 0)),
+          percentage: totalExpenses > 0 ? Math.round((Math.abs(Number(a.currentBalance || 0)) / totalExpenses) * 100) : 0,
+        }));
+
+      const postedRate = totalJournalEntries > 0 ? Math.round((postedEntries.length / totalJournalEntries) * 1000) / 10 : 0;
+
+      // Accounting health checks
+      const healthChecks = [
+        { label: "Trial Balance", description: "Debits equal credits", passed: isBalanced },
+        { label: "Accounting Equation", description: "Assets = Liabilities + Equity", passed: equationBalanced },
+        { label: "Draft Entries", description: `${draftEntries.length} entries need posting`, passed: draftEntries.length === 0 },
+        { label: "Pending Expenses", description: `${pendingExpenseEntries.length} awaiting approval`, passed: pendingExpenseEntries.length === 0 },
+        { label: "Account Coverage", description: `${activeAccounts.length} active of ${accounts.length} total`, passed: activeAccounts.length === accounts.length },
+      ];
+      const healthScore = Math.round((healthChecks.filter(h => h.passed).length / healthChecks.length) * 100);
+
       const dashboardData = {
-        financialOverview: {
-          totalRevenue,
-          totalExpenses,
-          netProfit,
-          netProfitMargin,
-          cashBalance,
-          cashFlowTrend: 5.2,
-          revenueGrowth: 8.5,
-          expenseGrowth: 3.2,
+        totalAccounts: accounts.length,
+        activeAccounts: activeAccounts.length,
+        headerAccounts: accounts.filter(a => accounts.some(c => c.parentId === a.id)).length,
+        totalAssets,
+        totalLiabilities,
+        totalEquity,
+        totalRevenue,
+        totalExpenses,
+        netProfit,
+        netProfitMargin,
+        cashBalance,
+        totalDebits,
+        totalCredits,
+        isBalanced,
+        equationBalanced,
+        equationDiff,
+        journalEntryStats: {
+          total: totalJournalEntries,
+          posted: postedEntries.length,
+          draft: draftEntries.length,
+          reversed: reversedEntries.length,
+          last30d: entriesLast30d,
+          postedRate,
         },
-        cashFlowTrends,
-        accountsReceivable: {
-          total: totalReceivables,
-          current: receivablesByAging.current,
-          days30: receivablesByAging.days30,
-          days60: receivablesByAging.days60,
-          days90Plus: receivablesByAging.days90Plus,
-          overdueCount: receivablesByAging.overdueCount,
-          upcomingPayments: upcomingReceivables.slice(0, 10),
+        accountTypeDistribution: accountTypeDistWithPct,
+        accountsWithActivity,
+        recentJournalEntries,
+        topAccountBalances,
+        fundingSources: fundingSourcesData,
+        incomeBreakdown: {
+          totalRecorded: totalRevenue,
+          records: incomeAccounts.filter(a => Number(a.currentBalance || 0) !== 0).length,
+          avgPerRecord: incomeAccounts.filter(a => Number(a.currentBalance || 0) !== 0).length > 0 ? totalRevenue / incomeAccounts.filter(a => Number(a.currentBalance || 0) !== 0).length : 0,
+          categories: incomeDetail.slice(0, 5),
         },
-        accountsPayable: {
-          total: Math.round(totalLiabilities * 0.3),
-          current: Math.round(totalLiabilities * 0.2),
-          days30: Math.round(totalLiabilities * 0.05),
-          days60: Math.round(totalLiabilities * 0.03),
-          days90Plus: Math.round(totalLiabilities * 0.02),
-          overdueCount: 3,
-          upcomingPayments: [
-            { id: "1", vendorName: "Office Supplies Co", amount: 25000, dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(), daysOverdue: 0 },
-            { id: "2", vendorName: "Utility Company", amount: 45000, dueDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(), daysOverdue: 0 },
-            { id: "3", vendorName: "IT Services", amount: 85000, dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(), daysOverdue: 0 },
-          ],
+        expenseBreakdownDetail: {
+          total: totalExpenses,
+          records: expenseAccounts.filter(a => Math.abs(Number(a.currentBalance || 0)) > 0).length,
+          pending: pendingExpenseEntries.length,
+          categories: expenseDetail.slice(0, 5),
         },
-        budgetAnalysis,
-        expenseBreakdown: {
-          byCategory: expenseCategories,
-          byDepartment: expenseByDepartment,
+        profitAndLoss: {
+          revenue: totalRevenue,
+          expenses: totalExpenses,
+          netIncome: netProfit,
+          profitMargin: netProfitMargin,
         },
-        kpis: {
-          grossMargin,
-          operatingMargin,
-          returnOnAssets,
-          currentRatio,
-          quickRatio,
-          debtToEquity,
-          assetTurnover,
-          workingCapital,
-        },
+        healthChecks,
+        healthScore,
         revenueBySource,
-        monthlyPnL,
+        expenseCategories,
       };
       
       res.json(dashboardData);
