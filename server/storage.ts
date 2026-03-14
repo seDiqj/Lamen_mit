@@ -2166,34 +2166,53 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Dashboard Stats
-  async getDashboardStats(): Promise<any> {
-    const [loanCounts] = await db
-      .select({
-        total: count(),
-        active: sql<number>`COUNT(*) FILTER (WHERE ${loans.status} = 'active')`,
-        pending: sql<number>`COUNT(*) FILTER (WHERE ${loans.status} NOT IN ('disbursed', 'active', 'completed', 'rejected', 'defaulted'))`,
-      })
-      .from(loans);
+  async getDashboardStats(filters?: { branchId?: string; startDate?: string; endDate?: string }): Promise<any> {
+    const branchFilter = filters?.branchId ? sql`AND l.branch_id = ${filters.branchId}` : sql``;
+    const branchFilterRoot = filters?.branchId ? sql`AND branch_id = ${filters.branchId}` : sql``;
+    const dateFilterDisb = filters?.startDate && filters?.endDate
+      ? sql`AND d.disbursement_date >= ${filters.startDate}::date AND d.disbursement_date <= ${filters.endDate}::date` : sql``;
+    const dateFilterLoan = filters?.startDate && filters?.endDate
+      ? sql`AND l.created_at >= ${filters.startDate}::date AND l.created_at <= ${filters.endDate}::date + INTERVAL '1 day'` : sql``;
+    const dateFilterInstallment = filters?.startDate && filters?.endDate
+      ? sql`AND i.payment_date >= ${filters.startDate}::date AND i.payment_date <= ${filters.endDate}::date` : sql``;
 
-    const [customerCount] = await db.select({ count: count() }).from(customers);
+    const loanCountsResult = await db.execute(sql`
+      SELECT
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE status = 'active') as active,
+        COUNT(*) FILTER (WHERE status NOT IN ('disbursed', 'active', 'completed', 'rejected', 'defaulted')) as pending
+      FROM loans l
+      WHERE 1=1 ${branchFilterRoot} ${dateFilterLoan}
+    `);
+    const loanCounts = loanCountsResult.rows[0] as any;
+
+    const customerCountResult = await db.execute(sql`
+      SELECT COUNT(*) as count FROM customers
+      ${filters?.branchId ? sql`WHERE branch_id = ${filters.branchId}` : sql``}
+    `);
+    const customerCount = { count: Number((customerCountResult.rows[0] as any)?.count || 0) };
     
-    const [amounts] = await db
-      .select({
-        totalDisbursed: sql<number>`COALESCE(SUM(CASE WHEN ${loans.status} IN ('disbursed', 'active', 'completed') THEN ${loans.principleAmount}::numeric ELSE 0 END), 0)`,
-        totalPortfolio: sql<number>`COALESCE(SUM(CASE WHEN ${loans.status} IN ('disbursed', 'active', 'completed') THEN ${loans.totalReceivable}::numeric ELSE 0 END), 0)`,
-        portfolioPrincipal: sql<number>`COALESCE(SUM(CASE WHEN ${loans.status} IN ('disbursed', 'active', 'completed') THEN ${loans.principleAmount}::numeric ELSE 0 END), 0)`,
-        portfolioMargin: sql<number>`COALESCE(SUM(CASE WHEN ${loans.status} IN ('disbursed', 'active', 'completed') THEN (${loans.totalReceivable}::numeric - ${loans.principleAmount}::numeric) ELSE 0 END), 0)`,
-      })
-      .from(loans);
+    const amountsResult = await db.execute(sql`
+      SELECT
+        COALESCE(SUM(CASE WHEN l.status IN ('disbursed', 'active', 'completed') THEN l.principle_amount::numeric ELSE 0 END), 0) as total_disbursed,
+        COALESCE(SUM(CASE WHEN l.status IN ('disbursed', 'active', 'completed') THEN l.total_receivable::numeric ELSE 0 END), 0) as total_portfolio,
+        COALESCE(SUM(CASE WHEN l.status IN ('disbursed', 'active', 'completed') THEN l.principle_amount::numeric ELSE 0 END), 0) as portfolio_principal,
+        COALESCE(SUM(CASE WHEN l.status IN ('disbursed', 'active', 'completed') THEN (l.total_receivable::numeric - l.principle_amount::numeric) ELSE 0 END), 0) as portfolio_margin
+      FROM loans l
+      WHERE 1=1 ${branchFilterRoot} ${dateFilterLoan}
+    `);
+    const amounts = amountsResult.rows[0] as any;
 
-    const [collectedResult] = await db
-      .select({
-        totalCollected: sql<number>`COALESCE(SUM(COALESCE(${installments.paidAmount}::numeric, 0)), 0)`,
-        principalCollected: sql<number>`COALESCE(SUM(${installments.principleAmount}::numeric), 0)`,
-        marginCollected: sql<number>`COALESCE(SUM(${installments.marginAmount}::numeric), 0)`,
-      })
-      .from(installments)
-      .where(eq(installments.isPaid, true));
+    const collectedResultQuery = await db.execute(sql`
+      SELECT
+        COALESCE(SUM(COALESCE(i.paid_amount::numeric, 0)), 0) as total_collected,
+        COALESCE(SUM(i.principle_amount::numeric), 0) as principal_collected,
+        COALESCE(SUM(i.margin_amount::numeric), 0) as margin_collected
+      FROM installments i
+      JOIN loans l ON i.loan_id = l.id
+      WHERE i.is_paid = true ${branchFilter} ${dateFilterInstallment}
+    `);
+    const collectedResult = collectedResultQuery.rows[0] as any;
 
     const currentMonthStats = await db.execute(sql`
       SELECT 
@@ -2203,35 +2222,44 @@ export class DatabaseStorage implements IStorage {
         COALESCE(SUM(CASE WHEN DATE_TRUNC('month', d.disbursement_date) = DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month') THEN l.principle_amount::numeric ELSE 0 END), 0) as prev_month_amount
       FROM disbursements d
       LEFT JOIN loans l ON d.loan_id = l.id
-      WHERE d.disbursement_date IS NOT NULL
+      WHERE d.disbursement_date IS NOT NULL ${branchFilter} ${dateFilterDisb}
     `);
     const cmStats = currentMonthStats.rows[0] as any;
 
-    const recentLoans = await db
-      .select({
-        id: loans.id,
-        applicationId: loans.applicationId,
-        amount: sql<string>`COALESCE(${loans.principleAmount}, ${loans.requestAmount})`,
-        status: loans.status,
-        date: loans.requestDate,
-        customerName: sql<string>`CONCAT(${customers.firstName}, ' ', ${customers.lastName})`,
-      })
-      .from(loans)
-      .leftJoin(customers, eq(loans.customerId, customers.id))
-      .orderBy(desc(loans.createdAt))
-      .limit(5);
+    const recentLoansResult = await db.execute(sql`
+      SELECT l.id, l.application_id, COALESCE(l.principle_amount, l.request_amount) as amount,
+        l.status, l.request_date as date,
+        CONCAT(c.first_name, ' ', c.last_name) as customer_name
+      FROM loans l
+      LEFT JOIN customers c ON l.customer_id = c.id
+      WHERE 1=1 ${branchFilterRoot} ${dateFilterLoan}
+      ORDER BY l.created_at DESC
+      LIMIT 5
+    `);
+    const recentLoans = (recentLoansResult.rows as any[]).map(r => ({
+      id: r.id,
+      applicationId: r.application_id,
+      amount: r.amount,
+      status: r.status,
+      date: r.date,
+      customerName: r.customer_name,
+    }));
 
-    const loansByStatus = await db
-      .select({
-        status: loans.status,
-        count: count(),
-        requestedAmount: sql<number>`COALESCE(SUM(CASE 
-          WHEN ${loans.status} IN ('disbursed', 'active', 'completed') THEN ${loans.principleAmount}::numeric 
-          ELSE ${loans.requestAmount}::numeric 
-        END), 0)`,
-      })
-      .from(loans)
-      .groupBy(loans.status);
+    const loansByStatusResult = await db.execute(sql`
+      SELECT l.status, COUNT(*) as count,
+        COALESCE(SUM(CASE 
+          WHEN l.status IN ('disbursed', 'active', 'completed') THEN l.principle_amount::numeric 
+          ELSE l.request_amount::numeric 
+        END), 0) as requested_amount
+      FROM loans l
+      WHERE 1=1 ${branchFilterRoot} ${dateFilterLoan}
+      GROUP BY l.status
+    `);
+    const loansByStatus = (loansByStatusResult.rows as any[]).map(r => ({
+      status: r.status,
+      count: Number(r.count),
+      requestedAmount: Number(r.requested_amount),
+    }));
 
     const monthlyDisbData = await db.execute(sql`
       SELECT 
@@ -2242,6 +2270,7 @@ export class DatabaseStorage implements IStorage {
       LEFT JOIN loans l ON d.loan_id = l.id
       WHERE d.disbursement_date IS NOT NULL
         AND d.disbursement_date >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '5 months')
+        ${branchFilter} ${dateFilterDisb}
       GROUP BY TO_CHAR(d.disbursement_date, 'Mon'), TO_CHAR(d.disbursement_date, 'YYYY-MM')
       ORDER BY TO_CHAR(d.disbursement_date, 'YYYY-MM')
     `);
@@ -2252,9 +2281,11 @@ export class DatabaseStorage implements IStorage {
         TO_CHAR(i.payment_date, 'YYYY-MM') as sort_key,
         COALESCE(SUM(i.paid_amount::numeric), 0) as collected
       FROM installments i
+      JOIN loans l ON i.loan_id = l.id
       WHERE i.is_paid = true
         AND i.payment_date IS NOT NULL
         AND i.payment_date >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '5 months')
+        ${branchFilter} ${dateFilterInstallment}
       GROUP BY TO_CHAR(i.payment_date, 'Mon'), TO_CHAR(i.payment_date, 'YYYY-MM')
       ORDER BY TO_CHAR(i.payment_date, 'YYYY-MM')
     `);
@@ -2277,22 +2308,22 @@ export class DatabaseStorage implements IStorage {
 
     const dailyOpsResult = await db.execute(sql`
       SELECT
-        (SELECT COUNT(*) FROM loans WHERE DATE(created_at) = CURRENT_DATE) as apps_today,
-        (SELECT COUNT(*) FROM loan_approvals WHERE DATE(created_at) = CURRENT_DATE AND decision = 'approved') as approved_today,
-        (SELECT COUNT(*) FROM loan_approvals WHERE DATE(created_at) = CURRENT_DATE AND decision = 'rejected') as rejected_today,
-        (SELECT COUNT(*) FROM disbursements WHERE disbursement_date = CURRENT_DATE) as disbursed_today,
-        (SELECT COALESCE(SUM(l.principle_amount::numeric), 0) FROM disbursements d JOIN loans l ON d.loan_id = l.id WHERE d.disbursement_date = CURRENT_DATE) as amount_disbursed_today,
-        (SELECT COALESCE(SUM(total_amount::numeric), 0) FROM installments WHERE due_date = CURRENT_DATE AND is_paid = false) as amount_due_today,
-        (SELECT COALESCE(SUM(paid_amount::numeric), 0) FROM installments WHERE DATE(payment_date) = CURRENT_DATE AND is_paid = true) as amount_collected_today,
-        (SELECT COUNT(*) FROM installments WHERE due_date < CURRENT_DATE AND is_paid = false) as missed_payments_total,
-        (SELECT COUNT(*) FROM installments WHERE due_date = CURRENT_DATE AND is_paid = false) as due_today_count,
-        (SELECT COUNT(*) FROM installments WHERE DATE(payment_date) = CURRENT_DATE AND is_paid = true) as collected_today_count
+        (SELECT COUNT(*) FROM loans l WHERE DATE(l.created_at) = CURRENT_DATE ${branchFilterRoot}) as apps_today,
+        (SELECT COUNT(*) FROM loan_approvals la JOIN loans l ON la.loan_id = l.id WHERE DATE(la.created_at) = CURRENT_DATE ${branchFilter}) as approved_today,
+        (SELECT COUNT(*) FROM loans l WHERE l.status = 'rejected' AND DATE(l.updated_at) = CURRENT_DATE ${branchFilterRoot}) as rejected_today,
+        (SELECT COUNT(*) FROM disbursements d JOIN loans l ON d.loan_id = l.id WHERE d.disbursement_date = CURRENT_DATE ${branchFilter}) as disbursed_today,
+        (SELECT COALESCE(SUM(l.principle_amount::numeric), 0) FROM disbursements d JOIN loans l ON d.loan_id = l.id WHERE d.disbursement_date = CURRENT_DATE ${branchFilter}) as amount_disbursed_today,
+        (SELECT COALESCE(SUM(ins.total_amount::numeric), 0) FROM installments ins JOIN loans l ON ins.loan_id = l.id WHERE ins.due_date = CURRENT_DATE AND ins.is_paid = false ${branchFilter}) as amount_due_today,
+        (SELECT COALESCE(SUM(ins.paid_amount::numeric), 0) FROM installments ins JOIN loans l ON ins.loan_id = l.id WHERE DATE(ins.payment_date) = CURRENT_DATE AND ins.is_paid = true ${branchFilter}) as amount_collected_today,
+        (SELECT COUNT(*) FROM installments ins JOIN loans l ON ins.loan_id = l.id WHERE ins.due_date < CURRENT_DATE AND ins.is_paid = false ${branchFilter}) as missed_payments_total,
+        (SELECT COUNT(*) FROM installments ins JOIN loans l ON ins.loan_id = l.id WHERE ins.due_date = CURRENT_DATE AND ins.is_paid = false ${branchFilter}) as due_today_count,
+        (SELECT COUNT(*) FROM installments ins JOIN loans l ON ins.loan_id = l.id WHERE DATE(ins.payment_date) = CURRENT_DATE AND ins.is_paid = true ${branchFilter}) as collected_today_count
     `);
     const dailyOps = dailyOpsResult.rows[0] as any;
 
     const activeBorrowersResult = await db.execute(sql`
       SELECT COUNT(DISTINCT customer_id) as active_borrowers
-      FROM loans WHERE status IN ('disbursed', 'active')
+      FROM loans l WHERE l.status IN ('disbursed', 'active') ${branchFilterRoot}
     `);
     const activeBorrowers = Number((activeBorrowersResult.rows[0] as any)?.active_borrowers || 0);
 
@@ -2303,18 +2334,19 @@ export class DatabaseStorage implements IStorage {
       WHERE l.status IN ('disbursed', 'active', 'completed')
         AND d.disbursement_date < DATE_TRUNC('month', CURRENT_DATE)
         AND d.disbursement_date >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')
+        ${branchFilter}
     `);
     const prevMonthBorrowers = Number((prevMonthBorrowersResult.rows[0] as any)?.prev_borrowers || 0);
 
-    const totalPortfolioNum = Number(amounts.totalPortfolio);
-    const totalCollectedNum = Number(collectedResult.totalCollected);
+    const totalPortfolioNum = Number(amounts.total_portfolio);
+    const totalCollectedNum = Number(collectedResult.total_collected);
     const outstandingBalance = totalPortfolioNum - totalCollectedNum;
     const repaymentRate = totalPortfolioNum > 0 ? parseFloat(((totalCollectedNum / totalPortfolioNum) * 100).toFixed(1)) : 0;
 
     const parResult = await db.execute(sql`
       SELECT COUNT(DISTINCT l.id) as par_loans
       FROM loans l
-      WHERE l.status IN ('disbursed', 'active')
+      WHERE l.status IN ('disbursed', 'active') ${branchFilterRoot}
         AND EXISTS (
           SELECT 1 FROM installments i
           WHERE i.loan_id = l.id AND i.is_paid = false
@@ -2322,7 +2354,7 @@ export class DatabaseStorage implements IStorage {
         )
     `);
     const parLoans = Number((parResult.rows[0] as any)?.par_loans || 0);
-    const totalActiveLoans = Number(loanCounts.active) + (loansByStatus.find(s => s.status === 'disbursed')?.count || 0);
+    const totalActiveLoans = Number(loanCounts.active) + (loansByStatus.find((s: any) => s.status === 'disbursed')?.count || 0);
     const portfolioAtRisk = totalActiveLoans > 0 ? parseFloat(((parLoans / totalActiveLoans) * 100).toFixed(1)) : 0;
 
     const parAgingResult = await db.execute(sql`
@@ -2339,7 +2371,7 @@ export class DatabaseStorage implements IStorage {
           WHERE i3.loan_id = l.id AND i3.is_paid = false AND i3.due_date < CURRENT_DATE
         ), 0) as max_days_overdue
       FROM loans l
-      WHERE l.status IN ('disbursed', 'active')
+      WHERE l.status IN ('disbursed', 'active') ${branchFilterRoot}
     `);
     const parAgingRows = parAgingResult.rows as any[];
     const totalActiveOLB = parAgingRows.reduce((sum, r) => sum + parseFloat(r.olb || 0), 0);
@@ -2371,7 +2403,7 @@ export class DatabaseStorage implements IStorage {
         COUNT(*) as loan_count,
         COALESCE(SUM(l.principle_amount::numeric), 0) as total_amount
       FROM loans l
-      WHERE l.status IN ('disbursed', 'active')
+      WHERE l.status IN ('disbursed', 'active') ${branchFilterRoot}
       GROUP BY COALESCE(l.sector, 'Other')
       ORDER BY total_amount DESC
     `);
@@ -2393,13 +2425,13 @@ export class DatabaseStorage implements IStorage {
       prevMonthAmount: Number(cmStats.prev_month_amount || 0),
       pendingLoans: Number(loanCounts.pending),
       totalCustomers: Number(customerCount.count),
-      totalDisbursed: Number(amounts.totalDisbursed),
+      totalDisbursed: Number(amounts.total_disbursed),
       totalPortfolio: totalPortfolioNum,
-      portfolioPrincipal: Number(amounts.portfolioPrincipal),
-      portfolioMargin: Number(amounts.portfolioMargin),
+      portfolioPrincipal: Number(amounts.portfolio_principal),
+      portfolioMargin: Number(amounts.portfolio_margin),
       totalCollected: totalCollectedNum,
-      principalCollected: Number(collectedResult.principalCollected),
-      marginCollected: Number(collectedResult.marginCollected),
+      principalCollected: Number(collectedResult.principal_collected),
+      marginCollected: Number(collectedResult.margin_collected),
       outstandingBalance,
       overdueLoans: parLoans,
       activeBorrowers,

@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/use-auth";
 import { formatDate } from "@/lib/date-utils";
@@ -33,6 +35,8 @@ import {
   Loader2,
   Shield,
   ShieldAlert,
+  Filter,
+  RotateCcw,
 } from "lucide-react";
 import { Link } from "wouter";
 import {
@@ -338,9 +342,32 @@ export default function Dashboard() {
   const { user } = useAuth();
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [filterBranch, setFilterBranch] = useState<string>("");
+  const [filterStartDate, setFilterStartDate] = useState<string>("");
+  const [filterEndDate, setFilterEndDate] = useState<string>("");
+
+  const buildFilterParams = () => {
+    const params = new URLSearchParams();
+    if (filterBranch) params.set("branchId", filterBranch);
+    if (filterStartDate) params.set("startDate", filterStartDate);
+    if (filterEndDate) params.set("endDate", filterEndDate);
+    const qs = params.toString();
+    return qs ? `?${qs}` : "";
+  };
+
+  const hasActiveFilters = filterBranch || filterStartDate || filterEndDate;
 
   const { data: stats, isLoading } = useQuery<DashboardStats>({
-    queryKey: ["/api/dashboard/stats"],
+    queryKey: ["/api/dashboard/stats", filterBranch, filterStartDate, filterEndDate],
+    queryFn: async () => {
+      const response = await fetch(`/api/dashboard/stats${buildFilterParams()}`);
+      if (!response.ok) throw new Error("Failed to fetch dashboard stats");
+      return response.json();
+    },
+  });
+
+  const { data: branchList } = useQuery<{ id: string; name: string }[]>({
+    queryKey: ["/api/branches"],
   });
 
   const { data: roleData } = useQuery<{ role: string }>({
@@ -412,6 +439,64 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {/* Dashboard Filters */}
+      <Card className="border-0 shadow-sm" data-testid="card-dashboard-filters">
+        <CardContent className="py-3 px-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground font-medium">
+              <Filter className="h-4 w-4" />
+              <span>Filters</span>
+            </div>
+            <Select value={filterBranch} onValueChange={setFilterBranch} data-testid="select-filter-branch">
+              <SelectTrigger className="w-[200px] h-9" data-testid="select-trigger-branch">
+                <SelectValue placeholder="All Branches" />
+              </SelectTrigger>
+              <SelectContent>
+                {(branchList || []).map(b => (
+                  <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex items-center gap-2">
+              <Input
+                type="date"
+                value={filterStartDate}
+                onChange={(e) => setFilterStartDate(e.target.value)}
+                className="w-[150px] h-9 text-sm"
+                placeholder="Start Date"
+                data-testid="input-filter-start-date"
+              />
+              <span className="text-xs text-muted-foreground">to</span>
+              <Input
+                type="date"
+                value={filterEndDate}
+                onChange={(e) => setFilterEndDate(e.target.value)}
+                className="w-[150px] h-9 text-sm"
+                placeholder="End Date"
+                data-testid="input-filter-end-date"
+              />
+            </div>
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => { setFilterBranch(""); setFilterStartDate(""); setFilterEndDate(""); }}
+                className="h-9 text-muted-foreground hover:text-foreground"
+                data-testid="button-clear-filters"
+              >
+                <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+                Clear
+              </Button>
+            )}
+            {hasActiveFilters && (
+              <Badge variant="outline" className="bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30">
+                Filtered
+              </Badge>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard

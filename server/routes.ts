@@ -409,7 +409,12 @@ export async function registerRoutes(
   // Dashboard stats
   app.get("/api/dashboard/stats", isAuthenticated, async (req, res) => {
     try {
-      const stats = await storage.getDashboardStats();
+      const filters = {
+        branchId: req.query.branchId as string | undefined,
+        startDate: req.query.startDate as string | undefined,
+        endDate: req.query.endDate as string | undefined,
+      };
+      const stats = await storage.getDashboardStats(filters);
       res.json(stats);
     } catch (error) {
       console.error("Error fetching dashboard stats:", error);
