@@ -903,10 +903,24 @@ export default function Dashboard() {
                     <th className="text-center py-3 px-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">PAR Rate</th>
                     <th className="text-right py-3 px-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Collected</th>
                     <th className="text-center py-3 px-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Disbursed (30d)</th>
+                    <th className="text-center py-3 px-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Performance</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {stats.officerPerformance.map((officer, idx) => (
+                  {stats.officerPerformance.map((officer, idx) => {
+                    const collectionRate = officer.portfolioAmount > 0
+                      ? Math.min(100, Math.round((officer.totalCollected / officer.portfolioAmount) * 100))
+                      : 0;
+                    const parScore = officer.parRate <= 1 ? 100 : officer.parRate <= 3 ? 75 : officer.parRate <= 5 ? 50 : officer.parRate <= 10 ? 25 : 0;
+                    const collectionScore = collectionRate;
+                    const activityScore = Math.min(100, officer.disbursedLast30d * 20);
+                    const portfolioScore = Math.min(100, officer.activeLoans * 10);
+                    const perfScore = Math.round(parScore * 0.35 + collectionScore * 0.35 + activityScore * 0.15 + portfolioScore * 0.15);
+                    const perfLabel = perfScore >= 80 ? "Excellent" : perfScore >= 60 ? "Good" : perfScore >= 40 ? "Average" : perfScore >= 20 ? "Below Avg" : "Poor";
+                    const perfColor = perfScore >= 80 ? "#10b981" : perfScore >= 60 ? "#3b82f6" : perfScore >= 40 ? "#f59e0b" : perfScore >= 20 ? "#f97316" : "#ef4444";
+                    const perfBg = perfScore >= 80 ? "bg-emerald-500/10" : perfScore >= 60 ? "bg-blue-500/10" : perfScore >= 40 ? "bg-amber-500/10" : perfScore >= 20 ? "bg-orange-500/10" : "bg-red-500/10";
+
+                    return (
                     <tr key={officer.officerId} className="border-b border-border/30 hover:bg-muted/30 transition-colors" data-testid={`row-officer-${idx}`}>
                       <td className="py-3 px-3">
                         <div className="flex items-center gap-2">
@@ -938,8 +952,25 @@ export default function Dashboard() {
                           {officer.disbursedLast30d}
                         </span>
                       </td>
+                      <td className="py-3 px-3" data-testid={`perf-score-${idx}`}>
+                        <div className="flex flex-col items-center gap-1 min-w-[80px]">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm font-bold" style={{ color: perfColor }}>{perfScore}</span>
+                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${perfBg}`} style={{ color: perfColor }}>
+                              {perfLabel}
+                            </span>
+                          </div>
+                          <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all duration-500"
+                              style={{ width: `${perfScore}%`, backgroundColor: perfColor }}
+                            />
+                          </div>
+                        </div>
+                      </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
