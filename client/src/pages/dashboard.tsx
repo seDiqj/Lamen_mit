@@ -567,14 +567,46 @@ export default function Dashboard() {
           gradient="bg-gradient-to-r from-violet-500 to-purple-500"
           iconBg="bg-gradient-to-br from-violet-500 to-purple-600"
         />
-        <StatCard
-          title="Pending Financings"
-          value={stats?.pendingLoans?.toString() || "0"}
-          icon={Clock}
-          loading={isLoading}
-          gradient="bg-gradient-to-r from-amber-500 to-orange-500"
-          iconBg="bg-gradient-to-br from-amber-500 to-orange-600"
-        />
+        {isLoading ? (
+          <Card className="overflow-hidden">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between gap-4">
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-8 w-32" />
+                </div>
+                <Skeleton className="h-14 w-14 rounded-xl" />
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="overflow-hidden border-0 shadow-lg" data-testid="card-stat-collection-rate">
+            <div className="h-1 bg-gradient-to-r from-blue-500 to-indigo-500" />
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground font-medium">Collection Rate</p>
+                  <p className="text-2xl font-bold mt-1">
+                    {stats?.totalPortfolio
+                      ? `${Math.min(100, Math.round((stats.totalCollected / stats.totalPortfolio) * 100))}%`
+                      : "0%"}
+                  </p>
+                </div>
+                <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
+                  <TrendingUp className="h-7 w-7 text-white" />
+                </div>
+              </div>
+              <div className="mt-3 w-full bg-muted rounded-full h-2.5 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 transition-all duration-500"
+                  style={{
+                    width: `${stats?.totalPortfolio ? Math.min(100, Math.round((stats.totalCollected / stats.totalPortfolio) * 100)) : 0}%`,
+                  }}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
