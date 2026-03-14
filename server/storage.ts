@@ -2325,6 +2325,46 @@ export class DatabaseStorage implements IStorage {
     const totalActiveLoans = Number(loanCounts.active) + (loansByStatus.find(s => s.status === 'disbursed')?.count || 0);
     const portfolioAtRisk = totalActiveLoans > 0 ? parseFloat(((parLoans / totalActiveLoans) * 100).toFixed(1)) : 0;
 
+    const parAgingResult = await db.execute(sql`
+      SELECT
+        l.id as loan_id,
+        GREATEST(
+          COALESCE(l.total_receivable::numeric, COALESCE(l.principle_amount, l.request_amount)::numeric, 0)
+          - COALESCE((SELECT SUM(COALESCE(i2.paid_amount::numeric, 0)) FROM installments i2 WHERE i2.loan_id = l.id AND i2.is_paid = true), 0),
+          0
+        ) as olb,
+        COALESCE((
+          SELECT MAX(CURRENT_DATE - i3.due_date)
+          FROM installments i3
+          WHERE i3.loan_id = l.id AND i3.is_paid = false AND i3.due_date < CURRENT_DATE
+        ), 0) as max_days_overdue
+      FROM loans l
+      WHERE l.status IN ('disbursed', 'active')
+    `);
+    const parAgingRows = parAgingResult.rows as any[];
+    const totalActiveOLB = parAgingRows.reduce((sum, r) => sum + parseFloat(r.olb || 0), 0);
+
+    const computePar = (minDays: number) => {
+      const parRows = parAgingRows.filter(r => parseInt(r.max_days_overdue) >= minDays);
+      const parOlb = parRows.reduce((sum, r) => sum + parseFloat(r.olb || 0), 0);
+      return {
+        count: parRows.length,
+        amount: parOlb,
+        percentage: totalActiveOLB > 0 ? parseFloat(((parOlb / totalActiveOLB) * 100).toFixed(1)) : 0,
+      };
+    };
+
+    const parAging = {
+      par1: computePar(1),
+      par7: computePar(7),
+      par30: computePar(30),
+      par60: computePar(60),
+      par90: computePar(90),
+      totalOverdueAmount: parAgingRows.filter(r => parseInt(r.max_days_overdue) > 0).reduce((sum, r) => sum + parseFloat(r.olb || 0), 0),
+      overdueLoansCount: parAgingRows.filter(r => parseInt(r.max_days_overdue) > 0).length,
+      totalActiveOLB,
+    };
+
     const sectorDistResult = await db.execute(sql`
       SELECT 
         COALESCE(l.sector, 'Other') as sector,
@@ -2367,6 +2407,7 @@ export class DatabaseStorage implements IStorage {
       repaymentRate,
       portfolioAtRisk,
       sectorDistribution,
+      parAging,
       dailyOps: {
         applicationsToday: Number(dailyOps.apps_today || 0),
         approvedToday: Number(dailyOps.approved_today || 0),

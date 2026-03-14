@@ -31,6 +31,8 @@ import {
   Building2,
   X,
   Loader2,
+  Shield,
+  ShieldAlert,
 } from "lucide-react";
 import { Link } from "wouter";
 import {
@@ -70,6 +72,16 @@ type DashboardStats = {
   repaymentRate: number;
   portfolioAtRisk: number;
   sectorDistribution: { sector: string; count: number; amount: number; percentage: number }[];
+  parAging: {
+    par1: { count: number; amount: number; percentage: number };
+    par7: { count: number; amount: number; percentage: number };
+    par30: { count: number; amount: number; percentage: number };
+    par60: { count: number; amount: number; percentage: number };
+    par90: { count: number; amount: number; percentage: number };
+    totalOverdueAmount: number;
+    overdueLoansCount: number;
+    totalActiveOLB: number;
+  };
   dailyOps: {
     applicationsToday: number;
     approvedToday: number;
@@ -518,6 +530,85 @@ export default function Dashboard() {
                 </div>
               ))}
             </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* PAR Aging Breakdown */}
+      <Card className="border-0 shadow-lg overflow-hidden" data-testid="card-par-aging">
+        <div className="h-1 bg-gradient-to-r from-red-500 to-rose-500" />
+        <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center shadow-lg">
+              <ShieldAlert className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <CardTitle className="text-lg font-semibold">Portfolio at Risk - Aging Breakdown</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                {stats?.parAging?.overdueLoansCount || 0} overdue loans out of active portfolio
+              </p>
+            </div>
+          </div>
+          {stats?.parAging && (
+            <Badge variant="outline" className={`${
+              stats.parAging.par30.percentage > 5 ? 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30' :
+              stats.parAging.par30.percentage > 2 ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30' :
+              'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30'
+            }`}>
+              PAR30: {stats.parAging.par30.percentage}%
+            </Badge>
+          )}
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+              {[1,2,3,4,5].map(i => <Skeleton key={i} className="h-28 w-full" />)}
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-4">
+                {[
+                  { label: "PAR > 1 Day", data: stats?.parAging?.par1, barColor: "#fbbf24", iconColor: "#fbbf24" },
+                  { label: "PAR > 7 Days", data: stats?.parAging?.par7, barColor: "#f59e0b", iconColor: "#f59e0b" },
+                  { label: "PAR > 30 Days", data: stats?.parAging?.par30, barColor: "#f97316", iconColor: "#f97316" },
+                  { label: "PAR > 60 Days", data: stats?.parAging?.par60, barColor: "#f87171", iconColor: "#f87171" },
+                  { label: "PAR > 90 Days", data: stats?.parAging?.par90, barColor: "#dc2626", iconColor: "#dc2626" },
+                ].map((item, idx) => {
+                  const pct = item.data?.percentage || 0;
+                  const borderColor = pct > 5 ? 'border-red-500/50' : pct > 2 ? 'border-amber-500/50' : 'border-border/50';
+                  return (
+                    <div key={idx} className={`relative p-4 rounded-xl bg-muted/30 border ${borderColor} overflow-hidden`} data-testid={`par-aging-${idx}`}>
+                      <div className="absolute top-0 left-0 h-1" style={{ width: `${Math.min(pct * 5, 100)}%`, backgroundColor: item.barColor }} />
+                      <div className="flex items-center gap-2 mb-2">
+                        <Shield className="h-4 w-4" style={{ color: item.iconColor }} />
+                        <span className="text-xs font-semibold text-muted-foreground">{item.label}</span>
+                      </div>
+                      <p className={`text-2xl font-bold ${pct > 5 ? 'text-red-500' : pct > 2 ? 'text-amber-600' : ''}`}>
+                        {pct}%
+                      </p>
+                      <div className="mt-1.5 space-y-0.5">
+                        <p className="text-xs text-muted-foreground">
+                          {item.data?.count || 0} loans
+                        </p>
+                        <p className="text-xs font-medium">
+                          {formatCurrency(item.data?.amount || 0)}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex items-center gap-6 pt-3 border-t border-border/50 text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">Total Active Portfolio:</span>
+                  <span className="font-semibold">{formatCurrency(stats?.parAging?.totalActiveOLB || 0)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">Total Overdue:</span>
+                  <span className="font-semibold text-red-500">{formatCurrency(stats?.parAging?.totalOverdueAmount || 0)}</span>
+                </div>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
