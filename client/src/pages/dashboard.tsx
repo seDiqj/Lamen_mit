@@ -119,6 +119,20 @@ type DashboardStats = {
     totalCollected: number;
     disbursedLast30d: number;
   }[];
+  financialPerformance: {
+    totalIncome: number;
+    totalExpenses: number;
+    netIncome: number;
+    monthlyIncome: number;
+    monthlyExpenses: number;
+    monthlyNetIncome: number;
+    ytdIncome: number;
+    ytdExpenses: number;
+    ytdNetIncome: number;
+    incomeBreakdown: { accountCode: string; accountName: string; amount: number }[];
+    expenseBreakdown: { accountCode: string; accountName: string; amount: number }[];
+    monthlyTrend: { month: string; income: number; expenses: number; netIncome: number }[];
+  };
   loansByStatus: { status: string; count: number; requestedAmount: number }[];
   monthlyTrends: { month: string; disbursed: number; collected: number }[];
   recentLoans: {
@@ -901,6 +915,168 @@ export default function Dashboard() {
             <div className="text-center py-8 text-muted-foreground">
               <Users className="h-10 w-10 mx-auto mb-2 opacity-50" />
               <p>No loan officers found</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Financial Performance Panel */}
+      <Card className="border-0 shadow-lg overflow-hidden" data-testid="card-financial-performance">
+        <div className="h-1 bg-gradient-to-r from-emerald-500 to-green-500" />
+        <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center shadow-lg">
+              <DollarSign className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <CardTitle className="text-lg font-semibold">Financial Performance</CardTitle>
+              <p className="text-sm text-muted-foreground">Income, expenses & net income from accounting</p>
+            </div>
+          </div>
+          {stats?.financialPerformance && (
+            <Badge variant="outline" className={`${
+              stats.financialPerformance.netIncome >= 0
+                ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30'
+                : 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30'
+            }`}>
+              Net: {formatCurrency(stats.financialPerformance.netIncome)}
+            </Badge>
+          )}
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-4">
+                {[1,2,3].map(i => <Skeleton key={i} className="h-24 w-full" />)}
+              </div>
+              <Skeleton className="h-48 w-full" />
+            </div>
+          ) : stats?.financialPerformance ? (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {[
+                  {
+                    label: "This Month",
+                    income: stats.financialPerformance.monthlyIncome,
+                    expenses: stats.financialPerformance.monthlyExpenses,
+                    net: stats.financialPerformance.monthlyNetIncome,
+                    color: "from-blue-500 to-cyan-500",
+                  },
+                  {
+                    label: "Year to Date",
+                    income: stats.financialPerformance.ytdIncome,
+                    expenses: stats.financialPerformance.ytdExpenses,
+                    net: stats.financialPerformance.ytdNetIncome,
+                    color: "from-violet-500 to-purple-500",
+                  },
+                  {
+                    label: "All Time",
+                    income: stats.financialPerformance.totalIncome,
+                    expenses: stats.financialPerformance.totalExpenses,
+                    net: stats.financialPerformance.netIncome,
+                    color: "from-emerald-500 to-green-500",
+                  },
+                ].map((period, idx) => (
+                  <div key={idx} className="p-4 rounded-xl border border-border/50 bg-muted/20" data-testid={`fin-perf-period-${idx}`}>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">{period.label}</p>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                          <TrendingUp className="h-3 w-3 text-emerald-500" /> Income
+                        </span>
+                        <span className="text-sm font-semibold text-emerald-600">{formatCurrency(period.income)}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                          <TrendingDown className="h-3 w-3 text-red-500" /> Expenses
+                        </span>
+                        <span className="text-sm font-semibold text-red-500">{formatCurrency(period.expenses)}</span>
+                      </div>
+                      <div className="border-t border-border/50 pt-2 mt-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium">Net Income</span>
+                          <span className={`text-base font-bold ${period.net >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                            {formatCurrency(period.net)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {stats.financialPerformance.monthlyTrend.length > 0 && (
+                <div>
+                  <p className="text-sm font-semibold text-muted-foreground mb-3">Monthly Trend</p>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={stats.financialPerformance.monthlyTrend}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
+                        <XAxis dataKey="month" className="text-xs" />
+                        <YAxis className="text-xs" tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                        <Tooltip
+                          formatter={(value: number) => formatCurrency(value)}
+                          contentStyle={{ borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--background)' }}
+                        />
+                        <Legend />
+                        <Bar dataKey="income" name="Income" fill="#10b981" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="expenses" name="Expenses" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="netIncome" name="Net Income" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {stats.financialPerformance.incomeBreakdown.length > 0 && (
+                  <div>
+                    <p className="text-sm font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
+                      <TrendingUp className="h-3.5 w-3.5 text-emerald-500" /> Income Breakdown
+                    </p>
+                    <div className="space-y-1.5">
+                      {stats.financialPerformance.incomeBreakdown
+                        .sort((a, b) => b.amount - a.amount)
+                        .map((item, idx) => (
+                        <div key={idx} className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-emerald-500/5 border border-emerald-500/10" data-testid={`income-item-${idx}`}>
+                          <span className="text-xs">
+                            <span className="text-muted-foreground">{item.accountCode}</span>
+                            <span className="ml-2 font-medium">{item.accountName}</span>
+                          </span>
+                          <span className="text-sm font-semibold text-emerald-600">{formatCurrency(item.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {stats.financialPerformance.expenseBreakdown.length > 0 && (
+                  <div>
+                    <p className="text-sm font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
+                      <TrendingDown className="h-3.5 w-3.5 text-red-500" /> Expense Breakdown
+                    </p>
+                    <div className="space-y-1.5">
+                      {stats.financialPerformance.expenseBreakdown
+                        .sort((a, b) => b.amount - a.amount)
+                        .map((item, idx) => (
+                        <div key={idx} className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-red-500/5 border border-red-500/10" data-testid={`expense-item-${idx}`}>
+                          <span className="text-xs">
+                            <span className="text-muted-foreground">{item.accountCode}</span>
+                            <span className="ml-2 font-medium">{item.accountName}</span>
+                          </span>
+                          <span className="text-sm font-semibold text-red-500">{formatCurrency(item.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <DollarSign className="h-10 w-10 mx-auto mb-2 opacity-50" />
+              <p>No financial data available</p>
+              <p className="text-xs mt-1">Post journal entries in the accounting module to see financial performance</p>
             </div>
           )}
         </CardContent>

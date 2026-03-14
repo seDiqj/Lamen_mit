@@ -2457,6 +2457,7 @@ export class DatabaseStorage implements IStorage {
       recentLoans,
       officerPerformance: await this.getOfficerPerformance(),
       alerts: await this.getDashboardAlerts(),
+      financialPerformance: await this.getFinancialPerformance(filters),
     };
   }
 
@@ -2797,6 +2798,136 @@ export class DatabaseStorage implements IStorage {
       default:
         return { category, title: 'Alert Details', items: [] };
     }
+  }
+
+  async getFinancialPerformance(filters?: { branchId?: string; startDate?: string; endDate?: string }): Promise<any> {
+    const currentMonth = sql`DATE_TRUNC('month', CURRENT_DATE)`;
+    const currentYear = sql`DATE_TRUNC('year', CURRENT_DATE)`;
+
+    const dateFilterAll = filters?.startDate && filters?.endDate
+      ? sql`AND je.entry_date >= ${filters.startDate} AND je.entry_date <= ${filters.endDate}`
+      : filters?.startDate
+        ? sql`AND je.entry_date >= ${filters.startDate}`
+        : filters?.endDate
+          ? sql`AND je.entry_date <= ${filters.endDate}`
+          : sql``;
+
+    const summaryResult = await db.execute(sql`
+      SELECT
+        a.account_type,
+        a.account_name,
+        a.account_code,
+        COALESCE(SUM(jl.debit_amount::numeric), 0) as total_debit,
+        COALESCE(SUM(jl.credit_amount::numeric), 0) as total_credit
+      FROM journal_lines jl
+      JOIN journal_entries je ON jl.journal_entry_id = je.id
+      JOIN accounts a ON jl.account_id = a.id
+      WHERE je.is_posted = true AND je.is_reversed = false
+        AND a.account_type IN ('income', 'expense')
+        ${dateFilterAll}
+      GROUP BY a.account_type, a.account_name, a.account_code
+      ORDER BY a.account_type, a.account_code
+    `);
+
+    const monthlyResult = await db.execute(sql`
+      SELECT
+        a.account_type,
+        COALESCE(SUM(jl.debit_amount::numeric), 0) as total_debit,
+        COALESCE(SUM(jl.credit_amount::numeric), 0) as total_credit
+      FROM journal_lines jl
+      JOIN journal_entries je ON jl.journal_entry_id = je.id
+      JOIN accounts a ON jl.account_id = a.id
+      WHERE je.is_posted = true AND je.is_reversed = false
+        AND a.account_type IN ('income', 'expense')
+        AND je.entry_date >= ${currentMonth}
+        ${dateFilterAll}
+      GROUP BY a.account_type
+    `);
+
+    const ytdResult = await db.execute(sql`
+      SELECT
+        a.account_type,
+        COALESCE(SUM(jl.debit_amount::numeric), 0) as total_debit,
+        COALESCE(SUM(jl.credit_amount::numeric), 0) as total_credit
+      FROM journal_lines jl
+      JOIN journal_entries je ON jl.journal_entry_id = je.id
+      JOIN accounts a ON jl.account_id = a.id
+      WHERE je.is_posted = true AND je.is_reversed = false
+        AND a.account_type IN ('income', 'expense')
+        AND je.entry_date >= ${currentYear}
+        ${dateFilterAll}
+      GROUP BY a.account_type
+    `);
+
+    const monthlyTrendResult = await db.execute(sql`
+      SELECT
+        TO_CHAR(je.entry_date::date, 'Mon') as month,
+        TO_CHAR(je.entry_date::date, 'YYYY-MM') as sort_key,
+        a.account_type,
+        COALESCE(SUM(jl.debit_amount::numeric), 0) as total_debit,
+        COALESCE(SUM(jl.credit_amount::numeric), 0) as total_credit
+      FROM journal_lines jl
+      JOIN journal_entries je ON jl.journal_entry_id = je.id
+      JOIN accounts a ON jl.account_id = a.id
+      WHERE je.is_posted = true AND je.is_reversed = false
+        AND a.account_type IN ('income', 'expense')
+        AND je.entry_date >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '5 months')
+        ${dateFilterAll}
+      GROUP BY TO_CHAR(je.entry_date::date, 'Mon'), TO_CHAR(je.entry_date::date, 'YYYY-MM'), a.account_type
+      ORDER BY sort_key
+    `);
+
+    const incomeAccounts = (summaryResult.rows as any[]).filter(r => r.account_type === 'income');
+    const expenseAccounts = (summaryResult.rows as any[]).filter(r => r.account_type === 'expense');
+
+    const totalIncome = incomeAccounts.reduce((sum, r) => sum + (parseFloat(r.total_credit) - parseFloat(r.total_debit)), 0);
+    const totalExpenses = expenseAccounts.reduce((sum, r) => sum + (parseFloat(r.total_debit) - parseFloat(r.total_credit)), 0);
+
+    const monthlyIncome = (monthlyResult.rows as any[]).filter(r => r.account_type === 'income')
+      .reduce((sum, r) => sum + (parseFloat(r.total_credit) - parseFloat(r.total_debit)), 0);
+    const monthlyExpenses = (monthlyResult.rows as any[]).filter(r => r.account_type === 'expense')
+      .reduce((sum, r) => sum + (parseFloat(r.total_debit) - parseFloat(r.total_credit)), 0);
+
+    const ytdIncome = (ytdResult.rows as any[]).filter(r => r.account_type === 'income')
+      .reduce((sum, r) => sum + (parseFloat(r.total_credit) - parseFloat(r.total_debit)), 0);
+    const ytdExpenses = (ytdResult.rows as any[]).filter(r => r.account_type === 'expense')
+      .reduce((sum, r) => sum + (parseFloat(r.total_debit) - parseFloat(r.total_credit)), 0);
+
+    const trendMap = new Map<string, { month: string; income: number; expenses: number; netIncome: number }>();
+    for (const row of monthlyTrendResult.rows as any[]) {
+      const key = row.sort_key;
+      if (!trendMap.has(key)) trendMap.set(key, { month: row.month, income: 0, expenses: 0, netIncome: 0 });
+      const entry = trendMap.get(key)!;
+      if (row.account_type === 'income') {
+        entry.income += parseFloat(row.total_credit) - parseFloat(row.total_debit);
+      } else {
+        entry.expenses += parseFloat(row.total_debit) - parseFloat(row.total_credit);
+      }
+      entry.netIncome = entry.income - entry.expenses;
+    }
+
+    return {
+      totalIncome,
+      totalExpenses,
+      netIncome: totalIncome - totalExpenses,
+      monthlyIncome,
+      monthlyExpenses,
+      monthlyNetIncome: monthlyIncome - monthlyExpenses,
+      ytdIncome,
+      ytdExpenses,
+      ytdNetIncome: ytdIncome - ytdExpenses,
+      incomeBreakdown: incomeAccounts.map(r => ({
+        accountCode: r.account_code,
+        accountName: r.account_name,
+        amount: parseFloat(r.total_credit) - parseFloat(r.total_debit),
+      })),
+      expenseBreakdown: expenseAccounts.map(r => ({
+        accountCode: r.account_code,
+        accountName: r.account_name,
+        amount: parseFloat(r.total_debit) - parseFloat(r.total_credit),
+      })),
+      monthlyTrend: Array.from(trendMap.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([, v]) => v),
+    };
   }
 
   async getOfficerPerformance(): Promise<any[]> {
