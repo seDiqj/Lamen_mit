@@ -216,6 +216,7 @@ export function IconRailNav({ children }: IconRailNavProps) {
       color: "text-purple-500",
       bgColor: "from-purple-500 to-violet-600",
       items: [
+        { title: "Accounting Dashboard", url: "/accounting-dashboard", icon: LayoutDashboard, iconColor: "text-purple-500" },
         { title: "Chart of Accounts", url: "/chart-of-accounts", icon: BookOpen, iconColor: "text-emerald-500" },
         { title: "Journal Entries", url: "/journal-entries", icon: Receipt, iconColor: "text-blue-500" },
         { title: "Account Statement", url: "/account-statement", icon: FileSpreadsheet, iconColor: "text-violet-500" },
