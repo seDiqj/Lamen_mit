@@ -94,6 +94,94 @@ function getStatusLabel(status: string) {
   return labels[status] || status;
 }
 
+const WORKFLOW_STEPS = [
+  { key: "pending", label: "Applied" },
+  { key: "committee_review", label: "Review" },
+  { key: "approved", label: "Approved" },
+  { key: "disbursed", label: "Disbursed" },
+  { key: "active", label: "Active" },
+  { key: "completed", label: "Completed" },
+];
+
+function getWorkflowIndex(status: string): number {
+  const map: Record<string, number> = {
+    pending: 0,
+    returned: 0,
+    data_quality_review: 0,
+    risk_compliance_review: 1,
+    committee_review: 1,
+    approved: 2,
+    rejected: 2,
+    disbursed: 3,
+    active: 4,
+    completed: 5,
+    defaulted: 4,
+  };
+  return map[status] ?? 0;
+}
+
+function isNegativeStatus(status: string): boolean {
+  return status === "rejected" || status === "returned" || status === "defaulted";
+}
+
+function WorkflowIndicator({ status }: { status: string }) {
+  const currentIdx = getWorkflowIndex(status);
+  const negative = isNegativeStatus(status);
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div className="flex items-center gap-0 min-w-[100px]" data-testid={`workflow-${status}`}>
+          {WORKFLOW_STEPS.map((step, i) => {
+            const isCompleted = i < currentIdx;
+            const isCurrent = i === currentIdx;
+
+            let dotColor = "bg-muted-foreground/20";
+            let lineColor = "bg-muted-foreground/20";
+
+            if (isCompleted) {
+              dotColor = negative ? "bg-red-400" : "bg-primary";
+              lineColor = negative ? "bg-red-400" : "bg-primary";
+            } else if (isCurrent) {
+              dotColor = negative ? "bg-red-500" : "bg-primary";
+            }
+
+            return (
+              <div key={step.key} className="flex items-center">
+                <div
+                  className={`rounded-full transition-all ${dotColor} ${
+                    isCurrent ? "h-3 w-3 ring-2 ring-offset-1 ring-offset-background" : "h-2 w-2"
+                  }`}
+                  style={isCurrent ? { ringColor: negative ? '#ef4444' : 'hsl(var(--primary))' } : undefined}
+                />
+                {i < WORKFLOW_STEPS.length - 1 && (
+                  <div
+                    className={`h-[2px] w-3 ${i < currentIdx ? lineColor : "bg-muted-foreground/20"}`}
+                  />
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </TooltipTrigger>
+      <TooltipContent side="top">
+        <div className="flex flex-col gap-1 text-xs">
+          {WORKFLOW_STEPS.map((step, i) => {
+            const isCompleted = i < currentIdx;
+            const isCurrent = i === currentIdx;
+            return (
+              <div key={step.key} className={`flex items-center gap-1.5 ${isCurrent ? "font-bold" : isCompleted ? "text-muted-foreground" : "text-muted-foreground/50"}`}>
+                {isCompleted ? "✓" : isCurrent ? "●" : "○"} {step.label}
+                {isCurrent && negative && ` (${getStatusLabel(status)})`}
+              </div>
+            );
+          })}
+        </div>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 type SortColumn = "applicationId" | "customerName" | "productName" | "amount" | "duration" | "requestDate" | "status";
 type SortDirection = "asc" | "desc";
 
@@ -511,6 +599,9 @@ export default function LoansPage() {
                   <TableHead className="font-semibold" data-testid="header-disbursement-date">
                     Disbursement Date
                   </TableHead>
+                  <TableHead className="font-semibold" data-testid="header-workflow">
+                    Workflow
+                  </TableHead>
                   <TableHead 
                     className="font-semibold cursor-pointer select-none hover:bg-muted/50 transition-colors"
                     onClick={() => handleSort("status")}
@@ -531,7 +622,7 @@ export default function LoansPage() {
                 {isLoading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
-                      {Array.from({ length: 10 }).map((_, j) => (
+                      {Array.from({ length: 11 }).map((_, j) => (
                         <TableCell key={j}>
                           <Skeleton className="h-4 w-full" />
                         </TableCell>
@@ -572,6 +663,9 @@ export default function LoansPage() {
                             Not Disbursed
                           </Badge>
                         )}
+                      </TableCell>
+                      <TableCell>
+                        <WorkflowIndicator status={loan.status || "pending"} />
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className={getStatusBadge(loan.status || "pending")}>
