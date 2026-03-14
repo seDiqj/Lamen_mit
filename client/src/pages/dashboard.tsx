@@ -94,6 +94,13 @@ type DashboardStats = {
     dueTodayCount: number;
     collectedTodayCount: number;
   };
+  alerts: {
+    id: string;
+    type: 'critical' | 'warning' | 'info' | 'success';
+    title: string;
+    description: string;
+    category: string;
+  }[];
   officerPerformance: {
     officerId: string;
     officerName: string;
@@ -543,6 +550,76 @@ export default function Dashboard() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Alerts Panel */}
+      <Card className="border-0 shadow-lg overflow-hidden" data-testid="card-alerts">
+        <div className={`h-1 ${
+          stats?.alerts?.some(a => a.type === 'critical') ? 'bg-gradient-to-r from-red-500 to-rose-500' :
+          stats?.alerts?.some(a => a.type === 'warning') ? 'bg-gradient-to-r from-amber-500 to-orange-500' :
+          'bg-gradient-to-r from-emerald-500 to-green-500'
+        }`} />
+        <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
+          <div className="flex items-center gap-3">
+            <div className={`h-10 w-10 rounded-xl flex items-center justify-center shadow-lg ${
+              stats?.alerts?.some(a => a.type === 'critical') ? 'bg-gradient-to-br from-red-500 to-rose-600' :
+              stats?.alerts?.some(a => a.type === 'warning') ? 'bg-gradient-to-br from-amber-500 to-orange-600' :
+              'bg-gradient-to-br from-emerald-500 to-green-600'
+            }`}>
+              <AlertTriangle className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <CardTitle className="text-lg font-semibold">Alerts & Notifications</CardTitle>
+              <p className="text-sm text-muted-foreground">Action items requiring attention</p>
+            </div>
+          </div>
+          {stats?.alerts && stats.alerts.length > 0 && (
+            <Badge variant="outline" className={`${
+              stats.alerts.some(a => a.type === 'critical') ? 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30' :
+              stats.alerts.some(a => a.type === 'warning') ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30' :
+              'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30'
+            }`}>
+              {stats.alerts.filter(a => a.type === 'critical').length > 0
+                ? `${stats.alerts.filter(a => a.type === 'critical').length} Critical`
+                : `${stats.alerts.length} Alerts`}
+            </Badge>
+          )}
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="space-y-3">
+              {[1,2,3].map(i => <Skeleton key={i} className="h-16 w-full" />)}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {(stats?.alerts || []).map((alert) => {
+                const config = {
+                  critical: { bg: 'bg-red-500/10', border: 'border-red-500/30', icon: AlertCircle, iconColor: 'text-red-500', titleColor: 'text-red-700 dark:text-red-400' },
+                  warning: { bg: 'bg-amber-500/10', border: 'border-amber-500/30', icon: AlertTriangle, iconColor: 'text-amber-500', titleColor: 'text-amber-700 dark:text-amber-400' },
+                  info: { bg: 'bg-blue-500/10', border: 'border-blue-500/30', icon: Clock, iconColor: 'text-blue-500', titleColor: 'text-blue-700 dark:text-blue-400' },
+                  success: { bg: 'bg-emerald-500/10', border: 'border-emerald-500/30', icon: CheckCircle2, iconColor: 'text-emerald-500', titleColor: 'text-emerald-700 dark:text-emerald-400' },
+                }[alert.type] || { bg: 'bg-muted/30', border: 'border-border/50', icon: AlertCircle, iconColor: 'text-muted-foreground', titleColor: '' };
+                const AlertIcon = config.icon;
+                return (
+                  <div key={alert.id} className={`flex items-start gap-3 p-3 rounded-xl ${config.bg} border ${config.border}`} data-testid={`alert-${alert.id}`}>
+                    <div className="mt-0.5 flex-shrink-0">
+                      <AlertIcon className={`h-5 w-5 ${config.iconColor}`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-semibold ${config.titleColor}`}>{alert.title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{alert.description}</p>
+                    </div>
+                    {alert.type === 'critical' && (
+                      <span className="flex-shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500 text-white uppercase tracking-wider">
+                        Urgent
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </CardContent>

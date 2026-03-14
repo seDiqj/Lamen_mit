@@ -2424,7 +2424,151 @@ export class DatabaseStorage implements IStorage {
       monthlyTrends,
       recentLoans,
       officerPerformance: await this.getOfficerPerformance(),
+      alerts: await this.getDashboardAlerts(),
     };
+  }
+
+  async getDashboardAlerts(): Promise<any[]> {
+    const alerts: any[] = [];
+
+    const overdueResult = await db.execute(sql`
+      SELECT
+        COUNT(DISTINCT l.id) as overdue_loans,
+        COUNT(i.id) as overdue_installments,
+        COALESCE(SUM(i.total_amount::numeric - COALESCE(i.paid_amount::numeric, 0)), 0) as overdue_amount
+      FROM installments i
+      JOIN loans l ON i.loan_id = l.id
+      WHERE i.is_paid = false AND i.due_date < CURRENT_DATE
+        AND l.status IN ('disbursed', 'active')
+    `);
+    const od = overdueResult.rows[0] as any;
+    const overdueLoans = Number(od.overdue_loans || 0);
+    const overdueAmount = parseFloat(od.overdue_amount || 0);
+    if (overdueLoans > 0) {
+      alerts.push({
+        id: 'overdue-loans',
+        type: 'critical',
+        title: `${overdueLoans} Loans with Overdue Payments`,
+        description: `${Number(od.overdue_installments)} unpaid installments totaling ${overdueAmount.toLocaleString('en-US', { minimumFractionDigits: 0 })} AFN`,
+        category: 'overdue',
+      });
+    }
+
+    const dueTodayResult = await db.execute(sql`
+      SELECT
+        COUNT(DISTINCT l.id) as loans_due,
+        COUNT(i.id) as installments_due,
+        COALESCE(SUM(i.total_amount::numeric), 0) as amount_due
+      FROM installments i
+      JOIN loans l ON i.loan_id = l.id
+      WHERE i.is_paid = false AND i.due_date = CURRENT_DATE
+        AND l.status IN ('disbursed', 'active')
+    `);
+    const dt = dueTodayResult.rows[0] as any;
+    const dueToday = Number(dt.loans_due || 0);
+    if (dueToday > 0) {
+      alerts.push({
+        id: 'due-today',
+        type: 'warning',
+        title: `${dueToday} Loans Due Today`,
+        description: `${Number(dt.installments_due)} installments totaling ${parseFloat(dt.amount_due || 0).toLocaleString('en-US', { minimumFractionDigits: 0 })} AFN due for collection`,
+        category: 'due_today',
+      });
+    }
+
+    const dueThisWeekResult = await db.execute(sql`
+      SELECT
+        COUNT(DISTINCT l.id) as loans_due,
+        COUNT(i.id) as installments_due,
+        COALESCE(SUM(i.total_amount::numeric), 0) as amount_due
+      FROM installments i
+      JOIN loans l ON i.loan_id = l.id
+      WHERE i.is_paid = false
+        AND i.due_date > CURRENT_DATE
+        AND i.due_date <= CURRENT_DATE + INTERVAL '7 days'
+        AND l.status IN ('disbursed', 'active')
+    `);
+    const dw = dueThisWeekResult.rows[0] as any;
+    const dueWeek = Number(dw.loans_due || 0);
+    if (dueWeek > 0) {
+      alerts.push({
+        id: 'due-this-week',
+        type: 'info',
+        title: `${dueWeek} Loans Due This Week`,
+        description: `${Number(dw.installments_due)} installments totaling ${parseFloat(dw.amount_due || 0).toLocaleString('en-US', { minimumFractionDigits: 0 })} AFN upcoming in the next 7 days`,
+        category: 'upcoming',
+      });
+    }
+
+    const pendingApprovalResult = await db.execute(sql`
+      SELECT COUNT(*) as pending_count
+      FROM loans
+      WHERE status = 'pending'
+    `);
+    const pendingCount = Number((pendingApprovalResult.rows[0] as any)?.pending_count || 0);
+    if (pendingCount > 0) {
+      alerts.push({
+        id: 'pending-approval',
+        type: 'info',
+        title: `${pendingCount} Loans Pending Approval`,
+        description: `Applications awaiting review and approval decision`,
+        category: 'pending',
+      });
+    }
+
+    const approvedNotDisbursedResult = await db.execute(sql`
+      SELECT COUNT(*) as approved_count
+      FROM loans
+      WHERE status = 'approved'
+    `);
+    const approvedCount = Number((approvedNotDisbursedResult.rows[0] as any)?.approved_count || 0);
+    if (approvedCount > 0) {
+      alerts.push({
+        id: 'approved-not-disbursed',
+        type: 'warning',
+        title: `${approvedCount} Approved Loans Awaiting Disbursement`,
+        description: `Loans have been approved but not yet disbursed to customers`,
+        category: 'disbursement',
+      });
+    }
+
+    const highParResult = await db.execute(sql`
+      SELECT fo.name as officer_name, COUNT(DISTINCT l.id) as par_count
+      FROM finance_officers fo
+      JOIN loans l ON l.finance_officer_id = fo.id
+      WHERE l.status IN ('disbursed', 'active')
+        AND EXISTS (
+          SELECT 1 FROM installments i
+          WHERE i.loan_id = l.id AND i.is_paid = false
+            AND i.due_date < CURRENT_DATE - INTERVAL '30 days'
+        )
+        AND fo.is_active = true
+      GROUP BY fo.id, fo.name
+      HAVING COUNT(DISTINCT l.id) >= 3
+      ORDER BY par_count DESC
+      LIMIT 3
+    `);
+    for (const row of highParResult.rows as any[]) {
+      alerts.push({
+        id: `high-par-officer-${row.officer_name}`,
+        type: 'critical',
+        title: `High PAR: ${row.officer_name}`,
+        description: `${row.par_count} loans overdue by 30+ days — requires immediate follow-up`,
+        category: 'officer_par',
+      });
+    }
+
+    if (alerts.length === 0) {
+      alerts.push({
+        id: 'all-clear',
+        type: 'success',
+        title: 'All Clear',
+        description: 'No critical alerts at this time. Operations are running smoothly.',
+        category: 'none',
+      });
+    }
+
+    return alerts;
   }
 
   async getOfficerPerformance(): Promise<any[]> {
