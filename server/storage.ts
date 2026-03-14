@@ -2603,6 +2603,202 @@ export class DatabaseStorage implements IStorage {
     return alerts;
   }
 
+  async getAlertDetails(category: string): Promise<any> {
+    switch (category) {
+      case 'overdue': {
+        const result = await db.execute(sql`
+          SELECT l.id, l.application_id, CONCAT(c.first_name, ' ', c.last_name) as customer_name,
+            l.principle_amount, l.status, b.name as branch_name, fo.name as officer_name,
+            i.id as installment_id, i.installment_number, i.due_date, i.total_amount, i.paid_amount,
+            (CURRENT_DATE - i.due_date) as days_overdue
+          FROM installments i
+          JOIN loans l ON i.loan_id = l.id
+          LEFT JOIN customers c ON l.customer_id = c.id
+          LEFT JOIN branches b ON l.branch_id = b.id
+          LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
+          WHERE i.is_paid = false AND i.due_date < CURRENT_DATE
+            AND l.status IN ('disbursed', 'active')
+          ORDER BY i.due_date ASC
+          LIMIT 50
+        `);
+        return {
+          category: 'overdue',
+          title: 'Overdue Loan Payments',
+          items: (result.rows as any[]).map(r => ({
+            loanId: r.id,
+            applicationId: r.application_id,
+            customerName: r.customer_name,
+            principleAmount: Number(r.principle_amount || 0),
+            branchName: r.branch_name,
+            officerName: r.officer_name,
+            installmentNumber: r.installment_number,
+            dueDate: r.due_date,
+            totalAmount: Number(r.total_amount || 0),
+            paidAmount: Number(r.paid_amount || 0),
+            daysOverdue: Number(r.days_overdue || 0),
+          })),
+        };
+      }
+      case 'due_today': {
+        const result = await db.execute(sql`
+          SELECT l.id, l.application_id, CONCAT(c.first_name, ' ', c.last_name) as customer_name,
+            l.principle_amount, b.name as branch_name, fo.name as officer_name,
+            i.installment_number, i.due_date, i.total_amount
+          FROM installments i
+          JOIN loans l ON i.loan_id = l.id
+          LEFT JOIN customers c ON l.customer_id = c.id
+          LEFT JOIN branches b ON l.branch_id = b.id
+          LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
+          WHERE i.is_paid = false AND i.due_date = CURRENT_DATE
+            AND l.status IN ('disbursed', 'active')
+          ORDER BY i.total_amount DESC
+          LIMIT 50
+        `);
+        return {
+          category: 'due_today',
+          title: 'Payments Due Today',
+          items: (result.rows as any[]).map(r => ({
+            loanId: r.id,
+            applicationId: r.application_id,
+            customerName: r.customer_name,
+            principleAmount: Number(r.principle_amount || 0),
+            branchName: r.branch_name,
+            officerName: r.officer_name,
+            installmentNumber: r.installment_number,
+            dueDate: r.due_date,
+            totalAmount: Number(r.total_amount || 0),
+          })),
+        };
+      }
+      case 'upcoming': {
+        const result = await db.execute(sql`
+          SELECT l.id, l.application_id, CONCAT(c.first_name, ' ', c.last_name) as customer_name,
+            l.principle_amount, b.name as branch_name, fo.name as officer_name,
+            i.installment_number, i.due_date, i.total_amount
+          FROM installments i
+          JOIN loans l ON i.loan_id = l.id
+          LEFT JOIN customers c ON l.customer_id = c.id
+          LEFT JOIN branches b ON l.branch_id = b.id
+          LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
+          WHERE i.is_paid = false
+            AND i.due_date > CURRENT_DATE
+            AND i.due_date <= CURRENT_DATE + INTERVAL '7 days'
+            AND l.status IN ('disbursed', 'active')
+          ORDER BY i.due_date ASC
+          LIMIT 50
+        `);
+        return {
+          category: 'upcoming',
+          title: 'Upcoming Payments (Next 7 Days)',
+          items: (result.rows as any[]).map(r => ({
+            loanId: r.id,
+            applicationId: r.application_id,
+            customerName: r.customer_name,
+            principleAmount: Number(r.principle_amount || 0),
+            branchName: r.branch_name,
+            officerName: r.officer_name,
+            installmentNumber: r.installment_number,
+            dueDate: r.due_date,
+            totalAmount: Number(r.total_amount || 0),
+          })),
+        };
+      }
+      case 'pending': {
+        const result = await db.execute(sql`
+          SELECT l.id, l.application_id, CONCAT(c.first_name, ' ', c.last_name) as customer_name,
+            l.request_amount, l.request_date, b.name as branch_name, fo.name as officer_name,
+            l.product_name, l.sector
+          FROM loans l
+          LEFT JOIN customers c ON l.customer_id = c.id
+          LEFT JOIN branches b ON l.branch_id = b.id
+          LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
+          WHERE l.status = 'pending'
+          ORDER BY l.created_at DESC
+          LIMIT 50
+        `);
+        return {
+          category: 'pending',
+          title: 'Loans Pending Approval',
+          items: (result.rows as any[]).map(r => ({
+            loanId: r.id,
+            applicationId: r.application_id,
+            customerName: r.customer_name,
+            requestAmount: Number(r.request_amount || 0),
+            requestDate: r.request_date,
+            branchName: r.branch_name,
+            officerName: r.officer_name,
+            productName: r.product_name,
+            sector: r.sector,
+          })),
+        };
+      }
+      case 'disbursement': {
+        const result = await db.execute(sql`
+          SELECT l.id, l.application_id, CONCAT(c.first_name, ' ', c.last_name) as customer_name,
+            l.principle_amount, l.approved_date, b.name as branch_name, fo.name as officer_name,
+            l.product_name
+          FROM loans l
+          LEFT JOIN customers c ON l.customer_id = c.id
+          LEFT JOIN branches b ON l.branch_id = b.id
+          LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
+          WHERE l.status = 'approved'
+          ORDER BY l.created_at DESC
+          LIMIT 50
+        `);
+        return {
+          category: 'disbursement',
+          title: 'Approved Loans Awaiting Disbursement',
+          items: (result.rows as any[]).map(r => ({
+            loanId: r.id,
+            applicationId: r.application_id,
+            customerName: r.customer_name,
+            principleAmount: Number(r.principle_amount || 0),
+            approvedDate: r.approved_date,
+            branchName: r.branch_name,
+            officerName: r.officer_name,
+            productName: r.product_name,
+          })),
+        };
+      }
+      case 'officer_par': {
+        const result = await db.execute(sql`
+          SELECT l.id, l.application_id, CONCAT(c.first_name, ' ', c.last_name) as customer_name,
+            l.principle_amount, b.name as branch_name, fo.name as officer_name,
+            (SELECT MAX(CURRENT_DATE - i.due_date) FROM installments i WHERE i.loan_id = l.id AND i.is_paid = false AND i.due_date < CURRENT_DATE) as max_days_overdue,
+            (SELECT COUNT(*) FROM installments i WHERE i.loan_id = l.id AND i.is_paid = false AND i.due_date < CURRENT_DATE) as overdue_count
+          FROM loans l
+          LEFT JOIN customers c ON l.customer_id = c.id
+          LEFT JOIN branches b ON l.branch_id = b.id
+          LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
+          WHERE l.status IN ('disbursed', 'active')
+            AND EXISTS (
+              SELECT 1 FROM installments i
+              WHERE i.loan_id = l.id AND i.is_paid = false
+                AND i.due_date < CURRENT_DATE - INTERVAL '30 days'
+            )
+          ORDER BY max_days_overdue DESC
+          LIMIT 50
+        `);
+        return {
+          category: 'officer_par',
+          title: 'High PAR Loans (30+ Days Overdue)',
+          items: (result.rows as any[]).map(r => ({
+            loanId: r.id,
+            applicationId: r.application_id,
+            customerName: r.customer_name,
+            principleAmount: Number(r.principle_amount || 0),
+            branchName: r.branch_name,
+            officerName: r.officer_name,
+            maxDaysOverdue: Number(r.max_days_overdue || 0),
+            overdueCount: Number(r.overdue_count || 0),
+          })),
+        };
+      }
+      default:
+        return { category, title: 'Alert Details', items: [] };
+    }
+  }
+
   async getOfficerPerformance(): Promise<any[]> {
     const result = await db.execute(sql`
       SELECT

@@ -345,6 +345,8 @@ export default function Dashboard() {
   const [filterBranch, setFilterBranch] = useState<string>("");
   const [filterStartDate, setFilterStartDate] = useState<string>("");
   const [filterEndDate, setFilterEndDate] = useState<string>("");
+  const [alertDialogOpen, setAlertDialogOpen] = useState(false);
+  const [selectedAlertCategory, setSelectedAlertCategory] = useState<string | null>(null);
 
   const buildFilterParams = () => {
     const params = new URLSearchParams();
@@ -368,6 +370,20 @@ export default function Dashboard() {
 
   const { data: branchList } = useQuery<{ id: string; name: string }[]>({
     queryKey: ["/api/branches"],
+  });
+
+  const { data: alertDetails, isLoading: alertDetailsLoading } = useQuery<{
+    category: string;
+    title: string;
+    items: any[];
+  }>({
+    queryKey: ["/api/dashboard/alert-details", selectedAlertCategory],
+    queryFn: async () => {
+      const response = await fetch(`/api/dashboard/alert-details/${selectedAlertCategory}`);
+      if (!response.ok) throw new Error("Failed to fetch alert details");
+      return response.json();
+    },
+    enabled: !!selectedAlertCategory && alertDialogOpen,
   });
 
   const { data: roleData } = useQuery<{ role: string }>({
@@ -688,8 +704,20 @@ export default function Dashboard() {
                   success: { bg: 'bg-emerald-500/10', border: 'border-emerald-500/30', icon: CheckCircle2, iconColor: 'text-emerald-500', titleColor: 'text-emerald-700 dark:text-emerald-400' },
                 }[alert.type] || { bg: 'bg-muted/30', border: 'border-border/50', icon: AlertCircle, iconColor: 'text-muted-foreground', titleColor: '' };
                 const AlertIcon = config.icon;
+                const isClickable = alert.category !== 'none';
                 return (
-                  <div key={alert.id} className={`flex items-start gap-3 p-3 rounded-xl ${config.bg} border ${config.border}`} data-testid={`alert-${alert.id}`}>
+                  <div
+                    key={alert.id}
+                    className={`flex items-start gap-3 p-3 rounded-xl ${config.bg} border ${config.border} ${isClickable ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+                    data-testid={`alert-${alert.id}`}
+                    onClick={() => {
+                      if (isClickable) {
+                        const cat = alert.category.startsWith('officer_par') ? 'officer_par' : alert.category;
+                        setSelectedAlertCategory(cat);
+                        setAlertDialogOpen(true);
+                      }
+                    }}
+                  >
                     <div className="mt-0.5 flex-shrink-0">
                       <AlertIcon className={`h-5 w-5 ${config.iconColor}`} />
                     </div>
@@ -697,11 +725,16 @@ export default function Dashboard() {
                       <p className={`text-sm font-semibold ${config.titleColor}`}>{alert.title}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">{alert.description}</p>
                     </div>
-                    {alert.type === 'critical' && (
-                      <span className="flex-shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500 text-white uppercase tracking-wider">
-                        Urgent
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {alert.type === 'critical' && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500 text-white uppercase tracking-wider">
+                          Urgent
+                        </span>
+                      )}
+                      {isClickable && (
+                        <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -1548,6 +1581,136 @@ export default function Dashboard() {
                   )}
                 </tbody>
               </table>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Alert Details Dialog */}
+      <Dialog open={alertDialogOpen} onOpenChange={(open) => { setAlertDialogOpen(open); if (!open) setSelectedAlertCategory(null); }}>
+        <DialogContent className="max-w-5xl max-h-[80vh] overflow-hidden flex flex-col" data-testid="dialog-alert-details">
+          <DialogHeader className="flex-shrink-0">
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              {alertDetails?.title || 'Alert Details'}
+              <Badge variant="outline" className="ml-2">
+                {alertDetails?.items?.length || 0} items
+              </Badge>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto">
+            {alertDetailsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : alertDetails?.items && alertDetails.items.length > 0 ? (
+              <table className="w-full text-sm" data-testid="table-alert-details">
+                <thead className="sticky top-0 bg-background z-10">
+                  <tr className="border-b bg-muted/30">
+                    <th className="px-3 py-2 text-left font-semibold text-muted-foreground text-xs uppercase">App ID</th>
+                    <th className="px-3 py-2 text-left font-semibold text-muted-foreground text-xs uppercase">Customer</th>
+                    <th className="px-3 py-2 text-left font-semibold text-muted-foreground text-xs uppercase">Branch</th>
+                    <th className="px-3 py-2 text-left font-semibold text-muted-foreground text-xs uppercase">Officer</th>
+                    {(selectedAlertCategory === 'overdue' || selectedAlertCategory === 'due_today' || selectedAlertCategory === 'upcoming') && (
+                      <>
+                        <th className="px-3 py-2 text-center font-semibold text-muted-foreground text-xs uppercase">Inst #</th>
+                        <th className="px-3 py-2 text-left font-semibold text-muted-foreground text-xs uppercase">Due Date</th>
+                        <th className="px-3 py-2 text-right font-semibold text-muted-foreground text-xs uppercase">Amount</th>
+                      </>
+                    )}
+                    {selectedAlertCategory === 'overdue' && (
+                      <>
+                        <th className="px-3 py-2 text-right font-semibold text-muted-foreground text-xs uppercase">Paid</th>
+                        <th className="px-3 py-2 text-center font-semibold text-muted-foreground text-xs uppercase">Days Overdue</th>
+                      </>
+                    )}
+                    {selectedAlertCategory === 'pending' && (
+                      <>
+                        <th className="px-3 py-2 text-right font-semibold text-muted-foreground text-xs uppercase">Requested</th>
+                        <th className="px-3 py-2 text-left font-semibold text-muted-foreground text-xs uppercase">Date</th>
+                        <th className="px-3 py-2 text-left font-semibold text-muted-foreground text-xs uppercase">Product</th>
+                      </>
+                    )}
+                    {selectedAlertCategory === 'disbursement' && (
+                      <>
+                        <th className="px-3 py-2 text-right font-semibold text-muted-foreground text-xs uppercase">Amount</th>
+                        <th className="px-3 py-2 text-left font-semibold text-muted-foreground text-xs uppercase">Product</th>
+                      </>
+                    )}
+                    {selectedAlertCategory === 'officer_par' && (
+                      <>
+                        <th className="px-3 py-2 text-right font-semibold text-muted-foreground text-xs uppercase">Amount</th>
+                        <th className="px-3 py-2 text-center font-semibold text-muted-foreground text-xs uppercase">Days Overdue</th>
+                        <th className="px-3 py-2 text-center font-semibold text-muted-foreground text-xs uppercase">Overdue Inst.</th>
+                      </>
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {alertDetails.items.map((item: any, idx: number) => (
+                    <tr key={idx} className={`border-b last:border-0 hover:bg-muted/30 transition-colors ${idx % 2 === 0 ? 'bg-background' : 'bg-muted/10'}`} data-testid={`alert-detail-row-${idx}`}>
+                      <td className="px-3 py-2 font-medium">
+                        <Link href={`/loans/${item.loanId}`} className="text-blue-600 hover:underline">
+                          {item.applicationId || '-'}
+                        </Link>
+                      </td>
+                      <td className="px-3 py-2">{item.customerName || '-'}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{item.branchName || '-'}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{item.officerName || '-'}</td>
+                      {(selectedAlertCategory === 'overdue' || selectedAlertCategory === 'due_today' || selectedAlertCategory === 'upcoming') && (
+                        <>
+                          <td className="px-3 py-2 text-center">{item.installmentNumber || '-'}</td>
+                          <td className="px-3 py-2">{item.dueDate ? formatDate(item.dueDate) : '-'}</td>
+                          <td className="px-3 py-2 text-right font-medium">{formatCurrency(item.totalAmount || 0)}</td>
+                        </>
+                      )}
+                      {selectedAlertCategory === 'overdue' && (
+                        <>
+                          <td className="px-3 py-2 text-right text-emerald-600">{formatCurrency(item.paidAmount || 0)}</td>
+                          <td className="px-3 py-2 text-center">
+                            <Badge variant="outline" className={
+                              item.daysOverdue > 90 ? 'bg-red-500/10 text-red-600 border-red-500/30' :
+                              item.daysOverdue > 30 ? 'bg-orange-500/10 text-orange-600 border-orange-500/30' :
+                              'bg-amber-500/10 text-amber-600 border-amber-500/30'
+                            }>
+                              {item.daysOverdue}d
+                            </Badge>
+                          </td>
+                        </>
+                      )}
+                      {selectedAlertCategory === 'pending' && (
+                        <>
+                          <td className="px-3 py-2 text-right font-medium">{formatCurrency(item.requestAmount || 0)}</td>
+                          <td className="px-3 py-2">{item.requestDate ? formatDate(item.requestDate) : '-'}</td>
+                          <td className="px-3 py-2 text-muted-foreground">{item.productName || '-'}</td>
+                        </>
+                      )}
+                      {selectedAlertCategory === 'disbursement' && (
+                        <>
+                          <td className="px-3 py-2 text-right font-medium">{formatCurrency(item.principleAmount || 0)}</td>
+                          <td className="px-3 py-2 text-muted-foreground">{item.productName || '-'}</td>
+                        </>
+                      )}
+                      {selectedAlertCategory === 'officer_par' && (
+                        <>
+                          <td className="px-3 py-2 text-right font-medium">{formatCurrency(item.principleAmount || 0)}</td>
+                          <td className="px-3 py-2 text-center">
+                            <Badge variant="outline" className="bg-red-500/10 text-red-600 border-red-500/30">
+                              {item.maxDaysOverdue}d
+                            </Badge>
+                          </td>
+                          <td className="px-3 py-2 text-center">{item.overdueCount}</td>
+                        </>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">
+                <CheckCircle2 className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
+                <p>No items found for this alert</p>
+              </div>
             )}
           </div>
         </DialogContent>

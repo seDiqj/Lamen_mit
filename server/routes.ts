@@ -442,6 +442,16 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/dashboard/alert-details/:category", isAuthenticated, async (req, res) => {
+    try {
+      const details = await storage.getAlertDetails(req.params.category);
+      res.json(details);
+    } catch (error) {
+      console.error("Error fetching alert details:", error);
+      res.status(500).json({ message: "Failed to fetch alert details" });
+    }
+  });
+
   // ===== BRANCHES =====
   app.get("/api/branches", isAuthenticated, async (req, res) => {
     try {
