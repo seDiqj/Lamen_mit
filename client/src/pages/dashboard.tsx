@@ -94,6 +94,20 @@ type DashboardStats = {
     dueTodayCount: number;
     collectedTodayCount: number;
   };
+  officerPerformance: {
+    officerId: string;
+    officerName: string;
+    officerCode: string;
+    branchName: string;
+    activeLoans: number;
+    totalLoans: number;
+    portfolioAmount: number;
+    parAmount: number;
+    parLoans: number;
+    parRate: number;
+    totalCollected: number;
+    disbursedLast30d: number;
+  }[];
   loansByStatus: { status: string; count: number; requestedAmount: number }[];
   monthlyTrends: { month: string; disbursed: number; collected: number }[];
   recentLoans: {
@@ -609,6 +623,90 @@ export default function Dashboard() {
                 </div>
               </div>
             </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Loan Officer Performance Table */}
+      <Card className="border-0 shadow-lg overflow-hidden" data-testid="card-officer-performance">
+        <div className="h-1 bg-gradient-to-r from-cyan-500 to-teal-500" />
+        <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-cyan-500 to-teal-600 flex items-center justify-center shadow-lg">
+              <Users className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <CardTitle className="text-lg font-semibold">Loan Officer Performance</CardTitle>
+              <p className="text-sm text-muted-foreground">Portfolio and collection metrics by officer</p>
+            </div>
+          </div>
+          <Badge variant="outline" className="bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border-cyan-500/30">
+            {stats?.officerPerformance?.length || 0} Officers
+          </Badge>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="space-y-3">
+              {[1,2,3].map(i => <Skeleton key={i} className="h-12 w-full" />)}
+            </div>
+          ) : stats?.officerPerformance && stats.officerPerformance.length > 0 ? (
+            <div className="overflow-x-auto -mx-6 px-6">
+              <table className="w-full text-sm" data-testid="table-officer-performance">
+                <thead>
+                  <tr className="border-b border-border/50">
+                    <th className="text-left py-3 px-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Officer</th>
+                    <th className="text-left py-3 px-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Branch</th>
+                    <th className="text-center py-3 px-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Active Loans</th>
+                    <th className="text-right py-3 px-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Portfolio</th>
+                    <th className="text-right py-3 px-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">PAR Amount</th>
+                    <th className="text-center py-3 px-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">PAR Rate</th>
+                    <th className="text-right py-3 px-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Collected</th>
+                    <th className="text-center py-3 px-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Disbursed (30d)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.officerPerformance.map((officer, idx) => (
+                    <tr key={officer.officerId} className="border-b border-border/30 hover:bg-muted/30 transition-colors" data-testid={`row-officer-${idx}`}>
+                      <td className="py-3 px-3">
+                        <div className="flex items-center gap-2">
+                          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-cyan-500 to-teal-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                            {officer.officerName?.charAt(0) || '?'}
+                          </div>
+                          <div>
+                            <p className="font-medium">{officer.officerName}</p>
+                            {officer.officerCode && <p className="text-xs text-muted-foreground">{officer.officerCode}</p>}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 px-3 text-muted-foreground">{officer.branchName || '-'}</td>
+                      <td className="py-3 px-3 text-center font-medium">{officer.activeLoans}</td>
+                      <td className="py-3 px-3 text-right font-medium">{formatCurrency(officer.portfolioAmount)}</td>
+                      <td className="py-3 px-3 text-right font-medium text-red-500">{formatCurrency(officer.parAmount)}</td>
+                      <td className="py-3 px-3 text-center">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
+                          officer.parRate > 5 ? 'bg-red-500/10 text-red-600' :
+                          officer.parRate > 2 ? 'bg-amber-500/10 text-amber-600' :
+                          'bg-emerald-500/10 text-emerald-600'
+                        }`}>
+                          {officer.parRate}%
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-right font-medium text-emerald-600">{formatCurrency(officer.totalCollected)}</td>
+                      <td className="py-3 px-3 text-center">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-600">
+                          {officer.disbursedLast30d}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <Users className="h-10 w-10 mx-auto mb-2 opacity-50" />
+              <p>No loan officers found</p>
+            </div>
           )}
         </CardContent>
       </Card>

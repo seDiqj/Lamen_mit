@@ -2423,7 +2423,61 @@ export class DatabaseStorage implements IStorage {
       loansByStatus: loansByStatus.map(s => ({ status: s.status || "pending", count: Number(s.count), requestedAmount: Number(s.requestedAmount) })),
       monthlyTrends,
       recentLoans,
+      officerPerformance: await this.getOfficerPerformance(),
     };
+  }
+
+  async getOfficerPerformance(): Promise<any[]> {
+    const result = await db.execute(sql`
+      SELECT
+        fo.id as officer_id,
+        fo.name as officer_name,
+        fo.code as officer_code,
+        b.name as branch_name,
+        COUNT(DISTINCT l.id) FILTER (WHERE l.status IN ('disbursed', 'active')) as active_loans,
+        COUNT(DISTINCT l.id) as total_loans,
+        COALESCE(SUM(l.principle_amount::numeric) FILTER (WHERE l.status IN ('disbursed', 'active')), 0) as portfolio_amount,
+        COALESCE(SUM(l.principle_amount::numeric) FILTER (WHERE l.status IN ('disbursed', 'active')
+          AND EXISTS (
+            SELECT 1 FROM installments i WHERE i.loan_id = l.id AND i.is_paid = false AND i.due_date < CURRENT_DATE
+          )), 0) as par_amount,
+        COUNT(DISTINCT l.id) FILTER (WHERE l.status IN ('disbursed', 'active')
+          AND EXISTS (
+            SELECT 1 FROM installments i WHERE i.loan_id = l.id AND i.is_paid = false AND i.due_date < CURRENT_DATE
+          )) as par_loans,
+        COALESCE(SUM(i_paid.paid_amount::numeric), 0) as total_collected,
+        COUNT(DISTINCT l.id) FILTER (WHERE l.status = 'disbursed' AND d.disbursement_date >= CURRENT_DATE - INTERVAL '30 days') as disbursed_last_30d
+      FROM finance_officers fo
+      LEFT JOIN branches b ON b.id = fo.branch_id
+      LEFT JOIN loans l ON l.finance_officer_id = fo.id
+      LEFT JOIN LATERAL (
+        SELECT SUM(COALESCE(inst.paid_amount::numeric, 0)) as paid_amount
+        FROM installments inst
+        WHERE inst.loan_id = l.id AND inst.is_paid = true
+      ) i_paid ON true
+      LEFT JOIN disbursements d ON d.loan_id = l.id
+      WHERE fo.is_active = true
+      GROUP BY fo.id, fo.name, fo.code, b.name
+      ORDER BY portfolio_amount DESC
+    `);
+    return (result.rows as any[]).map(r => {
+      const portfolioAmount = parseFloat(r.portfolio_amount || 0);
+      const parAmount = parseFloat(r.par_amount || 0);
+      return {
+        officerId: r.officer_id,
+        officerName: r.officer_name,
+        officerCode: r.officer_code,
+        branchName: r.branch_name,
+        activeLoans: Number(r.active_loans || 0),
+        totalLoans: Number(r.total_loans || 0),
+        portfolioAmount,
+        parAmount,
+        parLoans: Number(r.par_loans || 0),
+        parRate: portfolioAmount > 0 ? parseFloat(((parAmount / portfolioAmount) * 100).toFixed(1)) : 0,
+        totalCollected: parseFloat(r.total_collected || 0),
+        disbursedLast30d: Number(r.disbursed_last_30d || 0),
+      };
+    });
   }
 
   async getBranchStats(): Promise<any[]> {
