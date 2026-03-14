@@ -127,52 +127,81 @@ function isNegativeStatus(status: string): boolean {
 function WorkflowIndicator({ status }: { status: string }) {
   const currentIdx = getWorkflowIndex(status);
   const negative = isNegativeStatus(status);
+  const activeColor = negative ? "#ef4444" : "#2563eb";
+  const completedColor = negative ? "#fca5a5" : "#93c5fd";
+  const futureColor = "#e2e8f0";
 
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <div className="flex items-center gap-0 min-w-[100px]" data-testid={`workflow-${status}`}>
-          {WORKFLOW_STEPS.map((step, i) => {
-            const isCompleted = i < currentIdx;
-            const isCurrent = i === currentIdx;
+        <div className="relative flex items-center min-w-[110px] py-1" data-testid={`workflow-${status}`}>
+          <div className="absolute top-1/2 left-[5px] right-[5px] h-[3px] rounded-full -translate-y-1/2" style={{ backgroundColor: futureColor }} />
+          <div
+            className="absolute top-1/2 left-[5px] h-[3px] rounded-full -translate-y-1/2 transition-all duration-500"
+            style={{
+              backgroundColor: activeColor,
+              width: `${(currentIdx / (WORKFLOW_STEPS.length - 1)) * 100}%`,
+              maxWidth: 'calc(100% - 10px)',
+            }}
+          />
+          <div className="relative flex items-center justify-between w-full">
+            {WORKFLOW_STEPS.map((step, i) => {
+              const isCompleted = i < currentIdx;
+              const isCurrent = i === currentIdx;
 
-            let dotColor = "bg-muted-foreground/20";
-            let lineColor = "bg-muted-foreground/20";
+              let bg = futureColor;
+              let size = 10;
+              let border = "none";
+              let shadow = "none";
 
-            if (isCompleted) {
-              dotColor = negative ? "bg-red-400" : "bg-primary";
-              lineColor = negative ? "bg-red-400" : "bg-primary";
-            } else if (isCurrent) {
-              dotColor = negative ? "bg-red-500" : "bg-primary";
-            }
+              if (isCompleted) {
+                bg = completedColor;
+                size = 10;
+              }
+              if (isCurrent) {
+                bg = activeColor;
+                size = 14;
+                border = `2px solid white`;
+                shadow = `0 0 0 2px ${activeColor}`;
+              }
 
-            return (
-              <div key={step.key} className="flex items-center">
+              return (
                 <div
-                  className={`rounded-full transition-all ${dotColor} ${
-                    isCurrent ? "h-3 w-3 ring-2 ring-offset-1 ring-offset-background" : "h-2 w-2"
-                  }`}
-                  style={isCurrent ? { ringColor: negative ? '#ef4444' : 'hsl(var(--primary))' } : undefined}
+                  key={step.key}
+                  className="rounded-full transition-all duration-300 flex-shrink-0"
+                  style={{
+                    width: size,
+                    height: size,
+                    backgroundColor: bg,
+                    border,
+                    boxShadow: shadow,
+                  }}
                 />
-                {i < WORKFLOW_STEPS.length - 1 && (
-                  <div
-                    className={`h-[2px] w-3 ${i < currentIdx ? lineColor : "bg-muted-foreground/20"}`}
-                  />
-                )}
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </TooltipTrigger>
-      <TooltipContent side="top">
-        <div className="flex flex-col gap-1 text-xs">
+      <TooltipContent side="top" className="p-3">
+        <div className="flex flex-col gap-1.5 text-xs">
+          <p className="font-semibold text-[11px] uppercase tracking-wider text-muted-foreground mb-1">Loan Workflow</p>
           {WORKFLOW_STEPS.map((step, i) => {
             const isCompleted = i < currentIdx;
             const isCurrent = i === currentIdx;
             return (
-              <div key={step.key} className={`flex items-center gap-1.5 ${isCurrent ? "font-bold" : isCompleted ? "text-muted-foreground" : "text-muted-foreground/50"}`}>
-                {isCompleted ? "✓" : isCurrent ? "●" : "○"} {step.label}
-                {isCurrent && negative && ` (${getStatusLabel(status)})`}
+              <div key={step.key} className="flex items-center gap-2">
+                <div
+                  className="rounded-full flex-shrink-0"
+                  style={{
+                    width: 8,
+                    height: 8,
+                    backgroundColor: isCurrent ? activeColor : isCompleted ? completedColor : futureColor,
+                  }}
+                />
+                <span className={isCurrent ? "font-bold" : isCompleted ? "" : "text-muted-foreground/60"}>
+                  {step.label}
+                  {isCurrent && negative ? ` — ${getStatusLabel(status)}` : ""}
+                </span>
               </div>
             );
           })}
