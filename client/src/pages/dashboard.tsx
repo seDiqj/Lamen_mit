@@ -20,6 +20,7 @@ import {
   FileText,
   DollarSign,
   AlertCircle,
+  AlertTriangle,
   CheckCircle2,
   Clock,
   ArrowUpRight,
@@ -64,6 +65,11 @@ type DashboardStats = {
   marginCollected: number;
   outstandingBalance: number;
   overdueLoans: number;
+  activeBorrowers: number;
+  prevMonthBorrowers: number;
+  repaymentRate: number;
+  portfolioAtRisk: number;
+  sectorDistribution: { sector: string; count: number; amount: number; percentage: number }[];
   loansByStatus: { status: string; count: number; requestedAmount: number }[];
   monthlyTrends: { month: string; disbursed: number; collected: number }[];
   recentLoans: {
@@ -752,6 +758,124 @@ export default function Dashboard() {
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* KPI Cards + Loan Distribution by Sector */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Left: KPI Cards */}
+        <div className="grid grid-cols-2 gap-4">
+          <Card className="border-0 shadow-lg overflow-hidden" data-testid="card-active-borrowers">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium">Active Borrowers</p>
+                  <p className="text-3xl font-bold mt-2">{isLoading ? <Skeleton className="h-9 w-20" /> : (stats?.activeBorrowers?.toLocaleString() || "0")}</p>
+                  {!isLoading && stats && (
+                    <p className={`text-xs mt-2 font-medium ${stats.activeBorrowers > (stats.prevMonthBorrowers || 0) ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}>
+                      {stats.prevMonthBorrowers ? `${stats.activeBorrowers > stats.prevMonthBorrowers ? "+" : ""}${(((stats.activeBorrowers - stats.prevMonthBorrowers) / stats.prevMonthBorrowers) * 100).toFixed(0)}% from last month` : ""}
+                    </p>
+                  )}
+                </div>
+                <div className="h-12 w-12 rounded-xl bg-teal-500/10 flex items-center justify-center flex-shrink-0">
+                  <Users className="h-6 w-6 text-teal-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-lg overflow-hidden" data-testid="card-outstanding-loans">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium">Outstanding Loans</p>
+                  <p className="text-3xl font-bold mt-2">{isLoading ? <Skeleton className="h-9 w-24" /> : `${((stats?.outstandingBalance || 0) / 1000000).toFixed(1)}M`}</p>
+                  {!isLoading && stats && stats.totalPortfolio > 0 && (
+                    <p className="text-xs mt-2 font-medium text-emerald-600 dark:text-emerald-400">
+                      {((stats.totalCollected / stats.totalPortfolio) * 100).toFixed(1)}% collected
+                    </p>
+                  )}
+                </div>
+                <div className="h-12 w-12 rounded-xl bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                  <Wallet className="h-6 w-6 text-emerald-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-lg overflow-hidden" data-testid="card-repayment-rate">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium">Repayment Rate</p>
+                  <p className="text-3xl font-bold mt-2">{isLoading ? <Skeleton className="h-9 w-16" /> : `${stats?.repaymentRate || 0}%`}</p>
+                  {!isLoading && (
+                    <p className="text-xs mt-2 font-medium text-emerald-600 dark:text-emerald-400">
+                      Portfolio collection
+                    </p>
+                  )}
+                </div>
+                <div className="h-12 w-12 rounded-xl bg-green-500/10 flex items-center justify-center flex-shrink-0">
+                  <TrendingUp className="h-6 w-6 text-green-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-lg overflow-hidden" data-testid="card-portfolio-at-risk">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium">Portfolio at Risk</p>
+                  <p className="text-3xl font-bold mt-2">{isLoading ? <Skeleton className="h-9 w-16" /> : `${stats?.portfolioAtRisk || 0}%`}</p>
+                  {!isLoading && (
+                    <p className={`text-xs mt-2 font-medium ${(stats?.portfolioAtRisk || 0) <= 5 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}>
+                      {(stats?.portfolioAtRisk || 0) <= 5 ? "Within target" : "Above target"}
+                    </p>
+                  )}
+                </div>
+                <div className="h-12 w-12 rounded-xl bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+                  <AlertTriangle className="h-6 w-6 text-amber-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right: Loan Distribution by Sector */}
+        <Card className="border-0 shadow-lg overflow-hidden" data-testid="card-sector-distribution">
+          <div className="h-1 bg-gradient-to-r from-teal-500 to-cyan-500" />
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg font-semibold">Loan Distribution</CardTitle>
+            <p className="text-sm text-muted-foreground">By business sector</p>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="space-y-6">
+                {[1, 2, 3, 4, 5].map(i => <Skeleton key={i} className="h-10 w-full" />)}
+              </div>
+            ) : (
+              <div className="space-y-5">
+                {(stats?.sectorDistribution || []).map((sector, idx) => {
+                  const barColors = ["bg-teal-500", "bg-emerald-500", "bg-amber-500", "bg-blue-500", "bg-slate-500", "bg-purple-500", "bg-rose-500"];
+                  return (
+                    <div key={sector.sector} data-testid={`sector-row-${idx}`}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-sm font-medium">{sector.sector}</span>
+                        <span className="text-sm font-bold">{sector.percentage}%</span>
+                      </div>
+                      <div className="w-full bg-muted/50 rounded-full h-2.5">
+                        <div
+                          className={`h-2.5 rounded-full ${barColors[idx % barColors.length]}`}
+                          style={{ width: `${sector.percentage}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+                {(!stats?.sectorDistribution || stats.sectorDistribution.length === 0) && (
+                  <p className="text-sm text-muted-foreground text-center py-8">No sector data available</p>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="border-0 shadow-lg overflow-hidden">

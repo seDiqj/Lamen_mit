@@ -2275,6 +2275,60 @@ export class DatabaseStorage implements IStorage {
       collected: collMap.get(key) || 0,
     }));
 
+    const activeBorrowersResult = await db.execute(sql`
+      SELECT COUNT(DISTINCT customer_id) as active_borrowers
+      FROM loans WHERE status IN ('disbursed', 'active')
+    `);
+    const activeBorrowers = Number((activeBorrowersResult.rows[0] as any)?.active_borrowers || 0);
+
+    const prevMonthBorrowersResult = await db.execute(sql`
+      SELECT COUNT(DISTINCT l.customer_id) as prev_borrowers
+      FROM loans l
+      JOIN disbursements d ON d.loan_id = l.id
+      WHERE l.status IN ('disbursed', 'active', 'completed')
+        AND d.disbursement_date < DATE_TRUNC('month', CURRENT_DATE)
+        AND d.disbursement_date >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')
+    `);
+    const prevMonthBorrowers = Number((prevMonthBorrowersResult.rows[0] as any)?.prev_borrowers || 0);
+
+    const totalPortfolioNum = Number(amounts.totalPortfolio);
+    const totalCollectedNum = Number(collectedResult.totalCollected);
+    const outstandingBalance = totalPortfolioNum - totalCollectedNum;
+    const repaymentRate = totalPortfolioNum > 0 ? parseFloat(((totalCollectedNum / totalPortfolioNum) * 100).toFixed(1)) : 0;
+
+    const parResult = await db.execute(sql`
+      SELECT COUNT(DISTINCT l.id) as par_loans
+      FROM loans l
+      WHERE l.status IN ('disbursed', 'active')
+        AND EXISTS (
+          SELECT 1 FROM installments i
+          WHERE i.loan_id = l.id AND i.is_paid = false
+            AND i.due_date < CURRENT_DATE
+        )
+    `);
+    const parLoans = Number((parResult.rows[0] as any)?.par_loans || 0);
+    const totalActiveLoans = Number(loanCounts.active) + (loansByStatus.find(s => s.status === 'disbursed')?.count || 0);
+    const portfolioAtRisk = totalActiveLoans > 0 ? parseFloat(((parLoans / totalActiveLoans) * 100).toFixed(1)) : 0;
+
+    const sectorDistResult = await db.execute(sql`
+      SELECT 
+        COALESCE(l.sector, 'Other') as sector,
+        COUNT(*) as loan_count,
+        COALESCE(SUM(l.principle_amount::numeric), 0) as total_amount
+      FROM loans l
+      WHERE l.status IN ('disbursed', 'active')
+      GROUP BY COALESCE(l.sector, 'Other')
+      ORDER BY total_amount DESC
+    `);
+    const sectorRows = sectorDistResult.rows as any[];
+    const totalSectorAmount = sectorRows.reduce((sum, r) => sum + parseFloat(r.total_amount || 0), 0);
+    const sectorDistribution = sectorRows.map(r => ({
+      sector: r.sector,
+      count: Number(r.loan_count),
+      amount: parseFloat(r.total_amount || 0),
+      percentage: totalSectorAmount > 0 ? parseFloat(((parseFloat(r.total_amount || 0) / totalSectorAmount) * 100).toFixed(1)) : 0,
+    }));
+
     return {
       totalLoans: Number(loanCounts.total),
       activeLoans: Number(loanCounts.active),
@@ -2285,14 +2339,19 @@ export class DatabaseStorage implements IStorage {
       pendingLoans: Number(loanCounts.pending),
       totalCustomers: Number(customerCount.count),
       totalDisbursed: Number(amounts.totalDisbursed),
-      totalPortfolio: Number(amounts.totalPortfolio),
+      totalPortfolio: totalPortfolioNum,
       portfolioPrincipal: Number(amounts.portfolioPrincipal),
       portfolioMargin: Number(amounts.portfolioMargin),
-      totalCollected: Number(collectedResult.totalCollected),
+      totalCollected: totalCollectedNum,
       principalCollected: Number(collectedResult.principalCollected),
       marginCollected: Number(collectedResult.marginCollected),
-      outstandingBalance: Number(amounts.totalPortfolio) - Number(collectedResult.totalCollected),
-      overdueLoans: 0,
+      outstandingBalance,
+      overdueLoans: parLoans,
+      activeBorrowers,
+      prevMonthBorrowers,
+      repaymentRate,
+      portfolioAtRisk,
+      sectorDistribution,
       loansByStatus: loansByStatus.map(s => ({ status: s.status || "pending", count: Number(s.count), requestedAmount: Number(s.requestedAmount) })),
       monthlyTrends,
       recentLoans,
