@@ -2275,6 +2275,21 @@ export class DatabaseStorage implements IStorage {
       collected: collMap.get(key) || 0,
     }));
 
+    const dailyOpsResult = await db.execute(sql`
+      SELECT
+        (SELECT COUNT(*) FROM loans WHERE DATE(created_at) = CURRENT_DATE) as apps_today,
+        (SELECT COUNT(*) FROM loan_approvals WHERE DATE(created_at) = CURRENT_DATE AND decision = 'approved') as approved_today,
+        (SELECT COUNT(*) FROM loan_approvals WHERE DATE(created_at) = CURRENT_DATE AND decision = 'rejected') as rejected_today,
+        (SELECT COUNT(*) FROM disbursements WHERE disbursement_date = CURRENT_DATE) as disbursed_today,
+        (SELECT COALESCE(SUM(l.principle_amount::numeric), 0) FROM disbursements d JOIN loans l ON d.loan_id = l.id WHERE d.disbursement_date = CURRENT_DATE) as amount_disbursed_today,
+        (SELECT COALESCE(SUM(total_amount::numeric), 0) FROM installments WHERE due_date = CURRENT_DATE AND is_paid = false) as amount_due_today,
+        (SELECT COALESCE(SUM(paid_amount::numeric), 0) FROM installments WHERE DATE(payment_date) = CURRENT_DATE AND is_paid = true) as amount_collected_today,
+        (SELECT COUNT(*) FROM installments WHERE due_date < CURRENT_DATE AND is_paid = false) as missed_payments_total,
+        (SELECT COUNT(*) FROM installments WHERE due_date = CURRENT_DATE AND is_paid = false) as due_today_count,
+        (SELECT COUNT(*) FROM installments WHERE DATE(payment_date) = CURRENT_DATE AND is_paid = true) as collected_today_count
+    `);
+    const dailyOps = dailyOpsResult.rows[0] as any;
+
     const activeBorrowersResult = await db.execute(sql`
       SELECT COUNT(DISTINCT customer_id) as active_borrowers
       FROM loans WHERE status IN ('disbursed', 'active')
@@ -2352,6 +2367,18 @@ export class DatabaseStorage implements IStorage {
       repaymentRate,
       portfolioAtRisk,
       sectorDistribution,
+      dailyOps: {
+        applicationsToday: Number(dailyOps.apps_today || 0),
+        approvedToday: Number(dailyOps.approved_today || 0),
+        rejectedToday: Number(dailyOps.rejected_today || 0),
+        disbursedToday: Number(dailyOps.disbursed_today || 0),
+        amountDisbursedToday: Number(dailyOps.amount_disbursed_today || 0),
+        amountDueToday: Number(dailyOps.amount_due_today || 0),
+        amountCollectedToday: Number(dailyOps.amount_collected_today || 0),
+        missedPayments: Number(dailyOps.missed_payments_total || 0),
+        dueTodayCount: Number(dailyOps.due_today_count || 0),
+        collectedTodayCount: Number(dailyOps.collected_today_count || 0),
+      },
       loansByStatus: loansByStatus.map(s => ({ status: s.status || "pending", count: Number(s.count), requestedAmount: Number(s.requestedAmount) })),
       monthlyTrends,
       recentLoans,

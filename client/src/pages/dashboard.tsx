@@ -70,6 +70,18 @@ type DashboardStats = {
   repaymentRate: number;
   portfolioAtRisk: number;
   sectorDistribution: { sector: string; count: number; amount: number; percentage: number }[];
+  dailyOps: {
+    applicationsToday: number;
+    approvedToday: number;
+    rejectedToday: number;
+    disbursedToday: number;
+    amountDisbursedToday: number;
+    amountDueToday: number;
+    amountCollectedToday: number;
+    missedPayments: number;
+    dueTodayCount: number;
+    collectedTodayCount: number;
+  };
   loansByStatus: { status: string; count: number; requestedAmount: number }[];
   monthlyTrends: { month: string; disbursed: number; collected: number }[];
   recentLoans: {
@@ -459,6 +471,56 @@ export default function Dashboard() {
           iconBg="bg-gradient-to-br from-indigo-500 to-blue-600"
         />
       </div>
+
+      {/* Daily Operations Panel */}
+      <Card className="border-0 shadow-lg overflow-hidden" data-testid="card-daily-operations">
+        <div className="h-1 bg-gradient-to-r from-orange-500 to-amber-500" />
+        <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center shadow-lg">
+              <CalendarDays className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <CardTitle className="text-lg font-semibold">Today's Operations</CardTitle>
+              <p className="text-sm text-muted-foreground">{formatDate(new Date().toISOString())}</p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+              {[1,2,3,4,5,6,7,8,9,10].map(i => <Skeleton key={i} className="h-20 w-full" />)}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+              {[
+                { label: "Applications Received", value: stats?.dailyOps?.applicationsToday || 0, icon: FileText, color: "text-blue-600", bg: "bg-blue-500/10" },
+                { label: "Approved Today", value: stats?.dailyOps?.approvedToday || 0, icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-500/10" },
+                { label: "Rejected Today", value: stats?.dailyOps?.rejectedToday || 0, icon: X, color: "text-red-500", bg: "bg-red-500/10" },
+                { label: "Disbursed Today", value: stats?.dailyOps?.disbursedToday || 0, icon: ArrowUpRight, color: "text-teal-600", bg: "bg-teal-500/10" },
+                { label: "Amount Disbursed", value: formatCurrency(stats?.dailyOps?.amountDisbursedToday || 0), icon: DollarSign, color: "text-teal-600", bg: "bg-teal-500/10", isAmount: true },
+                { label: "Amount Due Today", value: formatCurrency(stats?.dailyOps?.amountDueToday || 0), icon: Clock, color: "text-amber-600", bg: "bg-amber-500/10", isAmount: true },
+                { label: "Collected Today", value: formatCurrency(stats?.dailyOps?.amountCollectedToday || 0), icon: Wallet, color: "text-emerald-600", bg: "bg-emerald-500/10", isAmount: true },
+                { label: "Payments Collected", value: stats?.dailyOps?.collectedTodayCount || 0, icon: CheckCircle2, color: "text-green-600", bg: "bg-green-500/10" },
+                { label: "Installments Due", value: stats?.dailyOps?.dueTodayCount || 0, icon: Clock, color: "text-orange-600", bg: "bg-orange-500/10" },
+                { label: "Missed Payments", value: stats?.dailyOps?.missedPayments || 0, icon: AlertCircle, color: (stats?.dailyOps?.missedPayments || 0) > 0 ? "text-red-500" : "text-emerald-600", bg: (stats?.dailyOps?.missedPayments || 0) > 0 ? "bg-red-500/10" : "bg-emerald-500/10" },
+              ].map((item, idx) => (
+                <div key={idx} className="flex items-start gap-3 p-3 rounded-xl bg-muted/30 border border-border/50" data-testid={`daily-op-${idx}`}>
+                  <div className={`h-9 w-9 rounded-lg ${item.bg} flex items-center justify-center flex-shrink-0 mt-0.5`}>
+                    <item.icon className={`h-4 w-4 ${item.color}`} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground font-medium leading-tight">{item.label}</p>
+                    <p className={`text-lg font-bold mt-0.5 ${typeof item.value === 'number' && item.value === 0 ? 'text-muted-foreground' : ''}`}>
+                      {item.value}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Card className="border-0 shadow-lg overflow-hidden">
         <div className="h-1 bg-gradient-to-r from-violet-500 to-purple-500" />
