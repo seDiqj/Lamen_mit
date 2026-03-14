@@ -126,59 +126,55 @@ function isNegativeStatus(status: string): boolean {
 function WorkflowIndicator({ status }: { status: string }) {
   const currentIdx = getWorkflowIndex(status);
   const negative = isNegativeStatus(status);
-  const activeColor = negative ? "#ef4444" : "#2563eb";
-  const completedColor = negative ? "#fca5a5" : "#93c5fd";
-  const futureColor = "#e2e8f0";
+
+  const colors = {
+    completed: negative ? "#fee2e2" : "#dbeafe",
+    completedText: negative ? "#dc2626" : "#2563eb",
+    current: negative ? "#ef4444" : "#2563eb",
+    future: "#f1f5f9",
+    futureText: "#94a3b8",
+  };
 
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <div className="relative flex items-center min-w-[110px] py-1" data-testid={`workflow-${status}`}>
-          <div className="absolute top-1/2 left-[5px] right-[5px] h-[3px] rounded-full -translate-y-1/2" style={{ backgroundColor: futureColor }} />
-          <div
-            className="absolute top-1/2 left-[5px] h-[3px] rounded-full -translate-y-1/2 transition-all duration-500"
-            style={{
-              backgroundColor: activeColor,
-              width: `${(currentIdx / (WORKFLOW_STEPS.length - 1)) * 100}%`,
-              maxWidth: 'calc(100% - 10px)',
-            }}
-          />
-          <div className="relative flex items-center justify-between w-full">
-            {WORKFLOW_STEPS.map((step, i) => {
-              const isCompleted = i < currentIdx;
-              const isCurrent = i === currentIdx;
+        <div className="flex items-center gap-[2px] min-w-[110px]" data-testid={`workflow-${status}`}>
+          {WORKFLOW_STEPS.map((step, i) => {
+            const isCompleted = i < currentIdx;
+            const isCurrent = i === currentIdx;
+            const isFirst = i === 0;
+            const isLast = i === WORKFLOW_STEPS.length - 1;
 
-              let bg = futureColor;
-              let size = 10;
-              let border = "none";
-              let shadow = "none";
+            let bg = colors.future;
+            let textColor = colors.futureText;
 
-              if (isCompleted) {
-                bg = completedColor;
-                size = 10;
-              }
-              if (isCurrent) {
-                bg = activeColor;
-                size = 14;
-                border = `2px solid white`;
-                shadow = `0 0 0 2px ${activeColor}`;
-              }
+            if (isCompleted) {
+              bg = colors.completed;
+              textColor = colors.completedText;
+            } else if (isCurrent) {
+              bg = colors.current;
+              textColor = "#ffffff";
+            }
 
-              return (
-                <div
-                  key={step.key}
-                  className="rounded-full transition-all duration-300 flex-shrink-0"
-                  style={{
-                    width: size,
-                    height: size,
-                    backgroundColor: bg,
-                    border,
-                    boxShadow: shadow,
-                  }}
-                />
-              );
-            })}
-          </div>
+            const radius = isFirst ? "4px 0 0 4px" : isLast ? "0 4px 4px 0" : "0";
+
+            return (
+              <div
+                key={step.key}
+                className="flex items-center justify-center text-[9px] font-semibold leading-none transition-all duration-300 whitespace-nowrap"
+                style={{
+                  backgroundColor: bg,
+                  color: textColor,
+                  borderRadius: radius,
+                  padding: "4px 5px",
+                  minWidth: 0,
+                  flex: 1,
+                }}
+              >
+                {isCompleted ? "✓" : step.label.substring(0, 3)}
+              </div>
+            );
+          })}
         </div>
       </TooltipTrigger>
       <TooltipContent side="top" className="p-3">
@@ -189,14 +185,9 @@ function WorkflowIndicator({ status }: { status: string }) {
             const isCurrent = i === currentIdx;
             return (
               <div key={step.key} className="flex items-center gap-2">
-                <div
-                  className="rounded-full flex-shrink-0"
-                  style={{
-                    width: 8,
-                    height: 8,
-                    backgroundColor: isCurrent ? activeColor : isCompleted ? completedColor : futureColor,
-                  }}
-                />
+                <span style={{ color: isCurrent ? colors.current : isCompleted ? colors.completedText : colors.futureText }}>
+                  {isCompleted ? "✓" : isCurrent ? "●" : "○"}
+                </span>
                 <span className={isCurrent ? "font-bold" : isCompleted ? "" : "text-muted-foreground/60"}>
                   {step.label}
                   {isCurrent && negative ? ` — ${getStatusLabel(status)}` : ""}
