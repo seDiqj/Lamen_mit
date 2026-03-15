@@ -285,7 +285,7 @@ export interface IStorage {
   createActivityLog(data: InsertActivityLog): Promise<ActivityLog>;
   
   // Dashboard Stats
-  getDashboardStats(): Promise<any>;
+  getDashboardStats(filters?: { branchId?: string; startDate?: string; endDate?: string }): Promise<any>;
   getBranchStats(): Promise<any[]>;
   getFundingSourceBranchStats(): Promise<any[]>;
   
@@ -2457,13 +2457,15 @@ export class DatabaseStorage implements IStorage {
       loansByStatus: loansByStatus.map(s => ({ status: s.status || "pending", count: Number(s.count), requestedAmount: Number(s.requestedAmount) })),
       monthlyTrends,
       recentLoans,
-      officerPerformance: await this.getOfficerPerformance(),
-      alerts: await this.getDashboardAlerts(),
+      officerPerformance: await this.getOfficerPerformance(filters),
+      alerts: await this.getDashboardAlerts(filters),
       financialPerformance: await this.getFinancialPerformance(filters),
     };
   }
 
-  async getDashboardAlerts(): Promise<any[]> {
+  async getDashboardAlerts(filters?: { branchId?: string; startDate?: string; endDate?: string }): Promise<any[]> {
+    const branchFilter = filters?.branchId ? sql`AND l.branch_id = ${filters.branchId}` : sql``;
+    const branchFilterRoot = filters?.branchId ? sql`AND branch_id = ${filters.branchId}` : sql``;
     const alerts: any[] = [];
 
     const overdueResult = await db.execute(sql`
@@ -2476,6 +2478,7 @@ export class DatabaseStorage implements IStorage {
       WHERE i.is_paid = false AND i.due_date < CURRENT_DATE
         AND l.status IN ('disbursed', 'active')
         AND COALESCE(i.principle_amount::numeric, 0) > 0
+        ${branchFilter}
     `);
     const od = overdueResult.rows[0] as any;
     const overdueLoans = Number(od.overdue_loans || 0);
@@ -2499,6 +2502,7 @@ export class DatabaseStorage implements IStorage {
       JOIN loans l ON i.loan_id = l.id
       WHERE i.is_paid = false AND i.due_date = CURRENT_DATE
         AND l.status IN ('disbursed', 'active')
+        ${branchFilter}
     `);
     const dt = dueTodayResult.rows[0] as any;
     const dueToday = Number(dt.loans_due || 0);
@@ -2523,6 +2527,7 @@ export class DatabaseStorage implements IStorage {
         AND i.due_date > CURRENT_DATE
         AND i.due_date <= CURRENT_DATE + INTERVAL '7 days'
         AND l.status IN ('disbursed', 'active')
+        ${branchFilter}
     `);
     const dw = dueThisWeekResult.rows[0] as any;
     const dueWeek = Number(dw.loans_due || 0);
@@ -2539,7 +2544,7 @@ export class DatabaseStorage implements IStorage {
     const pendingApprovalResult = await db.execute(sql`
       SELECT COUNT(*) as pending_count
       FROM loans
-      WHERE status = 'pending'
+      WHERE status = 'pending' ${branchFilterRoot}
     `);
     const pendingCount = Number((pendingApprovalResult.rows[0] as any)?.pending_count || 0);
     if (pendingCount > 0) {
@@ -2555,7 +2560,7 @@ export class DatabaseStorage implements IStorage {
     const approvedNotDisbursedResult = await db.execute(sql`
       SELECT COUNT(*) as approved_count
       FROM loans
-      WHERE status = 'approved'
+      WHERE status = 'approved' ${branchFilterRoot}
     `);
     const approvedCount = Number((approvedNotDisbursedResult.rows[0] as any)?.approved_count || 0);
     if (approvedCount > 0) {
@@ -2573,6 +2578,7 @@ export class DatabaseStorage implements IStorage {
       FROM finance_officers fo
       JOIN loans l ON l.finance_officer_id = fo.id
       WHERE l.status IN ('disbursed', 'active')
+        ${branchFilter}
         AND EXISTS (
           SELECT 1 FROM installments i
           WHERE i.loan_id = l.id AND i.is_paid = false
@@ -2936,7 +2942,9 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getOfficerPerformance(): Promise<any[]> {
+  async getOfficerPerformance(filters?: { branchId?: string; startDate?: string; endDate?: string }): Promise<any[]> {
+    const branchFilter = filters?.branchId ? sql`AND l.branch_id = ${filters.branchId}` : sql``;
+    const officerBranchFilter = filters?.branchId ? sql`AND fo.branch_id = ${filters.branchId}` : sql``;
     const result = await db.execute(sql`
       SELECT
         fo.id as officer_id,
@@ -2958,14 +2966,14 @@ export class DatabaseStorage implements IStorage {
         COUNT(DISTINCT l.id) FILTER (WHERE l.status = 'disbursed' AND d.disbursement_date >= CURRENT_DATE - INTERVAL '30 days') as disbursed_last_30d
       FROM finance_officers fo
       LEFT JOIN branches b ON b.id = fo.branch_id
-      LEFT JOIN loans l ON l.finance_officer_id = fo.id
+      LEFT JOIN loans l ON l.finance_officer_id = fo.id ${branchFilter}
       LEFT JOIN LATERAL (
         SELECT SUM(COALESCE(inst.paid_amount::numeric, 0)) as paid_amount
         FROM installments inst
         WHERE inst.loan_id = l.id AND inst.is_paid = true
       ) i_paid ON true
       LEFT JOIN disbursements d ON d.loan_id = l.id
-      WHERE fo.is_active = true
+      WHERE fo.is_active = true ${officerBranchFilter}
       GROUP BY fo.id, fo.name, fo.code, b.name
       ORDER BY portfolio_amount DESC
     `);
