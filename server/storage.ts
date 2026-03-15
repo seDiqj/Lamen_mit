@@ -4996,6 +4996,40 @@ export class DatabaseStorage implements IStorage {
     const incomeAccounts = allAccounts.filter(a => a.accountType === 'income');
     const expenseAccounts = allAccounts.filter(a => a.accountType === 'expense');
 
+    const balanceSheetAccountIds = allAccounts
+      .filter(a => a.accountType === 'asset' || a.accountType === 'liability' || a.accountType === 'equity')
+      .map(a => a.id);
+
+    const balanceRows = balanceSheetAccountIds.length > 0
+      ? await db
+          .select({
+            accountId: journalLines.accountId,
+            totalDebit: sql<string>`COALESCE(SUM(CAST(${journalLines.debitAmount} AS numeric)), 0)`,
+            totalCredit: sql<string>`COALESCE(SUM(CAST(${journalLines.creditAmount} AS numeric)), 0)`,
+          })
+          .from(journalLines)
+          .leftJoin(journalEntries, eq(journalLines.journalEntryId, journalEntries.id))
+          .where(and(
+            eq(journalEntries.isPosted, true),
+            inArray(journalLines.accountId, balanceSheetAccountIds),
+            lte(journalEntries.entryDate, asOfDate),
+          ))
+          .groupBy(journalLines.accountId)
+      : [];
+
+    const balanceMap = new Map<string, number>();
+    for (const row of balanceRows) {
+      const debit = Number(row.totalDebit || 0);
+      const credit = Number(row.totalCredit || 0);
+      const acc = allAccounts.find(a => a.id === row.accountId);
+      if (!acc) continue;
+      if (acc.accountType === 'asset') {
+        balanceMap.set(row.accountId, debit - credit);
+      } else {
+        balanceMap.set(row.accountId, credit - debit);
+      }
+    }
+
     type TreeNode = {
       id: string;
       accountCode: string;
@@ -5027,7 +5061,7 @@ export class DatabaseStorage implements IStorage {
         kids.sort(sortByCode);
         const childNodes = kids.map(buildNode);
         const isLeaf = childNodes.length === 0;
-        const ownBalance = Number(acc.currentBalance || 0);
+        const ownBalance = balanceMap.get(acc.id) || 0;
         const amount = isLeaf
           ? ownBalance
           : childNodes.reduce((sum, c) => sum + c.amount, 0) + ownBalance;

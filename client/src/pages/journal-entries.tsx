@@ -237,9 +237,11 @@ export default function JournalEntries() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const shareholderFs = fundingSources.find((fs: any) => fs.name?.toLowerCase().includes("shareholder"));
+    const defaultFundingSourceId = shareholderFs?.id || "";
     const validLines = lines
       .filter(l => l.accountId && (Number(l.debitAmount) > 0 || Number(l.creditAmount) > 0))
-      .map(l => ({ ...l, fundingSourceId: l.fundingSourceId || "" }));
+      .map(l => ({ ...l, fundingSourceId: l.fundingSourceId || defaultFundingSourceId }));
     if (validLines.length < 2) {
       toast({ title: "Error", description: "At least two valid lines are required", variant: "destructive" });
       return;
