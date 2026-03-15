@@ -2187,8 +2187,10 @@ export class DatabaseStorage implements IStorage {
     const loanCounts = loanCountsResult.rows[0] as any;
 
     const customerCountResult = await db.execute(sql`
-      SELECT COUNT(*) as count FROM customers
-      ${filters?.branchId ? sql`WHERE branch_id = ${filters.branchId}` : sql``}
+      SELECT COUNT(DISTINCT ${filters?.branchId ? sql`l.customer_id` : sql`c.id`}) as count
+      ${filters?.branchId
+        ? sql`FROM loans l WHERE l.branch_id = ${filters.branchId}`
+        : sql`FROM customers c`}
     `);
     const customerCount = { count: Number((customerCountResult.rows[0] as any)?.count || 0) };
     
