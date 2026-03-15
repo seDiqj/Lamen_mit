@@ -223,6 +223,17 @@ export async function registerRoutes(
 
     const userRole = await storage.getUserRole(req.session.userId);
 
+    let financeOfficerId = null;
+    let officerBranchId = null;
+    try {
+      const allOfficers = await storage.getFinanceOfficers();
+      const matchedOfficer = allOfficers.find((o: any) => o.userId === user.id);
+      if (matchedOfficer) {
+        financeOfficerId = matchedOfficer.id;
+        officerBranchId = matchedOfficer.branchId;
+      }
+    } catch (e) {}
+
     res.json({
       id: user.id,
       username: user.username,
@@ -230,6 +241,8 @@ export async function registerRoutes(
       lastName: user.lastName,
       email: user.email,
       role: userRole?.role || null,
+      branchId: officerBranchId || user.branchId || null,
+      financeOfficerId: financeOfficerId || null,
     });
   });
 

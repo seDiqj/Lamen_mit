@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import type { Branch, FinanceOfficer, FundingSource, Sector, Business, Province, District, LicenseType } from "@shared/schema";
 import { cn, toPersianDate } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
 
 const loanApplicationSchema = z.object({
   customerNo: z.string().optional(),
@@ -171,6 +172,7 @@ export default function LoanApplicationPage() {
   const prefilledCustomerId = searchParams.get("customerId");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [customerPhoto, setCustomerPhoto] = useState<{ url: string; name: string } | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -210,6 +212,18 @@ export default function LoanApplicationPage() {
       requestDate: new Date().toISOString().split("T")[0],
     },
   });
+
+  useEffect(() => {
+    if (user) {
+      const currentValues = form.getValues();
+      if (!currentValues.branchId && (user as any).branchId) {
+        form.setValue("branchId", (user as any).branchId);
+      }
+      if (!currentValues.financeOfficerId && (user as any).financeOfficerId) {
+        form.setValue("financeOfficerId", (user as any).financeOfficerId);
+      }
+    }
+  }, [user, form]);
 
   useEffect(() => {
     if (prefilledCustomer && !customerPrefilled) {
