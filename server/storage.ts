@@ -1641,7 +1641,7 @@ export class DatabaseStorage implements IStorage {
     } else if (filter === "due_soon") {
       conditions.push(sql`${installments.isPaid} = false AND ${installments.dueDate}::date <= ${threeDaysLater}::date`);
     } else if (filter === "overdue") {
-      conditions.push(sql`${installments.isPaid} = false AND ${installments.dueDate}::date <= ${today}::date`);
+      conditions.push(sql`${installments.isPaid} = false AND ${installments.dueDate}::date <= ${today}::date AND COALESCE(${installments.principleAmount}::numeric, 0) > 0`);
     } else if (filter === "partial") {
       conditions.push(sql`${installments.isPaid} = false AND COALESCE(${installments.paidAmount}, 0) > 0`);
     } else if (filter === "all_unpaid") {
@@ -1723,7 +1723,7 @@ export class DatabaseStorage implements IStorage {
         totalDue: sql<string>`COALESCE(SUM(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate}::date <= ${threeDaysLater}::date THEN ${installments.totalAmount}::numeric ELSE 0 END), 0)`,
         totalCollected: sql<string>`COALESCE(SUM(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate}::date <= ${threeDaysLater}::date THEN COALESCE(${installments.paidAmount}::numeric, 0) ELSE 0 END), 0)`,
         totalRemaining: sql<string>`COALESCE(SUM(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate}::date <= ${threeDaysLater}::date THEN (${installments.totalAmount}::numeric - COALESCE(${installments.paidAmount}::numeric, 0)) ELSE 0 END), 0)`,
-        overdueCount: sql<number>`COUNT(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate}::date <= ${today}::date THEN 1 END)`,
+        overdueCount: sql<number>`COUNT(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate}::date <= ${today}::date AND COALESCE(${installments.principleAmount}::numeric, 0) > 0 THEN 1 END)`,
         upcomingCount: sql<number>`COUNT(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate}::date > ${today}::date AND ${installments.dueDate}::date <= ${threeDaysLater}::date THEN 1 END)`,
         partialCount: sql<number>`COUNT(CASE WHEN ${installments.isPaid} = false AND COALESCE(${installments.paidAmount}::numeric, 0) > 0 THEN 1 END)`,
       })
@@ -2315,7 +2315,7 @@ export class DatabaseStorage implements IStorage {
         (SELECT COALESCE(SUM(l.principle_amount::numeric), 0) FROM disbursements d JOIN loans l ON d.loan_id = l.id WHERE d.disbursement_date = CURRENT_DATE ${branchFilter}) as amount_disbursed_today,
         (SELECT COALESCE(SUM(ins.total_amount::numeric), 0) FROM installments ins JOIN loans l ON ins.loan_id = l.id WHERE ins.due_date = CURRENT_DATE AND ins.is_paid = false ${branchFilter}) as amount_due_today,
         (SELECT COALESCE(SUM(ins.paid_amount::numeric), 0) FROM installments ins JOIN loans l ON ins.loan_id = l.id WHERE DATE(ins.payment_date) = CURRENT_DATE AND ins.is_paid = true ${branchFilter}) as amount_collected_today,
-        (SELECT COUNT(*) FROM installments ins JOIN loans l ON ins.loan_id = l.id WHERE ins.due_date < CURRENT_DATE AND ins.is_paid = false ${branchFilter}) as missed_payments_total,
+        (SELECT COUNT(*) FROM installments ins JOIN loans l ON ins.loan_id = l.id WHERE ins.due_date < CURRENT_DATE AND ins.is_paid = false AND COALESCE(ins.principle_amount::numeric, 0) > 0 ${branchFilter}) as missed_payments_total,
         (SELECT COUNT(*) FROM installments ins JOIN loans l ON ins.loan_id = l.id WHERE ins.due_date = CURRENT_DATE AND ins.is_paid = false ${branchFilter}) as due_today_count,
         (SELECT COUNT(*) FROM installments ins JOIN loans l ON ins.loan_id = l.id WHERE DATE(ins.payment_date) = CURRENT_DATE AND ins.is_paid = true ${branchFilter}) as collected_today_count
     `);
@@ -2351,6 +2351,7 @@ export class DatabaseStorage implements IStorage {
           SELECT 1 FROM installments i
           WHERE i.loan_id = l.id AND i.is_paid = false
             AND i.due_date < CURRENT_DATE
+            AND COALESCE(i.principle_amount::numeric, 0) > 0
         )
     `);
     const parLoans = Number((parResult.rows[0] as any)?.par_loans || 0);
@@ -2369,6 +2370,7 @@ export class DatabaseStorage implements IStorage {
           SELECT MAX(CURRENT_DATE - i3.due_date)
           FROM installments i3
           WHERE i3.loan_id = l.id AND i3.is_paid = false AND i3.due_date < CURRENT_DATE
+            AND COALESCE(i3.principle_amount::numeric, 0) > 0
         ), 0) as max_days_overdue
       FROM loans l
       WHERE l.status IN ('disbursed', 'active') ${branchFilterRoot}
@@ -2473,6 +2475,7 @@ export class DatabaseStorage implements IStorage {
       JOIN loans l ON i.loan_id = l.id
       WHERE i.is_paid = false AND i.due_date < CURRENT_DATE
         AND l.status IN ('disbursed', 'active')
+        AND COALESCE(i.principle_amount::numeric, 0) > 0
     `);
     const od = overdueResult.rows[0] as any;
     const overdueLoans = Number(od.overdue_loans || 0);
@@ -2574,6 +2577,7 @@ export class DatabaseStorage implements IStorage {
           SELECT 1 FROM installments i
           WHERE i.loan_id = l.id AND i.is_paid = false
             AND i.due_date < CURRENT_DATE - INTERVAL '30 days'
+            AND COALESCE(i.principle_amount::numeric, 0) > 0
         )
         AND fo.is_active = true
       GROUP BY fo.id, fo.name
@@ -2619,6 +2623,7 @@ export class DatabaseStorage implements IStorage {
           LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
           WHERE i.is_paid = false AND i.due_date < CURRENT_DATE
             AND l.status IN ('disbursed', 'active')
+            AND COALESCE(i.principle_amount::numeric, 0) > 0
           ORDER BY i.due_date ASC
           LIMIT 50
         `);
@@ -2765,8 +2770,8 @@ export class DatabaseStorage implements IStorage {
         const result = await db.execute(sql`
           SELECT l.id, l.application_id, CONCAT(c.first_name, ' ', c.last_name) as customer_name,
             l.principle_amount, b.name as branch_name, fo.name as officer_name,
-            (SELECT MAX(CURRENT_DATE - i.due_date) FROM installments i WHERE i.loan_id = l.id AND i.is_paid = false AND i.due_date < CURRENT_DATE) as max_days_overdue,
-            (SELECT COUNT(*) FROM installments i WHERE i.loan_id = l.id AND i.is_paid = false AND i.due_date < CURRENT_DATE) as overdue_count
+            (SELECT MAX(CURRENT_DATE - i.due_date) FROM installments i WHERE i.loan_id = l.id AND i.is_paid = false AND i.due_date < CURRENT_DATE AND COALESCE(i.principle_amount::numeric, 0) > 0) as max_days_overdue,
+            (SELECT COUNT(*) FROM installments i WHERE i.loan_id = l.id AND i.is_paid = false AND i.due_date < CURRENT_DATE AND COALESCE(i.principle_amount::numeric, 0) > 0) as overdue_count
           FROM loans l
           LEFT JOIN customers c ON l.customer_id = c.id
           LEFT JOIN branches b ON l.branch_id = b.id
@@ -2776,6 +2781,7 @@ export class DatabaseStorage implements IStorage {
               SELECT 1 FROM installments i
               WHERE i.loan_id = l.id AND i.is_paid = false
                 AND i.due_date < CURRENT_DATE - INTERVAL '30 days'
+                AND COALESCE(i.principle_amount::numeric, 0) > 0
             )
           ORDER BY max_days_overdue DESC
           LIMIT 50
@@ -2942,11 +2948,11 @@ export class DatabaseStorage implements IStorage {
         COALESCE(SUM(l.principle_amount::numeric) FILTER (WHERE l.status IN ('disbursed', 'active')), 0) as portfolio_amount,
         COALESCE(SUM(l.principle_amount::numeric) FILTER (WHERE l.status IN ('disbursed', 'active')
           AND EXISTS (
-            SELECT 1 FROM installments i WHERE i.loan_id = l.id AND i.is_paid = false AND i.due_date < CURRENT_DATE
+            SELECT 1 FROM installments i WHERE i.loan_id = l.id AND i.is_paid = false AND i.due_date < CURRENT_DATE AND COALESCE(i.principle_amount::numeric, 0) > 0
           )), 0) as par_amount,
         COUNT(DISTINCT l.id) FILTER (WHERE l.status IN ('disbursed', 'active')
           AND EXISTS (
-            SELECT 1 FROM installments i WHERE i.loan_id = l.id AND i.is_paid = false AND i.due_date < CURRENT_DATE
+            SELECT 1 FROM installments i WHERE i.loan_id = l.id AND i.is_paid = false AND i.due_date < CURRENT_DATE AND COALESCE(i.principle_amount::numeric, 0) > 0
           )) as par_loans,
         COALESCE(SUM(i_paid.paid_amount::numeric), 0) as total_collected,
         COUNT(DISTINCT l.id) FILTER (WHERE l.status = 'disbursed' AND d.disbursement_date >= CURRENT_DATE - INTERVAL '30 days') as disbursed_last_30d
@@ -3200,6 +3206,7 @@ export class DatabaseStorage implements IStorage {
         AND i.due_date IS NOT NULL
         AND i.due_date::date < CURRENT_DATE
         AND (COALESCE(i.total_amount::numeric, 0) - COALESCE(i.paid_amount::numeric, 0)) > 0
+        AND COALESCE(i.principle_amount::numeric, 0) > 0
       ORDER BY days_past_due DESC
     `);
     
@@ -3294,6 +3301,7 @@ export class DatabaseStorage implements IStorage {
             AND i2.due_date IS NOT NULL
             AND i2.due_date::date < CURRENT_DATE
             AND (COALESCE(i2.total_amount::numeric, 0) - COALESCE(i2.paid_amount::numeric, 0)) > 0
+            AND COALESCE(i2.principle_amount::numeric, 0) > 0
         )
     `);
     currentCategory.loanCount = parseInt((currentLoansResult.rows[0] as any)?.count) || 0;
@@ -3355,6 +3363,7 @@ export class DatabaseStorage implements IStorage {
             AND i2.due_date IS NOT NULL
             AND i2.due_date::date < CURRENT_DATE
             AND (COALESCE(i2.total_amount::numeric, 0) - COALESCE(i2.paid_amount::numeric, 0)) > 0
+            AND COALESCE(i2.principle_amount::numeric, 0) > 0
         ), 0) as par_amount,
         (SELECT COUNT(DISTINCT i3.loan_id)
           FROM installments i3
@@ -3365,6 +3374,7 @@ export class DatabaseStorage implements IStorage {
             AND i3.due_date IS NOT NULL
             AND i3.due_date::date < CURRENT_DATE
             AND (COALESCE(i3.total_amount::numeric, 0) - COALESCE(i3.paid_amount::numeric, 0)) > 0
+            AND COALESCE(i3.principle_amount::numeric, 0) > 0
         ) as par_loan_count
       FROM loans l
       LEFT JOIN branches b ON l.branch_id = b.id
@@ -3405,6 +3415,7 @@ export class DatabaseStorage implements IStorage {
             AND i2.due_date IS NOT NULL
             AND i2.due_date::date < CURRENT_DATE
             AND (COALESCE(i2.total_amount::numeric, 0) - COALESCE(i2.paid_amount::numeric, 0)) > 0
+            AND COALESCE(i2.principle_amount::numeric, 0) > 0
         ), 0) as par_amount
       FROM loans l
       LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
@@ -3445,6 +3456,7 @@ export class DatabaseStorage implements IStorage {
             AND i2.due_date IS NOT NULL
             AND i2.due_date::date < CURRENT_DATE
             AND (COALESCE(i2.total_amount::numeric, 0) - COALESCE(i2.paid_amount::numeric, 0)) > 0
+            AND COALESCE(i2.principle_amount::numeric, 0) > 0
         ), 0) as par_amount
       FROM loans l
       WHERE l.status IN ('disbursed', 'active')
@@ -3491,6 +3503,7 @@ export class DatabaseStorage implements IStorage {
         AND i.due_date IS NOT NULL
         AND i.due_date::date < CURRENT_DATE
         AND (COALESCE(i.total_amount::numeric, 0) - COALESCE(i.paid_amount::numeric, 0)) > 0
+        AND COALESCE(i.principle_amount::numeric, 0) > 0
       ORDER BY days_past_due DESC
       LIMIT 200
     `);
@@ -3567,6 +3580,7 @@ export class DatabaseStorage implements IStorage {
         AND i.due_date IS NOT NULL
         AND i.due_date::date < CURRENT_DATE
         AND (COALESCE(i.total_amount::numeric, 0) - COALESCE(i.paid_amount::numeric, 0)) > 0
+        AND COALESCE(i.principle_amount::numeric, 0) > 0
         AND (CURRENT_DATE - i.due_date::date) >= ${startDay}
         AND (CURRENT_DATE - i.due_date::date) <= ${endDay}
       ORDER BY days_past_due DESC
@@ -3612,6 +3626,7 @@ export class DatabaseStorage implements IStorage {
         AND i.due_date IS NOT NULL
         AND i.due_date::date < CURRENT_DATE
         AND (COALESCE(i.total_amount::numeric, 0) - COALESCE(i.paid_amount::numeric, 0)) > 0
+        AND COALESCE(i.principle_amount::numeric, 0) > 0
       ORDER BY days_past_due DESC
     `);
     
@@ -3655,6 +3670,7 @@ export class DatabaseStorage implements IStorage {
         AND i.due_date IS NOT NULL
         AND i.due_date::date < CURRENT_DATE
         AND (COALESCE(i.total_amount::numeric, 0) - COALESCE(i.paid_amount::numeric, 0)) > 0
+        AND COALESCE(i.principle_amount::numeric, 0) > 0
       ORDER BY days_past_due DESC
     `);
     
@@ -3698,6 +3714,7 @@ export class DatabaseStorage implements IStorage {
         AND i.due_date IS NOT NULL
         AND i.due_date::date < CURRENT_DATE
         AND (COALESCE(i.total_amount::numeric, 0) - COALESCE(i.paid_amount::numeric, 0)) > 0
+        AND COALESCE(i.principle_amount::numeric, 0) > 0
       ORDER BY days_past_due DESC
     `);
     
