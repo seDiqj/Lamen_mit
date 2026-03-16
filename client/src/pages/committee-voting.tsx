@@ -133,6 +133,9 @@ export default function CommitteeVotingPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [comments, setComments] = useState("");
   const [selectedFundingSourceId, setSelectedFundingSourceId] = useState("");
+  const [committeePrincipleAmount, setCommitteePrincipleAmount] = useState("");
+  const [committeeMarginRate, setCommitteeMarginRate] = useState("");
+  const [committeeGracePeriod, setCommitteeGracePeriod] = useState("");
 
   const { data: pendingLoans, isLoading } = useQuery<LoanApprovalInfo[]>({
     queryKey: ["/api/committee/pending-loans"],
@@ -168,7 +171,7 @@ export default function CommitteeVotingPage() {
   })();
 
   const submitVoteMutation = useMutation({
-    mutationFn: async (data: { loanId: string; vote: string; comments: string; fundingSourceId?: string }) => {
+    mutationFn: async (data: { loanId: string; vote: string; comments: string; fundingSourceId?: string; principleAmount?: string; marginRate?: string; gracePeriod?: string }) => {
       const res = await apiRequest("POST", "/api/committee/vote", data);
       return res.json();
     },
@@ -183,6 +186,9 @@ export default function CommitteeVotingPage() {
       setCurrentStep(1);
       setComments("");
       setSelectedFundingSourceId("");
+      setCommitteePrincipleAmount("");
+      setCommitteeMarginRate("");
+      setCommitteeGracePeriod("");
     },
     onError: (error: Error) => {
       toast({
@@ -197,13 +203,30 @@ export default function CommitteeVotingPage() {
     setSelectedLoanId(null);
     setCurrentStep(1);
     setComments("");
+    setCommitteePrincipleAmount("");
+    setCommitteeMarginRate("");
+    setCommitteeGracePeriod("");
   };
 
   const isCfo = ((user as any)?.role || "").toLowerCase() === "cfo";
 
   const handleVote = (vote: "approved" | "rejected") => {
     if (!selectedLoanId) return;
-    const payload: { loanId: string; vote: string; comments: string; fundingSourceId?: string } = {
+    if (vote === "approved") {
+      if (!committeePrincipleAmount || Number(committeePrincipleAmount) <= 0) {
+        toast({ title: "Validation Error", description: "Principle Amount is required for approval.", variant: "destructive" });
+        return;
+      }
+      if (!committeeMarginRate || Number(committeeMarginRate) <= 0) {
+        toast({ title: "Validation Error", description: "Margin Rate is required for approval.", variant: "destructive" });
+        return;
+      }
+      if (committeeGracePeriod === "" || Number(committeeGracePeriod) < 0) {
+        toast({ title: "Validation Error", description: "Grace Period is required for approval.", variant: "destructive" });
+        return;
+      }
+    }
+    const payload: { loanId: string; vote: string; comments: string; fundingSourceId?: string; principleAmount?: string; marginRate?: string; gracePeriod?: string } = {
       loanId: selectedLoanId,
       vote,
       comments,
@@ -211,6 +234,9 @@ export default function CommitteeVotingPage() {
     if (isCfo && selectedFundingSourceId) {
       payload.fundingSourceId = selectedFundingSourceId;
     }
+    if (committeePrincipleAmount) payload.principleAmount = committeePrincipleAmount;
+    if (committeeMarginRate) payload.marginRate = committeeMarginRate;
+    if (committeeGracePeriod !== "") payload.gracePeriod = committeeGracePeriod;
     submitVoteMutation.mutate(payload);
   };
 
@@ -739,6 +765,88 @@ export default function CommitteeVotingPage() {
 
                 {!hasVoted && (
                   <div className="space-y-4">
+                    <div className="p-4 bg-orange-50 dark:bg-orange-950 rounded-lg space-y-3">
+                      <h4 className="font-semibold text-orange-700 dark:text-orange-300 flex items-center gap-2">
+                        <FileText className="h-4 w-4" />
+                        Committee Financial Terms (Required for Approval)
+                      </h4>
+                      <p className="text-xs text-muted-foreground">Set the approved principle amount, margin rate, and grace period for this financing application.</p>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="space-y-1">
+                          <Label htmlFor="committee-principle">Principle Amount (AFN) <span className="text-red-500">*</span></Label>
+                          <Input
+                            id="committee-principle"
+                            type="number"
+                            placeholder="Enter principle amount"
+                            value={committeePrincipleAmount}
+                            onChange={(e) => setCommitteePrincipleAmount(e.target.value)}
+                            data-testid="input-committee-principle"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="committee-margin">Margin Rate (%) <span className="text-red-500">*</span></Label>
+                          <Input
+                            id="committee-margin"
+                            type="number"
+                            step="0.01"
+                            placeholder="e.g. 15"
+                            value={committeeMarginRate}
+                            onChange={(e) => setCommitteeMarginRate(e.target.value)}
+                            data-testid="input-committee-margin"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="committee-grace">Grace Period (months) <span className="text-red-500">*</span></Label>
+                          <Input
+                            id="committee-grace"
+                            type="number"
+                            placeholder="0"
+                            value={committeeGracePeriod}
+                            onChange={(e) => setCommitteeGracePeriod(e.target.value)}
+                            data-testid="input-committee-grace"
+                          />
+                        </div>
+                      </div>
+                      {committeePrincipleAmount && committeeMarginRate && Number(committeePrincipleAmount) > 0 && Number(committeeMarginRate) > 0 && (() => {
+                        const amt = Number(committeePrincipleAmount);
+                        let margin = Number(committeeMarginRate);
+                        if (margin > 0 && margin < 1) margin = margin * 100;
+                        const dur = Number(loanDetails?.loan?.financingDurationMonths) || 0;
+                        const inst = Number(loanDetails?.loan?.numberOfInstallments) || dur;
+                        if (amt > 0 && margin > 0 && dur > 0) {
+                          const totalMargin = (amt * (margin / 100) / 12) * dur;
+                          const totalRepayment = amt + totalMargin;
+                          const monthly = inst > 0 ? totalRepayment / inst : totalRepayment / dur;
+                          return (
+                            <div className="mt-2 p-3 rounded-md bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
+                              <h4 className="text-xs font-semibold text-green-800 dark:text-green-300 mb-2">Financing Summary</h4>
+                              <div className="grid grid-cols-3 gap-3">
+                                <div>
+                                  <p className="text-xs text-muted-foreground">Total Margin</p>
+                                  <p className="text-sm font-bold text-green-700 dark:text-green-400" data-testid="text-committee-total-margin">
+                                    {totalMargin.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} AFN
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-muted-foreground">Total Repayment</p>
+                                  <p className="text-sm font-bold text-green-700 dark:text-green-400" data-testid="text-committee-total-repayment">
+                                    {totalRepayment.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} AFN
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-muted-foreground">Monthly Installment</p>
+                                  <p className="text-sm font-bold text-green-700 dark:text-green-400" data-testid="text-committee-monthly">
+                                    {monthly.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} AFN
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
+                    </div>
+
                     {isCfo && (
                       <div className="p-4 bg-amber-50 dark:bg-amber-950 rounded-lg space-y-3">
                         <h4 className="font-semibold text-amber-700 dark:text-amber-300 flex items-center gap-2">

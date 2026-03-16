@@ -3059,7 +3059,7 @@ export async function registerRoutes(
 
   app.post("/api/committee/vote", isAuthenticated, requireRole("cfo", "coo", "ceo", "manager", "admin"), async (req: any, res) => {
     try {
-      const { loanId, vote, comments, fundingSourceId } = req.body;
+      const { loanId, vote, comments, fundingSourceId, principleAmount, marginRate, gracePeriod } = req.body;
       
       const loan = await storage.getLoan(loanId);
       if (!loan) {
@@ -3076,6 +3076,26 @@ export async function registerRoutes(
       const existingVote = await storage.getCommitteeVoteByLoanAndVoter(loanId, req.session.userId);
       if (existingVote && existingVote.vote !== "pending") {
         return res.status(400).json({ message: "You have already voted on this loan" });
+      }
+
+      if (vote === "approved") {
+        if (!principleAmount || Number(principleAmount) <= 0) {
+          return res.status(400).json({ message: "Principle Amount is required for approval" });
+        }
+        if (!marginRate || Number(marginRate) <= 0) {
+          return res.status(400).json({ message: "Margin Rate is required for approval" });
+        }
+        if (gracePeriod === undefined || gracePeriod === null || Number(gracePeriod) < 0) {
+          return res.status(400).json({ message: "Grace Period is required for approval" });
+        }
+      }
+
+      if (principleAmount || marginRate || gracePeriod !== undefined) {
+        const loanUpdate: any = {};
+        if (principleAmount) loanUpdate.principleAmount = principleAmount;
+        if (marginRate) loanUpdate.marginRate = marginRate;
+        if (gracePeriod !== undefined && gracePeriod !== null) loanUpdate.gracePeriod = Number(gracePeriod);
+        await storage.updateLoan(loanId, loanUpdate);
       }
 
       // Create or update vote (upsert)

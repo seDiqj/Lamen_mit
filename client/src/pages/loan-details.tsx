@@ -856,63 +856,10 @@ export default function LoanDetailsPage() {
                   <FormField control={form.control} name="financingDurationMonths" render={({ field }) => (
                     <FormItem><FormLabel>Duration (Months)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
                   )} />
-                  <FormField control={form.control} name="gracePeriod" render={({ field }) => (
-                    <FormItem><FormLabel>Grace Period</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
-                  )} />
                   <FormField control={form.control} name="numberOfInstallments" render={({ field }) => (
                     <FormItem><FormLabel>Installments</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
                   )} />
-                  <FormField control={form.control} name="principleAmount" render={({ field }) => (
-                    <FormItem><FormLabel>Principle (AFN)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
-                  )} />
-                  <FormField control={form.control} name="marginRate" render={({ field }) => (
-                    <FormItem><FormLabel>Margin Rate (%)</FormLabel><FormControl><Input type="number" step="0.01" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
-                  )} />
                 </div>
-
-                {(() => {
-                  const reqAmount = Number(form.watch("requestAmount")) || 0;
-                  const principleAmt = Number(form.watch("principleAmount")) || 0;
-                  const loanAmount = reqAmount > 0 ? reqAmount : principleAmt;
-                  let margin = Number(form.watch("marginRate")) || 0;
-                  if (margin > 0 && margin < 1) margin = margin * 100;
-                  const durationMonths = Number(form.watch("financingDurationMonths")) || 0;
-                  const installments = Number(form.watch("numberOfInstallments")) || 0;
-                  if (loanAmount > 0 && margin > 0 && durationMonths > 0) {
-                    const totalMargin = (loanAmount * (margin / 100) / 12) * durationMonths;
-                    const totalRepayment = loanAmount + totalMargin;
-                    const monthlyInstallment = installments > 0 ? totalRepayment / installments : totalRepayment / durationMonths;
-                    return (
-                      <div className="mt-4 p-3 rounded-md bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
-                        <h4 className="text-xs font-semibold text-green-800 dark:text-green-300 mb-2">Financing Summary</h4>
-                        <div className="grid grid-cols-3 gap-3">
-                          <div>
-                            <p className="text-xs text-muted-foreground">Total Margin</p>
-                            <p className="text-sm font-bold text-green-700 dark:text-green-400" data-testid="text-total-margin">
-                              {totalMargin.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} AFN
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground">Total Repayment</p>
-                            <p className="text-sm font-bold text-green-700 dark:text-green-400" data-testid="text-total-repayment">
-                              {totalRepayment.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} AFN
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground">Monthly Installment</p>
-                            <p className="text-sm font-bold text-green-700 dark:text-green-400" data-testid="text-monthly-installment">
-                              {monthlyInstallment.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} AFN
-                            </p>
-                          </div>
-                        </div>
-                        <p className="text-[10px] text-muted-foreground mt-1">
-                          Formula: (Loan Amount x Margin% / 12) x Duration(months)
-                        </p>
-                      </div>
-                    );
-                  }
-                  return null;
-                })()}
               </CardContent>
             </Card>
           )}
