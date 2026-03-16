@@ -906,6 +906,51 @@ export async function registerRoutes(
     }
   });
 
+  // ===== COLLATERAL TYPES =====
+  app.get("/api/collateral-types", isAuthenticated, async (req, res) => {
+    try {
+      const { search } = req.query;
+      const types = await storage.getCollateralTypes(search as string | undefined);
+      res.json(types);
+    } catch (error) {
+      console.error("Error fetching collateral types:", error);
+      res.status(500).json({ message: "Failed to fetch collateral types" });
+    }
+  });
+
+  app.post("/api/collateral-types", isAuthenticated, requirePageAccess("lookup"), async (req: any, res) => {
+    try {
+      const ct = await storage.createCollateralType(req.body);
+      await logActivity(req, "create_collateral_type", "collateral_type", ct.id.toString(), `Created collateral type: ${ct.name}`);
+      res.status(201).json(ct);
+    } catch (error) {
+      console.error("Error creating collateral type:", error);
+      res.status(500).json({ message: "Failed to create collateral type" });
+    }
+  });
+
+  app.patch("/api/collateral-types/:id", isAuthenticated, requirePageAccess("lookup"), async (req: any, res) => {
+    try {
+      const ct = await storage.updateCollateralType(parseInt(req.params.id), req.body);
+      await logActivity(req, "update_collateral_type", "collateral_type", req.params.id, `Updated collateral type: ${ct.name}`);
+      res.json(ct);
+    } catch (error) {
+      console.error("Error updating collateral type:", error);
+      res.status(500).json({ message: "Failed to update collateral type" });
+    }
+  });
+
+  app.delete("/api/collateral-types/:id", isAuthenticated, requirePageAccess("lookup"), async (req: any, res) => {
+    try {
+      await storage.deleteCollateralType(parseInt(req.params.id));
+      await logActivity(req, "delete_collateral_type", "collateral_type", req.params.id, `Deleted collateral type`);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting collateral type:", error);
+      res.status(500).json({ message: "Failed to delete collateral type" });
+    }
+  });
+
   // ===== FINANCING PURPOSES =====
   app.get("/api/financing-purposes", isAuthenticated, async (req, res) => {
     try {
@@ -2035,7 +2080,9 @@ export async function registerRoutes(
           ownerNidExpiryDate: data.collateralOwnerNidExpiry,
           collateralType: data.collateralType,
           province: data.collateralProvince,
+          district: data.collateralDistrict,
           address: data.collateralAddress,
+          description: data.collateralDescription,
           purchasedPrice: data.collateralPurchasedPrice?.toString(),
           marketPrice: data.collateralMarketPrice?.toString(),
         });
@@ -2291,7 +2338,9 @@ export async function registerRoutes(
         ownerNidExpiryDate: str(data.collateralOwnerNidExpiry),
         collateralType: str(data.collateralType),
         province: str(data.collateralProvince),
+        district: str(data.collateralDistrict),
         address: str(data.collateralAddress),
+        description: str(data.collateralDescription),
         purchasedPrice: dec(data.collateralPurchasedPrice),
         marketPrice: dec(data.collateralMarketPrice),
       };
@@ -5147,6 +5196,7 @@ export async function registerRoutes(
           contractCode: loans.applicationId,
           collateralCode: collaterals.ownerNationalId,
           collateralType: collaterals.collateralType,
+          collateralDescription: collaterals.description,
           purchasePrice: collaterals.purchasedPrice,
           marketPrice: collaterals.marketPrice,
           branchName: branches.name,
@@ -5166,7 +5216,7 @@ export async function registerRoutes(
         contractCode: row.contractCode || "",
         collateralCode: row.collateralCode || "",
         collateralType: row.collateralType || "",
-        collateralDescription: "NA",
+        collateralDescription: row.collateralDescription || "NA",
         collateralValue: Number(row.purchasePrice || 0),
         collateralCurrency: "AFN",
         valuationDate: row.createdAt ? new Date(row.createdAt).toISOString().split("T")[0] : "",

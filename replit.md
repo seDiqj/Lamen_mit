@@ -36,7 +36,8 @@ Preferred communication style: Simple, everyday language.
   - `branches`, `financeOfficers` - Organization structure
   - `customers`, `customerBusinesses`, `businessLicenses` - Customer data
   - `financingPurposes` - Lookup table for financing purpose dropdown values
-  - `loans`, `collaterals`, `guarantors` - Loan information (loans includes `businessDetailedDescription`, `clientOccupation` fields)
+  - `collateralTypes` - Lookup table for collateral type dropdown values
+  - `loans`, `collaterals`, `guarantors` - Loan information (loans includes `businessDetailedDescription`, `clientOccupation` fields; collaterals includes `description`, `district` fields)
   - `loanApprovals`, `disbursements`, `installments` - Loan lifecycle
   - `activityLogs` - Audit trail
   - `accounts` - Chart of accounts with hierarchical structure for double-entry bookkeeping

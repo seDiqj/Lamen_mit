@@ -103,6 +103,14 @@ export const financingPurposes = pgTable("financing_purposes", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Collateral Types
+export const collateralTypes = pgTable("collateral_types", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Customers
 export const customers = pgTable("customers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -225,6 +233,7 @@ export const collaterals = pgTable("collaterals", {
   district: varchar("district", { length: 255 }),
   village: varchar("village", { length: 255 }),
   address: text("address"),
+  description: text("description"),
   purchasedPrice: decimal("purchased_price", { precision: 15, scale: 2 }),
   marketPrice: decimal("market_price", { precision: 15, scale: 2 }),
   sizeMm: varchar("size_mm", { length: 100 }),
@@ -603,6 +612,11 @@ export type LicenseType = typeof licenseTypes.$inferSelect;
 export const insertFinancingPurposeSchema = createInsertSchema(financingPurposes).omit({ id: true, createdAt: true });
 export type InsertFinancingPurpose = z.infer<typeof insertFinancingPurposeSchema>;
 export type FinancingPurpose = typeof financingPurposes.$inferSelect;
+
+// Insert Schema and Types for Collateral Types
+export const insertCollateralTypeSchema = createInsertSchema(collateralTypes).omit({ id: true, createdAt: true });
+export type InsertCollateralType = z.infer<typeof insertCollateralTypeSchema>;
+export type CollateralType = typeof collateralTypes.$inferSelect;
 
 // ============== HR MODULE ==============
 

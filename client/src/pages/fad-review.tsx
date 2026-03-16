@@ -55,7 +55,7 @@ import {
   FolderUp
 } from "lucide-react";
 import { format } from "date-fns";
-import type { Branch, FinanceOfficer, FundingSource, Sector, Business, Province, District, LicenseType } from "@shared/schema";
+import type { Branch, FinanceOfficer, FundingSource, Sector, Business, Province, District, LicenseType, CollateralType } from "@shared/schema";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn, toPersianDate, calculateAge } from "@/lib/utils";
 import { MessageCircle } from "lucide-react";
@@ -147,7 +147,9 @@ const fadReviewSchema = z.object({
   collateralOwnerNidExpiry: z.string().optional(),
   collateralType: z.string().optional(),
   collateralProvince: z.string().optional(),
+  collateralDistrict: z.string().optional(),
   collateralAddress: z.string().optional(),
+  collateralDescription: z.string().optional(),
   collateralPurchasedPrice: z.coerce.number().optional(),
   collateralMarketPrice: z.coerce.number().optional(),
   financialGuarantorFullName: z.string().optional(),
@@ -229,6 +231,7 @@ export default function FadReviewPage() {
   const { data: financeOfficers = [] } = useQuery<FinanceOfficer[]>({ queryKey: ["/api/finance-officers"] });
   const { data: provinces = [] } = useQuery<Province[]>({ queryKey: ["/api/provinces"] });
   const { data: districts = [] } = useQuery<(District & { provinceName?: string })[]>({ queryKey: ["/api/districts"] });
+  const { data: collateralTypesList = [] } = useQuery<CollateralType[]>({ queryKey: ["/api/collateral-types"] });
   const { data: licenseTypes = [] } = useQuery<LicenseType[]>({ queryKey: ["/api/license-types"] });
   const { data: sectors = [] } = useQuery<Sector[]>({ queryKey: ["/api/sectors"] });
   const { data: businesses = [] } = useQuery<Business[]>({ queryKey: ["/api/businesses"] });
@@ -417,7 +420,9 @@ export default function FadReviewPage() {
         collateralOwnerNidExpiry: d.collateral?.ownerNidExpiryDate || "",
         collateralType: d.collateral?.collateralType || "",
         collateralProvince: d.collateral?.province || "",
+        collateralDistrict: d.collateral?.district || "",
         collateralAddress: d.collateral?.address || "",
+        collateralDescription: d.collateral?.description || "",
         collateralPurchasedPrice: parseFloat(d.collateral?.purchasedPrice) || 0,
         collateralMarketPrice: parseFloat(d.collateral?.marketPrice) || 0,
         financialGuarantorFullName: d.financialGuarantor?.fullName || "",
@@ -1082,19 +1087,85 @@ export default function FadReviewPage() {
                       <FormItem><FormLabel>Owner NID Expiry Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-collateralOwnerNidExpiry" /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="collateralType" render={({ field }) => (
-                      <FormItem><FormLabel>Type</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-collateralType" /></FormControl><FormMessage /></FormItem>
+                      <FormItem>
+                        <FormLabel>Type</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value || ""} disabled={!isEditing}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-collateralType">
+                              <SelectValue placeholder="Select collateral type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {collateralTypesList.map((ct) => (
+                              <SelectItem key={ct.id} value={ct.name}>{ct.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
                     )} />
                     <FormField control={form.control} name="collateralProvince" render={({ field }) => (
-                      <FormItem><FormLabel>Province</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-collateralProvince" /></FormControl><FormMessage /></FormItem>
+                      <FormItem>
+                        <FormLabel>Province</FormLabel>
+                        <Select onValueChange={(value) => {
+                          const prov = provinces.find(p => p.id.toString() === value);
+                          field.onChange(prov?.name || "");
+                          form.setValue("collateralDistrict", "");
+                        }} value={provinces.find(p => p.name === field.value)?.id.toString() || ""} disabled={!isEditing}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-collateralProvince">
+                              <SelectValue placeholder="Select province" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {provinces.map((prov) => (
+                              <SelectItem key={prov.id} value={prov.id.toString()}>{prov.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
                     )} />
+                    <FormField control={form.control} name="collateralDistrict" render={({ field }) => {
+                      const selectedProvince = provinces.find(p => p.name === form.watch("collateralProvince"));
+                      const collateralDistricts = districts.filter(d => d.provinceId === selectedProvince?.id);
+                      return (
+                        <FormItem>
+                          <FormLabel>District</FormLabel>
+                          <Select
+                            onValueChange={(value) => {
+                              const dist = collateralDistricts.find(d => d.id.toString() === value);
+                              field.onChange(dist?.name || "");
+                            }}
+                            value={collateralDistricts.find(d => d.name === field.value)?.id.toString() || ""}
+                            disabled={!isEditing || !selectedProvince}
+                          >
+                            <FormControl>
+                              <SelectTrigger data-testid="select-collateralDistrict">
+                                <SelectValue placeholder={selectedProvince ? "Select district" : "Select province first"} />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {collateralDistricts.map((dist) => (
+                                <SelectItem key={dist.id} value={dist.id.toString()}>{dist.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }} />
                     <FormField control={form.control} name="collateralAddress" render={({ field }) => (
-                      <FormItem className="col-span-2"><FormLabel>Address</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-collateralAddress" /></FormControl><FormMessage /></FormItem>
+                      <FormItem><FormLabel>Address</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-collateralAddress" /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="collateralPurchasedPrice" render={({ field }) => (
                       <FormItem><FormLabel>Purchased Price (AFN)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} data-testid="input-collateralPurchase" /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="collateralMarketPrice" render={({ field }) => (
                       <FormItem><FormLabel>Market Price (AFN)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} data-testid="input-collateralMarket" /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="collateralDescription" render={({ field }) => (
+                      <FormItem className="col-span-2"><FormLabel>Collateral Description</FormLabel><FormControl><Textarea disabled={!isEditing} placeholder="Collateral description..." className="min-h-[60px]" {...field} data-testid="input-collateralDescription" /></FormControl><FormMessage /></FormItem>
                     )} />
                   </div>
                 </CardContent>

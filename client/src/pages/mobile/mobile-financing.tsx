@@ -191,6 +191,7 @@ export default function MobileFinancing() {
   const { data: provinces } = useQuery<ProvinceItem[]>({ queryKey: ["/api/provinces"] });
   const { data: districts } = useQuery<DistrictItem[]>({ queryKey: ["/api/districts"] });
   const { data: licenseTypes } = useQuery<LicenseTypeItem[]>({ queryKey: ["/api/license-types"] });
+  const { data: collateralTypesList } = useQuery<{ id: number; name: string }[]>({ queryKey: ["/api/collateral-types"] });
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -755,8 +756,9 @@ export default function MobileFinancing() {
                   <Select value={formData.collateralType} onValueChange={(v) => updateField("collateralType", v)}>
                     <SelectTrigger data-testid="select-col-type"><SelectValue placeholder="Select type" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Sharyee">Sharyee</SelectItem>
-                      <SelectItem value="Urfee">Urfee</SelectItem>
+                      {(collateralTypesList || []).map((ct) => (
+                        <SelectItem key={ct.id} value={ct.name}>{ct.name}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </MobileField>

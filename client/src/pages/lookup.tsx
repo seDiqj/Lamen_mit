@@ -54,8 +54,8 @@ import {
   Map,
   FileCheck,
 } from "lucide-react";
-import type { Sector, Business, Province, District, LicenseType, FinancingPurpose } from "@shared/schema";
-import { Target } from "lucide-react";
+import type { Sector, Business, Province, District, LicenseType, FinancingPurpose, CollateralType } from "@shared/schema";
+import { Target, Shield } from "lucide-react";
 
 type BusinessWithSector = Business & { sectorName?: string };
 type DistrictWithProvince = District & { provinceName?: string };
@@ -89,7 +89,10 @@ const financingPurposeFormSchema = z.object({
   description: z.string().optional(),
 });
 
-  
+const collateralTypeFormSchema = z.object({
+  name: z.string().min(1, "Collateral type name is required"),
+  description: z.string().optional(),
+});
 
 type SectorFormData = z.infer<typeof sectorFormSchema>;
 type BusinessFormData = z.infer<typeof businessFormSchema>;
@@ -97,7 +100,8 @@ type ProvinceFormData = z.infer<typeof provinceFormSchema>;
 type DistrictFormData = z.infer<typeof districtFormSchema>;
 type LicenseTypeFormData = z.infer<typeof licenseTypeFormSchema>;
 type FinancingPurposeFormData = z.infer<typeof financingPurposeFormSchema>;
-type MenuItemType = "sector" | "province" | "licenseType" | "financingPurpose";
+type CollateralTypeFormData = z.infer<typeof collateralTypeFormSchema>;
+type MenuItemType = "sector" | "province" | "licenseType" | "financingPurpose" | "collateralType";
 
 export default function LookupPage() {
   const [selectedMenuItem, setSelectedMenuItem] = useState<MenuItemType>("sector");
@@ -124,12 +128,13 @@ export default function LookupPage() {
   const [selectedFinancingPurpose, setSelectedFinancingPurpose] = useState<FinancingPurpose | null>(null);
   const [showFinancingPurposeDialog, setShowFinancingPurposeDialog] = useState(false);
 
-
-  
+  // Collateral Types state
+  const [selectedCollateralType, setSelectedCollateralType] = useState<CollateralType | null>(null);
+  const [showCollateralTypeDialog, setShowCollateralTypeDialog] = useState(false);
   
   // Shared state
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [deleteType, setDeleteType] = useState<"sector" | "business" | "province" | "district" | "licenseType" | "financingPurpose">("sector");
+  const [deleteType, setDeleteType] = useState<"sector" | "business" | "province" | "district" | "licenseType" | "financingPurpose" | "collateralType">("sector");
   const [deleteId, setDeleteId] = useState<string | number>("");
   const [isEditMode, setIsEditMode] = useState(false);
 
@@ -167,8 +172,10 @@ export default function LookupPage() {
     defaultValues: { name: "", description: "" },
   });
 
-
-  
+  const collateralTypeForm = useForm<CollateralTypeFormData>({
+    resolver: zodResolver(collateralTypeFormSchema),
+    defaultValues: { name: "", description: "" },
+  });
 
   // Queries
   const { data: sectors, isLoading: loadingSectors } = useQuery<Sector[]>({
@@ -221,6 +228,15 @@ export default function LookupPage() {
     queryFn: async () => {
       const res = await fetch("/api/financing-purposes", { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch financing purposes");
+      return res.json();
+    },
+  });
+
+  const { data: collateralTypes, isLoading: loadingCollateralTypes } = useQuery<CollateralType[]>({
+    queryKey: ["/api/collateral-types"],
+    queryFn: async () => {
+      const res = await fetch("/api/collateral-types", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch collateral types");
       return res.json();
     },
   });
@@ -437,6 +453,40 @@ export default function LookupPage() {
     onError: () => toast({ title: "Error", description: "Failed to delete financing purpose.", variant: "destructive" }),
   });
 
+  // Collateral Type Mutations
+  const createCollateralTypeMutation = useMutation({
+    mutationFn: async (data: CollateralTypeFormData) => apiRequest("POST", "/api/collateral-types", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/collateral-types"] });
+      toast({ title: "Collateral Type Created", description: "The collateral type has been created successfully." });
+      setShowCollateralTypeDialog(false);
+      collateralTypeForm.reset();
+    },
+    onError: () => toast({ title: "Error", description: "Failed to create collateral type.", variant: "destructive" }),
+  });
+
+  const updateCollateralTypeMutation = useMutation({
+    mutationFn: async (data: CollateralTypeFormData) => apiRequest("PATCH", `/api/collateral-types/${selectedCollateralType?.id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/collateral-types"] });
+      toast({ title: "Collateral Type Updated", description: "The collateral type has been updated successfully." });
+      setShowCollateralTypeDialog(false);
+      setSelectedCollateralType(null);
+      setIsEditMode(false);
+      collateralTypeForm.reset();
+    },
+    onError: () => toast({ title: "Error", description: "Failed to update collateral type.", variant: "destructive" }),
+  });
+
+  const deleteCollateralTypeMutation = useMutation({
+    mutationFn: async (id: number) => apiRequest("DELETE", `/api/collateral-types/${id}`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/collateral-types"] });
+      toast({ title: "Collateral Type Deleted", description: "The collateral type has been deleted." });
+      setShowDeleteDialog(false);
+    },
+    onError: () => toast({ title: "Error", description: "Failed to delete collateral type.", variant: "destructive" }),
+  });
 
   
 
@@ -521,10 +571,20 @@ export default function LookupPage() {
     setShowFinancingPurposeDialog(true);
   };
 
+  const handleOpenCollateralTypeDialog = (ct?: CollateralType) => {
+    if (ct) {
+      setSelectedCollateralType(ct);
+      setIsEditMode(true);
+      collateralTypeForm.reset({ name: ct.name, description: ct.description || "" });
+    } else {
+      setSelectedCollateralType(null);
+      setIsEditMode(false);
+      collateralTypeForm.reset({ name: "", description: "" });
+    }
+    setShowCollateralTypeDialog(true);
+  };
 
-  
-
-  const handleDelete = (type: "sector" | "business" | "province" | "district" | "licenseType" | "financingPurpose", id: string | number) => {
+  const handleDelete = (type: "sector" | "business" | "province" | "district" | "licenseType" | "financingPurpose" | "collateralType", id: string | number) => {
     setDeleteType(type);
     setDeleteId(id);
     setShowDeleteDialog(true);
@@ -543,6 +603,8 @@ export default function LookupPage() {
       deleteLicenseTypeMutation.mutate(deleteId as number);
     } else if (deleteType === "financingPurpose") {
       deleteFinancingPurposeMutation.mutate(deleteId as number);
+    } else if (deleteType === "collateralType") {
+      deleteCollateralTypeMutation.mutate(deleteId as number);
     }
   };
 
@@ -594,7 +656,13 @@ export default function LookupPage() {
     }
   };
 
-  
+  const onCollateralTypeSubmit = (data: CollateralTypeFormData) => {
+    if (isEditMode && selectedCollateralType) {
+      updateCollateralTypeMutation.mutate(data);
+    } else {
+      createCollateralTypeMutation.mutate(data);
+    }
+  };
 
   const getBusinessesForSector = (sectorId: string) => businesses?.filter((b) => b.sectorId === sectorId) || [];
   const getDistrictsForProvince = (provinceId: number) => districts?.filter((d) => d.provinceId === provinceId) || [];
@@ -604,6 +672,7 @@ export default function LookupPage() {
     { id: "province" as MenuItemType, label: "Province", icon: MapPin, color: "text-blue-600" },
     { id: "licenseType" as MenuItemType, label: "Type of License", icon: FileCheck, color: "text-orange-600" },
     { id: "financingPurpose" as MenuItemType, label: "Financing Purpose", icon: Target, color: "text-purple-600" },
+    { id: "collateralType" as MenuItemType, label: "Collateral Type", icon: Shield, color: "text-red-600" },
   ];
 
   return (
@@ -1042,6 +1111,68 @@ export default function LookupPage() {
               </>
             )}
 
+            {selectedMenuItem === "collateralType" && (
+              <>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Shield className="h-5 w-5 text-red-600" />
+                      Collateral Types
+                    </CardTitle>
+                    <Button onClick={() => handleOpenCollateralTypeDialog()} className="bg-red-600 hover:bg-red-700" data-testid="button-add-new-collateral-type">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add New Collateral Type
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="overflow-auto" style={{ maxHeight: "calc(100vh - 240px)" }}>
+                  {loadingCollateralTypes ? (
+                    <div className="space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
+                  ) : collateralTypes && collateralTypes.length > 0 ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs w-20">ID</TableHead>
+                          <TableHead className="text-xs">Collateral Type</TableHead>
+                          <TableHead className="text-xs">Description</TableHead>
+                          <TableHead className="text-xs text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {collateralTypes.map((ct) => (
+                          <TableRow key={ct.id}>
+                            <TableCell className="font-medium">{ct.id}</TableCell>
+                            <TableCell className="font-medium">
+                              <div className="flex items-center gap-2">
+                                <Shield className="h-4 w-4 text-red-600" />
+                                {ct.name}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">{ct.description || "—"}</TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <Button variant="ghost" size="icon" onClick={() => handleOpenCollateralTypeDialog(ct)} data-testid={`button-edit-collateral-type-${ct.id}`}>
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={() => handleDelete("collateralType", ct.id)} data-testid={`button-delete-collateral-type-${ct.id}`}>
+                                  <Trash2 className="h-4 w-4 text-red-500" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Shield className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                      <p>No collateral types found. Click "Add New Collateral Type" to create one.</p>
+                    </div>
+                  )}
+                </CardContent>
+              </>
+            )}
+
           </Card>
         </div>
       </div>
@@ -1245,6 +1376,40 @@ export default function LookupPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Add/Edit Collateral Type Dialog */}
+      <Dialog open={showCollateralTypeDialog} onOpenChange={setShowCollateralTypeDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-red-600" />
+              {isEditMode ? "Edit Collateral Type" : "Add Collateral Type"}
+            </DialogTitle>
+          </DialogHeader>
+          <Form {...collateralTypeForm}>
+            <form onSubmit={collateralTypeForm.handleSubmit(onCollateralTypeSubmit)} className="space-y-4">
+              <FormField control={collateralTypeForm.control} name="name" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Collateral Type Name *</FormLabel>
+                  <FormControl><Input placeholder="e.g., Sharyee" className="h-9" {...field} data-testid="input-collateral-type-name" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={collateralTypeForm.control} name="description" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Description</FormLabel>
+                  <FormControl><Input placeholder="Optional description" className="h-9" {...field} data-testid="input-collateral-type-description" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <Button type="submit" className="w-full bg-red-600 hover:bg-red-700" disabled={createCollateralTypeMutation.isPending || updateCollateralTypeMutation.isPending} data-testid="button-submit-collateral-type">
+                <Plus className="h-4 w-4 mr-2" />
+                {createCollateralTypeMutation.isPending || updateCollateralTypeMutation.isPending ? "Saving..." : isEditMode ? "Update Collateral Type" : "Add Collateral Type"}
+              </Button>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
       {/* Delete Confirmation Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent>
@@ -1257,12 +1422,13 @@ export default function LookupPage() {
               {deleteType === "district" && "Are you sure you want to delete this district?"}
               {deleteType === "licenseType" && "Are you sure you want to delete this license type?"}
               {deleteType === "financingPurpose" && "Are you sure you want to delete this financing purpose?"}
+              {deleteType === "collateralType" && "Are you sure you want to delete this collateral type?"}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setShowDeleteDialog(false)} data-testid="button-cancel-delete">Cancel</Button>
-            <Button variant="destructive" onClick={confirmDelete} disabled={deleteSectorMutation.isPending || deleteBusinessMutation.isPending || deleteProvinceMutation.isPending || deleteDistrictMutation.isPending || deleteLicenseTypeMutation.isPending || deleteFinancingPurposeMutation.isPending} data-testid="button-confirm-delete">
-              {deleteSectorMutation.isPending || deleteBusinessMutation.isPending || deleteProvinceMutation.isPending || deleteDistrictMutation.isPending || deleteLicenseTypeMutation.isPending || deleteFinancingPurposeMutation.isPending ? "Deleting..." : "Delete"}
+            <Button variant="destructive" onClick={confirmDelete} disabled={deleteSectorMutation.isPending || deleteBusinessMutation.isPending || deleteProvinceMutation.isPending || deleteDistrictMutation.isPending || deleteLicenseTypeMutation.isPending || deleteFinancingPurposeMutation.isPending || deleteCollateralTypeMutation.isPending} data-testid="button-confirm-delete">
+              {deleteSectorMutation.isPending || deleteBusinessMutation.isPending || deleteProvinceMutation.isPending || deleteDistrictMutation.isPending || deleteLicenseTypeMutation.isPending || deleteFinancingPurposeMutation.isPending || deleteCollateralTypeMutation.isPending ? "Deleting..." : "Delete"}
             </Button>
           </DialogFooter>
         </DialogContent>

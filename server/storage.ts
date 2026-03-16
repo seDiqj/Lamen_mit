@@ -13,6 +13,7 @@ import {
   districts,
   licenseTypes,
   financingPurposes,
+  collateralTypes,
   customers,
   customerBusinesses,
   businessLicenses,
@@ -98,6 +99,8 @@ import {
   type LicenseType,
   type InsertFinancingPurpose,
   type FinancingPurpose,
+  type InsertCollateralType,
+  type CollateralType,
   type InsertCustomer,
   type Customer,
   customerDocuments,
@@ -209,6 +212,13 @@ export interface IStorage {
   createFinancingPurpose(data: InsertFinancingPurpose): Promise<FinancingPurpose>;
   updateFinancingPurpose(id: number, data: Partial<InsertFinancingPurpose>): Promise<FinancingPurpose>;
   deleteFinancingPurpose(id: number): Promise<void>;
+
+  // Collateral Types
+  getCollateralTypes(search?: string): Promise<CollateralType[]>;
+  getCollateralType(id: number): Promise<CollateralType | undefined>;
+  createCollateralType(data: InsertCollateralType): Promise<CollateralType>;
+  updateCollateralType(id: number, data: Partial<InsertCollateralType>): Promise<CollateralType>;
+  deleteCollateralType(id: number): Promise<void>;
   
   // Lookup Roles
   getLookupRoles(): Promise<LookupRole[]>;
@@ -813,6 +823,33 @@ export class DatabaseStorage implements IStorage {
 
   async deleteFinancingPurpose(id: number): Promise<void> {
     await db.delete(financingPurposes).where(eq(financingPurposes.id, id));
+  }
+
+  // Collateral Types
+  async getCollateralTypes(search?: string): Promise<CollateralType[]> {
+    if (search) {
+      return db.select().from(collateralTypes).where(like(collateralTypes.name, `%${search}%`)).orderBy(asc(collateralTypes.id));
+    }
+    return db.select().from(collateralTypes).orderBy(asc(collateralTypes.id));
+  }
+
+  async getCollateralType(id: number): Promise<CollateralType | undefined> {
+    const [ct] = await db.select().from(collateralTypes).where(eq(collateralTypes.id, id));
+    return ct;
+  }
+
+  async createCollateralType(data: InsertCollateralType): Promise<CollateralType> {
+    const [ct] = await db.insert(collateralTypes).values(data).returning();
+    return ct;
+  }
+
+  async updateCollateralType(id: number, data: Partial<InsertCollateralType>): Promise<CollateralType> {
+    const [ct] = await db.update(collateralTypes).set(data).where(eq(collateralTypes.id, id)).returning();
+    return ct;
+  }
+
+  async deleteCollateralType(id: number): Promise<void> {
+    await db.delete(collateralTypes).where(eq(collateralTypes.id, id));
   }
 
   // Lookup Roles

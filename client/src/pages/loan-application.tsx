@@ -18,7 +18,7 @@ import {
   ChevronLeft, ChevronRight, Save, ArrowLeft, Loader2, Check,
   Camera, Upload, X, File
 } from "lucide-react";
-import type { Branch, FinanceOfficer, FundingSource, Sector, Business, Province, District, LicenseType, FinancingPurpose } from "@shared/schema";
+import type { Branch, FinanceOfficer, FundingSource, Sector, Business, Province, District, LicenseType, FinancingPurpose, CollateralType } from "@shared/schema";
 import { cn, toPersianDate } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -81,7 +81,9 @@ const loanApplicationSchema = z.object({
   collateralOwnerNidExpiry: z.string().optional(),
   collateralType: z.string().optional(),
   collateralProvince: z.string().optional(),
+  collateralDistrict: z.string().optional(),
   collateralAddress: z.string().optional(),
+  collateralDescription: z.string().optional(),
   collateralPurchasedPrice: z.coerce.number().optional(),
   collateralMarketPrice: z.coerce.number().optional(),
   financialGuarantorFullName: z.string().optional(),
@@ -190,6 +192,7 @@ export default function LoanApplicationPage() {
   const { data: districts = [] } = useQuery<(District & { provinceName?: string })[]>({ queryKey: ["/api/districts"] });
   const { data: licenseTypes = [] } = useQuery<LicenseType[]>({ queryKey: ["/api/license-types"] });
   const { data: financingPurposesList = [] } = useQuery<FinancingPurpose[]>({ queryKey: ["/api/financing-purposes"] });
+  const { data: collateralTypesList = [] } = useQuery<CollateralType[]>({ queryKey: ["/api/collateral-types"] });
   const { data: financingProducts = [] } = useQuery<any[]>({ queryKey: ["/api/financing-products"] });
 
   const loanProducts = financingProducts.length > 0
@@ -1263,8 +1266,9 @@ export default function LoanApplicationPage() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="Sharyee">Sharyee</SelectItem>
-                          <SelectItem value="Urfee">Urfee</SelectItem>
+                          {collateralTypesList.map((ct) => (
+                            <SelectItem key={ct.id} value={ct.name}>{ct.name}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -1273,10 +1277,54 @@ export default function LoanApplicationPage() {
                   <FormField control={form.control} name="collateralProvince" render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-xs">Province</FormLabel>
-                      <FormControl><Input placeholder="Province" className="h-9" {...field} data-testid="input-collateral-province" /></FormControl>
+                      <Select onValueChange={(value) => {
+                        const prov = provinces.find(p => p.id.toString() === value);
+                        field.onChange(prov?.name || "");
+                        form.setValue("collateralDistrict", "");
+                      }} value={provinces.find(p => p.name === field.value)?.id.toString() || ""}>
+                        <FormControl>
+                          <SelectTrigger className="h-9" data-testid="select-collateral-province">
+                            <SelectValue placeholder="Select province" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {provinces.map((prov) => (
+                            <SelectItem key={prov.id} value={prov.id.toString()}>{prov.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )} />
+                  <FormField control={form.control} name="collateralDistrict" render={({ field }) => {
+                    const selectedProvince = provinces.find(p => p.name === form.watch("collateralProvince"));
+                    const collateralDistricts = districts.filter(d => d.provinceId === selectedProvince?.id);
+                    return (
+                      <FormItem>
+                        <FormLabel className="text-xs">District</FormLabel>
+                        <Select
+                          onValueChange={(value) => {
+                            const dist = collateralDistricts.find(d => d.id.toString() === value);
+                            field.onChange(dist?.name || "");
+                          }}
+                          value={collateralDistricts.find(d => d.name === field.value)?.id.toString() || ""}
+                          disabled={!selectedProvince}
+                        >
+                          <FormControl>
+                            <SelectTrigger className="h-9" data-testid="select-collateral-district">
+                              <SelectValue placeholder={selectedProvince ? "Select district" : "Select province first"} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {collateralDistricts.map((dist) => (
+                              <SelectItem key={dist.id} value={dist.id.toString()}>{dist.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }} />
                   <FormField control={form.control} name="collateralAddress" render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-xs">Address</FormLabel>
@@ -1295,6 +1343,13 @@ export default function LoanApplicationPage() {
                     <FormItem>
                       <FormLabel className="text-xs">Market Price (AFN)</FormLabel>
                       <FormControl><Input type="number" placeholder="0" className="h-9" {...field} data-testid="input-collateral-market" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="collateralDescription" render={({ field }) => (
+                    <FormItem className="col-span-2">
+                      <FormLabel className="text-xs">Collateral Description</FormLabel>
+                      <FormControl><Textarea placeholder="Describe the collateral details..." className="min-h-[60px]" {...field} data-testid="input-collateral-description" /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
