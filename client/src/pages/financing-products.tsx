@@ -13,7 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Plus, Search, Package, CheckCircle2, XCircle,
-  Users, Percent, Calendar, Clock, DollarSign,
+  Users, Percent, Calendar, Clock, Banknote, Layers,
   LayoutGrid, Table2, Pencil, Trash2, User, Shield, AlertTriangle
 } from "lucide-react";
 import type { FinancingProduct } from "@shared/schema";
@@ -545,7 +545,7 @@ function ProductCard({
         <div className="flex items-start justify-between p-4 pb-3">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-              <DollarSign className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+              <Banknote className="h-5 w-5 text-slate-600 dark:text-slate-400" />
             </div>
             <div>
               <h3 className="font-semibold text-sm leading-tight">{product.name}</h3>
@@ -587,7 +587,7 @@ function ProductCard({
         <div className="px-4 py-3 space-y-2">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground flex items-center gap-1.5">
-              <DollarSign className="h-3.5 w-3.5" /> Amount Range
+              <Layers className="h-3.5 w-3.5" /> Amount Range
             </span>
             <span className="font-medium text-xs">AFN {formatAmount(product.minAmount)} – AFN {formatAmount(product.maxAmount)}</span>
           </div>
