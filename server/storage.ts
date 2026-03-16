@@ -12,6 +12,7 @@ import {
   provinces,
   districts,
   licenseTypes,
+  financingPurposes,
   customers,
   customerBusinesses,
   businessLicenses,
@@ -95,6 +96,8 @@ import {
   type District,
   type InsertLicenseType,
   type LicenseType,
+  type InsertFinancingPurpose,
+  type FinancingPurpose,
   type InsertCustomer,
   type Customer,
   customerDocuments,
@@ -199,6 +202,13 @@ export interface IStorage {
   createLicenseType(data: InsertLicenseType): Promise<LicenseType>;
   updateLicenseType(id: number, data: Partial<InsertLicenseType>): Promise<LicenseType>;
   deleteLicenseType(id: number): Promise<void>;
+
+  // Financing Purposes
+  getFinancingPurposes(search?: string): Promise<FinancingPurpose[]>;
+  getFinancingPurpose(id: number): Promise<FinancingPurpose | undefined>;
+  createFinancingPurpose(data: InsertFinancingPurpose): Promise<FinancingPurpose>;
+  updateFinancingPurpose(id: number, data: Partial<InsertFinancingPurpose>): Promise<FinancingPurpose>;
+  deleteFinancingPurpose(id: number): Promise<void>;
   
   // Lookup Roles
   getLookupRoles(): Promise<LookupRole[]>;
@@ -776,6 +786,33 @@ export class DatabaseStorage implements IStorage {
 
   async deleteLicenseType(id: number): Promise<void> {
     await db.delete(licenseTypes).where(eq(licenseTypes.id, id));
+  }
+
+  // Financing Purposes
+  async getFinancingPurposes(search?: string): Promise<FinancingPurpose[]> {
+    if (search) {
+      return db.select().from(financingPurposes).where(like(financingPurposes.name, `%${search}%`)).orderBy(asc(financingPurposes.id));
+    }
+    return db.select().from(financingPurposes).orderBy(asc(financingPurposes.id));
+  }
+
+  async getFinancingPurpose(id: number): Promise<FinancingPurpose | undefined> {
+    const [fp] = await db.select().from(financingPurposes).where(eq(financingPurposes.id, id));
+    return fp;
+  }
+
+  async createFinancingPurpose(data: InsertFinancingPurpose): Promise<FinancingPurpose> {
+    const [fp] = await db.insert(financingPurposes).values(data).returning();
+    return fp;
+  }
+
+  async updateFinancingPurpose(id: number, data: Partial<InsertFinancingPurpose>): Promise<FinancingPurpose> {
+    const [fp] = await db.update(financingPurposes).set(data).where(eq(financingPurposes.id, id)).returning();
+    return fp;
+  }
+
+  async deleteFinancingPurpose(id: number): Promise<void> {
+    await db.delete(financingPurposes).where(eq(financingPurposes.id, id));
   }
 
   // Lookup Roles

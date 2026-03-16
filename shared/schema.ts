@@ -95,6 +95,14 @@ export const licenseTypes = pgTable("license_types", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Financing Purposes
+export const financingPurposes = pgTable("financing_purposes", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Customers
 export const customers = pgTable("customers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -178,6 +186,8 @@ export const loans = pgTable("loans", {
   productCode: varchar("product_code", { length: 50 }),
   sector: varchar("sector", { length: 255 }),
   businessDescription: text("business_description"),
+  businessDetailedDescription: text("business_detailed_description"),
+  clientOccupation: varchar("client_occupation", { length: 255 }),
   financingPurpose: text("financing_purpose"),
   financingCycle: integer("financing_cycle"),
   sourceOfFund: varchar("source_of_fund", { length: 255 }),
@@ -588,6 +598,11 @@ export type JournalLine = typeof journalLines.$inferSelect;
 export const insertLicenseTypeSchema = createInsertSchema(licenseTypes).omit({ id: true, createdAt: true });
 export type InsertLicenseType = z.infer<typeof insertLicenseTypeSchema>;
 export type LicenseType = typeof licenseTypes.$inferSelect;
+
+// Insert Schema and Types for Financing Purposes
+export const insertFinancingPurposeSchema = createInsertSchema(financingPurposes).omit({ id: true, createdAt: true });
+export type InsertFinancingPurpose = z.infer<typeof insertFinancingPurposeSchema>;
+export type FinancingPurpose = typeof financingPurposes.$inferSelect;
 
 // ============== HR MODULE ==============
 

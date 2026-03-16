@@ -35,7 +35,8 @@ Preferred communication style: Simple, everyday language.
   - `rolePagePermissions` - Default page permissions per role (auto-applied on user creation/role change)
   - `branches`, `financeOfficers` - Organization structure
   - `customers`, `customerBusinesses`, `businessLicenses` - Customer data
-  - `loans`, `collaterals`, `guarantors` - Loan information
+  - `financingPurposes` - Lookup table for financing purpose dropdown values
+  - `loans`, `collaterals`, `guarantors` - Loan information (loans includes `businessDetailedDescription`, `clientOccupation` fields)
   - `loanApprovals`, `disbursements`, `installments` - Loan lifecycle
   - `activityLogs` - Audit trail
   - `accounts` - Chart of accounts with hierarchical structure for double-entry bookkeeping

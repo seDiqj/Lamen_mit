@@ -54,7 +54,8 @@ import {
   Map,
   FileCheck,
 } from "lucide-react";
-import type { Sector, Business, Province, District, LicenseType } from "@shared/schema";
+import type { Sector, Business, Province, District, LicenseType, FinancingPurpose } from "@shared/schema";
+import { Target } from "lucide-react";
 
 type BusinessWithSector = Business & { sectorName?: string };
 type DistrictWithProvince = District & { provinceName?: string };
@@ -83,6 +84,11 @@ const licenseTypeFormSchema = z.object({
   name: z.string().min(1, "License type name is required"),
 });
 
+const financingPurposeFormSchema = z.object({
+  name: z.string().min(1, "Financing purpose name is required"),
+  description: z.string().optional(),
+});
+
   
 
 type SectorFormData = z.infer<typeof sectorFormSchema>;
@@ -90,7 +96,8 @@ type BusinessFormData = z.infer<typeof businessFormSchema>;
 type ProvinceFormData = z.infer<typeof provinceFormSchema>;
 type DistrictFormData = z.infer<typeof districtFormSchema>;
 type LicenseTypeFormData = z.infer<typeof licenseTypeFormSchema>;
-type MenuItemType = "sector" | "province" | "licenseType";
+type FinancingPurposeFormData = z.infer<typeof financingPurposeFormSchema>;
+type MenuItemType = "sector" | "province" | "licenseType" | "financingPurpose";
 
 export default function LookupPage() {
   const [selectedMenuItem, setSelectedMenuItem] = useState<MenuItemType>("sector");
@@ -113,12 +120,16 @@ export default function LookupPage() {
   const [selectedLicenseType, setSelectedLicenseType] = useState<LicenseType | null>(null);
   const [showLicenseTypeDialog, setShowLicenseTypeDialog] = useState(false);
 
+  // Financing Purposes state
+  const [selectedFinancingPurpose, setSelectedFinancingPurpose] = useState<FinancingPurpose | null>(null);
+  const [showFinancingPurposeDialog, setShowFinancingPurposeDialog] = useState(false);
+
 
   
   
   // Shared state
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [deleteType, setDeleteType] = useState<"sector" | "business" | "province" | "district" | "licenseType">("sector");
+  const [deleteType, setDeleteType] = useState<"sector" | "business" | "province" | "district" | "licenseType" | "financingPurpose">("sector");
   const [deleteId, setDeleteId] = useState<string | number>("");
   const [isEditMode, setIsEditMode] = useState(false);
 
@@ -149,6 +160,11 @@ export default function LookupPage() {
   const licenseTypeForm = useForm<LicenseTypeFormData>({
     resolver: zodResolver(licenseTypeFormSchema),
     defaultValues: { name: "" },
+  });
+
+  const financingPurposeForm = useForm<FinancingPurposeFormData>({
+    resolver: zodResolver(financingPurposeFormSchema),
+    defaultValues: { name: "", description: "" },
   });
 
 
@@ -200,6 +216,14 @@ export default function LookupPage() {
     },
   });
 
+  const { data: financingPurposes, isLoading: loadingFinancingPurposes } = useQuery<FinancingPurpose[]>({
+    queryKey: ["/api/financing-purposes"],
+    queryFn: async () => {
+      const res = await fetch("/api/financing-purposes", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch financing purposes");
+      return res.json();
+    },
+  });
 
   // Sector Mutations
   const createSectorMutation = useMutation({
@@ -378,6 +402,41 @@ export default function LookupPage() {
     onError: () => toast({ title: "Error", description: "Failed to delete license type.", variant: "destructive" }),
   });
 
+  // Financing Purpose Mutations
+  const createFinancingPurposeMutation = useMutation({
+    mutationFn: async (data: FinancingPurposeFormData) => apiRequest("POST", "/api/financing-purposes", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/financing-purposes"] });
+      toast({ title: "Financing Purpose Created", description: "The financing purpose has been created successfully." });
+      setShowFinancingPurposeDialog(false);
+      financingPurposeForm.reset();
+    },
+    onError: () => toast({ title: "Error", description: "Failed to create financing purpose.", variant: "destructive" }),
+  });
+
+  const updateFinancingPurposeMutation = useMutation({
+    mutationFn: async (data: FinancingPurposeFormData) => apiRequest("PATCH", `/api/financing-purposes/${selectedFinancingPurpose?.id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/financing-purposes"] });
+      toast({ title: "Financing Purpose Updated", description: "The financing purpose has been updated successfully." });
+      setShowFinancingPurposeDialog(false);
+      setSelectedFinancingPurpose(null);
+      setIsEditMode(false);
+      financingPurposeForm.reset();
+    },
+    onError: () => toast({ title: "Error", description: "Failed to update financing purpose.", variant: "destructive" }),
+  });
+
+  const deleteFinancingPurposeMutation = useMutation({
+    mutationFn: async (id: number) => apiRequest("DELETE", `/api/financing-purposes/${id}`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/financing-purposes"] });
+      toast({ title: "Financing Purpose Deleted", description: "The financing purpose has been deleted." });
+      setShowDeleteDialog(false);
+    },
+    onError: () => toast({ title: "Error", description: "Failed to delete financing purpose.", variant: "destructive" }),
+  });
+
 
   
 
@@ -449,10 +508,23 @@ export default function LookupPage() {
     setShowLicenseTypeDialog(true);
   };
 
+  const handleOpenFinancingPurposeDialog = (fp?: FinancingPurpose) => {
+    if (fp) {
+      setSelectedFinancingPurpose(fp);
+      setIsEditMode(true);
+      financingPurposeForm.reset({ name: fp.name, description: fp.description || "" });
+    } else {
+      setSelectedFinancingPurpose(null);
+      setIsEditMode(false);
+      financingPurposeForm.reset({ name: "", description: "" });
+    }
+    setShowFinancingPurposeDialog(true);
+  };
+
 
   
 
-  const handleDelete = (type: "sector" | "business" | "province" | "district" | "licenseType", id: string | number) => {
+  const handleDelete = (type: "sector" | "business" | "province" | "district" | "licenseType" | "financingPurpose", id: string | number) => {
     setDeleteType(type);
     setDeleteId(id);
     setShowDeleteDialog(true);
@@ -469,6 +541,8 @@ export default function LookupPage() {
       deleteDistrictMutation.mutate(deleteId as number);
     } else if (deleteType === "licenseType") {
       deleteLicenseTypeMutation.mutate(deleteId as number);
+    } else if (deleteType === "financingPurpose") {
+      deleteFinancingPurposeMutation.mutate(deleteId as number);
     }
   };
 
@@ -512,6 +586,14 @@ export default function LookupPage() {
     }
   };
 
+  const onFinancingPurposeSubmit = (data: FinancingPurposeFormData) => {
+    if (isEditMode && selectedFinancingPurpose) {
+      updateFinancingPurposeMutation.mutate(data);
+    } else {
+      createFinancingPurposeMutation.mutate(data);
+    }
+  };
+
   
 
   const getBusinessesForSector = (sectorId: string) => businesses?.filter((b) => b.sectorId === sectorId) || [];
@@ -521,6 +603,7 @@ export default function LookupPage() {
     { id: "sector" as MenuItemType, label: "Sector", icon: Layers, color: "text-emerald-600" },
     { id: "province" as MenuItemType, label: "Province", icon: MapPin, color: "text-blue-600" },
     { id: "licenseType" as MenuItemType, label: "Type of License", icon: FileCheck, color: "text-orange-600" },
+    { id: "financingPurpose" as MenuItemType, label: "Financing Purpose", icon: Target, color: "text-purple-600" },
   ];
 
   return (
@@ -897,6 +980,68 @@ export default function LookupPage() {
               </>
             )}
 
+            {selectedMenuItem === "financingPurpose" && (
+              <>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Target className="h-5 w-5 text-purple-600" />
+                      Financing Purposes
+                    </CardTitle>
+                    <Button onClick={() => handleOpenFinancingPurposeDialog()} className="bg-purple-600 hover:bg-purple-700" data-testid="button-add-new-financing-purpose">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add New Financing Purpose
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="overflow-auto" style={{ maxHeight: "calc(100vh - 240px)" }}>
+                  {loadingFinancingPurposes ? (
+                    <div className="space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
+                  ) : financingPurposes && financingPurposes.length > 0 ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs w-20">ID</TableHead>
+                          <TableHead className="text-xs">Financing Purpose</TableHead>
+                          <TableHead className="text-xs">Description</TableHead>
+                          <TableHead className="text-xs text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {financingPurposes.map((fp) => (
+                          <TableRow key={fp.id}>
+                            <TableCell className="font-medium">{fp.id}</TableCell>
+                            <TableCell className="font-medium">
+                              <div className="flex items-center gap-2">
+                                <Target className="h-4 w-4 text-purple-600" />
+                                {fp.name}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">{fp.description || "—"}</TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <Button variant="ghost" size="icon" onClick={() => handleOpenFinancingPurposeDialog(fp)} data-testid={`button-edit-financing-purpose-${fp.id}`}>
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={() => handleDelete("financingPurpose", fp.id)} data-testid={`button-delete-financing-purpose-${fp.id}`}>
+                                  <Trash2 className="h-4 w-4 text-red-500" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Target className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                      <p>No financing purposes found. Click "Add New Financing Purpose" to create one.</p>
+                    </div>
+                  )}
+                </CardContent>
+              </>
+            )}
+
           </Card>
         </div>
       </div>
@@ -1066,6 +1211,40 @@ export default function LookupPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Add/Edit Financing Purpose Dialog */}
+      <Dialog open={showFinancingPurposeDialog} onOpenChange={setShowFinancingPurposeDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Target className="h-5 w-5 text-purple-600" />
+              {isEditMode ? "Edit Financing Purpose" : "Add Financing Purpose"}
+            </DialogTitle>
+          </DialogHeader>
+          <Form {...financingPurposeForm}>
+            <form onSubmit={financingPurposeForm.handleSubmit(onFinancingPurposeSubmit)} className="space-y-4">
+              <FormField control={financingPurposeForm.control} name="name" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Financing Purpose Name *</FormLabel>
+                  <FormControl><Input placeholder="e.g., Working Capital" className="h-9" {...field} data-testid="input-financing-purpose-name" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={financingPurposeForm.control} name="description" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Description</FormLabel>
+                  <FormControl><Input placeholder="Optional description" className="h-9" {...field} data-testid="input-financing-purpose-description" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <Button type="submit" className="w-full bg-purple-600 hover:bg-purple-700" disabled={createFinancingPurposeMutation.isPending || updateFinancingPurposeMutation.isPending} data-testid="button-submit-financing-purpose">
+                <Plus className="h-4 w-4 mr-2" />
+                {createFinancingPurposeMutation.isPending || updateFinancingPurposeMutation.isPending ? "Saving..." : isEditMode ? "Update Financing Purpose" : "Add Financing Purpose"}
+              </Button>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
       {/* Delete Confirmation Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent>
@@ -1077,13 +1256,13 @@ export default function LookupPage() {
               {deleteType === "province" && "Are you sure you want to delete this province? All districts under this province will also be deleted."}
               {deleteType === "district" && "Are you sure you want to delete this district?"}
               {deleteType === "licenseType" && "Are you sure you want to delete this license type?"}
-              
+              {deleteType === "financingPurpose" && "Are you sure you want to delete this financing purpose?"}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setShowDeleteDialog(false)} data-testid="button-cancel-delete">Cancel</Button>
-            <Button variant="destructive" onClick={confirmDelete} disabled={deleteSectorMutation.isPending || deleteBusinessMutation.isPending || deleteProvinceMutation.isPending || deleteDistrictMutation.isPending || deleteLicenseTypeMutation.isPending} data-testid="button-confirm-delete">
-              {deleteSectorMutation.isPending || deleteBusinessMutation.isPending || deleteProvinceMutation.isPending || deleteDistrictMutation.isPending || deleteLicenseTypeMutation.isPending ? "Deleting..." : "Delete"}
+            <Button variant="destructive" onClick={confirmDelete} disabled={deleteSectorMutation.isPending || deleteBusinessMutation.isPending || deleteProvinceMutation.isPending || deleteDistrictMutation.isPending || deleteLicenseTypeMutation.isPending || deleteFinancingPurposeMutation.isPending} data-testid="button-confirm-delete">
+              {deleteSectorMutation.isPending || deleteBusinessMutation.isPending || deleteProvinceMutation.isPending || deleteDistrictMutation.isPending || deleteLicenseTypeMutation.isPending || deleteFinancingPurposeMutation.isPending ? "Deleting..." : "Delete"}
             </Button>
           </DialogFooter>
         </DialogContent>

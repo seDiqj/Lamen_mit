@@ -906,6 +906,51 @@ export async function registerRoutes(
     }
   });
 
+  // ===== FINANCING PURPOSES =====
+  app.get("/api/financing-purposes", isAuthenticated, async (req, res) => {
+    try {
+      const { search } = req.query;
+      const purposes = await storage.getFinancingPurposes(search as string | undefined);
+      res.json(purposes);
+    } catch (error) {
+      console.error("Error fetching financing purposes:", error);
+      res.status(500).json({ message: "Failed to fetch financing purposes" });
+    }
+  });
+
+  app.post("/api/financing-purposes", isAuthenticated, requirePageAccess("lookup"), async (req: any, res) => {
+    try {
+      const purpose = await storage.createFinancingPurpose(req.body);
+      await logActivity(req, "create_financing_purpose", "financing_purpose", purpose.id.toString(), `Created financing purpose: ${purpose.name}`);
+      res.status(201).json(purpose);
+    } catch (error) {
+      console.error("Error creating financing purpose:", error);
+      res.status(500).json({ message: "Failed to create financing purpose" });
+    }
+  });
+
+  app.patch("/api/financing-purposes/:id", isAuthenticated, requirePageAccess("lookup"), async (req: any, res) => {
+    try {
+      const purpose = await storage.updateFinancingPurpose(parseInt(req.params.id), req.body);
+      await logActivity(req, "update_financing_purpose", "financing_purpose", req.params.id, `Updated financing purpose: ${purpose.name}`);
+      res.json(purpose);
+    } catch (error) {
+      console.error("Error updating financing purpose:", error);
+      res.status(500).json({ message: "Failed to update financing purpose" });
+    }
+  });
+
+  app.delete("/api/financing-purposes/:id", isAuthenticated, requirePageAccess("lookup"), async (req: any, res) => {
+    try {
+      await storage.deleteFinancingPurpose(parseInt(req.params.id));
+      await logActivity(req, "delete_financing_purpose", "financing_purpose", req.params.id, `Deleted financing purpose`);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting financing purpose:", error);
+      res.status(500).json({ message: "Failed to delete financing purpose" });
+    }
+  });
+
   // ===== LOOKUP ROLES =====
   app.get("/api/lookup-roles", isAuthenticated, async (req, res) => {
     try {
@@ -1964,6 +2009,8 @@ export async function registerRoutes(
         productCode: data.productCode,
         sector: data.sector,
         businessDescription: data.businessDescription,
+        businessDetailedDescription: data.businessDetailedDescription,
+        clientOccupation: data.clientOccupation,
         financingPurpose: data.financingPurpose,
         financingCycle,
         sourceOfFund: data.sourceOfFund,
@@ -2181,6 +2228,8 @@ export async function registerRoutes(
         productCode: str(data.productCode),
         sector: str(data.sector),
         businessDescription: str(data.businessDescription),
+        businessDetailedDescription: str(data.businessDetailedDescription),
+        clientOccupation: str(data.clientOccupation),
         financingPurpose: str(data.financingPurpose),
         fundingSourceId: str(data.fundingSourceId),
         requestDate: str(data.requestDate),

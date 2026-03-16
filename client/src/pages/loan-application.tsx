@@ -8,6 +8,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
@@ -17,7 +18,7 @@ import {
   ChevronLeft, ChevronRight, Save, ArrowLeft, Loader2, Check,
   Camera, Upload, X, File
 } from "lucide-react";
-import type { Branch, FinanceOfficer, FundingSource, Sector, Business, Province, District, LicenseType } from "@shared/schema";
+import type { Branch, FinanceOfficer, FundingSource, Sector, Business, Province, District, LicenseType, FinancingPurpose } from "@shared/schema";
 import { cn, toPersianDate } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -52,6 +53,8 @@ const loanApplicationSchema = z.object({
   productCode: z.string().optional(),
   sector: z.string().optional(),
   businessDescription: z.string().optional(),
+  businessDetailedDescription: z.string().optional(),
+  clientOccupation: z.string().optional(),
   financingPurpose: z.string().optional(),
   fundingSourceId: z.string().optional(),
   requestDate: z.string().optional(),
@@ -186,6 +189,7 @@ export default function LoanApplicationPage() {
   const { data: provinces = [] } = useQuery<Province[]>({ queryKey: ["/api/provinces"] });
   const { data: districts = [] } = useQuery<(District & { provinceName?: string })[]>({ queryKey: ["/api/districts"] });
   const { data: licenseTypes = [] } = useQuery<LicenseType[]>({ queryKey: ["/api/license-types"] });
+  const { data: financingPurposesList = [] } = useQuery<FinancingPurpose[]>({ queryKey: ["/api/financing-purposes"] });
   const { data: financingProducts = [] } = useQuery<any[]>({ queryKey: ["/api/financing-products"] });
 
   const loanProducts = financingProducts.length > 0
@@ -982,7 +986,20 @@ export default function LoanApplicationPage() {
                   <FormField control={form.control} name="financingPurpose" render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-xs">Financing Purpose</FormLabel>
-                      <FormControl><Input placeholder="Purpose of loan" className="h-9" {...field} data-testid="input-financing-purpose" /></FormControl>
+                      <Select onValueChange={field.onChange} value={field.value || ""}>
+                        <FormControl>
+                          <SelectTrigger className="h-9" data-testid="select-financing-purpose">
+                            <SelectValue placeholder="Select financing purpose" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {financingPurposesList.map((fp) => (
+                            <SelectItem key={fp.id} value={fp.name}>
+                              {fp.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )} />
@@ -1125,6 +1142,20 @@ export default function LoanApplicationPage() {
                       <FormItem>
                         <FormLabel className="text-xs">Monthly Income Amount</FormLabel>
                         <FormControl><Input type="number" placeholder="0" className="h-9" {...field} data-testid="input-business-monthly-income" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="clientOccupation" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Client Occupation</FormLabel>
+                        <FormControl><Input placeholder="Client's occupation" className="h-9" {...field} data-testid="input-client-occupation" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="businessDetailedDescription" render={({ field }) => (
+                      <FormItem className="col-span-2">
+                        <FormLabel className="text-xs">Business Description</FormLabel>
+                        <FormControl><Textarea placeholder="Describe the business activities..." className="min-h-[60px]" {...field} data-testid="input-business-detailed-description" /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )} />
