@@ -1030,6 +1030,7 @@ export class DatabaseStorage implements IStorage {
         status: loans.status,
         createdAt: loans.createdAt,
         fundingSourceId: loans.fundingSourceId,
+        financingCycle: loans.financingCycle,
         customerName: sql<string>`CONCAT(${customers.firstName}, ' ', ${customers.lastName})`,
         branchName: branches.name,
         disbursementDate: sql<string>`(

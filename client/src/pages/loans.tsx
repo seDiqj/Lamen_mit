@@ -676,6 +676,9 @@ export default function LoansPage() {
                       {getSortIcon("customerName")}
                     </div>
                   </TableHead>
+                  <TableHead className="font-semibold text-center" data-testid="header-cycle">
+                    Cycle
+                  </TableHead>
                   <TableHead 
                     className="font-semibold cursor-pointer select-none hover:bg-muted/50 transition-colors"
                     onClick={() => handleSort("productName")}
@@ -742,7 +745,7 @@ export default function LoansPage() {
                 {isLoading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
-                      {Array.from({ length: 11 }).map((_, j) => (
+                      {Array.from({ length: 12 }).map((_, j) => (
                         <TableCell key={j}>
                           <Skeleton className="h-4 w-full" />
                         </TableCell>
@@ -764,6 +767,11 @@ export default function LoansPage() {
                           </div>
                           <span>{loan.customerName || "-"}</span>
                         </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700 text-xs font-semibold min-w-[28px] justify-center">
+                          {(loan as any).financingCycle || "-"}
+                        </Badge>
                       </TableCell>
                       <TableCell>{loan.productName || "-"}</TableCell>
                       <TableCell className="text-right font-semibold text-emerald-600 dark:text-emerald-400">

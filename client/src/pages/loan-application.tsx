@@ -266,6 +266,25 @@ export default function LoanApplicationPage() {
     }
   }, [prefilledCustomer, customerPrefilled, form]);
 
+  const { data: loanCycleData } = useQuery<{
+    totalLoans: number;
+    activeLoans: number;
+    completedLoans: number;
+    defaultedLoans: number;
+    pendingLoans: number;
+    lastCycle: number;
+    nextCycle: number;
+  }>({
+    queryKey: ["/api/customers", prefilledCustomerId, "loan-cycle"],
+    queryFn: async () => {
+      if (!prefilledCustomerId) return null;
+      const res = await fetch(`/api/customers/${prefilledCustomerId}/loan-cycle`, { credentials: "include" });
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!prefilledCustomerId,
+  });
+
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -484,6 +503,50 @@ export default function LoanApplicationPage() {
                 </div>
               </CardHeader>
               <CardContent className="px-4 pb-4 pt-0">
+                {loanCycleData && prefilledCustomerId && (
+                  <div className="mb-4 p-3 rounded-lg border bg-gradient-to-r from-blue-50/80 to-indigo-50/80 dark:from-blue-950/30 dark:to-indigo-950/30 border-blue-200 dark:border-blue-800" data-testid="loan-cycle-info">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow">
+                        <span className="text-white font-bold text-sm">{loanCycleData.nextCycle}</span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-blue-800 dark:text-blue-300">
+                          Financing Cycle #{loanCycleData.nextCycle}
+                        </p>
+                        <p className="text-xs text-blue-600/70 dark:text-blue-400/70">
+                          {loanCycleData.totalLoans === 0
+                            ? "First-time borrower"
+                            : `Returning customer — ${loanCycleData.totalLoans} previous financing(s)`}
+                        </p>
+                      </div>
+                    </div>
+                    {loanCycleData.totalLoans > 0 && (
+                      <div className="flex gap-3 mt-2">
+                        {loanCycleData.completedLoans > 0 && (
+                          <Badge variant="outline" className="text-[11px] bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700">
+                            <Check className="h-3 w-3 mr-1" />
+                            {loanCycleData.completedLoans} Completed
+                          </Badge>
+                        )}
+                        {loanCycleData.activeLoans > 0 && (
+                          <Badge variant="outline" className="text-[11px] bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700">
+                            {loanCycleData.activeLoans} Active
+                          </Badge>
+                        )}
+                        {loanCycleData.pendingLoans > 0 && (
+                          <Badge variant="outline" className="text-[11px] bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700">
+                            {loanCycleData.pendingLoans} Pending
+                          </Badge>
+                        )}
+                        {loanCycleData.defaultedLoans > 0 && (
+                          <Badge variant="outline" className="text-[11px] bg-red-100 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-400 dark:border-red-700">
+                            {loanCycleData.defaultedLoans} Defaulted
+                          </Badge>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                   <FormField control={form.control} name="customerNo" render={({ field }) => (
                     <FormItem>

@@ -1277,6 +1277,37 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/customers/:id/loan-cycle", isAuthenticated, async (req, res) => {
+    try {
+      const result = await db.execute(sql`
+        SELECT
+          COUNT(*) AS total_loans,
+          COUNT(*) FILTER (WHERE status IN ('disbursed', 'active')) AS active_loans,
+          COUNT(*) FILTER (WHERE status = 'completed') AS completed_loans,
+          COUNT(*) FILTER (WHERE status = 'defaulted') AS defaulted_loans,
+          COUNT(*) FILTER (WHERE status IN ('pending', 'approved', 'data_quality_review', 'risk_compliance_review', 'committee_review')) AS pending_loans,
+          COALESCE(MAX(financing_cycle), 0) AS last_cycle
+        FROM loans
+        WHERE customer_id = ${req.params.id}
+      `);
+      const row = result.rows[0] as any;
+      const totalLoans = Number(row.total_loans || 0);
+      const nextCycle = totalLoans + 1;
+      res.json({
+        totalLoans,
+        activeLoans: Number(row.active_loans || 0),
+        completedLoans: Number(row.completed_loans || 0),
+        defaultedLoans: Number(row.defaulted_loans || 0),
+        pendingLoans: Number(row.pending_loans || 0),
+        lastCycle: Number(row.last_cycle || 0),
+        nextCycle,
+      });
+    } catch (error) {
+      console.error("Error fetching customer loan cycle:", error);
+      res.status(500).json({ message: "Failed to fetch loan cycle" });
+    }
+  });
+
   // ===== LOAN SUMMARY STATS =====
   app.get("/api/loans/summary-stats", isAuthenticated, async (req, res) => {
     try {
@@ -1733,7 +1764,14 @@ export async function registerRoutes(
 
   app.post("/api/loans", isAuthenticated, requireRole("manager", "admin"), async (req: any, res) => {
     try {
-      const loan = await storage.createLoan({ ...req.body, createdBy: req.session.userId });
+      const loanData = { ...req.body, createdBy: req.session.userId };
+      if (loanData.customerId) {
+        const cycleResult = await db.execute(sql`
+          SELECT COUNT(*) AS total FROM loans WHERE customer_id = ${loanData.customerId}
+        `);
+        loanData.financingCycle = Number((cycleResult.rows[0] as any)?.total || 0) + 1;
+      }
+      const loan = await storage.createLoan(loanData);
       await logActivity(req, "create_loan", "loan", loan.id, `Created loan: ${loan.applicationId}`);
       res.status(201).json(loan);
     } catch (error) {
@@ -1910,6 +1948,12 @@ export async function registerRoutes(
       
       const applicationId = `${prefix}${sequentialNum.toString().padStart(5, '0')}`;
 
+      // Calculate financing cycle for this customer
+      const cycleResult = await db.execute(sql`
+        SELECT COUNT(*) AS total FROM loans WHERE customer_id = ${customerId}
+      `);
+      const financingCycle = Number((cycleResult.rows[0] as any)?.total || 0) + 1;
+
       // Create loan
       const loan = await storage.createLoan({
         applicationId,
@@ -1921,6 +1965,7 @@ export async function registerRoutes(
         sector: data.sector,
         businessDescription: data.businessDescription,
         financingPurpose: data.financingPurpose,
+        financingCycle,
         sourceOfFund: data.sourceOfFund,
         fundingSourceId: data.fundingSourceId,
         requestDate: data.requestDate,
