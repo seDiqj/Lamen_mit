@@ -1277,6 +1277,35 @@ export async function registerRoutes(
     }
   });
 
+  // ===== LOAN SUMMARY STATS =====
+  app.get("/api/loans/summary-stats", isAuthenticated, async (req, res) => {
+    try {
+      const result = await db.execute(sql`
+        SELECT
+          COUNT(*) FILTER (WHERE status IN ('disbursed', 'active')) AS active_loans,
+          COALESCE(SUM(CASE WHEN status IN ('disbursed', 'active', 'completed') THEN COALESCE(principle_amount::numeric, 0) ELSE 0 END), 0) AS total_disbursed,
+          COALESCE(SUM(CASE WHEN status IN ('disbursed', 'active') THEN COALESCE(total_receivable::numeric, 0) ELSE 0 END), 0)
+            - COALESCE((SELECT SUM(COALESCE(paid_amount::numeric, 0)) FROM installments WHERE loan_id IN (SELECT id FROM loans WHERE status IN ('disbursed', 'active')) AND is_paid = true), 0) AS outstanding,
+          COUNT(*) FILTER (WHERE status IN ('disbursed', 'active') AND id IN (
+            SELECT DISTINCT i.loan_id FROM installments i
+            WHERE i.is_paid = false AND i.due_date < NOW()
+            AND COALESCE(i.principle_amount::numeric, 0) > 0
+          )) AS in_arrears
+        FROM loans
+      `);
+      const row = result.rows[0] as any;
+      res.json({
+        activeLoans: Number(row.active_loans || 0),
+        totalDisbursed: Number(row.total_disbursed || 0),
+        outstanding: Number(row.outstanding || 0),
+        inArrears: Number(row.in_arrears || 0),
+      });
+    } catch (error) {
+      console.error("Error fetching loan summary stats:", error);
+      res.status(500).json({ message: "Failed to fetch loan summary stats" });
+    }
+  });
+
   // ===== LOANS =====
   app.get("/api/loans", isAuthenticated, async (req: any, res) => {
     try {

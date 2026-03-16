@@ -38,6 +38,10 @@ import {
   FileSpreadsheet,
   MessageCircle,
   QrCode,
+  TrendingUp,
+  AlertTriangle,
+  Banknote,
+  CreditCard,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -260,6 +264,15 @@ export default function LoansPage() {
     queryKey: ["/api/funding-sources/stats"],
   });
 
+  const { data: summaryStats, isLoading: summaryLoading } = useQuery<{
+    activeLoans: number;
+    totalDisbursed: number;
+    outstanding: number;
+    inArrears: number;
+  }>({
+    queryKey: ["/api/loans/summary-stats"],
+  });
+
   const sortedLoans = (() => {
     if (!data?.loans || !sortColumn) return data?.loans || [];
     
@@ -441,6 +454,94 @@ export default function LoansPage() {
             </p>
           </div>
         </div>
+      </div>
+
+      {/* Loan Summary Cards */}
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+        {summaryLoading ? (
+          <>
+            {[1,2,3,4].map(i => (
+              <Card key={i} className="overflow-hidden border-0 shadow-lg">
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-2">
+                      <Skeleton className="h-3 w-24" />
+                      <Skeleton className="h-8 w-16" />
+                    </div>
+                    <Skeleton className="h-10 w-10 rounded-lg" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </>
+        ) : (
+          <>
+            <Card className="overflow-hidden border-0 shadow-lg border-l-4" style={{ borderLeftColor: "#3b82f6" }} data-testid="card-active-loans">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Active Loans</p>
+                    <p className="text-3xl font-bold mt-1">{summaryStats?.activeLoans || 0}</p>
+                  </div>
+                  <div className="h-10 w-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                    <CreditCard className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="overflow-hidden border-0 shadow-lg border-l-4" style={{ borderLeftColor: "#10b981" }} data-testid="card-total-disbursed">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Disbursed</p>
+                    <p className="text-2xl font-bold mt-1">{formatCurrency(summaryStats?.totalDisbursed || 0)}</p>
+                  </div>
+                  <div className="h-10 w-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                    <TrendingUp className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="overflow-hidden border-0 shadow-lg border-l-4" style={{ borderLeftColor: "#8b5cf6" }} data-testid="card-outstanding">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Outstanding</p>
+                    <p className="text-2xl font-bold mt-1">{formatCurrency(summaryStats?.outstanding || 0)}</p>
+                    {summaryStats && summaryStats.totalDisbursed > 0 && (
+                      <div className="flex items-center gap-2 mt-2">
+                        <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-violet-500 rounded-full transition-all duration-500"
+                            style={{ width: `${Math.min(100, Math.round((summaryStats.outstanding / summaryStats.totalDisbursed) * 100))}%` }}
+                          />
+                        </div>
+                        <span className="text-xs text-muted-foreground">{Math.round((summaryStats.outstanding / summaryStats.totalDisbursed) * 100)}%</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="h-10 w-10 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
+                    <TrendingUp className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="overflow-hidden border-0 shadow-lg border-l-4" style={{ borderLeftColor: (summaryStats?.inArrears || 0) > 0 ? "#ef4444" : "#10b981" }} data-testid="card-in-arrears">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">In Arrears</p>
+                    <p className="text-3xl font-bold mt-1">{summaryStats?.inArrears || 0}</p>
+                  </div>
+                  <div className="h-10 w-10 rounded-lg flex items-center justify-center"
+                    style={{ backgroundColor: (summaryStats?.inArrears || 0) > 0 ? "rgba(239,68,68,0.1)" : "rgba(16,185,129,0.1)" }}>
+                    <AlertTriangle className="h-5 w-5" style={{ color: (summaryStats?.inArrears || 0) > 0 ? "#ef4444" : "#10b981" }} />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
 
       {/* Funding Sources Card */}

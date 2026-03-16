@@ -37,6 +37,7 @@ import {
   ShieldAlert,
   Filter,
   RotateCcw,
+  BarChart3,
 } from "lucide-react";
 import { Link } from "wouter";
 import {
@@ -609,7 +610,7 @@ export default function Dashboard() {
         )}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard
           title="Total Disbursed"
           value={formatCurrency(stats?.totalDisbursed || 0)}
@@ -649,6 +650,14 @@ export default function Dashboard() {
           loading={isLoading}
           gradient="bg-gradient-to-r from-indigo-500 to-blue-500"
           iconBg="bg-gradient-to-br from-indigo-500 to-blue-600"
+        />
+        <StatCard
+          title="Average Loan Size"
+          value={formatCurrency(stats?.totalLoans && stats.totalLoans > 0 ? Math.round(stats.totalDisbursed / stats.totalLoans) : 0)}
+          icon={BarChart3}
+          loading={isLoading}
+          gradient="bg-gradient-to-r from-amber-500 to-orange-500"
+          iconBg="bg-gradient-to-br from-amber-500 to-orange-600"
         />
       </div>
 
