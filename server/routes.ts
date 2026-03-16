@@ -7416,6 +7416,48 @@ export async function registerRoutes(
     }
   });
 
+  // ===== FINANCING PRODUCTS =====
+
+  app.get("/api/financing-products", isAuthenticated, async (req, res) => {
+    try {
+      const products = await storage.getFinancingProducts();
+      res.json(products);
+    } catch (error: any) {
+      console.error("Error fetching financing products:", error);
+      res.status(500).json({ message: "Failed to fetch financing products" });
+    }
+  });
+
+  app.post("/api/financing-products", isAuthenticated, requirePageAccess("financing-products"), async (req, res) => {
+    try {
+      const product = await storage.createFinancingProduct(req.body);
+      res.status(201).json(product);
+    } catch (error: any) {
+      console.error("Error creating financing product:", error);
+      res.status(500).json({ message: error.message || "Failed to create financing product" });
+    }
+  });
+
+  app.put("/api/financing-products/:id", isAuthenticated, requirePageAccess("financing-products"), async (req, res) => {
+    try {
+      const product = await storage.updateFinancingProduct(req.params.id, req.body);
+      res.json(product);
+    } catch (error: any) {
+      console.error("Error updating financing product:", error);
+      res.status(500).json({ message: error.message || "Failed to update financing product" });
+    }
+  });
+
+  app.delete("/api/financing-products/:id", isAuthenticated, requirePageAccess("financing-products"), async (req, res) => {
+    try {
+      await storage.deleteFinancingProduct(req.params.id);
+      res.json({ message: "Product deleted successfully" });
+    } catch (error: any) {
+      console.error("Error deleting financing product:", error);
+      res.status(500).json({ message: "Failed to delete financing product" });
+    }
+  });
+
   // Seed data on startup
   try {
     await storage.seedData();

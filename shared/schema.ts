@@ -1303,6 +1303,29 @@ export const insertBenefitPlanSchema = createInsertSchema(benefitPlans).omit({ i
 export const insertEmployeeBenefitEnrollmentSchema = createInsertSchema(employeeBenefitEnrollments).omit({ id: true, createdAt: true });
 export const insertBenefitDependentSchema = createInsertSchema(benefitDependents).omit({ id: true, createdAt: true });
 
+// ============== FINANCING PRODUCTS ==============
+
+export const financingProducts = pgTable("financing_products", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(),
+  code: varchar("code", { length: 50 }).notNull().unique(),
+  interestRate: decimal("interest_rate", { precision: 5, scale: 2 }).notNull(),
+  maxDurationMonths: integer("max_duration_months").notNull(),
+  gracePeriodDays: integer("grace_period_days").notNull().default(0),
+  minAmount: decimal("min_amount", { precision: 15, scale: 2 }).notNull(),
+  maxAmount: decimal("max_amount", { precision: 15, scale: 2 }).notNull(),
+  calculationMethod: varchar("calculation_method", { length: 50 }).notNull().default("flat_rate"),
+  repaymentFrequency: varchar("repayment_frequency", { length: 50 }).notNull().default("monthly"),
+  loanType: varchar("loan_type", { length: 50 }).notNull().default("individual"),
+  requiresGuarantor: boolean("requires_guarantor").notNull().default(false),
+  lateFee: varchar("late_fee", { length: 100 }),
+  isActive: boolean("is_active").notNull().default(true),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertFinancingProductSchema = createInsertSchema(financingProducts).omit({ id: true, createdAt: true });
+
 // ============== PAYROLL TYPES ==============
 
 export type InsertSalaryStructure = z.infer<typeof insertSalaryStructureSchema>;
@@ -1371,3 +1394,8 @@ export type InsertEmployeeBenefitEnrollment = z.infer<typeof insertEmployeeBenef
 export type EmployeeBenefitEnrollment = typeof employeeBenefitEnrollments.$inferSelect;
 export type InsertBenefitDependent = z.infer<typeof insertBenefitDependentSchema>;
 export type BenefitDependent = typeof benefitDependents.$inferSelect;
+
+// ============== FINANCING PRODUCTS ==============
+
+export type InsertFinancingProduct = z.infer<typeof insertFinancingProductSchema>;
+export type FinancingProduct = typeof financingProducts.$inferSelect;

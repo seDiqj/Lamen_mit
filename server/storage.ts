@@ -66,6 +66,7 @@ import {
   employeeBenefitEnrollments,
   benefitDependents,
   disbursementTargets,
+  financingProducts,
   type Account,
   type InsertAccount,
   type FiscalPeriod,
@@ -289,6 +290,12 @@ export interface IStorage {
   getBranchStats(): Promise<any[]>;
   getFundingSourceBranchStats(): Promise<any[]>;
   
+  // Financing Products
+  getFinancingProducts(): Promise<any[]>;
+  createFinancingProduct(data: any): Promise<any>;
+  updateFinancingProduct(id: string, data: any): Promise<any>;
+  deleteFinancingProduct(id: string): Promise<void>;
+
   // Reports
   getReportData(period: string): Promise<any>;
   getParAnalysis(): Promise<any>;
@@ -4015,6 +4022,7 @@ export class DatabaseStorage implements IStorage {
       "hr-leave-requests",
       "hr-holidays",
       "disbursement-targets",
+      "financing-products",
     ];
   }
 
@@ -6793,6 +6801,24 @@ export class DatabaseStorage implements IStorage {
       pendingReviews: pendingReviews[0]?.count || 0,
       employeesByDepartment: deptNames,
     };
+  }
+
+  async getFinancingProducts(): Promise<any[]> {
+    return await db.select().from(financingProducts).orderBy(asc(financingProducts.name));
+  }
+
+  async createFinancingProduct(data: any): Promise<any> {
+    const [product] = await db.insert(financingProducts).values(data).returning();
+    return product;
+  }
+
+  async updateFinancingProduct(id: string, data: any): Promise<any> {
+    const [product] = await db.update(financingProducts).set(data).where(eq(financingProducts.id, id)).returning();
+    return product;
+  }
+
+  async deleteFinancingProduct(id: string): Promise<void> {
+    await db.delete(financingProducts).where(eq(financingProducts.id, id));
   }
 }
 

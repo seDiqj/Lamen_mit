@@ -65,6 +65,7 @@ import DABReportsPage from "@/pages/dab-reports";
 import CollectionsPage from "@/pages/collections";
 import CitizenBalanceStatementPage from "@/pages/citizen-balance-statement";
 import InstallmentManagementPage from "@/pages/installment-management";
+import FinancingProductsPage from "@/pages/financing-products";
 import MobileLogin from "@/pages/mobile/mobile-login";
 import MobileCustomers from "@/pages/mobile/mobile-customers";
 import MobileFinancing from "@/pages/mobile/mobile-financing";
@@ -150,6 +151,7 @@ function AppRoutes() {
         <Route path="/loans" component={LoansPage} />
         <Route path="/loans/:id" component={LoanDetailsPage} />
         <Route path="/loan-application" component={LoanApplicationPage} />
+        <Route path="/financing-products" component={FinancingProductsPage} />
         <Route path="/customers" component={CustomersPage} />
         <Route path="/payments" component={PaymentsPage} />
         <Route path="/collections" component={CollectionsPage} />

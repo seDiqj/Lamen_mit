@@ -46,6 +46,7 @@ import {
   ListChecks,
   ArrowDownUp,
   PieChart,
+  Package,
 } from "lucide-react";
 import lamenLogo from "@assets/LamenLogo_1769936371528.jpeg";
 
@@ -77,6 +78,7 @@ const PAGE_URL_TO_NAME: Record<string, string> = {
   "/customer-registration": "customer-registration",
   "/loans": "loans",
   "/loan-application": "loan-application",
+  "/financing-products": "financing-products",
   "/reports": "reports",
   "/citizen-balance-statement": "reports",
   "/loan-disbursement-report": "reports",
@@ -197,6 +199,7 @@ export function IconRailNav({ children }: IconRailNavProps) {
       color: "text-emerald-500",
       bgColor: "from-emerald-500 to-green-600",
       items: [
+        { title: "Financing Products", url: "/financing-products", icon: Package, iconColor: "text-teal-500" },
         { title: "New Financing", url: "/loan-application", icon: FilePlus, iconColor: "text-green-600" },
         { title: "All Financings", url: "/loans", icon: FileText, iconColor: "text-emerald-500" },
         { title: "Customers", url: "/customers", icon: Users, iconColor: "text-violet-500" },

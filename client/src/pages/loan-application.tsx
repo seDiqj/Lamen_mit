@@ -131,12 +131,6 @@ const steps = [
   { id: 6, title: "Documents", icon: FolderUp, color: "from-purple-500 to-violet-500", docSection: null },
 ];
 
-const loanProducts = [
-  { code: "10", name: "Mudarabah" },
-  { code: "11", name: "Murabaha" },
-  { code: "12", name: "Musharakat" },
-  { code: "13", name: "Qardul Hasana" },
-];
 
 interface UploadedDocument {
   section: string;
@@ -192,6 +186,16 @@ export default function LoanApplicationPage() {
   const { data: provinces = [] } = useQuery<Province[]>({ queryKey: ["/api/provinces"] });
   const { data: districts = [] } = useQuery<(District & { provinceName?: string })[]>({ queryKey: ["/api/districts"] });
   const { data: licenseTypes = [] } = useQuery<LicenseType[]>({ queryKey: ["/api/license-types"] });
+  const { data: financingProducts = [] } = useQuery<any[]>({ queryKey: ["/api/financing-products"] });
+
+  const loanProducts = financingProducts.length > 0
+    ? financingProducts.filter((p: any) => p.isActive).map((p: any) => ({ code: p.code, name: p.name }))
+    : [
+        { code: "10", name: "Mudarabah" },
+        { code: "11", name: "Murabaha" },
+        { code: "12", name: "Musharakat" },
+        { code: "13", name: "Qardul Hasana" },
+      ];
 
   const { data: prefilledCustomer } = useQuery<any>({
     queryKey: ["/api/customers", prefilledCustomerId],
