@@ -159,6 +159,7 @@ const fadReviewSchema = z.object({
   financialGuarantorNidExpiry: z.string().optional(),
   financialGuarantorPhone: z.string().optional(),
   financialGuarantorHomeAddress: z.string().optional(),
+  financialGuarantorProvince: z.string().optional(),
   financialGuarantorDistrict: z.string().optional(),
   financialGuarantorBusiness: z.string().optional(),
   financialGuarantorBusinessAddress: z.string().optional(),
@@ -173,6 +174,7 @@ const fadReviewSchema = z.object({
   financialGuarantor2NidExpiry: z.string().optional(),
   financialGuarantor2Phone: z.string().optional(),
   financialGuarantor2HomeAddress: z.string().optional(),
+  financialGuarantor2Province: z.string().optional(),
   financialGuarantor2District: z.string().optional(),
   financialGuarantor2Business: z.string().optional(),
   financialGuarantor2BusinessAddress: z.string().optional(),
@@ -187,6 +189,7 @@ const fadReviewSchema = z.object({
   familyGuarantorNidExpiry: z.string().optional(),
   familyGuarantorPhone: z.string().optional(),
   familyGuarantorHomeAddress: z.string().optional(),
+  familyGuarantorProvince: z.string().optional(),
   familyGuarantorDistrict: z.string().optional(),
   familyGuarantorRelationship: z.string().optional(),
 });
@@ -432,6 +435,7 @@ export default function FadReviewPage() {
         financialGuarantorNidExpiry: d.financialGuarantor?.nidExpiryDate || "",
         financialGuarantorPhone: d.financialGuarantor?.phoneNumber || "",
         financialGuarantorHomeAddress: d.financialGuarantor?.homeAddress || "",
+        financialGuarantorProvince: d.financialGuarantor?.province || "",
         financialGuarantorDistrict: d.financialGuarantor?.district || "",
         financialGuarantorBusiness: d.financialGuarantor?.business || "",
         financialGuarantorBusinessAddress: d.financialGuarantor?.businessAddress || "",
@@ -446,6 +450,7 @@ export default function FadReviewPage() {
         financialGuarantor2NidExpiry: d.financialGuarantor2?.nidExpiryDate || "",
         financialGuarantor2Phone: d.financialGuarantor2?.phoneNumber || "",
         financialGuarantor2HomeAddress: d.financialGuarantor2?.homeAddress || "",
+        financialGuarantor2Province: d.financialGuarantor2?.province || "",
         financialGuarantor2District: d.financialGuarantor2?.district || "",
         financialGuarantor2Business: d.financialGuarantor2?.business || "",
         financialGuarantor2BusinessAddress: d.financialGuarantor2?.businessAddress || "",
@@ -460,6 +465,7 @@ export default function FadReviewPage() {
         familyGuarantorNidExpiry: d.familyGuarantor?.nidExpiryDate || "",
         familyGuarantorPhone: d.familyGuarantor?.phoneNumber || "",
         familyGuarantorHomeAddress: d.familyGuarantor?.homeAddress || "",
+        familyGuarantorProvince: d.familyGuarantor?.province || "",
         familyGuarantorDistrict: d.familyGuarantor?.district || "",
         familyGuarantorRelationship: d.familyGuarantor?.relationshipWithCustomer || "",
       });
@@ -1217,9 +1223,26 @@ export default function FadReviewPage() {
                       <FormField control={form.control} name="financialGuarantorHomeAddress" render={({ field }) => (
                         <FormItem><FormLabel>Home Address</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-finGuarantorAddress" /></FormControl><FormMessage /></FormItem>
                       )} />
-                      <FormField control={form.control} name="financialGuarantorDistrict" render={({ field }) => (
-                        <FormItem><FormLabel>District</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-finGuarantorDistrict" /></FormControl><FormMessage /></FormItem>
+                      <FormField control={form.control} name="financialGuarantorProvince" render={({ field }) => (
+                        <FormItem><FormLabel>Province</FormLabel>
+                          <Select onValueChange={(value) => { const prov = provinces.find((p: any) => p.id.toString() === value); field.onChange(prov?.name || ""); form.setValue("financialGuarantorDistrict", ""); }} value={provinces.find((p: any) => p.name === field.value)?.id.toString() || ""} disabled={!isEditing}>
+                            <FormControl><SelectTrigger data-testid="select-finGuarantorProvince"><SelectValue placeholder="Select province" /></SelectTrigger></FormControl>
+                            <SelectContent>{provinces.map((p: any) => (<SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>))}</SelectContent>
+                          </Select><FormMessage />
+                        </FormItem>
                       )} />
+                      <FormField control={form.control} name="financialGuarantorDistrict" render={({ field }) => {
+                        const selProv = provinces.find((p: any) => p.name === form.watch("financialGuarantorProvince"));
+                        const filtDist = districts.filter((d: any) => d.provinceId === selProv?.id);
+                        return (
+                          <FormItem><FormLabel>District</FormLabel>
+                            <Select onValueChange={(value) => { const dist = filtDist.find((d: any) => d.id.toString() === value); field.onChange(dist?.name || ""); }} value={filtDist.find((d: any) => d.name === field.value)?.id.toString() || ""} disabled={!isEditing || !selProv}>
+                              <FormControl><SelectTrigger data-testid="select-finGuarantorDistrict"><SelectValue placeholder={selProv ? "Select district" : "Select province first"} /></SelectTrigger></FormControl>
+                              <SelectContent>{filtDist.map((d: any) => (<SelectItem key={d.id} value={d.id.toString()}>{d.name}</SelectItem>))}</SelectContent>
+                            </Select><FormMessage />
+                          </FormItem>
+                        );
+                      }} />
                       <FormField control={form.control} name="financialGuarantorBusiness" render={({ field }) => (
                         <FormItem><FormLabel>Business</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-finGuarantorBusiness" /></FormControl><FormMessage /></FormItem>
                       )} />
@@ -1285,9 +1308,26 @@ export default function FadReviewPage() {
                       <FormField control={form.control} name="financialGuarantor2HomeAddress" render={({ field }) => (
                         <FormItem><FormLabel>Home Address</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-finGuarantor2Address" /></FormControl><FormMessage /></FormItem>
                       )} />
-                      <FormField control={form.control} name="financialGuarantor2District" render={({ field }) => (
-                        <FormItem><FormLabel>District</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-finGuarantor2District" /></FormControl><FormMessage /></FormItem>
+                      <FormField control={form.control} name="financialGuarantor2Province" render={({ field }) => (
+                        <FormItem><FormLabel>Province</FormLabel>
+                          <Select onValueChange={(value) => { const prov = provinces.find((p: any) => p.id.toString() === value); field.onChange(prov?.name || ""); form.setValue("financialGuarantor2District", ""); }} value={provinces.find((p: any) => p.name === field.value)?.id.toString() || ""} disabled={!isEditing}>
+                            <FormControl><SelectTrigger data-testid="select-finGuarantor2Province"><SelectValue placeholder="Select province" /></SelectTrigger></FormControl>
+                            <SelectContent>{provinces.map((p: any) => (<SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>))}</SelectContent>
+                          </Select><FormMessage />
+                        </FormItem>
                       )} />
+                      <FormField control={form.control} name="financialGuarantor2District" render={({ field }) => {
+                        const selProv = provinces.find((p: any) => p.name === form.watch("financialGuarantor2Province"));
+                        const filtDist = districts.filter((d: any) => d.provinceId === selProv?.id);
+                        return (
+                          <FormItem><FormLabel>District</FormLabel>
+                            <Select onValueChange={(value) => { const dist = filtDist.find((d: any) => d.id.toString() === value); field.onChange(dist?.name || ""); }} value={filtDist.find((d: any) => d.name === field.value)?.id.toString() || ""} disabled={!isEditing || !selProv}>
+                              <FormControl><SelectTrigger data-testid="select-finGuarantor2District"><SelectValue placeholder={selProv ? "Select district" : "Select province first"} /></SelectTrigger></FormControl>
+                              <SelectContent>{filtDist.map((d: any) => (<SelectItem key={d.id} value={d.id.toString()}>{d.name}</SelectItem>))}</SelectContent>
+                            </Select><FormMessage />
+                          </FormItem>
+                        );
+                      }} />
                       <FormField control={form.control} name="financialGuarantor2Business" render={({ field }) => (
                         <FormItem><FormLabel>Business</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-finGuarantor2Business" /></FormControl><FormMessage /></FormItem>
                       )} />
@@ -1353,9 +1393,26 @@ export default function FadReviewPage() {
                       <FormField control={form.control} name="familyGuarantorHomeAddress" render={({ field }) => (
                         <FormItem><FormLabel>Home Address</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-famGuarantorAddress" /></FormControl><FormMessage /></FormItem>
                       )} />
-                      <FormField control={form.control} name="familyGuarantorDistrict" render={({ field }) => (
-                        <FormItem><FormLabel>District</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-famGuarantorDistrict" /></FormControl><FormMessage /></FormItem>
+                      <FormField control={form.control} name="familyGuarantorProvince" render={({ field }) => (
+                        <FormItem><FormLabel>Province</FormLabel>
+                          <Select onValueChange={(value) => { const prov = provinces.find((p: any) => p.id.toString() === value); field.onChange(prov?.name || ""); form.setValue("familyGuarantorDistrict", ""); }} value={provinces.find((p: any) => p.name === field.value)?.id.toString() || ""} disabled={!isEditing}>
+                            <FormControl><SelectTrigger data-testid="select-famGuarantorProvince"><SelectValue placeholder="Select province" /></SelectTrigger></FormControl>
+                            <SelectContent>{provinces.map((p: any) => (<SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>))}</SelectContent>
+                          </Select><FormMessage />
+                        </FormItem>
                       )} />
+                      <FormField control={form.control} name="familyGuarantorDistrict" render={({ field }) => {
+                        const selProv = provinces.find((p: any) => p.name === form.watch("familyGuarantorProvince"));
+                        const filtDist = districts.filter((d: any) => d.provinceId === selProv?.id);
+                        return (
+                          <FormItem><FormLabel>District</FormLabel>
+                            <Select onValueChange={(value) => { const dist = filtDist.find((d: any) => d.id.toString() === value); field.onChange(dist?.name || ""); }} value={filtDist.find((d: any) => d.name === field.value)?.id.toString() || ""} disabled={!isEditing || !selProv}>
+                              <FormControl><SelectTrigger data-testid="select-famGuarantorDistrict"><SelectValue placeholder={selProv ? "Select district" : "Select province first"} /></SelectTrigger></FormControl>
+                              <SelectContent>{filtDist.map((d: any) => (<SelectItem key={d.id} value={d.id.toString()}>{d.name}</SelectItem>))}</SelectContent>
+                            </Select><FormMessage />
+                          </FormItem>
+                        );
+                      }} />
                       <FormField control={form.control} name="familyGuarantorRelationship" render={({ field }) => (
                         <FormItem><FormLabel>Relationship</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-famGuarantorRelation" /></FormControl><FormMessage /></FormItem>
                       )} />

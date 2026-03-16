@@ -93,6 +93,7 @@ const loanApplicationSchema = z.object({
   financialGuarantorDateOfBirth: z.string().optional(),
   financialGuarantorPhone: z.string().optional(),
   financialGuarantorHomeAddress: z.string().optional(),
+  financialGuarantorProvince: z.string().optional(),
   financialGuarantorDistrict: z.string().optional(),
   financialGuarantorBusiness: z.string().optional(),
   financialGuarantorBusinessAddress: z.string().optional(),
@@ -107,6 +108,7 @@ const loanApplicationSchema = z.object({
   financialGuarantor2DateOfBirth: z.string().optional(),
   financialGuarantor2Phone: z.string().optional(),
   financialGuarantor2HomeAddress: z.string().optional(),
+  financialGuarantor2Province: z.string().optional(),
   financialGuarantor2District: z.string().optional(),
   financialGuarantor2Business: z.string().optional(),
   financialGuarantor2BusinessAddress: z.string().optional(),
@@ -121,6 +123,7 @@ const loanApplicationSchema = z.object({
   familyGuarantorDateOfBirth: z.string().optional(),
   familyGuarantorPhone: z.string().optional(),
   familyGuarantorHomeAddress: z.string().optional(),
+  familyGuarantorProvince: z.string().optional(),
   familyGuarantorDistrict: z.string().optional(),
   familyGuarantorRelationship: z.string().optional(),
 });
@@ -1449,13 +1452,57 @@ export default function LoanApplicationPage() {
                         <FormMessage />
                       </FormItem>
                     )} />
-                    <FormField control={form.control} name="financialGuarantorDistrict" render={({ field }) => (
+                    <FormField control={form.control} name="financialGuarantorProvince" render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-xs">District</FormLabel>
-                        <FormControl><Input placeholder="District" className="h-9" {...field} data-testid="input-fin-guarantor-district" /></FormControl>
+                        <FormLabel className="text-xs">Province</FormLabel>
+                        <Select onValueChange={(value) => {
+                          const prov = provinces.find(p => p.id.toString() === value);
+                          field.onChange(prov?.name || "");
+                          form.setValue("financialGuarantorDistrict", "");
+                        }} value={provinces.find(p => p.name === field.value)?.id.toString() || ""}>
+                          <FormControl>
+                            <SelectTrigger className="h-9" data-testid="select-fin-guarantor-province">
+                              <SelectValue placeholder="Select province" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {provinces.map((prov) => (
+                              <SelectItem key={prov.id} value={prov.id.toString()}>{prov.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )} />
+                    <FormField control={form.control} name="financialGuarantorDistrict" render={({ field }) => {
+                      const selProv = provinces.find(p => p.name === form.watch("financialGuarantorProvince"));
+                      const filteredDists = districts.filter(d => d.provinceId === selProv?.id);
+                      return (
+                        <FormItem>
+                          <FormLabel className="text-xs">District</FormLabel>
+                          <Select
+                            onValueChange={(value) => {
+                              const dist = filteredDists.find(d => d.id.toString() === value);
+                              field.onChange(dist?.name || "");
+                            }}
+                            value={filteredDists.find(d => d.name === field.value)?.id.toString() || ""}
+                            disabled={!selProv}
+                          >
+                            <FormControl>
+                              <SelectTrigger className="h-9" data-testid="select-fin-guarantor-district">
+                                <SelectValue placeholder={selProv ? "Select district" : "Select province first"} />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {filteredDists.map((dist) => (
+                                <SelectItem key={dist.id} value={dist.id.toString()}>{dist.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }} />
                     <FormField control={form.control} name="financialGuarantorBusiness" render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-xs">Business</FormLabel>
@@ -1576,13 +1623,57 @@ export default function LoanApplicationPage() {
                         <FormMessage />
                       </FormItem>
                     )} />
-                    <FormField control={form.control} name="financialGuarantor2District" render={({ field }) => (
+                    <FormField control={form.control} name="financialGuarantor2Province" render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-xs">District</FormLabel>
-                        <FormControl><Input placeholder="District" className="h-9" {...field} data-testid="input-fin-guarantor2-district" /></FormControl>
+                        <FormLabel className="text-xs">Province</FormLabel>
+                        <Select onValueChange={(value) => {
+                          const prov = provinces.find(p => p.id.toString() === value);
+                          field.onChange(prov?.name || "");
+                          form.setValue("financialGuarantor2District", "");
+                        }} value={provinces.find(p => p.name === field.value)?.id.toString() || ""}>
+                          <FormControl>
+                            <SelectTrigger className="h-9" data-testid="select-fin-guarantor2-province">
+                              <SelectValue placeholder="Select province" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {provinces.map((prov) => (
+                              <SelectItem key={prov.id} value={prov.id.toString()}>{prov.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )} />
+                    <FormField control={form.control} name="financialGuarantor2District" render={({ field }) => {
+                      const selProv = provinces.find(p => p.name === form.watch("financialGuarantor2Province"));
+                      const filteredDists = districts.filter(d => d.provinceId === selProv?.id);
+                      return (
+                        <FormItem>
+                          <FormLabel className="text-xs">District</FormLabel>
+                          <Select
+                            onValueChange={(value) => {
+                              const dist = filteredDists.find(d => d.id.toString() === value);
+                              field.onChange(dist?.name || "");
+                            }}
+                            value={filteredDists.find(d => d.name === field.value)?.id.toString() || ""}
+                            disabled={!selProv}
+                          >
+                            <FormControl>
+                              <SelectTrigger className="h-9" data-testid="select-fin-guarantor2-district">
+                                <SelectValue placeholder={selProv ? "Select district" : "Select province first"} />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {filteredDists.map((dist) => (
+                                <SelectItem key={dist.id} value={dist.id.toString()}>{dist.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }} />
                     <FormField control={form.control} name="financialGuarantor2Business" render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-xs">Business</FormLabel>
@@ -1703,13 +1794,57 @@ export default function LoanApplicationPage() {
                         <FormMessage />
                       </FormItem>
                     )} />
-                    <FormField control={form.control} name="familyGuarantorDistrict" render={({ field }) => (
+                    <FormField control={form.control} name="familyGuarantorProvince" render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-xs">District</FormLabel>
-                        <FormControl><Input placeholder="District" className="h-9" {...field} data-testid="input-fam-guarantor-district" /></FormControl>
+                        <FormLabel className="text-xs">Province</FormLabel>
+                        <Select onValueChange={(value) => {
+                          const prov = provinces.find(p => p.id.toString() === value);
+                          field.onChange(prov?.name || "");
+                          form.setValue("familyGuarantorDistrict", "");
+                        }} value={provinces.find(p => p.name === field.value)?.id.toString() || ""}>
+                          <FormControl>
+                            <SelectTrigger className="h-9" data-testid="select-fam-guarantor-province">
+                              <SelectValue placeholder="Select province" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {provinces.map((prov) => (
+                              <SelectItem key={prov.id} value={prov.id.toString()}>{prov.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )} />
+                    <FormField control={form.control} name="familyGuarantorDistrict" render={({ field }) => {
+                      const selProv = provinces.find(p => p.name === form.watch("familyGuarantorProvince"));
+                      const filteredDists = districts.filter(d => d.provinceId === selProv?.id);
+                      return (
+                        <FormItem>
+                          <FormLabel className="text-xs">District</FormLabel>
+                          <Select
+                            onValueChange={(value) => {
+                              const dist = filteredDists.find(d => d.id.toString() === value);
+                              field.onChange(dist?.name || "");
+                            }}
+                            value={filteredDists.find(d => d.name === field.value)?.id.toString() || ""}
+                            disabled={!selProv}
+                          >
+                            <FormControl>
+                              <SelectTrigger className="h-9" data-testid="select-fam-guarantor-district">
+                                <SelectValue placeholder={selProv ? "Select district" : "Select province first"} />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {filteredDists.map((dist) => (
+                                <SelectItem key={dist.id} value={dist.id.toString()}>{dist.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }} />
                     <FormField control={form.control} name="familyGuarantorRelationship" render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-xs">Relationship</FormLabel>

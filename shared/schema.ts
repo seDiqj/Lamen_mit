@@ -257,6 +257,7 @@ export const guarantors = pgTable("guarantors", {
   nidExpiryDate: varchar("nid_expiry_date", { length: 50 }),
   phoneNumber: varchar("phone_number", { length: 50 }),
   homeAddress: text("home_address"),
+  province: varchar("province", { length: 255 }),
   district: varchar("district", { length: 255 }),
   business: varchar("business", { length: 255 }),
   businessAddress: text("business_address"),
