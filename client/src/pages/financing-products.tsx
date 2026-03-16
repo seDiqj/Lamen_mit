@@ -353,7 +353,7 @@ export default function FinancingProductsPage() {
                 <tr>
                   <th className="text-left p-3 font-medium">Product</th>
                   <th className="text-left p-3 font-medium">Code</th>
-                  <th className="text-center p-3 font-medium">Rate</th>
+                  <th className="text-center p-3 font-medium">Margin %</th>
                   <th className="text-center p-3 font-medium">Max Months</th>
                   <th className="text-center p-3 font-medium">Grace Days</th>
                   <th className="text-left p-3 font-medium">Amount Range</th>
@@ -417,7 +417,7 @@ export default function FinancingProductsPage() {
               <Input value={formData.code} onChange={(e) => setFormData({ ...formData, code: e.target.value })} placeholder="e.g. MRB-01" data-testid="input-product-code" />
             </div>
             <div className="space-y-2">
-              <Label>Margin/Interest Rate (%) *</Label>
+              <Label>Margin Rate (%) *</Label>
               <Input type="number" step="0.01" value={formData.interestRate} onChange={(e) => setFormData({ ...formData, interestRate: e.target.value })} placeholder="e.g. 16" data-testid="input-interest-rate" />
             </div>
             <div className="space-y-2">
@@ -571,7 +571,7 @@ function ProductCard({
         <div className="grid grid-cols-3 gap-px bg-muted/30 mx-4 rounded-lg overflow-hidden border">
           <div className="bg-background p-3 text-center">
             <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{Number(product.interestRate)}%</p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Interest</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Margin</p>
           </div>
           <div className="bg-background p-3 text-center">
             <p className="text-xl font-bold">{product.maxDurationMonths}</p>
