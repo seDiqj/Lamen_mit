@@ -68,6 +68,7 @@ export default function FinancingProductsPage() {
   const [deletingProduct, setDeletingProduct] = useState<FinancingProduct | null>(null);
   const [formData, setFormData] = useState(defaultFormData);
   const [cycleLimits, setCycleLimits] = useState<CycleRow[]>([]);
+  const [deletingCycleIdx, setDeletingCycleIdx] = useState<number | null>(null);
 
   const { data: products = [], isLoading } = useQuery<FinancingProduct[]>({
     queryKey: ["/api/financing-products"],
@@ -115,6 +116,7 @@ export default function FinancingProductsPage() {
     setEditingProduct(null);
     setFormData(defaultFormData);
     setCycleLimits([]);
+    setDeletingCycleIdx(null);
   };
 
   const openAddDialog = () => {
@@ -169,7 +171,14 @@ export default function FinancingProductsPage() {
   };
 
   const removeCycleRow = (index: number) => {
-    setCycleLimits(cycleLimits.filter((_, i) => i !== index));
+    setDeletingCycleIdx(index);
+  };
+
+  const confirmRemoveCycle = () => {
+    if (deletingCycleIdx !== null) {
+      setCycleLimits(cycleLimits.filter((_, i) => i !== deletingCycleIdx));
+      setDeletingCycleIdx(null);
+    }
   };
 
   const saveCycleLimits = async (productId: string) => {
@@ -463,7 +472,7 @@ export default function FinancingProductsPage() {
 
       {/* Add/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) closeDialog(); }}>
-        <DialogContent className="max-w-[900px] p-0">
+        <DialogContent className="max-w-[1100px] p-0">
           <DialogHeader className="px-5 pt-4 pb-3 border-b">
             <DialogTitle className="text-base">{editingProduct ? "Edit Financing Product" : "Add New Financing Product"}</DialogTitle>
           </DialogHeader>
@@ -554,7 +563,7 @@ export default function FinancingProductsPage() {
               </div>
             </div>
 
-            <div className="w-[280px] flex-shrink-0 px-4 py-3 flex flex-col">
+            <div className="w-[320px] flex-shrink-0 px-4 py-3 flex flex-col">
               <div className="flex items-center justify-between mb-2">
                 <Label className="text-xs font-semibold">Cycle Limits</Label>
                 <Button type="button" variant="outline" size="sm" onClick={addCycleRow} className="h-6 px-2 text-[11px]" data-testid="button-add-cycle">
@@ -654,6 +663,27 @@ export default function FinancingProductsPage() {
               data-testid="button-confirm-delete"
             >
               {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Cycle Confirmation */}
+      <Dialog open={deletingCycleIdx !== null} onOpenChange={(open) => { if (!open) setDeletingCycleIdx(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-5 w-5" />
+              Remove Cycle Limit
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Are you sure you want to remove <strong>Cycle {deletingCycleIdx !== null ? cycleLimits[deletingCycleIdx]?.cycleNumber : ""}</strong> limit? This will take effect when you save the product.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setDeletingCycleIdx(null)} data-testid="button-cancel-cycle-delete">Cancel</Button>
+            <Button variant="destructive" size="sm" onClick={confirmRemoveCycle} data-testid="button-confirm-cycle-delete">
+              Remove
             </Button>
           </DialogFooter>
         </DialogContent>
