@@ -95,10 +95,10 @@ export default function CollateralReport() {
       "ContractCode": row.contractCode || "",
       "CollateralCode": row.collateralCode || "",
       "CollateralType": row.collateralType || "",
-      "Collateral Description": row.collateralDescription || "",
-      "Collateral Value": row.collateralValue,
-      "Currency": row.collateralCurrency || "",
-      "Valuation Date": row.valuationDate ? formatDate(row.valuationDate) : "",
+      "CollateralDescription": row.collateralDescription || "",
+      "CollateralValue.Value": row.collateralValue,
+      "CollateralValue.Currency": row.collateralCurrency || "",
+      "ValuationDate": row.valuationDate ? formatDate(row.valuationDate) : "",
     }));
 
     const ws = XLSX.utils.json_to_sheet(rows);
@@ -144,7 +144,7 @@ export default function CollateralReport() {
 
     autoTable(doc, {
       startY: 38,
-      head: [["#", "ContractCode", "CollateralCode", "CollateralType", "Description", "Value", "Currency", "Valuation Date"]],
+      head: [["#", "ContractCode", "CollateralCode", "CollateralType", "CollateralDescription", "CollateralValue.Value", "CollateralValue.Currency", "ValuationDate"]],
       body: tableData,
       theme: "grid",
       headStyles: { fillColor: [34, 87, 122], textColor: [255, 255, 255], fontStyle: "bold", halign: "center", fontSize: 7 },
@@ -253,10 +253,10 @@ export default function CollateralReport() {
                     <TableHead className="text-primary-foreground font-semibold">ContractCode</TableHead>
                     <TableHead className="text-primary-foreground font-semibold">CollateralCode</TableHead>
                     <TableHead className="text-primary-foreground font-semibold">CollateralType</TableHead>
-                    <TableHead className="text-primary-foreground font-semibold">Collateral Description</TableHead>
-                    <TableHead className="text-right text-primary-foreground font-semibold">Collateral Value</TableHead>
-                    <TableHead className="text-primary-foreground font-semibold">Currency</TableHead>
-                    <TableHead className="text-primary-foreground font-semibold">Valuation Date</TableHead>
+                    <TableHead className="text-primary-foreground font-semibold">CollateralDescription</TableHead>
+                    <TableHead className="text-right text-primary-foreground font-semibold">CollateralValue.Value</TableHead>
+                    <TableHead className="text-primary-foreground font-semibold">CollateralValue.Currency</TableHead>
+                    <TableHead className="text-primary-foreground font-semibold">ValuationDate</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
