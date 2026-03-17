@@ -1354,6 +1354,7 @@ export const financingProducts = pgTable("financing_products", {
   name: varchar("name", { length: 255 }).notNull(),
   code: varchar("code", { length: 50 }).notNull().unique(),
   interestRate: decimal("interest_rate", { precision: 5, scale: 2 }).notNull(),
+  minDurationMonths: integer("min_duration_months").default(0),
   maxDurationMonths: integer("max_duration_months").notNull(),
   gracePeriodDays: integer("grace_period_days").notNull().default(0),
   minAmount: decimal("min_amount", { precision: 15, scale: 2 }).notNull(),
@@ -1368,7 +1369,20 @@ export const financingProducts = pgTable("financing_products", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const productCycleLimits = pgTable("product_cycle_limits", {
+  id: serial("id").primaryKey(),
+  productId: varchar("product_id").notNull().references(() => financingProducts.id, { onDelete: "cascade" }),
+  cycleNumber: integer("cycle_number").notNull(),
+  minAmount: decimal("min_amount", { precision: 15, scale: 2 }).notNull(),
+  maxAmount: decimal("max_amount", { precision: 15, scale: 2 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const insertFinancingProductSchema = createInsertSchema(financingProducts).omit({ id: true, createdAt: true });
+
+export const insertProductCycleLimitSchema = createInsertSchema(productCycleLimits).omit({ id: true, createdAt: true });
+export type InsertProductCycleLimit = z.infer<typeof insertProductCycleLimitSchema>;
+export type ProductCycleLimit = typeof productCycleLimits.$inferSelect;
 
 // ============== PAYROLL TYPES ==============
 

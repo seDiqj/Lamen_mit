@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { customers, loans, disbursements, branches, financeOfficers, installments, fundingSources as fundingSourcesTable, collaterals, customerBusinesses, businessLicenses, loanApprovals, guarantors, userRoles, fadReviews, riskComplianceReviews, accounts, journalEntries, journalLines, clientOccupations } from "@shared/schema";
+import { customers, loans, disbursements, branches, financeOfficers, installments, fundingSources as fundingSourcesTable, collaterals, customerBusinesses, businessLicenses, loanApprovals, guarantors, userRoles, fadReviews, riskComplianceReviews, accounts, journalEntries, journalLines, clientOccupations, productCycleLimits } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { eq, and, or, inArray, sql, gte, lte, desc } from "drizzle-orm";
 import { z } from "zod";
@@ -7711,6 +7711,54 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Error deleting financing product:", error);
       res.status(500).json({ message: "Failed to delete financing product" });
+    }
+  });
+
+  app.get("/api/financing-products/:id/cycle-limits", isAuthenticated, async (req, res) => {
+    try {
+      const limits = await db.select().from(productCycleLimits)
+        .where(eq(productCycleLimits.productId, req.params.id))
+        .orderBy(productCycleLimits.cycleNumber);
+      res.json(limits);
+    } catch (error: any) {
+      console.error("Error fetching cycle limits:", error);
+      res.status(500).json({ message: "Failed to fetch cycle limits" });
+    }
+  });
+
+  app.put("/api/financing-products/:id/cycle-limits", isAuthenticated, requirePageAccess("financing-products"), async (req: any, res) => {
+    try {
+      const { cycles } = req.body;
+      if (cycles && !Array.isArray(cycles)) {
+        return res.status(400).json({ message: "cycles must be an array" });
+      }
+      const validCycles = (cycles || []).filter((c: any) =>
+        c.cycleNumber && Number.isInteger(Number(c.cycleNumber)) && Number(c.cycleNumber) > 0 &&
+        c.minAmount && Number(c.minAmount) >= 0 &&
+        c.maxAmount && Number(c.maxAmount) >= Number(c.minAmount)
+      );
+
+      await db.transaction(async (tx) => {
+        await tx.delete(productCycleLimits).where(eq(productCycleLimits.productId, req.params.id));
+        if (validCycles.length > 0) {
+          await tx.insert(productCycleLimits).values(
+            validCycles.map((c: any) => ({
+              productId: req.params.id,
+              cycleNumber: parseInt(c.cycleNumber),
+              minAmount: String(c.minAmount),
+              maxAmount: String(c.maxAmount),
+            }))
+          );
+        }
+      });
+
+      const updated = await db.select().from(productCycleLimits)
+        .where(eq(productCycleLimits.productId, req.params.id))
+        .orderBy(productCycleLimits.cycleNumber);
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Error saving cycle limits:", error);
+      res.status(500).json({ message: "Failed to save cycle limits" });
     }
   });
 

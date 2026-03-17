@@ -37,6 +37,7 @@ Preferred communication style: Simple, everyday language.
   - `customers`, `customerBusinesses`, `businessLicenses` - Customer data
   - `financingPurposes` - Lookup table for financing purpose dropdown values
   - `collateralTypes` - Lookup table for collateral type dropdown values
+  - `productCycleLimits` - Unlimited cycle-based min/max amount limits per financing product
   - `loans`, `collaterals`, `guarantors` - Loan information (loans includes `businessDetailedDescription`, `clientOccupation` fields; collaterals includes `description`, `district` fields)
   - `loanApprovals`, `disbursements`, `installments` - Loan lifecycle
   - `activityLogs` - Audit trail

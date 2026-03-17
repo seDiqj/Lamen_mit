@@ -14,9 +14,10 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Plus, Search, Package, CheckCircle2, XCircle,
   Users, Percent, Calendar, Clock, Banknote, Layers,
-  LayoutGrid, Table2, Pencil, Trash2, User, Shield, AlertTriangle
+  LayoutGrid, Table2, Pencil, Trash2, User, Shield, AlertTriangle,
+  RefreshCw, X
 } from "lucide-react";
-import type { FinancingProduct } from "@shared/schema";
+import type { FinancingProduct, ProductCycleLimit } from "@shared/schema";
 
 const CALCULATION_METHODS = [
   { value: "flat_rate", label: "Flat Rate" },
@@ -39,6 +40,7 @@ const defaultFormData = {
   name: "",
   code: "",
   interestRate: "",
+  minDurationMonths: "0",
   maxDurationMonths: "",
   gracePeriodDays: "0",
   minAmount: "",
@@ -52,6 +54,8 @@ const defaultFormData = {
   description: "",
 };
 
+type CycleRow = { cycleNumber: string; minAmount: string; maxAmount: string };
+
 export default function FinancingProductsPage() {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
@@ -63,6 +67,7 @@ export default function FinancingProductsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingProduct, setDeletingProduct] = useState<FinancingProduct | null>(null);
   const [formData, setFormData] = useState(defaultFormData);
+  const [cycleLimits, setCycleLimits] = useState<CycleRow[]>([]);
 
   const { data: products = [], isLoading } = useQuery<FinancingProduct[]>({
     queryKey: ["/api/financing-products"],
@@ -109,20 +114,23 @@ export default function FinancingProductsPage() {
     setDialogOpen(false);
     setEditingProduct(null);
     setFormData(defaultFormData);
+    setCycleLimits([]);
   };
 
   const openAddDialog = () => {
     setEditingProduct(null);
     setFormData(defaultFormData);
+    setCycleLimits([]);
     setDialogOpen(true);
   };
 
-  const openEditDialog = (product: FinancingProduct) => {
+  const openEditDialog = async (product: FinancingProduct) => {
     setEditingProduct(product);
     setFormData({
       name: product.name,
       code: product.code,
       interestRate: String(product.interestRate),
+      minDurationMonths: String(product.minDurationMonths ?? 0),
       maxDurationMonths: String(product.maxDurationMonths),
       gracePeriodDays: String(product.gracePeriodDays),
       minAmount: String(product.minAmount),
@@ -136,21 +144,73 @@ export default function FinancingProductsPage() {
       description: product.description || "",
     });
     setDialogOpen(true);
+    try {
+      const res = await fetch(`/api/financing-products/${product.id}/cycle-limits`);
+      const data: ProductCycleLimit[] = await res.json();
+      setCycleLimits(data.map((c) => ({
+        cycleNumber: String(c.cycleNumber),
+        minAmount: String(c.minAmount),
+        maxAmount: String(c.maxAmount),
+      })));
+    } catch {
+      setCycleLimits([]);
+    }
   };
 
-  const handleSubmit = () => {
+  const addCycleRow = () => {
+    const nextCycle = cycleLimits.length > 0
+      ? String(Math.max(...cycleLimits.map(c => Number(c.cycleNumber))) + 1)
+      : "1";
+    setCycleLimits([...cycleLimits, { cycleNumber: nextCycle, minAmount: "", maxAmount: "" }]);
+  };
+
+  const updateCycleRow = (index: number, field: keyof CycleRow, value: string) => {
+    setCycleLimits(cycleLimits.map((c, i) => i === index ? { ...c, [field]: value } : c));
+  };
+
+  const removeCycleRow = (index: number) => {
+    setCycleLimits(cycleLimits.filter((_, i) => i !== index));
+  };
+
+  const saveCycleLimits = async (productId: string) => {
+    const validCycles = cycleLimits.filter(c => c.cycleNumber && c.minAmount && c.maxAmount);
+    await apiRequest("PUT", `/api/financing-products/${productId}/cycle-limits`, {
+      cycles: validCycles.map(c => ({
+        cycleNumber: parseInt(c.cycleNumber),
+        minAmount: c.minAmount,
+        maxAmount: c.maxAmount,
+      })),
+    });
+  };
+
+  const handleSubmit = async () => {
     const payload = {
       ...formData,
       interestRate: formData.interestRate,
+      minDurationMonths: parseInt(formData.minDurationMonths || "0"),
       maxDurationMonths: parseInt(formData.maxDurationMonths),
       gracePeriodDays: parseInt(formData.gracePeriodDays || "0"),
       minAmount: formData.minAmount,
       maxAmount: formData.maxAmount,
     };
-    if (editingProduct) {
-      updateMutation.mutate({ id: editingProduct.id, data: payload });
-    } else {
-      createMutation.mutate(payload);
+    try {
+      if (editingProduct) {
+        await apiRequest("PUT", `/api/financing-products/${editingProduct.id}`, payload);
+        await saveCycleLimits(editingProduct.id);
+        queryClient.invalidateQueries({ queryKey: ["/api/financing-products"] });
+        toast({ title: "Product updated successfully" });
+      } else {
+        const res = await apiRequest("POST", "/api/financing-products", payload);
+        const newProduct = await res.json();
+        if (cycleLimits.length > 0) {
+          await saveCycleLimits(newProduct.id);
+        }
+        queryClient.invalidateQueries({ queryKey: ["/api/financing-products"] });
+        toast({ title: "Product created successfully" });
+      }
+      closeDialog();
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     }
   };
 
@@ -354,7 +414,7 @@ export default function FinancingProductsPage() {
                   <th className="text-left p-3 font-medium">Product</th>
                   <th className="text-left p-3 font-medium">Code</th>
                   <th className="text-center p-3 font-medium">Margin %</th>
-                  <th className="text-center p-3 font-medium">Max Months</th>
+                  <th className="text-center p-3 font-medium">Duration</th>
                   <th className="text-center p-3 font-medium">Grace Days</th>
                   <th className="text-left p-3 font-medium">Amount Range</th>
                   <th className="text-left p-3 font-medium">Method</th>
@@ -370,7 +430,7 @@ export default function FinancingProductsPage() {
                     <td className="p-3 font-medium">{p.name}</td>
                     <td className="p-3 text-muted-foreground">{p.code}</td>
                     <td className="p-3 text-center">{Number(p.interestRate)}%</td>
-                    <td className="p-3 text-center">{p.maxDurationMonths}</td>
+                    <td className="p-3 text-center">{p.minDurationMonths || 0}–{p.maxDurationMonths} mo</td>
                     <td className="p-3 text-center">{p.gracePeriodDays}</td>
                     <td className="p-3">AFN {formatAmount(p.minAmount)} – {formatAmount(p.maxAmount)}</td>
                     <td className="p-3">{getMethodLabel(p.calculationMethod)}</td>
@@ -419,6 +479,10 @@ export default function FinancingProductsPage() {
             <div className="space-y-2">
               <Label>Margin Rate (%) *</Label>
               <Input type="number" step="0.01" value={formData.interestRate} onChange={(e) => setFormData({ ...formData, interestRate: e.target.value })} placeholder="e.g. 16" data-testid="input-interest-rate" />
+            </div>
+            <div className="space-y-2">
+              <Label>Min Duration (Months)</Label>
+              <Input type="number" value={formData.minDurationMonths} onChange={(e) => setFormData({ ...formData, minDurationMonths: e.target.value })} placeholder="e.g. 3" data-testid="input-min-duration" />
             </div>
             <div className="space-y-2">
               <Label>Max Duration (Months) *</Label>
@@ -480,15 +544,82 @@ export default function FinancingProductsPage() {
               <Textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Optional product description..." rows={3} data-testid="input-description" />
             </div>
           </div>
-          <DialogFooter>
+
+          <div className="border-t pt-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-sm font-semibold">Cycle-Based Amount Limits</Label>
+                <p className="text-xs text-muted-foreground">Define min/max amounts for each financing cycle</p>
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={addCycleRow} data-testid="button-add-cycle">
+                <Plus className="h-3.5 w-3.5 mr-1" />
+                Add Cycle
+              </Button>
+            </div>
+            {cycleLimits.length > 0 && (
+              <div className="space-y-2">
+                <div className="grid grid-cols-[60px_1fr_1fr_36px] gap-2 text-xs font-medium text-muted-foreground px-1">
+                  <span>Cycle #</span>
+                  <span>Min Amount</span>
+                  <span>Max Amount</span>
+                  <span></span>
+                </div>
+                {cycleLimits.map((cycle, idx) => (
+                  <div key={idx} className="grid grid-cols-[60px_1fr_1fr_36px] gap-2 items-center" data-testid={`row-cycle-${idx}`}>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={cycle.cycleNumber}
+                      onChange={(e) => updateCycleRow(idx, "cycleNumber", e.target.value)}
+                      className="h-8 text-center text-sm"
+                      data-testid={`input-cycle-number-${idx}`}
+                    />
+                    <Input
+                      type="number"
+                      value={cycle.minAmount}
+                      onChange={(e) => updateCycleRow(idx, "minAmount", e.target.value)}
+                      placeholder="Min AFN"
+                      className="h-8 text-sm"
+                      data-testid={`input-cycle-min-${idx}`}
+                    />
+                    <Input
+                      type="number"
+                      value={cycle.maxAmount}
+                      onChange={(e) => updateCycleRow(idx, "maxAmount", e.target.value)}
+                      placeholder="Max AFN"
+                      className="h-8 text-sm"
+                      data-testid={`input-cycle-max-${idx}`}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-red-500 hover:text-red-700"
+                      onClick={() => removeCycleRow(idx)}
+                      data-testid={`button-remove-cycle-${idx}`}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {cycleLimits.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-3 border rounded-lg bg-muted/20">
+                No cycle limits defined. The product's default min/max amounts will apply to all cycles.
+              </p>
+            )}
+          </div>
+
+          <DialogFooter className="mt-4">
             <Button variant="outline" onClick={closeDialog} data-testid="button-cancel">Cancel</Button>
             <Button
               onClick={handleSubmit}
-              disabled={createMutation.isPending || updateMutation.isPending || !formData.name || !formData.code || !formData.interestRate || !formData.maxDurationMonths || !formData.minAmount || !formData.maxAmount}
+              disabled={!formData.name || !formData.code || !formData.interestRate || !formData.maxDurationMonths || !formData.minAmount || !formData.maxAmount}
               className="bg-emerald-600 hover:bg-emerald-700 text-white"
               data-testid="button-save-product"
             >
-              {createMutation.isPending || updateMutation.isPending ? "Saving..." : editingProduct ? "Update Product" : "Create Product"}
+              {editingProduct ? "Update Product" : "Create Product"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -574,8 +705,8 @@ function ProductCard({
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Margin</p>
           </div>
           <div className="bg-background p-3 text-center">
-            <p className="text-xl font-bold">{product.maxDurationMonths}</p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Max Months</p>
+            <p className="text-xl font-bold">{product.minDurationMonths || 0}–{product.maxDurationMonths}</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Months</p>
           </div>
           <div className="bg-background p-3 text-center">
             <p className="text-xl font-bold">{product.gracePeriodDays}</p>
