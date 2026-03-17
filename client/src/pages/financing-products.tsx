@@ -463,157 +463,165 @@ export default function FinancingProductsPage() {
 
       {/* Add/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) closeDialog(); }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editingProduct ? "Edit Financing Product" : "Add New Financing Product"}</DialogTitle>
+        <DialogContent className="max-w-[900px] p-0">
+          <DialogHeader className="px-5 pt-4 pb-3 border-b">
+            <DialogTitle className="text-base">{editingProduct ? "Edit Financing Product" : "Add New Financing Product"}</DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-4 py-4">
-            <div className="space-y-2">
-              <Label>Product Name *</Label>
-              <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. Murabaha" data-testid="input-product-name" />
-            </div>
-            <div className="space-y-2">
-              <Label>Product Code *</Label>
-              <Input value={formData.code} onChange={(e) => setFormData({ ...formData, code: e.target.value })} placeholder="e.g. MRB-01" data-testid="input-product-code" />
-            </div>
-            <div className="space-y-2">
-              <Label>Margin Rate (%) *</Label>
-              <Input type="number" step="0.01" value={formData.interestRate} onChange={(e) => setFormData({ ...formData, interestRate: e.target.value })} placeholder="e.g. 16" data-testid="input-interest-rate" />
-            </div>
-            <div className="space-y-2">
-              <Label>Min Duration (Months)</Label>
-              <Input type="number" value={formData.minDurationMonths} onChange={(e) => setFormData({ ...formData, minDurationMonths: e.target.value })} placeholder="e.g. 3" data-testid="input-min-duration" />
-            </div>
-            <div className="space-y-2">
-              <Label>Max Duration (Months) *</Label>
-              <Input type="number" value={formData.maxDurationMonths} onChange={(e) => setFormData({ ...formData, maxDurationMonths: e.target.value })} placeholder="e.g. 24" data-testid="input-max-duration" />
-            </div>
-            <div className="space-y-2">
-              <Label>Grace Period (Days)</Label>
-              <Input type="number" value={formData.gracePeriodDays} onChange={(e) => setFormData({ ...formData, gracePeriodDays: e.target.value })} placeholder="e.g. 30" data-testid="input-grace-period" />
-            </div>
-            <div className="space-y-2">
-              <Label>Min Amount (AFN) *</Label>
-              <Input type="number" value={formData.minAmount} onChange={(e) => setFormData({ ...formData, minAmount: e.target.value })} placeholder="e.g. 5000" data-testid="input-min-amount" />
-            </div>
-            <div className="space-y-2">
-              <Label>Max Amount (AFN) *</Label>
-              <Input type="number" value={formData.maxAmount} onChange={(e) => setFormData({ ...formData, maxAmount: e.target.value })} placeholder="e.g. 150000" data-testid="input-max-amount" />
-            </div>
-            <div className="space-y-2">
-              <Label>Calculation Method *</Label>
-              <Select value={formData.calculationMethod} onValueChange={(v) => setFormData({ ...formData, calculationMethod: v })}>
-                <SelectTrigger data-testid="select-calc-method"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {CALCULATION_METHODS.map((m) => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Repayment Frequency *</Label>
-              <Select value={formData.repaymentFrequency} onValueChange={(v) => setFormData({ ...formData, repaymentFrequency: v })}>
-                <SelectTrigger data-testid="select-frequency"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {FREQUENCIES.map((f) => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Financing Type *</Label>
-              <Select value={formData.loanType} onValueChange={(v) => setFormData({ ...formData, loanType: v })}>
-                <SelectTrigger data-testid="select-loan-type"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {LOAN_TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Late Fee</Label>
-              <Input value={formData.lateFee} onChange={(e) => setFormData({ ...formData, lateFee: e.target.value })} placeholder="e.g. 500 or 5%" data-testid="input-late-fee" />
-            </div>
-            <div className="flex items-center gap-3 pt-6">
-              <Switch checked={formData.requiresGuarantor} onCheckedChange={(v) => setFormData({ ...formData, requiresGuarantor: v })} data-testid="switch-guarantor" />
-              <Label>Requires Guarantor</Label>
-            </div>
-            <div className="flex items-center gap-3 pt-6">
-              <Switch checked={formData.isActive} onCheckedChange={(v) => setFormData({ ...formData, isActive: v })} data-testid="switch-active" />
-              <Label>Active</Label>
-            </div>
-            <div className="col-span-2 space-y-2">
-              <Label>Description</Label>
-              <Textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Optional product description..." rows={3} data-testid="input-description" />
-            </div>
-          </div>
-
-          <div className="border-t pt-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <Label className="text-sm font-semibold">Cycle-Based Amount Limits</Label>
-                <p className="text-xs text-muted-foreground">Define min/max amounts for each financing cycle</p>
-              </div>
-              <Button type="button" variant="outline" size="sm" onClick={addCycleRow} data-testid="button-add-cycle">
-                <Plus className="h-3.5 w-3.5 mr-1" />
-                Add Cycle
-              </Button>
-            </div>
-            {cycleLimits.length > 0 && (
-              <div className="space-y-2">
-                <div className="grid grid-cols-[60px_1fr_1fr_36px] gap-2 text-xs font-medium text-muted-foreground px-1">
-                  <span>Cycle #</span>
-                  <span>Min Amount</span>
-                  <span>Max Amount</span>
-                  <span></span>
+          <div className="flex divide-x" style={{ minHeight: 0 }}>
+            <div className="flex-1 px-5 py-3 space-y-3">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Product Name *</Label>
+                  <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. Murabaha" className="h-8 text-sm" data-testid="input-product-name" />
                 </div>
-                {cycleLimits.map((cycle, idx) => (
-                  <div key={idx} className="grid grid-cols-[60px_1fr_1fr_36px] gap-2 items-center" data-testid={`row-cycle-${idx}`}>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={cycle.cycleNumber}
-                      onChange={(e) => updateCycleRow(idx, "cycleNumber", e.target.value)}
-                      className="h-8 text-center text-sm"
-                      data-testid={`input-cycle-number-${idx}`}
-                    />
-                    <Input
-                      type="number"
-                      value={cycle.minAmount}
-                      onChange={(e) => updateCycleRow(idx, "minAmount", e.target.value)}
-                      placeholder="Min AFN"
-                      className="h-8 text-sm"
-                      data-testid={`input-cycle-min-${idx}`}
-                    />
-                    <Input
-                      type="number"
-                      value={cycle.maxAmount}
-                      onChange={(e) => updateCycleRow(idx, "maxAmount", e.target.value)}
-                      placeholder="Max AFN"
-                      className="h-8 text-sm"
-                      data-testid={`input-cycle-max-${idx}`}
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-red-500 hover:text-red-700"
-                      onClick={() => removeCycleRow(idx)}
-                      data-testid={`button-remove-cycle-${idx}`}
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                ))}
+                <div className="space-y-1">
+                  <Label className="text-xs">Product Code *</Label>
+                  <Input value={formData.code} onChange={(e) => setFormData({ ...formData, code: e.target.value })} placeholder="e.g. MRB-01" className="h-8 text-sm" data-testid="input-product-code" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Margin Rate (%) *</Label>
+                  <Input type="number" step="0.01" value={formData.interestRate} onChange={(e) => setFormData({ ...formData, interestRate: e.target.value })} placeholder="16" className="h-8 text-sm" data-testid="input-interest-rate" />
+                </div>
               </div>
-            )}
-            {cycleLimits.length === 0 && (
-              <p className="text-xs text-muted-foreground text-center py-3 border rounded-lg bg-muted/20">
-                No cycle limits defined. The product's default min/max amounts will apply to all cycles.
-              </p>
-            )}
-          </div>
+              <div className="grid grid-cols-4 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Min Duration (Mo)</Label>
+                  <Input type="number" value={formData.minDurationMonths} onChange={(e) => setFormData({ ...formData, minDurationMonths: e.target.value })} placeholder="3" className="h-8 text-sm" data-testid="input-min-duration" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Max Duration (Mo) *</Label>
+                  <Input type="number" value={formData.maxDurationMonths} onChange={(e) => setFormData({ ...formData, maxDurationMonths: e.target.value })} placeholder="24" className="h-8 text-sm" data-testid="input-max-duration" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Grace Period (Days)</Label>
+                  <Input type="number" value={formData.gracePeriodDays} onChange={(e) => setFormData({ ...formData, gracePeriodDays: e.target.value })} placeholder="30" className="h-8 text-sm" data-testid="input-grace-period" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Late Fee</Label>
+                  <Input value={formData.lateFee} onChange={(e) => setFormData({ ...formData, lateFee: e.target.value })} placeholder="500 or 5%" className="h-8 text-sm" data-testid="input-late-fee" />
+                </div>
+              </div>
+              <div className="grid grid-cols-4 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Min Amount (AFN) *</Label>
+                  <Input type="number" value={formData.minAmount} onChange={(e) => setFormData({ ...formData, minAmount: e.target.value })} placeholder="5000" className="h-8 text-sm" data-testid="input-min-amount" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Max Amount (AFN) *</Label>
+                  <Input type="number" value={formData.maxAmount} onChange={(e) => setFormData({ ...formData, maxAmount: e.target.value })} placeholder="150000" className="h-8 text-sm" data-testid="input-max-amount" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Calc Method *</Label>
+                  <Select value={formData.calculationMethod} onValueChange={(v) => setFormData({ ...formData, calculationMethod: v })}>
+                    <SelectTrigger className="h-8 text-sm" data-testid="select-calc-method"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {CALCULATION_METHODS.map((m) => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Frequency *</Label>
+                  <Select value={formData.repaymentFrequency} onValueChange={(v) => setFormData({ ...formData, repaymentFrequency: v })}>
+                    <SelectTrigger className="h-8 text-sm" data-testid="select-frequency"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {FREQUENCIES.map((f) => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-4 gap-3 items-end">
+                <div className="space-y-1">
+                  <Label className="text-xs">Financing Type *</Label>
+                  <Select value={formData.loanType} onValueChange={(v) => setFormData({ ...formData, loanType: v })}>
+                    <SelectTrigger className="h-8 text-sm" data-testid="select-loan-type"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {LOAN_TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2 h-8">
+                  <Switch checked={formData.requiresGuarantor} onCheckedChange={(v) => setFormData({ ...formData, requiresGuarantor: v })} data-testid="switch-guarantor" />
+                  <Label className="text-xs whitespace-nowrap">Guarantor</Label>
+                </div>
+                <div className="flex items-center gap-2 h-8">
+                  <Switch checked={formData.isActive} onCheckedChange={(v) => setFormData({ ...formData, isActive: v })} data-testid="switch-active" />
+                  <Label className="text-xs">Active</Label>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Description</Label>
+                <Textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Optional product description..." rows={2} className="text-sm resize-none" data-testid="input-description" />
+              </div>
+            </div>
 
-          <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={closeDialog} data-testid="button-cancel">Cancel</Button>
+            <div className="w-[280px] flex-shrink-0 px-4 py-3 flex flex-col">
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-xs font-semibold">Cycle Limits</Label>
+                <Button type="button" variant="outline" size="sm" onClick={addCycleRow} className="h-6 px-2 text-[11px]" data-testid="button-add-cycle">
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add
+                </Button>
+              </div>
+              {cycleLimits.length > 0 ? (
+                <div className="space-y-1.5 flex-1 overflow-y-auto max-h-[260px]">
+                  <div className="grid grid-cols-[40px_1fr_1fr_24px] gap-1 text-[10px] font-medium text-muted-foreground px-0.5">
+                    <span>#</span>
+                    <span>Min</span>
+                    <span>Max</span>
+                    <span></span>
+                  </div>
+                  {cycleLimits.map((cycle, idx) => (
+                    <div key={idx} className="grid grid-cols-[40px_1fr_1fr_24px] gap-1 items-center" data-testid={`row-cycle-${idx}`}>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={cycle.cycleNumber}
+                        onChange={(e) => updateCycleRow(idx, "cycleNumber", e.target.value)}
+                        className="h-7 text-center text-xs px-1"
+                        data-testid={`input-cycle-number-${idx}`}
+                      />
+                      <Input
+                        type="number"
+                        value={cycle.minAmount}
+                        onChange={(e) => updateCycleRow(idx, "minAmount", e.target.value)}
+                        placeholder="Min"
+                        className="h-7 text-xs px-2"
+                        data-testid={`input-cycle-min-${idx}`}
+                      />
+                      <Input
+                        type="number"
+                        value={cycle.maxAmount}
+                        onChange={(e) => updateCycleRow(idx, "maxAmount", e.target.value)}
+                        placeholder="Max"
+                        className="h-7 text-xs px-2"
+                        data-testid={`input-cycle-max-${idx}`}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-red-500 hover:text-red-700"
+                        onClick={() => removeCycleRow(idx)}
+                        data-testid={`button-remove-cycle-${idx}`}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex-1 flex items-center justify-center">
+                  <p className="text-[11px] text-muted-foreground text-center px-2">
+                    No cycle limits. Default min/max amounts apply to all cycles.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter className="px-5 py-3 border-t">
+            <Button variant="outline" size="sm" onClick={closeDialog} data-testid="button-cancel">Cancel</Button>
             <Button
+              size="sm"
               onClick={handleSubmit}
               disabled={!formData.name || !formData.code || !formData.interestRate || !formData.maxDurationMonths || !formData.minAmount || !formData.maxAmount}
               className="bg-emerald-600 hover:bg-emerald-700 text-white"
