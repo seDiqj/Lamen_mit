@@ -201,7 +201,7 @@ export default function LoanApplicationPage() {
   const { data: financingProducts = [] } = useQuery<any[]>({ queryKey: ["/api/financing-products"] });
 
   const loanProducts = financingProducts.length > 0
-    ? financingProducts.filter((p: any) => p.isActive).map((p: any) => ({ code: p.code, name: p.name }))
+    ? financingProducts.filter((p: any) => p.isActive).map((p: any) => ({ code: p.code, name: p.name, interestRate: p.interestRate }))
     : [
         { code: "10", name: "Mudarabah" },
         { code: "11", name: "Murabaha" },
@@ -909,6 +909,9 @@ export default function LoanApplicationPage() {
                           const product = loanProducts.find(p => p.name === value);
                           if (product) {
                             form.setValue("productCode", product.code);
+                            if (product.interestRate) {
+                              form.setValue("marginRate", Number(product.interestRate));
+                            }
                           }
                         }} 
                         value={field.value}
@@ -933,6 +936,13 @@ export default function LoanApplicationPage() {
                     <FormItem>
                       <FormLabel className="text-xs">Product Code</FormLabel>
                       <FormControl><Input readOnly className="bg-muted h-9" placeholder="Auto-filled" {...field} data-testid="input-product-code" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="marginRate" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs">Margin Rate (%)</FormLabel>
+                      <FormControl><Input readOnly className="bg-muted h-9" value={field.value ? `${field.value}%` : ""} placeholder="From product" data-testid="input-margin-rate" /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
