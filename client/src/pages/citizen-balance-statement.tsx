@@ -765,7 +765,7 @@ export default function CitizenBalanceStatementPage() {
           return [
             v ? v.voterName : "___________",
             roleLabels[role] || role.toUpperCase(),
-            v ? (v.vote === "approved" ? "☑ Approve  ☐ Reject" : "☐ Approve  ☑ Reject") : "☐ Approve  ☐ Reject",
+            v ? (v.vote === "approved" ? "[X] Approve  [ ] Reject" : "[ ] Approve  [X] Reject") : "[ ] Approve  [ ] Reject",
             "System Generated",
             v ? committeeFormatDate(v.votedAt) : "___________",
           ];
@@ -811,8 +811,8 @@ export default function CitizenBalanceStatementPage() {
           startY: y,
           head: [["Final Result", "Status"]],
           body: [
-            [isApproved ? "☑ Approved" : "☐ Approved", "Ready for Disbursement"],
-            [isRejected ? "☑ Rejected" : "☐ Rejected", "Return to FAD Department"],
+            [isApproved ? "[X] Approved" : "[ ] Approved", "Ready for Disbursement"],
+            [isRejected ? "[X] Rejected" : "[ ] Rejected", "Return to FAD Department"],
           ],
           theme: "grid",
           headStyles: { fillColor: [22, 163, 74], fontSize: 7, fontStyle: "bold" },
