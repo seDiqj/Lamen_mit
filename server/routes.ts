@@ -5476,7 +5476,7 @@ export async function registerRoutes(
         Dob: row.dateOfBirth || "",
         CustomerAddressStreet: row.homeAddress || "",
         District: row.district || "",
-        Vague: "",
+        Village: "",
         Province: row.province || "",
         Phone: row.phoneNumber || "",
         Principle: row.principleAmount ? Number(row.principleAmount) : 0,

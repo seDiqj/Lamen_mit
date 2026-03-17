@@ -36,7 +36,7 @@ const LCTR_HEADERS = [
   "Dob",
   "CustomerAddressStreet",
   "District",
-  "Vague",
+  "Village",
   "Province",
   "Phone",
   "Principle",
