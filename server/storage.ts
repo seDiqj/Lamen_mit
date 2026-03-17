@@ -1029,6 +1029,35 @@ export class DatabaseStorage implements IStorage {
 
   // Guarantors
   async createGuarantor(data: InsertGuarantor): Promise<Guarantor> {
+    if (data.loanId && !data.guarantorNo) {
+      const loan = await db.select().from(loans).where(eq(loans.id, data.loanId)).limit(1);
+      if (loan[0]?.customerId) {
+        const customer = await db.select().from(customers).where(eq(customers.id, loan[0].customerId)).limit(1);
+        const customerNo = customer[0]?.customerNo;
+        if (customerNo) {
+          const customerLoans = await db.select({ id: loans.id }).from(loans).where(eq(loans.customerId, loan[0].customerId));
+          const customerLoanIds = customerLoans.map(l => l.id);
+          let nextSeq = 1;
+          if (customerLoanIds.length > 0) {
+            const existingGuarantors = await db.select({ guarantorNo: guarantors.guarantorNo })
+              .from(guarantors)
+              .where(inArray(guarantors.loanId, customerLoanIds));
+            const seqNumbers = existingGuarantors
+              .map(g => g.guarantorNo)
+              .filter(Boolean)
+              .map(no => {
+                const suffix = no!.substring(customerNo.length);
+                return parseInt(suffix) || 0;
+              })
+              .filter(n => n > 0);
+            if (seqNumbers.length > 0) {
+              nextSeq = Math.max(...seqNumbers) + 1;
+            }
+          }
+          data = { ...data, guarantorNo: `${customerNo}${String(nextSeq).padStart(2, '0')}` };
+        }
+      }
+    }
     const [guarantor] = await db.insert(guarantors).values(data).returning();
     return guarantor;
   }

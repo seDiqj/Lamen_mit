@@ -1066,6 +1066,7 @@ export default function LoanDetailsPage() {
                 <div>
                   <h3 className="text-sm font-semibold text-teal-600 mb-3 flex items-center gap-2"><Users className="h-4 w-4" /> Financial Guarantor</h3>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    <FormItem><FormLabel>Guarantor ID</FormLabel><Input disabled value={data?.financialGuarantor?.guarantorNo || "Auto-generated"} className="bg-muted" data-testid="input-financial-guarantor-no" /></FormItem>
                     <FormField control={form.control} name="financialGuarantorFullName" render={({ field }) => (
                       <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
@@ -1140,6 +1141,7 @@ export default function LoanDetailsPage() {
                 <div className="border-t pt-6">
                   <h3 className="text-sm font-semibold text-teal-600 mb-3 flex items-center gap-2"><Users className="h-4 w-4" /> Financial Guarantor 2</h3>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    <FormItem><FormLabel>Guarantor ID</FormLabel><Input disabled value={data?.financialGuarantor2?.guarantorNo || "Auto-generated"} className="bg-muted" data-testid="input-financial-guarantor2-no" /></FormItem>
                     <FormField control={form.control} name="financialGuarantor2FullName" render={({ field }) => (
                       <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-fin-guarantor2-name" /></FormControl><FormMessage /></FormItem>
                     )} />
@@ -1214,6 +1216,7 @@ export default function LoanDetailsPage() {
                 <div className="border-t pt-6">
                   <h3 className="text-sm font-semibold text-pink-600 mb-3 flex items-center gap-2"><UserCheck className="h-4 w-4" /> Family Guarantor</h3>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    <FormItem><FormLabel>Guarantor ID</FormLabel><Input disabled value={data?.familyGuarantor?.guarantorNo || "Auto-generated"} className="bg-muted" data-testid="input-family-guarantor-no" /></FormItem>
                     <FormField control={form.control} name="familyGuarantorFullName" render={({ field }) => (
                       <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                     )} />

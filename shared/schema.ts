@@ -255,6 +255,7 @@ export const guarantorTypeEnum = pgEnum("guarantor_type", ["financial", "family"
 export const guarantors = pgTable("guarantors", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   loanId: varchar("loan_id").references(() => loans.id),
+  guarantorNo: varchar("guarantor_no", { length: 100 }),
   guarantorType: guarantorTypeEnum("guarantor_type").default("financial"),
   fullName: varchar("full_name", { length: 255 }),
   firstName: varchar("first_name", { length: 255 }),

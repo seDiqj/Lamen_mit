@@ -1397,6 +1397,10 @@ export default function LoanApplicationPage() {
                     <Users className="h-3 w-3" /> Financial Guarantor
                   </h3>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                    <FormItem>
+                      <FormLabel className="text-xs">Guarantor ID</FormLabel>
+                      <Input disabled value="Auto-generated on save" className="h-9 bg-muted" data-testid="input-fin-guarantor-no" />
+                    </FormItem>
                     <FormField control={form.control} name="financialGuarantorFullName" render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-xs">Full Name</FormLabel>
@@ -1568,6 +1572,10 @@ export default function LoanApplicationPage() {
                     <Users className="h-3 w-3" /> Financial Guarantor 2
                   </h3>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                    <FormItem>
+                      <FormLabel className="text-xs">Guarantor ID</FormLabel>
+                      <Input disabled value="Auto-generated on save" className="h-9 bg-muted" data-testid="input-fin-guarantor2-no" />
+                    </FormItem>
                     <FormField control={form.control} name="financialGuarantor2FullName" render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-xs">Full Name</FormLabel>
@@ -1739,6 +1747,10 @@ export default function LoanApplicationPage() {
                     <Users className="h-3 w-3" /> Family Guarantor
                   </h3>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                    <FormItem>
+                      <FormLabel className="text-xs">Guarantor ID</FormLabel>
+                      <Input disabled value="Auto-generated on save" className="h-9 bg-muted" data-testid="input-fam-guarantor-no" />
+                    </FormItem>
                     <FormField control={form.control} name="familyGuarantorFullName" render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-xs">Full Name</FormLabel>

@@ -1197,6 +1197,7 @@ export default function FadReviewPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      <FormItem><FormLabel>Guarantor ID</FormLabel><Input disabled value={loanDetails?.financialGuarantor?.guarantorNo || "Auto-generated"} className="bg-muted" data-testid="input-fad-financial-guarantor-no" /></FormItem>
                       <FormField control={form.control} name="financialGuarantorFullName" render={({ field }) => (
                         <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-finGuarantorName" /></FormControl><FormMessage /></FormItem>
                       )} />
@@ -1282,6 +1283,7 @@ export default function FadReviewPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      <FormItem><FormLabel>Guarantor ID</FormLabel><Input disabled value={loanDetails?.financialGuarantor2?.guarantorNo || "Auto-generated"} className="bg-muted" data-testid="input-fad-financial-guarantor2-no" /></FormItem>
                       <FormField control={form.control} name="financialGuarantor2FullName" render={({ field }) => (
                         <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-finGuarantor2Name" /></FormControl><FormMessage /></FormItem>
                       )} />
@@ -1367,6 +1369,7 @@ export default function FadReviewPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      <FormItem><FormLabel>Guarantor ID</FormLabel><Input disabled value={loanDetails?.familyGuarantor?.guarantorNo || "Auto-generated"} className="bg-muted" data-testid="input-fad-family-guarantor-no" /></FormItem>
                       <FormField control={form.control} name="familyGuarantorFullName" render={({ field }) => (
                         <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-famGuarantorName" /></FormControl><FormMessage /></FormItem>
                       )} />
