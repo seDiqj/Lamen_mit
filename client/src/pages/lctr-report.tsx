@@ -26,6 +26,25 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
+function formatDisbursementDate(dateStr: string): string {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  const day = d.getDate();
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const month = months[d.getMonth()];
+  const year = d.getFullYear();
+  return `${day}-${month}-${year}`;
+}
+
+function formatDobDate(dateStr: string): string {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  return `${months[d.getMonth()]} ${d.getDate()},${d.getFullYear()}`;
+}
+
 const LCTR_HEADERS = [
   "Branch",
   "CustomerName",
@@ -85,7 +104,10 @@ export default function LctrReport() {
     const rows = data.map((row, idx) => {
       const obj: Record<string, any> = { "#": idx + 1 };
       for (const col of LCTR_HEADERS) {
-        obj[col] = row[col] ?? "";
+        const val = row[col] ?? "";
+        if (col === "DisbursementDate") obj[col] = formatDisbursementDate(String(val));
+        else if (col === "Dob") obj[col] = formatDobDate(String(val));
+        else obj[col] = val;
       }
       return obj;
     });
@@ -124,6 +146,8 @@ export default function LctrReport() {
       ...LCTR_HEADERS.map(h => {
         const val = row[h];
         if (h === "Principle" && typeof val === "number") return val.toLocaleString();
+        if (h === "DisbursementDate") return formatDisbursementDate(String(val ?? ""));
+        if (h === "Dob") return formatDobDate(String(val ?? ""));
         return String(val ?? "");
       }),
     ]);
@@ -251,7 +275,7 @@ export default function LctrReport() {
                         const val = row[h];
                         return (
                           <TableCell key={h} className={`whitespace-nowrap ${h === "Principle" ? "text-right font-mono" : ""}`}>
-                            {h === "Principle" && typeof val === "number" ? formatCurrency(val.toString()) : String(val ?? "")}
+                            {h === "Principle" && typeof val === "number" ? formatCurrency(val.toString()) : h === "DisbursementDate" ? formatDisbursementDate(String(val ?? "")) : h === "Dob" ? formatDobDate(String(val ?? "")) : String(val ?? "")}
                           </TableCell>
                         );
                       })}
