@@ -180,7 +180,7 @@ export default function JournalEntries() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/journal-entries"] });
       queryClient.invalidateQueries({ queryKey: ["/api/accounts"] });
-      toast({ title: "Success", description: "Journal entry unposted. You can now edit it." });
+      toast({ title: "Journal Entry Unposted", description: "The entry has been moved back to draft status. You can now edit it and re-post when done." });
     },
     onError: () => toast({ title: "Error", description: "Failed to unpost journal entry", variant: "destructive" }),
   });
@@ -650,23 +650,25 @@ export default function JournalEntries() {
       <AlertDialog open={unpostConfirmOpen} onOpenChange={setUnpostConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Unpost Journal Entry</AlertDialogTitle>
-            <AlertDialogDescription className="space-y-2">
-              <p>This will move the journal entry back to draft status so it can be edited. Account balances will be recalculated.</p>
-              {entryToUnpost && (
-                <div className="mt-4 p-3 bg-muted rounded-md text-sm space-y-1">
-                  <div><strong>Entry:</strong> {entryToUnpost.entryNumber}</div>
-                  <div><strong>Date:</strong> {formatDate(entryToUnpost.entryDate)}</div>
-                  <div><strong>Description:</strong> {entryToUnpost.description}</div>
-                  <div className="flex gap-4">
-                    <span><strong>Total Debit:</strong> {formatCurrency(entryToUnpost.totalDebit)}</span>
-                    <span><strong>Total Credit:</strong> {formatCurrency(entryToUnpost.totalCredit)}</span>
+            <AlertDialogTitle>Confirm Unpost Journal Entry</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>Are you sure you want to unpost this journal entry? This will reverse the effect on account balances and move the entry back to draft status for editing.</p>
+                {entryToUnpost && (
+                  <div className="p-3 bg-muted rounded-md text-sm space-y-1">
+                    <div><strong>Entry Number:</strong> {entryToUnpost.entryNumber}</div>
+                    <div><strong>Entry Date:</strong> {formatDate(entryToUnpost.entryDate)}</div>
+                    <div><strong>Description:</strong> {entryToUnpost.description}</div>
+                    <div className="flex gap-4">
+                      <span><strong>Total Debit:</strong> {formatCurrency(entryToUnpost.totalDebit)}</span>
+                      <span><strong>Total Credit:</strong> {formatCurrency(entryToUnpost.totalCredit)}</span>
+                    </div>
                   </div>
-                </div>
-              )}
-              <p className="text-amber-600 dark:text-amber-400 font-medium mt-2">
-                After unposting, edit the entry and re-post it when done.
-              </p>
+                )}
+                <p className="text-amber-600 dark:text-amber-400 font-medium">
+                  Warning: Account balances will be adjusted. After editing, you must re-post the entry to apply changes.
+                </p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
