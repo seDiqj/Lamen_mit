@@ -424,7 +424,7 @@ export default function FinancingProductsPage() {
                   <th className="text-left p-3 font-medium">Code</th>
                   <th className="text-center p-3 font-medium">Margin %</th>
                   <th className="text-center p-3 font-medium">Duration</th>
-                  <th className="text-center p-3 font-medium">Grace Days</th>
+                  <th className="text-center p-3 font-medium">Grace Months</th>
                   <th className="text-left p-3 font-medium">Amount Range</th>
                   <th className="text-left p-3 font-medium">Method</th>
                   <th className="text-left p-3 font-medium">Frequency</th>
@@ -502,7 +502,7 @@ export default function FinancingProductsPage() {
                   <Input type="number" value={formData.maxDurationMonths} onChange={(e) => setFormData({ ...formData, maxDurationMonths: e.target.value })} placeholder="24" className="h-8 text-sm" data-testid="input-max-duration" />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Grace Period (Days)</Label>
+                  <Label className="text-xs">Grace Period (Months)</Label>
                   <Input type="number" value={formData.gracePeriodDays} onChange={(e) => setFormData({ ...formData, gracePeriodDays: e.target.value })} placeholder="30" className="h-8 text-sm" data-testid="input-grace-period" />
                 </div>
                 <div className="space-y-1">
@@ -748,7 +748,7 @@ function ProductCard({
           </div>
           <div className="bg-background p-3 text-center">
             <p className="text-xl font-bold">{product.gracePeriodDays}</p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Grace Days</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Grace Mo</p>
           </div>
         </div>
 
