@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { usePagePermissions } from "@/hooks/use-page-permissions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,7 +42,7 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Plus, Search, Receipt, Eye, CheckCircle, RotateCcw, Trash2, Pencil, ChevronLeft, ChevronRight, Undo2, Wrench } from "lucide-react";
+import { Plus, Search, Receipt, Eye, CheckCircle, RotateCcw, Trash2, Pencil, ChevronLeft, ChevronRight, Undo2, Wrench, Unlock } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { formatDate } from "@/lib/date-utils";
 
@@ -92,6 +93,8 @@ type PaginatedResponse = {
 
 export default function JournalEntries() {
   const { toast } = useToast();
+  const { roleType } = usePagePermissions();
+  const isAdmin = roleType === "admin";
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -100,6 +103,8 @@ export default function JournalEntries() {
   const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
   const [postConfirmOpen, setPostConfirmOpen] = useState(false);
   const [entryToPost, setEntryToPost] = useState<JournalEntry | null>(null);
+  const [unpostConfirmOpen, setUnpostConfirmOpen] = useState(false);
+  const [entryToUnpost, setEntryToUnpost] = useState<JournalEntry | null>(null);
   const [fundingSourceFilter, setFundingSourceFilter] = useState("all");
 
   const [formData, setFormData] = useState({
@@ -168,6 +173,16 @@ export default function JournalEntries() {
       toast({ title: "Success", description: "Journal entry reversed successfully" });
     },
     onError: () => toast({ title: "Error", description: "Failed to reverse journal entry", variant: "destructive" }),
+  });
+
+  const unpostMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("POST", `/api/journal-entries/${id}/unpost`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/journal-entries"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/accounts"] });
+      toast({ title: "Success", description: "Journal entry unposted. You can now edit it." });
+    },
+    onError: () => toast({ title: "Error", description: "Failed to unpost journal entry", variant: "destructive" }),
   });
 
   const updateMutation = useMutation({
@@ -487,9 +502,16 @@ export default function JournalEntries() {
                           </>
                         )}
                         {entry.isPosted && !entry.isReversed && (
-                          <Button variant="ghost" size="icon" onClick={() => reverseMutation.mutate(entry.id)} data-testid={`button-reverse-${entry.id}`}>
-                            <RotateCcw className="h-4 w-4 text-orange-500" />
-                          </Button>
+                          <>
+                            {isAdmin && (
+                              <Button variant="ghost" size="icon" title="Unpost (Admin)" onClick={() => { setEntryToUnpost(entry); setUnpostConfirmOpen(true); }} data-testid={`button-unpost-${entry.id}`}>
+                                <Unlock className="h-4 w-4 text-amber-500" />
+                              </Button>
+                            )}
+                            <Button variant="ghost" size="icon" onClick={() => reverseMutation.mutate(entry.id)} data-testid={`button-reverse-${entry.id}`}>
+                              <RotateCcw className="h-4 w-4 text-orange-500" />
+                            </Button>
+                          </>
                         )}
                       </div>
                     </TableCell>
@@ -620,6 +642,47 @@ export default function JournalEntries() {
               data-testid="button-confirm-post"
             >
               Post Entry
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={unpostConfirmOpen} onOpenChange={setUnpostConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unpost Journal Entry</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>This will move the journal entry back to draft status so it can be edited. Account balances will be recalculated.</p>
+              {entryToUnpost && (
+                <div className="mt-4 p-3 bg-muted rounded-md text-sm space-y-1">
+                  <div><strong>Entry:</strong> {entryToUnpost.entryNumber}</div>
+                  <div><strong>Date:</strong> {formatDate(entryToUnpost.entryDate)}</div>
+                  <div><strong>Description:</strong> {entryToUnpost.description}</div>
+                  <div className="flex gap-4">
+                    <span><strong>Total Debit:</strong> {formatCurrency(entryToUnpost.totalDebit)}</span>
+                    <span><strong>Total Credit:</strong> {formatCurrency(entryToUnpost.totalCredit)}</span>
+                  </div>
+                </div>
+              )}
+              <p className="text-amber-600 dark:text-amber-400 font-medium mt-2">
+                After unposting, edit the entry and re-post it when done.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-unpost">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (entryToUnpost) {
+                  unpostMutation.mutate(entryToUnpost.id);
+                }
+                setUnpostConfirmOpen(false);
+                setEntryToUnpost(null);
+              }}
+              className="bg-amber-600 hover:bg-amber-700"
+              data-testid="button-confirm-unpost"
+            >
+              Unpost Entry
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
