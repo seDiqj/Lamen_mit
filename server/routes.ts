@@ -7753,7 +7753,16 @@ export async function registerRoutes(
 
       const branch = loan.branchId ? await storage.getBranch(loan.branchId) : null;
       const customerBusiness = loan.customerId ? await storage.getCustomerBusinessByCustomerId(loan.customerId) : null;
-      const votes = await storage.getCommitteeVotesByLoanId(loanId);
+      const rawVotes = await storage.getCommitteeVotesByLoanId(loanId);
+      const votes: any[] = [];
+      for (const v of rawVotes) {
+        let name = v.voterName || "";
+        if (!name && v.voterId) {
+          const voter = await storage.getUser(v.voterId);
+          if (voter) name = `${voter.firstName || ""} ${voter.lastName || ""}`.trim() || voter.username || "";
+        }
+        votes.push({ ...v, voterName: name });
+      }
       const guarantorsData = await storage.getGuarantorsByLoanId(loanId);
 
       const principleAmount = parseFloat(loan.principleAmount?.toString() || "0");

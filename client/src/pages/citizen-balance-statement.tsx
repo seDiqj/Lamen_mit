@@ -762,12 +762,13 @@ export default function CitizenBalanceStatementPage() {
         const roleLabels: Record<string, string> = { ceo: "CEO", coo: "COO", cfo: "CFO" };
         const voteRows = roleOrder.map(role => {
           const v = cd.votes.find((vote: any) => vote.voterRole === role);
+          const hasVoted = v && v.vote && v.vote !== "pending";
           return [
-            v ? v.voterName : "___________",
+            v?.voterName || "___________",
             roleLabels[role] || role.toUpperCase(),
-            v ? (v.vote === "approved" ? "[X] Approve  [ ] Reject" : "[ ] Approve  [X] Reject") : "[ ] Approve  [ ] Reject",
+            hasVoted ? (v.vote === "approved" ? "[X] Approve  [ ] Reject" : "[ ] Approve  [X] Reject") : "[ ] Approve  [ ] Reject",
             "System Generated",
-            v ? committeeFormatDate(v.votedAt) : "___________",
+            hasVoted ? committeeFormatDate(v.votedAt) : "___________",
           ];
         });
         autoTable(doc, {
