@@ -197,6 +197,7 @@ export const loans = pgTable("loans", {
   businessDetailedDescription: text("business_detailed_description"),
   clientOccupation: varchar("client_occupation", { length: 255 }),
   financingPurpose: text("financing_purpose"),
+  financingPurposeDetails: text("financing_purpose_details"),
   financingCycle: integer("financing_cycle"),
   sourceOfFund: varchar("source_of_fund", { length: 255 }),
   fundingSourceId: varchar("funding_source_id").references(() => fundingSources.id),

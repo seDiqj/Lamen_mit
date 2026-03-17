@@ -122,6 +122,7 @@ const fadReviewSchema = z.object({
   sector: z.string().optional(),
   businessDescription: z.string().optional(),
   financingPurpose: z.string().optional(),
+  financingPurposeDetails: z.string().optional(),
   fundingSourceId: z.string().optional(),
   requestDate: z.string().optional(),
   requestAmount: z.coerce.number().optional(),
@@ -398,6 +399,7 @@ export default function FadReviewPage() {
         sector: d.loan?.sector || "",
         businessDescription: d.loan?.businessDescription || "",
         financingPurpose: d.loan?.financingPurpose || "",
+        financingPurposeDetails: d.loan?.financingPurposeDetails || "",
         fundingSourceId: d.loan?.fundingSourceId || "",
         requestDate: d.loan?.requestDate || "",
         requestAmount: parseFloat(d.loan?.requestAmount) || 0,
@@ -900,6 +902,9 @@ export default function FadReviewPage() {
                     }} />
                     <FormField control={form.control} name="financingPurpose" render={({ field }) => (
                       <FormItem><FormLabel>Financing Purpose</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-purpose" /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="financingPurposeDetails" render={({ field }) => (
+                      <FormItem className="col-span-2"><FormLabel>Financing Purpose Details</FormLabel><FormControl><Textarea disabled={!isEditing} placeholder="Financing purpose details..." className="min-h-[60px]" {...field} data-testid="textarea-financing-purpose-details" /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="fundingSourceId" render={({ field }) => (
                       <FormItem><FormLabel>Source of Fund</FormLabel>

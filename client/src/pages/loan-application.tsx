@@ -56,6 +56,7 @@ const loanApplicationSchema = z.object({
   businessDetailedDescription: z.string().optional(),
   clientOccupation: z.string().optional(),
   financingPurpose: z.string().optional(),
+  financingPurposeDetails: z.string().optional(),
   fundingSourceId: z.string().optional(),
   requestDate: z.string().optional(),
   requestAmount: z.coerce.number().optional(),
@@ -1006,6 +1007,13 @@ export default function LoanApplicationPage() {
                           ))}
                         </SelectContent>
                       </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="financingPurposeDetails" render={({ field }) => (
+                    <FormItem className="col-span-2">
+                      <FormLabel className="text-xs">Financing Purpose Details</FormLabel>
+                      <FormControl><Textarea placeholder="Provide details about the financing purpose..." className="min-h-[60px]" {...field} data-testid="textarea-financing-purpose-details" /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />

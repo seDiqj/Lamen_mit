@@ -69,6 +69,7 @@ const loanDetailsSchema = z.object({
   sector: z.string().optional(),
   businessDescription: z.string().optional(),
   financingPurpose: z.string().optional(),
+  financingPurposeDetails: z.string().optional(),
   fundingSourceId: z.string().optional(),
   requestDate: z.string().optional(),
   requestAmount: optNum,
@@ -291,6 +292,7 @@ export default function LoanDetailsPage() {
         sector: d.loan?.sector ?? "",
         businessDescription: d.loan?.businessDescription ?? "",
         financingPurpose: d.loan?.financingPurpose ?? "",
+        financingPurposeDetails: d.loan?.financingPurposeDetails ?? "",
         fundingSourceId: d.loan?.fundingSourceId ?? "",
         requestDate: d.loan?.requestDate ?? "",
         requestAmount: toNum(d.loan?.requestAmount),
@@ -851,6 +853,9 @@ export default function LoanDetailsPage() {
                   )} />
                   <FormField control={form.control} name="financingPurpose" render={({ field }) => (
                     <FormItem><FormLabel>Financing Purpose</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name="financingPurposeDetails" render={({ field }) => (
+                    <FormItem className="col-span-2"><FormLabel>Financing Purpose Details</FormLabel><FormControl><Textarea disabled={!isEditing} placeholder="Financing purpose details..." className="min-h-[60px]" {...field} data-testid="textarea-financing-purpose-details" /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="fundingSourceId" render={({ field }) => (
                     <FormItem><FormLabel>Source of Fund</FormLabel>
