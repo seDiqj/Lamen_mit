@@ -7737,6 +7737,90 @@ export async function registerRoutes(
     }
   });
 
+  // Committee Form Data for PDF generation
+  app.get("/api/loans/:loanId/committee-form-data", isAuthenticated, async (req, res) => {
+    try {
+      const { loanId } = req.params;
+      const loan = await storage.getLoan(loanId);
+      if (!loan) {
+        return res.status(404).json({ message: "Loan not found" });
+      }
+
+      const customer = loan.customerId ? await storage.getCustomer(loan.customerId) : null;
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      const branch = loan.branchId ? await storage.getBranch(loan.branchId) : null;
+      const customerBusiness = loan.customerId ? await storage.getCustomerBusinessByCustomerId(loan.customerId) : null;
+      const votes = await storage.getCommitteeVotesByLoanId(loanId);
+      const guarantorsData = await storage.getGuarantorsByLoan(loanId);
+
+      const principleAmount = parseFloat(loan.principleAmount?.toString() || "0");
+      const installmentAmount = parseFloat(loan.installmentAmount?.toString() || "0");
+      const requestAmount = parseFloat(loan.requestAmount?.toString() || "0");
+      const monthlyIncome = parseFloat(customerBusiness?.monthlyIncomeAmount?.toString() || "0");
+
+      const lastVoteDate = votes.length > 0
+        ? votes.reduce((latest: any, v: any) => {
+            const d = v.votedAt ? new Date(v.votedAt) : new Date(0);
+            return d > latest ? d : latest;
+          }, new Date(0)).toISOString().split("T")[0]
+        : "";
+
+      const approvedVotes = votes.filter((v: any) => v.vote === "approved").length;
+      const rejectedVotes = votes.filter((v: any) => v.vote === "rejected").length;
+      const totalVotes = votes.length;
+      const finalDecision = approvedVotes >= 2 ? "Approved" : rejectedVotes >= 2 ? "Rejected" : "Pending";
+
+      res.json({
+        customer: {
+          name: `${customer.firstName || ""} ${customer.lastName || ""}`.trim(),
+          customerNo: customer.customerNo || "",
+          nationalId: customer.nationalId || "",
+          homeAddress: customer.homeAddress || "",
+          phoneNumber: customer.phoneNumber || "",
+        },
+        loan: {
+          applicationId: loan.applicationId || "",
+          productName: loan.productName || "",
+          requestAmount,
+          principleAmount,
+          financingDurationMonths: loan.financingDurationMonths || 0,
+          numberOfInstallments: loan.numberOfInstallments || 0,
+          installmentAmount,
+          financingPurpose: loan.financingPurpose || "",
+        },
+        branch: {
+          name: branch?.name || "",
+        },
+        business: {
+          businessType: customerBusiness?.businessType || "",
+          monthlyIncome,
+        },
+        guarantors: guarantorsData.map((g: any) => ({
+          guarantorNo: g.guarantorNo || "",
+          name: `${g.firstName || ""} ${g.lastName || ""}`.trim(),
+        })),
+        votes: votes.map((v: any) => ({
+          voterName: v.voterName || "",
+          voterRole: v.voterRole || "",
+          vote: v.vote || "pending",
+          votedAt: v.votedAt ? new Date(v.votedAt).toISOString().split("T")[0] : "",
+          comments: v.comments || "",
+        })),
+        committeeDate: lastVoteDate,
+        finalDecision,
+        approvedVotes,
+        rejectedVotes,
+        totalVotes,
+      });
+    } catch (error: any) {
+      console.error("Error fetching committee form data:", error);
+      res.status(500).json({ message: "Failed to fetch committee form data", error: error.message });
+    }
+  });
+
   // ===== FINANCING PRODUCTS =====
 
   app.get("/api/financing-products", isAuthenticated, async (req, res) => {

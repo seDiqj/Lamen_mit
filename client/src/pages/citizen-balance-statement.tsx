@@ -197,6 +197,7 @@ export default function CitizenBalanceStatementPage() {
   const [contractDownloading, setContractDownloading] = useState(false);
   const contractRef = useRef<HTMLDivElement>(null);
   const [contractDataList, setContractDataList] = useState<any[]>([]);
+  const [committeeDownloading, setCommitteeDownloading] = useState(false);
 
   const { data: customers, isLoading: customersLoading } = useQuery<any[]>({
     queryKey: ["/api/customers", { limit: 9999 }],
@@ -628,6 +629,229 @@ export default function CitizenBalanceStatementPage() {
     }
   };
 
+  const committeeFormatAmount = (num: number) =>
+    new Intl.NumberFormat("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
+
+  const committeeFormatDate = (dateStr: string | null | undefined) => {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const day = d.getDate().toString().padStart(2, "0");
+    const mons = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return `${day}/${mons[d.getMonth()]}/${d.getFullYear()}`;
+  };
+
+  const handleDownloadCommitteeForm = async () => {
+    if (!selectedCustomerId) {
+      toast({ title: "Select Customer", description: "Please select a customer first.", variant: "destructive" });
+      return;
+    }
+    if (!statementData?.loanStatements?.length) {
+      toast({ title: "No Data", description: "Please view the statement first.", variant: "destructive" });
+      return;
+    }
+    setCommitteeDownloading(true);
+    try {
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 15;
+      const contentWidth = pageWidth - margin * 2;
+      let isFirstLoan = true;
+
+      for (const ls of statementData.loanStatements) {
+        const res = await fetch(`/api/loans/${ls.loan.id}/committee-form-data`, { credentials: "include" });
+        if (!res.ok) continue;
+        const cd = await res.json();
+
+        if (!isFirstLoan) doc.addPage();
+        isFirstLoan = false;
+
+        let y = 15;
+
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "bold");
+        doc.text("Credit / Financing Committee Form", pageWidth / 2, y, { align: "center" });
+        y += 5;
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        doc.text("(Murabaha / Microfinance Financing Approval)", pageWidth / 2, y, { align: "center" });
+        y += 7;
+
+        doc.setFontSize(8);
+        const headerInfo = [
+          [`Institution Name: Lamen Microfinance Institution`, `Branch: ${cd.branch.name}`],
+          [`Committee Date: ${committeeFormatDate(cd.committeeDate)}`, `Application No: ${cd.loan.applicationId}`],
+        ];
+        headerInfo.forEach(row => {
+          doc.text(row[0], margin, y);
+          doc.text(row[1], pageWidth / 2 + 10, y);
+          y += 5;
+        });
+        y += 3;
+
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.text("1. Client Information", margin, y);
+        y += 2;
+        autoTable(doc, {
+          startY: y,
+          head: [["Field", "Details"]],
+          body: [
+            ["Customer Name", cd.customer.name],
+            ["Customer ID", cd.customer.customerNo],
+            ["Tazkira / ID No", cd.customer.nationalId],
+            ["Address", cd.customer.homeAddress],
+            ["Phone Number", cd.customer.phoneNumber],
+          ],
+          theme: "grid",
+          headStyles: { fillColor: [34, 87, 122], fontSize: 7, fontStyle: "bold" },
+          styles: { fontSize: 7, cellPadding: 1.5 },
+          columnStyles: { 0: { cellWidth: 45, fontStyle: "bold" } },
+          margin: { left: margin, right: margin },
+        });
+        y = (doc as any).lastAutoTable.finalY + 5;
+
+        doc.setFont("helvetica", "bold");
+        doc.text("2. Loan Information", margin, y);
+        y += 2;
+        autoTable(doc, {
+          startY: y,
+          head: [["Field", "Details"]],
+          body: [
+            ["Financing Product", cd.loan.productName],
+            ["Requested Amount", `${committeeFormatAmount(cd.loan.requestAmount)} AFN`],
+            ["Approved Amount", `${committeeFormatAmount(cd.loan.principleAmount)} AFN`],
+            ["Financing Duration", `${cd.loan.numberOfInstallments} installments`],
+            ["Installment Amount", `${committeeFormatAmount(cd.loan.installmentAmount)} AFN`],
+            ["Purpose of Financing", cd.loan.financingPurpose],
+          ],
+          theme: "grid",
+          headStyles: { fillColor: [34, 87, 122], fontSize: 7, fontStyle: "bold" },
+          styles: { fontSize: 7, cellPadding: 1.5 },
+          columnStyles: { 0: { cellWidth: 45, fontStyle: "bold" } },
+          margin: { left: margin, right: margin },
+        });
+        y = (doc as any).lastAutoTable.finalY + 5;
+
+        doc.setFont("helvetica", "bold");
+        doc.text("3. Risk & Assessment Summary", margin, y);
+        y += 2;
+        const guarantorText = cd.guarantors.length > 0
+          ? cd.guarantors.map((g: any) => `${g.guarantorNo} - ${g.name}`).join(", ")
+          : "N/A";
+        autoTable(doc, {
+          startY: y,
+          head: [["Field", "Details"]],
+          body: [
+            ["Business Type", cd.business.businessType],
+            ["Monthly Income", `${committeeFormatAmount(cd.business.monthlyIncome)} AFN`],
+            ["Guarantor", guarantorText],
+          ],
+          theme: "grid",
+          headStyles: { fillColor: [34, 87, 122], fontSize: 7, fontStyle: "bold" },
+          styles: { fontSize: 7, cellPadding: 1.5 },
+          columnStyles: { 0: { cellWidth: 45, fontStyle: "bold" } },
+          margin: { left: margin, right: margin },
+        });
+        y = (doc as any).lastAutoTable.finalY + 5;
+
+        doc.setFont("helvetica", "bold");
+        doc.text("4. Credit Committee Voting (System Based)", margin, y);
+        y += 2;
+        const roleOrder = ["ceo", "coo", "cfo"];
+        const roleLabels: Record<string, string> = { ceo: "CEO", coo: "COO", cfo: "CFO" };
+        const voteRows = roleOrder.map(role => {
+          const v = cd.votes.find((vote: any) => vote.voterRole === role);
+          return [
+            v ? v.voterName : "___________",
+            roleLabels[role] || role.toUpperCase(),
+            v ? (v.vote === "approved" ? "☑ Approve  ☐ Reject" : "☐ Approve  ☑ Reject") : "☐ Approve  ☐ Reject",
+            "System Generated",
+            v ? committeeFormatDate(v.votedAt) : "___________",
+          ];
+        });
+        autoTable(doc, {
+          startY: y,
+          head: [["Committee Member", "Position", "Vote", "Digital Signature", "Date"]],
+          body: voteRows,
+          theme: "grid",
+          headStyles: { fillColor: [34, 87, 122], fontSize: 7, fontStyle: "bold" },
+          styles: { fontSize: 7, cellPadding: 1.5 },
+          margin: { left: margin, right: margin },
+        });
+        y = (doc as any).lastAutoTable.finalY + 5;
+
+        doc.setFont("helvetica", "bold");
+        doc.text("5. Committee Observers (No Voting Rights)", margin, y);
+        y += 2;
+        autoTable(doc, {
+          startY: y,
+          head: [["Name", "Position", "Role", "Signature", "Date"]],
+          body: [
+            ["System Generated", "Risk Manager", "Observer", "System Generated", "System Generated"],
+            ["System Generated", "Sharia Advisor", "Sharia Observer", "System Generated", "System Generated"],
+          ],
+          theme: "grid",
+          headStyles: { fillColor: [34, 87, 122], fontSize: 7, fontStyle: "bold" },
+          styles: { fontSize: 7, cellPadding: 1.5 },
+          margin: { left: margin, right: margin },
+        });
+        y = (doc as any).lastAutoTable.finalY + 5;
+
+        doc.setFont("helvetica", "bold");
+        doc.text("6. Final Decision (Auto Generated by System)", margin, y);
+        y += 3;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7);
+        doc.text("Decision Rule: Loan will be Approved when at least 2 out of 3 votes are APPROVED.", margin, y);
+        y += 4;
+        const isApproved = cd.finalDecision === "Approved";
+        const isRejected = cd.finalDecision === "Rejected";
+        autoTable(doc, {
+          startY: y,
+          head: [["Final Result", "Status"]],
+          body: [
+            [isApproved ? "☑ Approved" : "☐ Approved", "Ready for Disbursement"],
+            [isRejected ? "☑ Rejected" : "☐ Rejected", "Return to FAD Department"],
+          ],
+          theme: "grid",
+          headStyles: { fillColor: [34, 87, 122], fontSize: 7, fontStyle: "bold" },
+          styles: { fontSize: 7, cellPadding: 1.5 },
+          margin: { left: margin, right: margin },
+        });
+        y = (doc as any).lastAutoTable.finalY + 5;
+
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.text("7. System Information", margin, y);
+        y += 2;
+        autoTable(doc, {
+          startY: y,
+          head: [["Field", "Details"]],
+          body: [
+            ["Generated By", "System"],
+            ["Generated Date", new Date().toLocaleDateString()],
+            ["Approval Reference Code", cd.loan.applicationId],
+          ],
+          theme: "grid",
+          headStyles: { fillColor: [34, 87, 122], fontSize: 7, fontStyle: "bold" },
+          styles: { fontSize: 7, cellPadding: 1.5 },
+          columnStyles: { 0: { cellWidth: 45, fontStyle: "bold" } },
+          margin: { left: margin, right: margin },
+        });
+      }
+
+      const customerName = statementData.customer.name.replace(/\s+/g, "_");
+      doc.save(`Committee_Form_${customerName}_${new Date().toISOString().split("T")[0]}.pdf`);
+      toast({ title: "PDF Exported", description: "Committee form exported to PDF." });
+    } catch (err: any) {
+      console.error("Committee form export error:", err);
+      toast({ title: "Error", description: "Failed to generate committee form PDF.", variant: "destructive" });
+    } finally {
+      setCommitteeDownloading(false);
+    }
+  };
+
   const handleGenerate = (loanId: string) => {
     const edit = cleanupEdits[loanId];
     if (!edit) return;
@@ -1040,6 +1264,19 @@ export default function CitizenBalanceStatementPage() {
                     <Download className="mr-2 h-4 w-4" />
                   )}
                   Contract
+                </Button>
+                <Button
+                  onClick={handleDownloadCommitteeForm}
+                  disabled={committeeDownloading}
+                  className="bg-indigo-600 text-white"
+                  data-testid="button-download-committee"
+                >
+                  {committeeDownloading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="mr-2 h-4 w-4" />
+                  )}
+                  Committee Form
                 </Button>
                 <Button onClick={exportToExcel} className="bg-green-600 text-white" data-testid="button-export-excel">
                   <FileSpreadsheet className="mr-2 h-4 w-4" />
