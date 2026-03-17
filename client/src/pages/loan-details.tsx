@@ -184,6 +184,10 @@ export default function LoanDetailsPage() {
   const { data: districtsData = [] } = useQuery<(District & { provinceName?: string })[]>({ queryKey: ["/api/districts"] });
   const { data: collateralTypesList = [] } = useQuery<CollateralType[]>({ queryKey: ["/api/collateral-types"] });
   const { data: fundingSources = [] } = useQuery<FundingSource[]>({ queryKey: ["/api/funding-sources"] });
+  const { data: financingProducts = [] } = useQuery<any[]>({ queryKey: ["/api/financing-products"] });
+  const dynamicLoanProducts = financingProducts.length > 0
+    ? financingProducts.filter((p: any) => p.isActive).map((p: any) => ({ code: p.code, name: p.name, interestRate: p.interestRate }))
+    : loanProducts.map(p => ({ ...p, interestRate: "" }));
 
   const { data: loanData, isLoading } = useQuery({
     queryKey: ["/api/loan-applications", loanId],
@@ -837,13 +841,16 @@ export default function LoanDetailsPage() {
                   )} />
                   <FormField control={form.control} name="productName" render={({ field }) => (
                     <FormItem><FormLabel>Product Name</FormLabel>
-                      <Select disabled={!isEditing} onValueChange={(v) => { field.onChange(v); const p = loanProducts.find(x => x.name === v); if (p) form.setValue("productCode", p.code); }} value={field.value}>
+                      <Select disabled={!isEditing} onValueChange={(v) => { field.onChange(v); const p = dynamicLoanProducts.find(x => x.name === v); if (p) { form.setValue("productCode", p.code); if (p.interestRate) form.setValue("marginRate", Number(p.interestRate)); } }} value={field.value}>
                         <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                        <SelectContent>{loanProducts.map((p) => <SelectItem key={p.code} value={p.name}>{p.code} - {p.name}</SelectItem>)}</SelectContent>
+                        <SelectContent>{dynamicLoanProducts.map((p) => <SelectItem key={p.code} value={p.name}>{p.code} - {p.name}</SelectItem>)}</SelectContent>
                       </Select><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="productCode" render={({ field }) => (
                     <FormItem><FormLabel>Product Code</FormLabel><FormControl><Input readOnly className="bg-muted" {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name="marginRate" render={({ field }) => (
+                    <FormItem><FormLabel>Margin Rate (%)</FormLabel><FormControl><Input readOnly className="bg-muted" value={field.value ? `${field.value}%` : ""} placeholder="From product" data-testid="input-margin-rate" /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="sector" render={({ field }) => (
                     <FormItem><FormLabel>Sector</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
