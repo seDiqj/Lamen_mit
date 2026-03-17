@@ -563,7 +563,7 @@ export default function FinancingProductsPage() {
               </div>
             </div>
 
-            <div className="w-[320px] flex-shrink-0 px-4 py-3 flex flex-col">
+            <div className="w-[430px] flex-shrink-0 px-4 py-3 flex flex-col">
               <div className="flex items-center justify-between mb-2">
                 <Label className="text-xs font-semibold">Cycle Limits</Label>
                 <Button type="button" variant="outline" size="sm" onClick={addCycleRow} className="h-6 px-2 text-[11px]" data-testid="button-add-cycle">
