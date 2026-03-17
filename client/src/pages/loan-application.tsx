@@ -1058,6 +1058,41 @@ export default function LoanApplicationPage() {
                   )} />
                 </div>
 
+                {(() => {
+                  const amt = Number(form.watch("requestAmount")) || 0;
+                  const rate = Number(form.watch("marginRate")) || 0;
+                  const dur = Number(form.watch("financingDurationMonths")) || 0;
+                  const instCount = Number(form.watch("numberOfInstallments")) || dur;
+                  if (amt <= 0 || rate <= 0 || dur <= 0) return null;
+                  const totalProfit = amt * (rate / 100) * (dur / 12);
+                  const totalRepayment = amt + totalProfit;
+                  const monthlyInstallment = instCount > 0 ? totalRepayment / instCount : 0;
+                  const fmt = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                  return (
+                    <div className="mt-3 p-3 rounded-lg border bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800" data-testid="financing-summary">
+                      <h4 className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 mb-2">Financing Summary (Estimate)</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Principal</p>
+                          <p className="text-sm font-bold" data-testid="text-summary-principal">AFN {fmt(amt)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Total Profit</p>
+                          <p className="text-sm font-bold text-amber-600 dark:text-amber-400" data-testid="text-summary-profit">AFN {fmt(totalProfit)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Total Repayment</p>
+                          <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400" data-testid="text-summary-repayment">AFN {fmt(totalRepayment)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Per Installment</p>
+                          <p className="text-sm font-bold text-blue-600 dark:text-blue-400" data-testid="text-summary-installment">AFN {fmt(monthlyInstallment)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
               </CardContent>
             </Card>
           )}
