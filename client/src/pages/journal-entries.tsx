@@ -105,6 +105,8 @@ export default function JournalEntries() {
   const [entryToPost, setEntryToPost] = useState<JournalEntry | null>(null);
   const [unpostConfirmOpen, setUnpostConfirmOpen] = useState(false);
   const [entryToUnpost, setEntryToUnpost] = useState<JournalEntry | null>(null);
+  const [undoReversalConfirmOpen, setUndoReversalConfirmOpen] = useState(false);
+  const [entryToUndoReversal, setEntryToUndoReversal] = useState<JournalEntry | null>(null);
   const [fundingSourceFilter, setFundingSourceFilter] = useState("all");
 
   const [formData, setFormData] = useState({
@@ -183,6 +185,16 @@ export default function JournalEntries() {
       toast({ title: "Journal Entry Unposted", description: "The entry has been moved back to draft status. You can now edit it and re-post when done." });
     },
     onError: () => toast({ title: "Error", description: "Failed to unpost journal entry", variant: "destructive" }),
+  });
+
+  const undoReversalMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("POST", `/api/journal-entries/${id}/undo-reversal`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/journal-entries"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/accounts"] });
+      toast({ title: "Reversal Undone", description: "The reversal has been removed and the original entry is now posted again." });
+    },
+    onError: (error: any) => toast({ title: "Error", description: error.message || "Failed to undo reversal", variant: "destructive" }),
   });
 
   const updateMutation = useMutation({
@@ -513,6 +525,11 @@ export default function JournalEntries() {
                             </Button>
                           </>
                         )}
+                        {entry.isReversed && isAdmin && (
+                          <Button variant="ghost" size="icon" title="Undo Reversal (Admin)" onClick={() => { setEntryToUndoReversal(entry); setUndoReversalConfirmOpen(true); }} data-testid={`button-undo-reversal-${entry.id}`}>
+                            <Undo2 className="h-4 w-4 text-purple-500" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -685,6 +702,49 @@ export default function JournalEntries() {
               data-testid="button-confirm-unpost"
             >
               Unpost Entry
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={undoReversalConfirmOpen} onOpenChange={setUndoReversalConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Undo Journal Entry Reversal</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>Are you sure you want to undo the reversal of this journal entry? This will delete the reversal entry and restore the original entry back to posted status.</p>
+                {entryToUndoReversal && (
+                  <div className="p-3 bg-muted rounded-md text-sm space-y-1">
+                    <div><strong>Entry Number:</strong> {entryToUndoReversal.entryNumber}</div>
+                    <div><strong>Entry Date:</strong> {formatDate(entryToUndoReversal.entryDate)}</div>
+                    <div><strong>Description:</strong> {entryToUndoReversal.description}</div>
+                    <div className="flex gap-4">
+                      <span><strong>Total Debit:</strong> {formatCurrency(entryToUndoReversal.totalDebit)}</span>
+                      <span><strong>Total Credit:</strong> {formatCurrency(entryToUndoReversal.totalCredit)}</span>
+                    </div>
+                  </div>
+                )}
+                <p className="text-purple-600 dark:text-purple-400 font-medium">
+                  The reversal entry will be permanently deleted and this entry will be restored to posted status. You can then use the Unpost button to edit it if needed.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-undo-reversal">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (entryToUndoReversal) {
+                  undoReversalMutation.mutate(entryToUndoReversal.id);
+                }
+                setUndoReversalConfirmOpen(false);
+                setEntryToUndoReversal(null);
+              }}
+              className="bg-purple-600 hover:bg-purple-700"
+              data-testid="button-confirm-undo-reversal"
+            >
+              Undo Reversal
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -4728,6 +4728,17 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/journal-entries/:id/undo-reversal", isAuthenticated, requireRole("admin"), async (req: any, res) => {
+    try {
+      await storage.undoReversalJournalEntry(req.params.id);
+      await logActivity(req, "undo_reversal", "journal_entry", req.params.id, "Undid reversal of journal entry");
+      res.json({ message: "Reversal undone successfully. The entry is now posted again." });
+    } catch (error: any) {
+      console.error("Error undoing reversal:", error);
+      res.status(500).json({ message: error.message || "Failed to undo reversal" });
+    }
+  });
+
   app.post("/api/journal-entries/fix-empty-posted", isAuthenticated, requireRole("admin"), async (req: any, res) => {
     try {
       const result = await db.execute(sql`

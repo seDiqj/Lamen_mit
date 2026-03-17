@@ -377,6 +377,7 @@ export interface IStorage {
   postJournalEntry(id: string, postedBy: string): Promise<void>;
   unpostJournalEntry(id: string): Promise<void>;
   reverseJournalEntry(id: string, createdBy: string): Promise<any>;
+  undoReversalJournalEntry(id: string): Promise<void>;
   
   recalculateAllAccountBalances(): Promise<{ updated: number }>;
   
@@ -4908,6 +4909,36 @@ export class DatabaseStorage implements IStorage {
     await db.update(journalEntries).set({ isReversed: true, reversedEntryId: reversalEntry.id }).where(eq(journalEntries.id, id));
     
     return reversalEntry;
+  }
+
+  async undoReversalJournalEntry(id: string): Promise<void> {
+    const original = await this.getJournalEntry(id);
+    if (!original) throw new Error("Entry not found");
+    if (!original.isReversed) throw new Error("This entry has not been reversed");
+
+    const reversalEntryId = original.reversedEntryId;
+    if (reversalEntryId) {
+      const reversalEntry = await this.getJournalEntry(reversalEntryId);
+      if (reversalEntry && reversalEntry.isPosted) {
+        for (const line of reversalEntry.lines) {
+          const [account] = await db.select().from(accounts).where(eq(accounts.id, line.accountId));
+          if (!account) continue;
+          let newBalance = Number(account.currentBalance || 0);
+          const debit = Number(line.debitAmount || 0);
+          const credit = Number(line.creditAmount || 0);
+          if (account.accountType === 'asset' || account.accountType === 'expense') {
+            newBalance -= debit - credit;
+          } else {
+            newBalance -= credit - debit;
+          }
+          await db.update(accounts).set({ currentBalance: newBalance.toString() }).where(eq(accounts.id, line.accountId));
+        }
+      }
+      await db.delete(journalLines).where(eq(journalLines.journalEntryId, reversalEntryId));
+      await db.delete(journalEntries).where(eq(journalEntries.id, reversalEntryId));
+    }
+
+    await db.update(journalEntries).set({ isReversed: false, reversedEntryId: null }).where(eq(journalEntries.id, id));
   }
 
   async recalculateAllAccountBalances(): Promise<{ updated: number }> {
