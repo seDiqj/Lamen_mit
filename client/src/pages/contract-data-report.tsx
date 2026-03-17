@@ -79,6 +79,75 @@ type FundingSource = {
   name: string;
 };
 
+const DAB_HEADERS = [
+  "ContractCode",
+  "Branch",
+  "PhaseOfContract",
+  "ContractStatus",
+  "TypeOfContract",
+  "PurposeOfFinancing",
+  "InterestRate",
+  "CurrencyOfContract",
+  "TotalAmount.Value",
+  "TotalAmount.Currency",
+  "TotalTakenAmount.Value",
+  "TotalTakenAmount.Currency",
+  "InstallmentAmount.Value",
+  "InstallmentAmount.Currency",
+  "OutstandingAmount.Value",
+  "OutstandingAmount.Currency",
+  "PastDueAmount.Value",
+  "PastDueAmount.Currency",
+  "PastDueDays",
+  "NumberOfDueInstallments",
+  "DateOfLastPayment",
+  "TotalMonthlyPayment.Value",
+  "TotalMonthlyPayment.Currency",
+  "PaymentPeriodicity",
+  "CreditUsageInLast30Days.Value",
+  "CreditUsageInLast30Days.Currency",
+  "StartDate",
+  "ExpectedEndDate",
+  "RealEndDate",
+  "NegativeStatusOfContract",
+];
+
+function mapRow(row: ContractDataRow) {
+  const ccy = row.currency || "AFN";
+  return {
+    "ContractCode": row.applicationId || "",
+    "Branch": row.branchName || "",
+    "PhaseOfContract": row.loanStatus === "disbursed" ? "Active" : row.loanStatus === "closed" ? "Closed" : row.loanStatus || "",
+    "ContractStatus": row.loanStatus || "",
+    "TypeOfContract": row.productName || "",
+    "PurposeOfFinancing": row.sector || "",
+    "InterestRate": row.marginRate || 0,
+    "CurrencyOfContract": ccy,
+    "TotalAmount.Value": row.totalReceivable || 0,
+    "TotalAmount.Currency": ccy,
+    "TotalTakenAmount.Value": row.totalAmountDisbursed || 0,
+    "TotalTakenAmount.Currency": ccy,
+    "InstallmentAmount.Value": row.installmentAmount || 0,
+    "InstallmentAmount.Currency": ccy,
+    "OutstandingAmount.Value": row.principalOutstanding || 0,
+    "OutstandingAmount.Currency": ccy,
+    "PastDueAmount.Value": row.overdueAmount || 0,
+    "PastDueAmount.Currency": ccy,
+    "PastDueDays": row.numberOfDaysInArrears || 0,
+    "NumberOfDueInstallments": row.outstandingInstallments || 0,
+    "DateOfLastPayment": row.lastPaymentDate ? formatDate(row.lastPaymentDate) : "",
+    "TotalMonthlyPayment.Value": row.installmentAmount || 0,
+    "TotalMonthlyPayment.Currency": ccy,
+    "PaymentPeriodicity": row.paymentFrequency || "Monthly",
+    "CreditUsageInLast30Days.Value": 0,
+    "CreditUsageInLast30Days.Currency": ccy,
+    "StartDate": row.disbursementDate ? formatDate(row.disbursementDate) : row.requestDate ? formatDate(row.requestDate) : "",
+    "ExpectedEndDate": row.maturityDate ? formatDate(row.maturityDate) : "",
+    "RealEndDate": row.loanStatus === "closed" ? (row.lastPaymentDate ? formatDate(row.lastPaymentDate) : "") : "",
+    "NegativeStatusOfContract": row.restructured || "",
+  };
+}
+
 export default function ContractDataReport() {
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
@@ -121,52 +190,15 @@ export default function ContractDataReport() {
   const handleExportExcel = () => {
     if (!data) return;
 
-    const rows = data.map((row, idx) => ({
-      "#": idx + 1,
-      "ContractCode": row.applicationId || "",
-      "Branch": row.branchName || "",
-      "Loan Status": row.loanStatus || "",
-      "Loan Date": row.requestDate ? formatDate(row.requestDate) : "",
-      "CustomerID": row.customerId || "",
-      "Customer Name": row.customerName || "",
-      "SignedContractDate": row.signedContractDate ? formatDate(row.signedContractDate) : "",
-      "PaymentFrequency": row.paymentFrequency || "",
-      "AmountOffered": row.amountOffered || 0,
-      "CurrencyOfContract": row.currency || "AFN",
-      "MaturityDate": row.maturityDate ? formatDate(row.maturityDate) : "",
-      "TotalAmountDisbursed": row.totalAmountDisbursed || 0,
-      "Currency": row.currency || "AFN",
-      "Principle": row.principleAmount || 0,
-      "Margin%": row.marginRate || 0,
-      "Margin": row.marginAmount || 0,
-      "TotalReceivable": row.totalReceivable || 0,
-      "InstallmentAmount": row.installmentAmount || 0,
-      "ContractDurationMonths": row.financingDurationMonths || 0,
-      "NumberOfInstallments": row.numberOfInstallments || 0,
-      "FirstInstallmentDate": row.firstInstallmentDate ? formatDate(row.firstInstallmentDate) : "",
-      "DisbursementDate": row.disbursementDate ? formatDate(row.disbursementDate) : "",
-      "TotalPaid": row.totalPaid || 0,
-      "PrincipalOutstanding": row.principalOutstanding || 0,
-      "OutstandingInstallments": row.outstandingInstallments || 0,
-      "LastPaymentDate": row.lastPaymentDate ? formatDate(row.lastPaymentDate) : "",
-      "NumberOfDaysInArrears": row.numberOfDaysInArrears || 0,
-      "OverdueAmount": row.overdueAmount || 0,
-      "OverdueDate": row.overdueDate ? formatDate(row.overdueDate) : "",
-      "Restructured": row.restructured || "",
-      "DenOfR": 0,
-      "Sector": row.sector || "",
-    }));
+    const rows = data.map((row, idx) => {
+      const mapped = mapRow(row);
+      return { "#": idx + 1, ...mapped };
+    });
 
     const ws = XLSX.utils.json_to_sheet(rows);
-    ws["!cols"] = [
-      { wch: 6 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 12 },
-      { wch: 12 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
-      { wch: 14 }, { wch: 12 }, { wch: 16 }, { wch: 10 }, { wch: 14 },
-      { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 16 },
-      { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 16 },
-      { wch: 16 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 12 },
-      { wch: 12 }, { wch: 8 }, { wch: 14 },
-    ];
+    const colWidths = [{ wch: 6 }];
+    DAB_HEADERS.forEach(() => colWidths.push({ wch: 22 }));
+    ws["!cols"] = colWidths;
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Contract Data Report");
@@ -192,60 +224,32 @@ export default function ContractDataReport() {
     doc.setFontSize(9);
     doc.text(`Generated: ${new Date().toLocaleDateString()}`, 148, 34, { align: "center" });
 
-    const tableData = data.map((row, idx) => [
-      idx + 1,
-      row.applicationId || "",
-      row.branchName || "",
-      row.loanStatus || "",
-      row.requestDate ? formatDate(row.requestDate) : "",
-      row.customerId || "",
-      row.customerName || "",
-      row.signedContractDate ? formatDate(row.signedContractDate) : "",
-      row.paymentFrequency || "",
-      (row.amountOffered || 0).toLocaleString(),
-      row.currency || "AFN",
-      row.maturityDate ? formatDate(row.maturityDate) : "",
-      (row.totalAmountDisbursed || 0).toLocaleString(),
-      row.currency || "AFN",
-      (row.principleAmount || 0).toLocaleString(),
-      row.marginRate || 0,
-      (row.marginAmount || 0).toLocaleString(),
-      (row.totalReceivable || 0).toLocaleString(),
-      (row.installmentAmount || 0).toLocaleString(),
-      row.financingDurationMonths || 0,
-      row.numberOfInstallments || 0,
-      row.firstInstallmentDate ? formatDate(row.firstInstallmentDate) : "",
-      row.disbursementDate ? formatDate(row.disbursementDate) : "",
-      (row.totalPaid || 0).toLocaleString(),
-      (row.principalOutstanding || 0).toLocaleString(),
-      row.outstandingInstallments || 0,
-      row.lastPaymentDate ? formatDate(row.lastPaymentDate) : "",
-      row.numberOfDaysInArrears || 0,
-      (row.overdueAmount || 0).toLocaleString(),
-      row.overdueDate ? formatDate(row.overdueDate) : "",
-      row.restructured || "",
-      0,
-      row.sector || "",
-    ]);
+    const tableData = data.map((row, idx) => {
+      const mapped = mapRow(row);
+      return [idx + 1, ...DAB_HEADERS.map(h => {
+        const val = mapped[h as keyof typeof mapped];
+        if (typeof val === "number") return val.toLocaleString();
+        return val;
+      })];
+    });
 
     autoTable(doc, {
       startY: 38,
-      head: [["#", "ContractCode", "Branch", "Status", "Loan Date", "CustomerID", "Customer", "SignedDate", "PayFreq", "AmtOffered", "Ccy", "Maturity", "TotalDisb", "Ccy", "Principle", "Margin%", "Margin", "TotalRecv", "InstAmt", "Duration", "NumInst", "1stInstDate", "DisbDate", "TotalPaid", "PrinOut", "OutInst", "LastPay", "DaysArr", "OverdueAmt", "OverdueDate", "Restruct", "DenOfR", "Sector"]],
+      head: [["#", ...DAB_HEADERS]],
       body: tableData,
       theme: "grid",
-      headStyles: { fillColor: [34, 87, 122], textColor: [255, 255, 255], fontStyle: "bold", halign: "center", fontSize: 5 },
-      styles: { fontSize: 5, cellPadding: 1 },
+      headStyles: { fillColor: [34, 87, 122], textColor: [255, 255, 255], fontStyle: "bold", halign: "center", fontSize: 4 },
+      styles: { fontSize: 4, cellPadding: 0.8 },
       columnStyles: {
         0: { halign: "center", cellWidth: 5 },
+        7: { halign: "center" },
         9: { halign: "right" },
-        12: { halign: "right" },
-        14: { halign: "right" },
-        16: { halign: "right" },
+        11: { halign: "right" },
+        13: { halign: "right" },
+        15: { halign: "right" },
         17: { halign: "right" },
-        18: { halign: "right" },
-        23: { halign: "right" },
-        24: { halign: "right" },
-        28: { halign: "right" },
+        22: { halign: "right" },
+        25: { halign: "right" },
       },
     });
 
@@ -344,78 +348,29 @@ export default function ContractDataReport() {
                 <TableHeader>
                   <TableRow className="bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]">
                     <TableHead className="text-center w-10 text-primary-foreground font-semibold">#</TableHead>
-                    <TableHead className="text-primary-foreground font-semibold">ContractCode</TableHead>
-                    <TableHead className="text-primary-foreground font-semibold">Branch</TableHead>
-                    <TableHead className="text-primary-foreground font-semibold">Loan Status</TableHead>
-                    <TableHead className="text-primary-foreground font-semibold">Loan Date</TableHead>
-                    <TableHead className="text-primary-foreground font-semibold">CustomerID</TableHead>
-                    <TableHead className="text-primary-foreground font-semibold">Customer Name</TableHead>
-                    <TableHead className="text-primary-foreground font-semibold">SignedContractDate</TableHead>
-                    <TableHead className="text-primary-foreground font-semibold">PaymentFrequency</TableHead>
-                    <TableHead className="text-right text-primary-foreground font-semibold">AmountOffered</TableHead>
-                    <TableHead className="text-primary-foreground font-semibold">CurrencyOfContract</TableHead>
-                    <TableHead className="text-primary-foreground font-semibold">MaturityDate</TableHead>
-                    <TableHead className="text-right text-primary-foreground font-semibold">TotalAmountDisbursed</TableHead>
-                    <TableHead className="text-primary-foreground font-semibold">Currency</TableHead>
-                    <TableHead className="text-right text-primary-foreground font-semibold">Principle</TableHead>
-                    <TableHead className="text-right text-primary-foreground font-semibold">Margin%</TableHead>
-                    <TableHead className="text-right text-primary-foreground font-semibold">Margin</TableHead>
-                    <TableHead className="text-right text-primary-foreground font-semibold">TotalReceivable</TableHead>
-                    <TableHead className="text-right text-primary-foreground font-semibold">InstallmentAmount</TableHead>
-                    <TableHead className="text-center text-primary-foreground font-semibold">ContractDurationMonths</TableHead>
-                    <TableHead className="text-center text-primary-foreground font-semibold">NumberOfInstallments</TableHead>
-                    <TableHead className="text-primary-foreground font-semibold">FirstInstallmentDate</TableHead>
-                    <TableHead className="text-primary-foreground font-semibold">DisbursementDate</TableHead>
-                    <TableHead className="text-right text-primary-foreground font-semibold">TotalPaid</TableHead>
-                    <TableHead className="text-right text-primary-foreground font-semibold">PrincipalOutstanding</TableHead>
-                    <TableHead className="text-center text-primary-foreground font-semibold">OutstandingInstallments</TableHead>
-                    <TableHead className="text-primary-foreground font-semibold">LastPaymentDate</TableHead>
-                    <TableHead className="text-center text-primary-foreground font-semibold">NumberOfDaysInArrears</TableHead>
-                    <TableHead className="text-right text-primary-foreground font-semibold">OverdueAmount</TableHead>
-                    <TableHead className="text-primary-foreground font-semibold">OverdueDate</TableHead>
-                    <TableHead className="text-primary-foreground font-semibold">Restructured</TableHead>
-                    <TableHead className="text-center text-primary-foreground font-semibold">DenOfR</TableHead>
-                    <TableHead className="text-primary-foreground font-semibold">Sector</TableHead>
+                    {DAB_HEADERS.map((h) => (
+                      <TableHead key={h} className={`text-primary-foreground font-semibold whitespace-nowrap ${h.includes("Value") ? "text-right" : ""}`}>{h}</TableHead>
+                    ))}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data.map((row, idx) => (
-                    <TableRow key={idx} data-testid={`row-contract-${idx}`} className={idx % 2 === 0 ? "bg-muted/30" : ""}>
-                      <TableCell className="text-center font-mono">{idx + 1}</TableCell>
-                      <TableCell className="font-mono">{row.applicationId}</TableCell>
-                      <TableCell>{row.branchName}</TableCell>
-                      <TableCell>{row.loanStatus}</TableCell>
-                      <TableCell>{row.requestDate ? formatDate(row.requestDate) : ""}</TableCell>
-                      <TableCell className="font-mono">{row.customerId}</TableCell>
-                      <TableCell>{row.customerName}</TableCell>
-                      <TableCell>{row.signedContractDate ? formatDate(row.signedContractDate) : ""}</TableCell>
-                      <TableCell>{row.paymentFrequency}</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency((row.amountOffered || 0).toString())}</TableCell>
-                      <TableCell>{row.currency || "AFN"}</TableCell>
-                      <TableCell>{row.maturityDate ? formatDate(row.maturityDate) : ""}</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency((row.totalAmountDisbursed || 0).toString())}</TableCell>
-                      <TableCell>{row.currency || "AFN"}</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency((row.principleAmount || 0).toString())}</TableCell>
-                      <TableCell className="text-right font-mono">{row.marginRate || 0}</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency((row.marginAmount || 0).toString())}</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency((row.totalReceivable || 0).toString())}</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency((row.installmentAmount || 0).toString())}</TableCell>
-                      <TableCell className="text-center">{row.financingDurationMonths}</TableCell>
-                      <TableCell className="text-center">{row.numberOfInstallments}</TableCell>
-                      <TableCell>{row.firstInstallmentDate ? formatDate(row.firstInstallmentDate) : ""}</TableCell>
-                      <TableCell>{row.disbursementDate ? formatDate(row.disbursementDate) : ""}</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency((row.totalPaid || 0).toString())}</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency((row.principalOutstanding || 0).toString())}</TableCell>
-                      <TableCell className="text-center">{row.outstandingInstallments}</TableCell>
-                      <TableCell>{row.lastPaymentDate ? formatDate(row.lastPaymentDate) : ""}</TableCell>
-                      <TableCell className="text-center">{row.numberOfDaysInArrears}</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency((row.overdueAmount || 0).toString())}</TableCell>
-                      <TableCell>{row.overdueDate ? formatDate(row.overdueDate) : ""}</TableCell>
-                      <TableCell>{row.restructured}</TableCell>
-                      <TableCell className="text-center">0</TableCell>
-                      <TableCell>{row.sector}</TableCell>
-                    </TableRow>
-                  ))}
+                  {data.map((row, idx) => {
+                    const mapped = mapRow(row);
+                    return (
+                      <TableRow key={idx} data-testid={`row-contract-${idx}`} className={idx % 2 === 0 ? "bg-muted/30" : ""}>
+                        <TableCell className="text-center font-mono">{idx + 1}</TableCell>
+                        {DAB_HEADERS.map((h) => {
+                          const val = mapped[h as keyof typeof mapped];
+                          const isNumeric = h.includes("Value") || h === "InterestRate" || h === "PastDueDays" || h === "NumberOfDueInstallments";
+                          return (
+                            <TableCell key={h} className={`whitespace-nowrap ${isNumeric ? "text-right font-mono" : ""}`}>
+                              {typeof val === "number" ? (h === "InterestRate" || h === "PastDueDays" || h === "NumberOfDueInstallments" ? val : formatCurrency(val.toString())) : val}
+                            </TableCell>
+                          );
+                        })}
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}
