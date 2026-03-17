@@ -7754,7 +7754,7 @@ export async function registerRoutes(
       const branch = loan.branchId ? await storage.getBranch(loan.branchId) : null;
       const customerBusiness = loan.customerId ? await storage.getCustomerBusinessByCustomerId(loan.customerId) : null;
       const votes = await storage.getCommitteeVotesByLoanId(loanId);
-      const guarantorsData = await storage.getGuarantorsByLoan(loanId);
+      const guarantorsData = await storage.getGuarantorsByLoanId(loanId);
 
       const principleAmount = parseFloat(loan.principleAmount?.toString() || "0");
       const installmentAmount = parseFloat(loan.installmentAmount?.toString() || "0");
