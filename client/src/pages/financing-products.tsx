@@ -580,7 +580,7 @@ export default function FinancingProductsPage() {
                     <span></span>
                   </div>
                   {cycleLimits.map((cycle, idx) => (
-                    <div key={idx} className="grid grid-cols-[40px_1fr_1fr_24px] gap-1 items-center" data-testid={`row-cycle-${idx}`}>
+                    <div key={idx} className={`grid grid-cols-[40px_1fr_1fr_24px] gap-1 items-center rounded px-1 ${idx % 2 === 0 ? "bg-muted/40" : ""}`} data-testid={`row-cycle-${idx}`}>
                       <Input
                         type="number"
                         min="1"
