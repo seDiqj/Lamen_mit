@@ -572,15 +572,20 @@ export default function FinancingProductsPage() {
                 </Button>
               </div>
               {cycleLimits.length > 0 ? (
-                <div className="space-y-1.5 flex-1 overflow-y-auto max-h-[260px]">
-                  <div className="grid grid-cols-[40px_1fr_1fr_24px] gap-1 text-[10px] font-medium text-muted-foreground px-0.5">
+                <div className="space-y-0 flex-1 overflow-y-auto max-h-[260px] border rounded-md overflow-hidden">
+                  <div className="grid grid-cols-[40px_1fr_1fr_24px] gap-1 text-[10px] font-medium text-muted-foreground px-2 py-1.5 border-b" style={{ backgroundColor: "hsl(var(--muted))" }}>
                     <span>#</span>
-                    <span>Min</span>
-                    <span>Max</span>
+                    <span>Min Amount</span>
+                    <span>Max Amount</span>
                     <span></span>
                   </div>
                   {cycleLimits.map((cycle, idx) => (
-                    <div key={idx} className={`grid grid-cols-[40px_1fr_1fr_24px] gap-1 items-center rounded px-1 ${idx % 2 === 0 ? "bg-muted/40" : ""}`} data-testid={`row-cycle-${idx}`}>
+                    <div
+                      key={idx}
+                      className="grid grid-cols-[40px_1fr_1fr_24px] gap-1 items-center px-2 py-1"
+                      style={{ backgroundColor: idx % 2 === 1 ? "hsl(var(--muted) / 0.5)" : "transparent" }}
+                      data-testid={`row-cycle-${idx}`}
+                    >
                       <Input
                         type="number"
                         min="1"
@@ -590,18 +595,16 @@ export default function FinancingProductsPage() {
                         data-testid={`input-cycle-number-${idx}`}
                       />
                       <Input
-                        type="number"
-                        value={cycle.minAmount}
-                        onChange={(e) => updateCycleRow(idx, "minAmount", e.target.value)}
-                        placeholder="Min"
+                        value={cycle.minAmount ? Number(cycle.minAmount).toLocaleString("en-US") : ""}
+                        onChange={(e) => updateCycleRow(idx, "minAmount", e.target.value.replace(/,/g, ""))}
+                        placeholder="0"
                         className="h-7 text-xs px-2"
                         data-testid={`input-cycle-min-${idx}`}
                       />
                       <Input
-                        type="number"
-                        value={cycle.maxAmount}
-                        onChange={(e) => updateCycleRow(idx, "maxAmount", e.target.value)}
-                        placeholder="Max"
+                        value={cycle.maxAmount ? Number(cycle.maxAmount).toLocaleString("en-US") : ""}
+                        onChange={(e) => updateCycleRow(idx, "maxAmount", e.target.value.replace(/,/g, ""))}
+                        placeholder="0"
                         className="h-7 text-xs px-2"
                         data-testid={`input-cycle-max-${idx}`}
                       />
