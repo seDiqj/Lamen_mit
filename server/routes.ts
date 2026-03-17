@@ -5423,6 +5423,73 @@ export async function registerRoutes(
     }
   });
 
+  // LCTR Report (Monthly Large Currency Transaction Report)
+  app.get("/api/reports/lctr", isAuthenticated, async (req, res) => {
+    try {
+      const { startDate, endDate, branchId, fundingSourceId } = req.query;
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "startDate and endDate are required" });
+      }
+
+      const conditions: any[] = [
+        gte(disbursements.disbursementDate, startDate as string),
+        lte(disbursements.disbursementDate, endDate as string),
+        gte(loans.principleAmount, "200000"),
+        lte(loans.principleAmount, "1500000"),
+      ];
+      if (branchId && branchId !== "all") {
+        conditions.push(eq(loans.branchId, branchId as string));
+      }
+      if (fundingSourceId && fundingSourceId !== "all") {
+        conditions.push(eq(loans.fundingSourceId, fundingSourceId as string));
+      }
+
+      const results = await db
+        .select({
+          branchName: branches.name,
+          firstName: customers.firstName,
+          lastName: customers.lastName,
+          fatherName: customers.fatherName,
+          nationalId: customers.nationalId,
+          dateOfBirth: customers.dateOfBirth,
+          homeAddress: customers.homeAddress,
+          district: customers.district,
+          province: customers.province,
+          phoneNumber: customers.phoneNumber,
+          principleAmount: loans.principleAmount,
+          disbursementDate: disbursements.disbursementDate,
+        })
+        .from(loans)
+        .innerJoin(customers, eq(loans.customerId, customers.id))
+        .innerJoin(disbursements, eq(loans.id, disbursements.loanId))
+        .leftJoin(branches, eq(loans.branchId, branches.id))
+        .where(and(...conditions))
+        .orderBy(branches.name, disbursements.disbursementDate);
+
+      const mapped = results.map((row) => ({
+        Branch: row.branchName || "",
+        CustomerName: row.firstName || "",
+        LastName: row.lastName || "",
+        FatherFirstName: row.fatherName || "",
+        "F/LastName": row.lastName || "",
+        "CustomerNID#": row.nationalId || "",
+        Dob: row.dateOfBirth || "",
+        CustomerAddressStreet: row.homeAddress || "",
+        District: row.district || "",
+        Vague: "",
+        Province: row.province || "",
+        Phone: row.phoneNumber || "",
+        Principle: row.principleAmount ? Number(row.principleAmount) : 0,
+        DisbursementDate: row.disbursementDate || "",
+      }));
+
+      res.json(mapped);
+    } catch (error) {
+      console.error("Error fetching LCTR report:", error);
+      res.status(500).json({ message: "Failed to fetch LCTR report" });
+    }
+  });
+
   // Subject Role Report (DAB)
   app.get("/api/reports/subject-role", isAuthenticated, async (req, res) => {
     try {
