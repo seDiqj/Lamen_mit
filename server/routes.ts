@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { customers, loans, disbursements, branches, financeOfficers, installments, fundingSources as fundingSourcesTable, collaterals, customerBusinesses, businessLicenses, loanApprovals, guarantors, userRoles, fadReviews, riskComplianceReviews, accounts, journalEntries, journalLines } from "@shared/schema";
+import { customers, loans, disbursements, branches, financeOfficers, installments, fundingSources as fundingSourcesTable, collaterals, customerBusinesses, businessLicenses, loanApprovals, guarantors, userRoles, fadReviews, riskComplianceReviews, accounts, journalEntries, journalLines, clientOccupations } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { eq, and, or, inArray, sql, gte, lte, desc } from "drizzle-orm";
 import { z } from "zod";
@@ -993,6 +993,50 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting financing purpose:", error);
       res.status(500).json({ message: "Failed to delete financing purpose" });
+    }
+  });
+
+  // ===== CLIENT OCCUPATIONS =====
+  app.get("/api/client-occupations", isAuthenticated, async (req, res) => {
+    try {
+      const occupations = await db.select().from(clientOccupations).orderBy(clientOccupations.name);
+      res.json(occupations);
+    } catch (error) {
+      console.error("Error fetching client occupations:", error);
+      res.status(500).json({ message: "Failed to fetch client occupations" });
+    }
+  });
+
+  app.post("/api/client-occupations", isAuthenticated, requirePageAccess("lookup"), async (req: any, res) => {
+    try {
+      const [occupation] = await db.insert(clientOccupations).values(req.body).returning();
+      await logActivity(req, "create_client_occupation", "client_occupation", occupation.id.toString(), `Created client occupation: ${occupation.name}`);
+      res.json(occupation);
+    } catch (error) {
+      console.error("Error creating client occupation:", error);
+      res.status(500).json({ message: "Failed to create client occupation" });
+    }
+  });
+
+  app.patch("/api/client-occupations/:id", isAuthenticated, requirePageAccess("lookup"), async (req: any, res) => {
+    try {
+      const [occupation] = await db.update(clientOccupations).set(req.body).where(eq(clientOccupations.id, parseInt(req.params.id))).returning();
+      await logActivity(req, "update_client_occupation", "client_occupation", req.params.id, `Updated client occupation: ${occupation.name}`);
+      res.json(occupation);
+    } catch (error) {
+      console.error("Error updating client occupation:", error);
+      res.status(500).json({ message: "Failed to update client occupation" });
+    }
+  });
+
+  app.delete("/api/client-occupations/:id", isAuthenticated, requirePageAccess("lookup"), async (req: any, res) => {
+    try {
+      await db.delete(clientOccupations).where(eq(clientOccupations.id, parseInt(req.params.id)));
+      await logActivity(req, "delete_client_occupation", "client_occupation", req.params.id, `Deleted client occupation`);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting client occupation:", error);
+      res.status(500).json({ message: "Failed to delete client occupation" });
     }
   });
 

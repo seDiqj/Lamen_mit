@@ -54,8 +54,8 @@ import {
   Map,
   FileCheck,
 } from "lucide-react";
-import type { Sector, Business, Province, District, LicenseType, FinancingPurpose, CollateralType } from "@shared/schema";
-import { Target, Shield } from "lucide-react";
+import type { Sector, Business, Province, District, LicenseType, FinancingPurpose, CollateralType, ClientOccupation } from "@shared/schema";
+import { Target, Shield, Briefcase } from "lucide-react";
 
 type BusinessWithSector = Business & { sectorName?: string };
 type DistrictWithProvince = District & { provinceName?: string };
@@ -101,7 +101,14 @@ type DistrictFormData = z.infer<typeof districtFormSchema>;
 type LicenseTypeFormData = z.infer<typeof licenseTypeFormSchema>;
 type FinancingPurposeFormData = z.infer<typeof financingPurposeFormSchema>;
 type CollateralTypeFormData = z.infer<typeof collateralTypeFormSchema>;
-type MenuItemType = "sector" | "province" | "licenseType" | "financingPurpose" | "collateralType";
+
+const clientOccupationFormSchema = z.object({
+  name: z.string().min(1, "Client occupation name is required"),
+  description: z.string().optional(),
+});
+type ClientOccupationFormData = z.infer<typeof clientOccupationFormSchema>;
+
+type MenuItemType = "sector" | "province" | "licenseType" | "financingPurpose" | "collateralType" | "clientOccupation";
 
 export default function LookupPage() {
   const [selectedMenuItem, setSelectedMenuItem] = useState<MenuItemType>("sector");
@@ -131,10 +138,14 @@ export default function LookupPage() {
   // Collateral Types state
   const [selectedCollateralType, setSelectedCollateralType] = useState<CollateralType | null>(null);
   const [showCollateralTypeDialog, setShowCollateralTypeDialog] = useState(false);
+
+  // Client Occupations state
+  const [selectedClientOccupation, setSelectedClientOccupation] = useState<ClientOccupation | null>(null);
+  const [showClientOccupationDialog, setShowClientOccupationDialog] = useState(false);
   
   // Shared state
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [deleteType, setDeleteType] = useState<"sector" | "business" | "province" | "district" | "licenseType" | "financingPurpose" | "collateralType">("sector");
+  const [deleteType, setDeleteType] = useState<"sector" | "business" | "province" | "district" | "licenseType" | "financingPurpose" | "collateralType" | "clientOccupation">("sector");
   const [deleteId, setDeleteId] = useState<string | number>("");
   const [isEditMode, setIsEditMode] = useState(false);
 
@@ -174,6 +185,11 @@ export default function LookupPage() {
 
   const collateralTypeForm = useForm<CollateralTypeFormData>({
     resolver: zodResolver(collateralTypeFormSchema),
+    defaultValues: { name: "", description: "" },
+  });
+
+  const clientOccupationForm = useForm<ClientOccupationFormData>({
+    resolver: zodResolver(clientOccupationFormSchema),
     defaultValues: { name: "", description: "" },
   });
 
@@ -237,6 +253,15 @@ export default function LookupPage() {
     queryFn: async () => {
       const res = await fetch("/api/collateral-types", { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch collateral types");
+      return res.json();
+    },
+  });
+
+  const { data: clientOccupationsList, isLoading: loadingClientOccupations } = useQuery<ClientOccupation[]>({
+    queryKey: ["/api/client-occupations"],
+    queryFn: async () => {
+      const res = await fetch("/api/client-occupations", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch client occupations");
       return res.json();
     },
   });
@@ -488,9 +513,38 @@ export default function LookupPage() {
     onError: () => toast({ title: "Error", description: "Failed to delete collateral type.", variant: "destructive" }),
   });
 
-  
+  // Client Occupation Mutations
+  const createClientOccupationMutation = useMutation({
+    mutationFn: async (data: ClientOccupationFormData) => apiRequest("POST", "/api/client-occupations", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/client-occupations"] });
+      toast({ title: "Client Occupation Created", description: "The client occupation has been created successfully." });
+      setShowClientOccupationDialog(false);
+      clientOccupationForm.reset();
+    },
+    onError: () => toast({ title: "Error", description: "Failed to create client occupation.", variant: "destructive" }),
+  });
 
-  
+  const updateClientOccupationMutation = useMutation({
+    mutationFn: async (data: ClientOccupationFormData) => apiRequest("PATCH", `/api/client-occupations/${selectedClientOccupation?.id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/client-occupations"] });
+      toast({ title: "Client Occupation Updated", description: "The client occupation has been updated successfully." });
+      setShowClientOccupationDialog(false);
+      clientOccupationForm.reset();
+    },
+    onError: () => toast({ title: "Error", description: "Failed to update client occupation.", variant: "destructive" }),
+  });
+
+  const deleteClientOccupationMutation = useMutation({
+    mutationFn: async (id: number) => apiRequest("DELETE", `/api/client-occupations/${id}`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/client-occupations"] });
+      toast({ title: "Client Occupation Deleted", description: "The client occupation has been deleted." });
+      setShowDeleteDialog(false);
+    },
+    onError: () => toast({ title: "Error", description: "Failed to delete client occupation.", variant: "destructive" }),
+  });
 
   // Handlers
   const handleOpenSectorDialog = (sector?: Sector) => {
@@ -584,7 +638,20 @@ export default function LookupPage() {
     setShowCollateralTypeDialog(true);
   };
 
-  const handleDelete = (type: "sector" | "business" | "province" | "district" | "licenseType" | "financingPurpose" | "collateralType", id: string | number) => {
+  const handleOpenClientOccupationDialog = (co?: ClientOccupation) => {
+    if (co) {
+      setSelectedClientOccupation(co);
+      setIsEditMode(true);
+      clientOccupationForm.reset({ name: co.name, description: co.description || "" });
+    } else {
+      setSelectedClientOccupation(null);
+      setIsEditMode(false);
+      clientOccupationForm.reset({ name: "", description: "" });
+    }
+    setShowClientOccupationDialog(true);
+  };
+
+  const handleDelete = (type: "sector" | "business" | "province" | "district" | "licenseType" | "financingPurpose" | "collateralType" | "clientOccupation", id: string | number) => {
     setDeleteType(type);
     setDeleteId(id);
     setShowDeleteDialog(true);
@@ -605,6 +672,8 @@ export default function LookupPage() {
       deleteFinancingPurposeMutation.mutate(deleteId as number);
     } else if (deleteType === "collateralType") {
       deleteCollateralTypeMutation.mutate(deleteId as number);
+    } else if (deleteType === "clientOccupation") {
+      deleteClientOccupationMutation.mutate(deleteId as number);
     }
   };
 
@@ -664,6 +733,14 @@ export default function LookupPage() {
     }
   };
 
+  const onClientOccupationSubmit = (data: ClientOccupationFormData) => {
+    if (isEditMode && selectedClientOccupation) {
+      updateClientOccupationMutation.mutate(data);
+    } else {
+      createClientOccupationMutation.mutate(data);
+    }
+  };
+
   const getBusinessesForSector = (sectorId: string) => businesses?.filter((b) => b.sectorId === sectorId) || [];
   const getDistrictsForProvince = (provinceId: number) => districts?.filter((d) => d.provinceId === provinceId) || [];
 
@@ -673,6 +750,7 @@ export default function LookupPage() {
     { id: "licenseType" as MenuItemType, label: "Type of License", icon: FileCheck, color: "text-orange-600" },
     { id: "financingPurpose" as MenuItemType, label: "Financing Purpose", icon: Target, color: "text-purple-600" },
     { id: "collateralType" as MenuItemType, label: "Collateral Type", icon: Shield, color: "text-red-600" },
+    { id: "clientOccupation" as MenuItemType, label: "Client Occupation", icon: Briefcase, color: "text-teal-600" },
   ];
 
   return (
@@ -1173,6 +1251,68 @@ export default function LookupPage() {
               </>
             )}
 
+            {selectedMenuItem === "clientOccupation" && (
+              <>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Briefcase className="h-5 w-5 text-teal-600" />
+                      Client Occupations
+                    </CardTitle>
+                    <Button onClick={() => handleOpenClientOccupationDialog()} className="bg-teal-600 hover:bg-teal-700" data-testid="button-add-new-client-occupation">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add New Client Occupation
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="overflow-auto" style={{ maxHeight: "calc(100vh - 240px)" }}>
+                  {loadingClientOccupations ? (
+                    <div className="space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
+                  ) : clientOccupationsList && clientOccupationsList.length > 0 ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs w-20">ID</TableHead>
+                          <TableHead className="text-xs">Client Occupation</TableHead>
+                          <TableHead className="text-xs">Description</TableHead>
+                          <TableHead className="text-xs text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {clientOccupationsList.map((co) => (
+                          <TableRow key={co.id}>
+                            <TableCell className="font-medium">{co.id}</TableCell>
+                            <TableCell className="font-medium">
+                              <div className="flex items-center gap-2">
+                                <Briefcase className="h-4 w-4 text-teal-600" />
+                                {co.name}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">{co.description || "—"}</TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <Button variant="ghost" size="icon" onClick={() => handleOpenClientOccupationDialog(co)} data-testid={`button-edit-client-occupation-${co.id}`}>
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={() => handleDelete("clientOccupation", co.id)} data-testid={`button-delete-client-occupation-${co.id}`}>
+                                  <Trash2 className="h-4 w-4 text-red-500" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Briefcase className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                      <p>No client occupations found. Click "Add New Client Occupation" to create one.</p>
+                    </div>
+                  )}
+                </CardContent>
+              </>
+            )}
+
           </Card>
         </div>
       </div>
@@ -1410,6 +1550,40 @@ export default function LookupPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Add/Edit Client Occupation Dialog */}
+      <Dialog open={showClientOccupationDialog} onOpenChange={setShowClientOccupationDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Briefcase className="h-5 w-5 text-teal-600" />
+              {isEditMode ? "Edit Client Occupation" : "Add Client Occupation"}
+            </DialogTitle>
+          </DialogHeader>
+          <Form {...clientOccupationForm}>
+            <form onSubmit={clientOccupationForm.handleSubmit(onClientOccupationSubmit)} className="space-y-4">
+              <FormField control={clientOccupationForm.control} name="name" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Client Occupation Name *</FormLabel>
+                  <FormControl><Input placeholder="e.g., Shopkeeper" className="h-9" {...field} data-testid="input-client-occupation-name" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={clientOccupationForm.control} name="description" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Description</FormLabel>
+                  <FormControl><Input placeholder="Optional description" className="h-9" {...field} data-testid="input-client-occupation-description" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <Button type="submit" className="w-full bg-teal-600 hover:bg-teal-700" disabled={createClientOccupationMutation.isPending || updateClientOccupationMutation.isPending} data-testid="button-submit-client-occupation">
+                <Plus className="h-4 w-4 mr-2" />
+                {createClientOccupationMutation.isPending || updateClientOccupationMutation.isPending ? "Saving..." : isEditMode ? "Update Client Occupation" : "Add Client Occupation"}
+              </Button>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
       {/* Delete Confirmation Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent>
@@ -1423,12 +1597,13 @@ export default function LookupPage() {
               {deleteType === "licenseType" && "Are you sure you want to delete this license type?"}
               {deleteType === "financingPurpose" && "Are you sure you want to delete this financing purpose?"}
               {deleteType === "collateralType" && "Are you sure you want to delete this collateral type?"}
+              {deleteType === "clientOccupation" && "Are you sure you want to delete this client occupation?"}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setShowDeleteDialog(false)} data-testid="button-cancel-delete">Cancel</Button>
-            <Button variant="destructive" onClick={confirmDelete} disabled={deleteSectorMutation.isPending || deleteBusinessMutation.isPending || deleteProvinceMutation.isPending || deleteDistrictMutation.isPending || deleteLicenseTypeMutation.isPending || deleteFinancingPurposeMutation.isPending || deleteCollateralTypeMutation.isPending} data-testid="button-confirm-delete">
-              {deleteSectorMutation.isPending || deleteBusinessMutation.isPending || deleteProvinceMutation.isPending || deleteDistrictMutation.isPending || deleteLicenseTypeMutation.isPending || deleteFinancingPurposeMutation.isPending || deleteCollateralTypeMutation.isPending ? "Deleting..." : "Delete"}
+            <Button variant="destructive" onClick={confirmDelete} disabled={deleteSectorMutation.isPending || deleteBusinessMutation.isPending || deleteProvinceMutation.isPending || deleteDistrictMutation.isPending || deleteLicenseTypeMutation.isPending || deleteFinancingPurposeMutation.isPending || deleteCollateralTypeMutation.isPending || deleteClientOccupationMutation.isPending} data-testid="button-confirm-delete">
+              {deleteSectorMutation.isPending || deleteBusinessMutation.isPending || deleteProvinceMutation.isPending || deleteDistrictMutation.isPending || deleteLicenseTypeMutation.isPending || deleteFinancingPurposeMutation.isPending || deleteCollateralTypeMutation.isPending || deleteClientOccupationMutation.isPending ? "Deleting..." : "Delete"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -111,6 +111,14 @@ export const collateralTypes = pgTable("collateral_types", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Client Occupations
+export const clientOccupations = pgTable("client_occupations", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Customers
 export const customers = pgTable("customers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -619,6 +627,10 @@ export type FinancingPurpose = typeof financingPurposes.$inferSelect;
 export const insertCollateralTypeSchema = createInsertSchema(collateralTypes).omit({ id: true, createdAt: true });
 export type InsertCollateralType = z.infer<typeof insertCollateralTypeSchema>;
 export type CollateralType = typeof collateralTypes.$inferSelect;
+
+export const insertClientOccupationSchema = createInsertSchema(clientOccupations).omit({ id: true, createdAt: true });
+export type InsertClientOccupation = z.infer<typeof insertClientOccupationSchema>;
+export type ClientOccupation = typeof clientOccupations.$inferSelect;
 
 // ============== HR MODULE ==============
 

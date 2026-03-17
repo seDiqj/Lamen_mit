@@ -18,7 +18,7 @@ import {
   ChevronLeft, ChevronRight, Save, ArrowLeft, Loader2, Check,
   Camera, Upload, X, File
 } from "lucide-react";
-import type { Branch, FinanceOfficer, FundingSource, Sector, Business, Province, District, LicenseType, FinancingPurpose, CollateralType } from "@shared/schema";
+import type { Branch, FinanceOfficer, FundingSource, Sector, Business, Province, District, LicenseType, FinancingPurpose, CollateralType, ClientOccupation } from "@shared/schema";
 import { cn, toPersianDate } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -197,6 +197,7 @@ export default function LoanApplicationPage() {
   const { data: licenseTypes = [] } = useQuery<LicenseType[]>({ queryKey: ["/api/license-types"] });
   const { data: financingPurposesList = [] } = useQuery<FinancingPurpose[]>({ queryKey: ["/api/financing-purposes"] });
   const { data: collateralTypesList = [] } = useQuery<CollateralType[]>({ queryKey: ["/api/collateral-types"] });
+  const { data: clientOccupationsList = [] } = useQuery<ClientOccupation[]>({ queryKey: ["/api/client-occupations"] });
   const { data: financingProducts = [] } = useQuery<any[]>({ queryKey: ["/api/financing-products"] });
 
   const loanProducts = financingProducts.length > 0
@@ -1162,7 +1163,14 @@ export default function LoanApplicationPage() {
                     <FormField control={form.control} name="clientOccupation" render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-xs">Client Occupation</FormLabel>
-                        <FormControl><Input placeholder="Client's occupation" className="h-9" {...field} data-testid="input-client-occupation" /></FormControl>
+                        <Select onValueChange={field.onChange} value={field.value || ""}>
+                          <FormControl><SelectTrigger className="h-9" data-testid="select-client-occupation"><SelectValue placeholder="Select occupation" /></SelectTrigger></FormControl>
+                          <SelectContent>
+                            {clientOccupationsList.map((co) => (
+                              <SelectItem key={co.id} value={co.name}>{co.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )} />
