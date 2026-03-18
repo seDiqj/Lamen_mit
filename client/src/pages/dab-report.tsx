@@ -11,12 +11,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { FileSpreadsheet, Download, Building2, TrendingUp } from "lucide-react";
+import { FileSpreadsheet, Download, Building2, TrendingUp, Banknote } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import ProfitLossStatementReport from "./profit-loss-statement-report";
+import CashFlowStatementReport from "./cash-flow-statement-report";
 
 type NoteLine = {
   code: string;
@@ -278,12 +279,19 @@ export default function DABReportPage() {
             <TrendingUp className="h-3.5 w-3.5" />
             Profit & Loss
           </TabsTrigger>
+          <TabsTrigger value="cash-flow" className="gap-1" data-testid="tab-cash-flow">
+            <Banknote className="h-3.5 w-3.5" />
+            Cash Flow
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="notes-to-financial-statements">
           <NotesToFinancialStatements />
         </TabsContent>
         <TabsContent value="profit-loss">
           <ProfitLossStatementReport />
+        </TabsContent>
+        <TabsContent value="cash-flow">
+          <CashFlowStatementReport />
         </TabsContent>
       </Tabs>
     </div>

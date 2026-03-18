@@ -5245,6 +5245,177 @@ export async function registerRoutes(
     }
   });
 
+  // Statement of Cash Flow Report
+  app.get("/api/reports/cash-flow-statement", isAuthenticated, async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "startDate and endDate are required" });
+      }
+
+      const postedEntries = await db
+        .select({
+          accountCode: accounts.accountCode,
+          accountName: accounts.accountName,
+          accountType: accounts.accountType,
+          normalBalance: accounts.normalBalance,
+          debitTotal: sql<string>`COALESCE(SUM(${journalLines.debitAmount}), 0)`,
+          creditTotal: sql<string>`COALESCE(SUM(${journalLines.creditAmount}), 0)`,
+        })
+        .from(journalLines)
+        .innerJoin(journalEntries, eq(journalLines.journalEntryId, journalEntries.id))
+        .innerJoin(accounts, eq(journalLines.accountId, accounts.id))
+        .where(and(
+          eq(journalEntries.isPosted, true),
+          gte(journalEntries.entryDate, startDate as string),
+          lte(journalEntries.entryDate, endDate as string),
+        ))
+        .groupBy(accounts.accountCode, accounts.accountName, accounts.accountType, accounts.normalBalance);
+
+      const balMap: Record<string, number> = {};
+      for (const e of postedEntries) {
+        const d = parseFloat(e.debitTotal || "0");
+        const c = parseFloat(e.creditTotal || "0");
+        if (e.accountType === "income") {
+          balMap[e.accountCode] = c - d;
+        } else if (e.accountType === "liability" || e.accountType === "equity") {
+          balMap[e.accountCode] = c - d;
+        } else {
+          balMap[e.accountCode] = d - c;
+        }
+      }
+
+      const gb = (...codes: string[]) => codes.reduce((s, c) => s + (balMap[c] || 0), 0);
+      const gbPrefix = (...prefixes: string[]) => {
+        let t = 0;
+        for (const [code, val] of Object.entries(balMap)) {
+          for (const p of prefixes) { if (code.startsWith(p)) { t += val; break; } }
+        }
+        return t;
+      };
+
+      // --- PBT from P&L logic ---
+      const rev_murabaha = gb("50300") + gb("20900");
+      const rev_mudaraba = gb("50100");
+      const rev_musharaka = gb("50200");
+      const totalRevenue = rev_murabaha + rev_mudaraba + rev_musharaka;
+
+      const totalCostOfServices = gb("51100", "51300", "51400") + gb("62000") + gb("80102") + gb("51200");
+
+      const grossProfit = totalRevenue - totalCostOfServices;
+      const otherIncome = gb("40000", "40400", "40500");
+
+      const expStaff = gb("60001");
+      const expDeprec = gb("61900");
+      const expTech = gb("70000", "15300");
+      const expMarketing = gbPrefix("616");
+      const expLegal = gb("61504");
+      const totalAllExp = Object.entries(balMap)
+        .filter(([code]) => postedEntries.find(e => e.accountCode === code)?.accountType === "expense")
+        .reduce((s, [, v]) => s + v, 0);
+      const specificExp = totalCostOfServices + expStaff + expDeprec + expTech + expMarketing + expLegal;
+      const expAdmin = Math.max(totalAllExp - specificExp, 0);
+      const totalOpExp = expStaff + expDeprec + expTech + expMarketing + expAdmin + expLegal;
+      const pbt = grossProfit + otherIncome - totalOpExp;
+
+      // --- Cash Flow from Operating ---
+      const deprecAmort = gb("61900", "15300");
+      const impairment = 0;
+      const gainLossDisposal = gb("17900");
+      const fxGainLoss = gb("61802");
+      const provisionChange = gb("80102");
+
+      const receivablesPrep = gb("13000") - gb("20900");
+      const payablesAccruals = gb("20100") + gbPrefix("2015") + gb("21100", "21200");
+      const financeToCustomers = gb("11000") + gb("20900");
+      const inventory = gbPrefix("120");
+      const taxPaid = gb("21000");
+
+      const netCashOperating = pbt + deprecAmort + impairment + gainLossDisposal + fxGainLoss + provisionChange
+        - receivablesPrep + payablesAccruals - financeToCustomers - inventory - taxPaid;
+
+      // --- Cash Flow from Financing ---
+      const capitalIntro = gb("30100");
+      const fundsRaised = gb("20120");
+      const repaymentFunds = gb("20122");
+      const dividendPaid = gb("30400");
+      const netCashFinancing = capitalIntro + fundsRaised - repaymentFunds - dividendPaid;
+
+      // --- Cash Flow from Investing ---
+      const purchasePPE = gb("17101", "17201", "17301", "17401", "17500");
+      const intangibles = gb("15000");
+      const proceedsDisposal = gb("17900");
+      const netCashInvesting = -(purchasePPE + intangibles) + proceedsDisposal;
+
+      // --- Summary ---
+      const cashVariation = netCashOperating + netCashFinancing + netCashInvesting;
+
+      // Beginning cash: get cash accounts balance before startDate
+      const beginCashResult = await db
+        .select({
+          balance: sql<string>`COALESCE(SUM(${journalLines.debitAmount}) - SUM(${journalLines.creditAmount}), 0)`,
+        })
+        .from(journalLines)
+        .innerJoin(journalEntries, eq(journalLines.journalEntryId, journalEntries.id))
+        .innerJoin(accounts, eq(journalLines.accountId, accounts.id))
+        .where(and(
+          eq(journalEntries.isPosted, true),
+          sql`${journalEntries.entryDate} < ${startDate}`,
+          sql`${accounts.accountCode} LIKE '10%'`,
+        ));
+
+      const beginCash = parseFloat(beginCashResult[0]?.balance || "0");
+
+      // Also add opening balances of cash accounts
+      const openingBalResult = await db
+        .select({
+          total: sql<string>`COALESCE(SUM(${accounts.openingBalance}), 0)`,
+        })
+        .from(accounts)
+        .where(sql`${accounts.accountCode} LIKE '10%'`);
+
+      const openingBal = parseFloat(openingBalResult[0]?.total || "0");
+      const cashBeginning = beginCash + openingBal;
+      const cashEnd = cashBeginning + cashVariation;
+
+      res.json({
+        operating: {
+          pbt,
+          deprecAmort,
+          impairment,
+          gainLossDisposal,
+          fxGainLoss,
+          provisionChange,
+          receivablesPrep,
+          payablesAccruals,
+          financeToCustomers,
+          inventory,
+          taxPaid,
+          netCash: netCashOperating,
+        },
+        financing: {
+          capitalIntro,
+          fundsRaised,
+          repaymentFunds,
+          dividendPaid,
+          netCash: netCashFinancing,
+        },
+        investing: {
+          purchasePPE,
+          intangibles,
+          proceedsDisposal,
+          netCash: netCashInvesting,
+        },
+        cashVariation,
+        cashBeginning,
+        cashEnd,
+      });
+    } catch (error) {
+      console.error("Error fetching cash flow statement:", error);
+      res.status(500).json({ message: "Failed to fetch statement" });
+    }
+  });
+
   // Statement of Profit or Loss Report
   app.get("/api/reports/profit-loss-statement", isAuthenticated, async (req, res) => {
     try {
