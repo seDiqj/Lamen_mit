@@ -2144,26 +2144,34 @@ export default function CitizenBalanceStatementPage() {
                     <h3 style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "8px", color: "#15803d", borderBottom: "1px solid #15803d", paddingBottom: "4px" }}>۳. د تړون اړوند عمومي معلومات:</h3>
                     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }} dir="rtl">
                       <tbody>
-                        {[
-                          ["د فعالیت ډول (Type of Activity):", cd.business.businessType],
-                          ["د توکو (اجناسو) نوم  (Name of Good / Items):", ""],
-                          ["د  پېرېدونکي د فعالیت ځای/ساحه  (Client's Business Location):", cd.business.detailedAddress],
-                          ["د تمویل شوې پانګې اندازه (مبلغ) (Financing Amount):", `${contractFormatAmount(cd.loan.principleAmount)} افغانۍ`],
-                          ["د ګټې اندازه (Markup) په پولي واحد باندې:", `${contractFormatAmount(cd.loan.principleAmount * cd.loan.marginRate)} افغانۍ`],
-                          ["د توکو (اجناسو) د خرڅون مجموعي بیعه: (Sale Price)", `${contractFormatAmount(cd.loan.totalReceivable)} افغانۍ`],
-                          ["د تړون موده  (Contract Period):", `${cd.loan.financingDurationMonths} میاشتې`],
-                          ["د تړون د پیل نېټه  (Contract Start Date):", contractFormatDate(cd.disbursement.disbursementDate)],
-                          ["د تړون د پای نېټه  (Contract End Date):", contractFormatDate(cd.disbursement.lastInstallmentDate)],
-                          ["د قسطونو شمېر (Number of Installments):", cd.loan.numberOfInstallments],
-                          ["د معافیت موده  (Grace Period):", `${cd.loan.gracePeriod} میاشتې`],
-                          ["د هر قسط اندازه (مبلغ)(Installment Amount):", `${contractFormatAmount(cd.loan.installmentAmount)} افغانۍ`],
-                          ["د قسطونو تکرار  (Frequency of Installments):", "یو میاشتنی"],
-                          ["د لومړني قسط د اداینې نېټه  (First Installment Date):", contractFormatDate(cd.disbursement.firstInstallmentDate)],
-                          ["د وروستني قسط د اداینې نېټه  (Last Installment Date):", contractFormatDate(cd.disbursement.lastInstallmentDate)],
-                        ].map(([label, value], ri) => (
+                        {(() => {
+                          const markup = cd.loan.totalReceivable - cd.loan.principleAmount;
+                          let eachInstallment = cd.loan.installmentAmount;
+                          if (eachInstallment === 0 && cd.loan.numberOfInstallments > 0) {
+                            const payable = cd.loan.numberOfInstallments - (cd.loan.gracePeriod || 0);
+                            if (payable > 0) eachInstallment = Math.round(cd.loan.totalReceivable / payable * 100) / 100;
+                          }
+                          return [
+                            ["د فعالیت ډول (Type of Activity):", cd.business.businessType],
+                            ["د توکو (اجناسو) نوم  (Name of Good / Items):", ""],
+                            ["د  پېرېدونکي د فعالیت ځای/ساحه  (Client's Business Location):", cd.business.detailedAddress],
+                            ["د تمویل شوې پانګې اندازه (مبلغ) (Financing Amount):", `${contractFormatAmount(cd.loan.principleAmount)} افغانۍ`],
+                            ["د ګټې اندازه (Markup) په پولي واحد باندې:", `${contractFormatAmount(markup)} افغانۍ`],
+                            ["د توکو (اجناسو) د خرڅون مجموعي بیعه: (Sale Price)", `${contractFormatAmount(cd.loan.totalReceivable)} افغانۍ`],
+                            ["د تړون موده  (Contract Period):", `${cd.loan.financingDurationMonths} میاشتې`],
+                            ["د تړون د پیل نېټه  (Contract Start Date):", contractFormatDate(cd.disbursement.disbursementDate)],
+                            ["د تړون د پای نېټه  (Contract End Date):", contractFormatDate(cd.disbursement.lastInstallmentDate)],
+                            ["د قسطونو شمېر (Number of Installments):", cd.loan.numberOfInstallments],
+                            ["د معافیت موده  (Grace Period):", `${cd.loan.gracePeriod} میاشتې`],
+                            ["د هر قسط اندازه (مبلغ)(Installment Amount):", `${contractFormatAmount(eachInstallment)} افغانۍ`],
+                            ["د قسطونو تکرار  (Frequency of Installments):", "یو میاشتنی"],
+                            ["د لومړني قسط د اداینې نېټه  (First Installment Date):", contractFormatDate(cd.disbursement.firstInstallmentDate)],
+                            ["د وروستني قسط د اداینې نېټه  (Last Installment Date):", contractFormatDate(cd.disbursement.lastInstallmentDate)],
+                          ];
+                        })().map(([label, value], ri) => (
                           <tr key={ri} style={{ borderBottom: "1px solid #e5e7eb" }}>
                             <td style={{ padding: "6px 8px 6px 0", fontWeight: 600, width: "50%", background: "#dcfce7", color: "#15803d" }}>{label}</td>
-                            <td style={{ padding: "6px 0" }}>{value}</td>
+                            <td style={{ padding: "6px 0", direction: "ltr", textAlign: "left" }}>{value}</td>
                           </tr>
                         ))}
                       </tbody>
