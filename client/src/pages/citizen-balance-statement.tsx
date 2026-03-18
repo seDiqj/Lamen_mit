@@ -796,8 +796,8 @@ export default function CitizenBalanceStatementPage() {
           startY: y,
           head: [["Name", "Position", "Role", "Signature", "Date"]],
           body: [
-            ["System Generated", "Risk Manager", "Observer", "System Generated", "System Generated"],
-            ["System Generated", "Sharia Advisor", "Sharia Observer", "System Generated", "System Generated"],
+            [cd.riskReviewer?.name || "", "Risk Manager", "Observer", "System Generated", cd.riskReviewer?.date ? committeeFormatDate(cd.riskReviewer.date) : ""],
+            ["", "Sharia Advisor", "Sharia Observer", "", ""],
           ],
           theme: "grid",
           headStyles: { fillColor: [22, 163, 74], fontSize: 7, fontStyle: "bold" },

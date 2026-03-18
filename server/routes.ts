@@ -7753,6 +7753,19 @@ export async function registerRoutes(
 
       const branch = loan.branchId ? await storage.getBranch(loan.branchId) : null;
       const customerBusiness = loan.customerId ? await storage.getCustomerBusinessByCustomerId(loan.customerId) : null;
+      const riskReview = await storage.getRiskComplianceReviewByLoanId(loanId);
+      let riskReviewerName = "";
+      let riskReviewDate = "";
+      if (riskReview) {
+        if (riskReview.reviewedById) {
+          const reviewer = await storage.getUser(riskReview.reviewedById);
+          if (reviewer) riskReviewerName = `${reviewer.firstName || ""} ${reviewer.lastName || ""}`.trim() || reviewer.username || "";
+        }
+        if (!riskReviewerName) riskReviewerName = riskReview.reviewerName || "";
+        if (riskReviewerName === "Risk Compliance Reviewer") riskReviewerName = "";
+        riskReviewDate = riskReview.reviewedAt ? new Date(riskReview.reviewedAt).toISOString().split("T")[0] : "";
+      }
+
       const rawVotes = await storage.getCommitteeVotesByLoanId(loanId);
       const votes: any[] = [];
       for (const v of rawVotes) {
@@ -7829,6 +7842,10 @@ export async function registerRoutes(
           votedAt: v.votedAt ? new Date(v.votedAt).toISOString().split("T")[0] : "",
           comments: v.comments || "",
         })),
+        riskReviewer: {
+          name: riskReviewerName,
+          date: riskReviewDate,
+        },
         committeeDate: lastVoteDate,
         finalDecision,
         approvedVotes,
