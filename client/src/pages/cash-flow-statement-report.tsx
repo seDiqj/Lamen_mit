@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { FileSpreadsheet, FileText } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { formatDate } from "@/lib/date-utils";
@@ -176,9 +177,9 @@ export default function CashFlowStatementReport() {
       [""],
       ["Statement of Cash Flow"],
       [""],
-      ["", `MFI Name: Lamen Microfinance Institution`],
-      ["", `License Number: 003`],
-      ["", `Date/Period: ${formatDate(startDate)} - ${formatDate(endDate)}`],
+      ["", `MFI Name: Lamen Micro Finance Institution`],
+      ["", `License Number: 97950`],
+      ["", `Date/Period: ${new Date().toLocaleString("en-US", { month: "long", year: "numeric" })}`],
       ["", "Currency: Afghani"],
       ["", "Frequency: Monthly"],
       [""],
@@ -219,9 +220,9 @@ export default function CashFlowStatementReport() {
 
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
-    doc.text(`MFI Name: Lamen Microfinance Institution`, 20, 40);
-    doc.text(`License Number: 003`, 20, 45);
-    doc.text(`Date/Period: ${formatDate(startDate)} - ${formatDate(endDate)}`, 20, 50);
+    doc.text(`MFI Name: Lamen Micro Finance Institution`, 20, 40);
+    doc.text(`License Number: 97950`, 20, 45);
+    doc.text(`Date/Period: ${new Date().toLocaleString("en-US", { month: "long", year: "numeric" })}`, 20, 50);
     doc.text(`Currency: Afghani`, 20, 55);
     doc.text(`Frequency: Monthly`, 20, 60);
 
@@ -301,19 +302,42 @@ export default function CashFlowStatementReport() {
 
       {data && (
         <Card>
-          <CardHeader className="pb-3 border-b">
-            <div className="text-center space-y-1">
-              <p className="text-sm font-semibold text-muted-foreground">Da Afghanistan Bank</p>
+          <CardContent className="p-4">
+            <div className="text-center mb-4">
+              <h3 className="text-base font-bold">Da Afghanistan Bank</h3>
               <p className="text-xs text-muted-foreground">Non-Banking Financial Institutions Supervision Directorate General</p>
               <p className="text-xs text-muted-foreground">Follow up and Offsite Supervision Section</p>
-              <CardTitle className="text-lg mt-2">Statement of Cash Flow</CardTitle>
-              <div className="text-xs text-muted-foreground space-y-0.5 mt-2">
-                <p>MFI Name: Lamen Microfinance Institution &nbsp; | &nbsp; License Number: 003</p>
-                <p>Period: {formatDate(startDate)} - {formatDate(endDate)} &nbsp; | &nbsp; Currency: Afghani &nbsp; | &nbsp; Frequency: Monthly</p>
-              </div>
+              <p className="text-sm font-semibold mt-2">Statement of Cash Flow</p>
             </div>
-          </CardHeader>
-          <CardContent className="pt-4 overflow-x-auto">
+
+            <Table className="mb-4">
+              <TableBody>
+                <TableRow>
+                  <TableCell className="text-center font-semibold text-xs py-1.5 w-1/2 border">MFI Name</TableCell>
+                  <TableCell className="text-xs py-1.5 border">Lamen Micro Finance Institution</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="text-center font-semibold text-xs py-1.5 border">License Number</TableCell>
+                  <TableCell className="text-xs py-1.5 border">97950</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="text-center font-semibold text-xs py-1.5 border">Date/Period</TableCell>
+                  <TableCell className="text-xs py-1.5 border">
+                    {new Date().toLocaleString("en-US", { month: "long", year: "numeric" })}
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="text-center font-semibold text-xs py-1.5 border">Currency</TableCell>
+                  <TableCell className="text-xs py-1.5 border">Afghani</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="text-center font-semibold text-xs py-1.5 border">Frequency</TableCell>
+                  <TableCell className="text-xs py-1.5 border">Monthly</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-[hsl(var(--primary))] text-primary-foreground">
@@ -347,6 +371,7 @@ export default function CashFlowStatementReport() {
                 })}
               </tbody>
             </table>
+            </div>
 
             <div className="mt-12 flex justify-between px-8">
               <div className="text-center space-y-6">
