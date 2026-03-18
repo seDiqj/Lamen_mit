@@ -153,18 +153,17 @@ export default function IndividualReport() {
     doc.setFontSize(9);
     doc.text(`Generated: ${new Date().toLocaleDateString()}`, 210, 34, { align: "center" });
 
-    const tableData = data.map((row, idx) => {
-      return [idx + 1, ...DAB_COLUMNS.map(col => String(row[col] ?? ""))];
+    const tableData = data.map((row) => {
+      return DAB_COLUMNS.map(col => String(row[col] ?? ""));
     });
 
     autoTable(doc, {
       startY: 38,
-      head: [["#", ...DAB_COLUMNS]],
+      head: [DAB_COLUMNS],
       body: tableData,
       theme: "grid",
       headStyles: { fillColor: [34, 87, 122], textColor: [255, 255, 255], fontStyle: "bold", halign: "center", fontSize: 3 },
       styles: { fontSize: 3, cellPadding: 0.5 },
-      columnStyles: { 0: { halign: "center", cellWidth: 4 } },
     });
 
     const pageCount = doc.getNumberOfPages();
@@ -249,7 +248,6 @@ export default function IndividualReport() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]">
-                    <TableHead className="text-center w-10 text-primary-foreground font-semibold whitespace-nowrap">#</TableHead>
                     {DAB_COLUMNS.map((col) => (
                       <TableHead key={col} className="text-primary-foreground font-semibold whitespace-nowrap text-xs">{col}</TableHead>
                     ))}
@@ -258,7 +256,6 @@ export default function IndividualReport() {
                 <TableBody>
                   {data.map((row, idx) => (
                     <TableRow key={idx} data-testid={`row-individual-${idx}`} className={idx % 2 === 0 ? "bg-muted/30" : ""}>
-                      <TableCell className="text-center font-mono">{idx + 1}</TableCell>
                       {DAB_COLUMNS.map((col) => (
                         <TableCell key={col} className="whitespace-nowrap text-xs">
                           {col === "DateOfBirth" && row[col] ? formatDate(String(row[col])) : String(row[col] ?? "")}

@@ -90,8 +90,7 @@ export default function CollateralReport() {
   const handleExportExcel = () => {
     if (!data) return;
 
-    const rows = data.map((row, idx) => ({
-      "#": idx + 1,
+    const rows = data.map((row) => ({
       "ContractCode": row.contractCode || "",
       "CollateralCode": row.collateralCode || "",
       "CollateralType": row.collateralType || "",
@@ -103,7 +102,7 @@ export default function CollateralReport() {
 
     const ws = XLSX.utils.json_to_sheet(rows);
     ws["!cols"] = [
-      { wch: 6 }, { wch: 18 }, { wch: 18 }, { wch: 16 },
+      { wch: 18 }, { wch: 18 }, { wch: 16 },
       { wch: 22 }, { wch: 16 }, { wch: 10 }, { wch: 14 },
     ];
 
@@ -131,8 +130,7 @@ export default function CollateralReport() {
     doc.setFontSize(9);
     doc.text(`Generated: ${new Date().toLocaleDateString()}`, 148, 34, { align: "center" });
 
-    const tableData = data.map((row, idx) => [
-      idx + 1,
+    const tableData = data.map((row) => [
       row.contractCode || "",
       row.collateralCode || "",
       row.collateralType || "",
@@ -144,14 +142,13 @@ export default function CollateralReport() {
 
     autoTable(doc, {
       startY: 38,
-      head: [["#", "ContractCode", "CollateralCode", "CollateralType", "CollateralDescription", "CollateralValue.Value", "CollateralValue.Currency", "ValuationDate"]],
+      head: [["ContractCode", "CollateralCode", "CollateralType", "CollateralDescription", "CollateralValue.Value", "CollateralValue.Currency", "ValuationDate"]],
       body: tableData,
       theme: "grid",
       headStyles: { fillColor: [34, 87, 122], textColor: [255, 255, 255], fontStyle: "bold", halign: "center", fontSize: 7 },
       styles: { fontSize: 7, cellPadding: 1.5 },
       columnStyles: {
-        0: { halign: "center", cellWidth: 10 },
-        5: { halign: "right" },
+        4: { halign: "right" },
       },
     });
 
@@ -249,7 +246,6 @@ export default function CollateralReport() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]">
-                    <TableHead className="text-center w-12 text-primary-foreground font-semibold">#</TableHead>
                     <TableHead className="text-primary-foreground font-semibold">ContractCode</TableHead>
                     <TableHead className="text-primary-foreground font-semibold">CollateralCode</TableHead>
                     <TableHead className="text-primary-foreground font-semibold">CollateralType</TableHead>
@@ -262,7 +258,6 @@ export default function CollateralReport() {
                 <TableBody>
                   {data.map((row, idx) => (
                     <TableRow key={idx} data-testid={`row-collateral-${idx}`} className={idx % 2 === 0 ? "bg-muted/30" : ""}>
-                      <TableCell className="text-center font-mono">{idx + 1}</TableCell>
                       <TableCell className="font-mono">{row.contractCode}</TableCell>
                       <TableCell className="font-mono">{row.collateralCode}</TableCell>
                       <TableCell>{row.collateralType}</TableCell>

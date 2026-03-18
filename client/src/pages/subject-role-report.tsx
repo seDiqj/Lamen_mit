@@ -70,14 +70,13 @@ export default function SubjectRoleReport() {
 
   const handleExportExcel = () => {
     if (!data) return;
-    const rows = data.map((row, idx) => ({
-      "#": idx + 1,
+    const rows = data.map((row) => ({
       "ContractCode": row.contractCode,
       "CustomerCode": row.customerCode,
       "RoleOfCustomer": row.roleOfCustomer,
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
-    ws["!cols"] = [{ wch: 6 }, { wch: 20 }, { wch: 20 }, { wch: 20 }];
+    ws["!cols"] = [{ wch: 20 }, { wch: 20 }, { wch: 20 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Subject Role Report");
     XLSX.writeFile(wb, `Subject_Role_Report_${startDate.replace(/-/g, "")}_${endDate.replace(/-/g, "")}.xlsx`);
@@ -96,18 +95,17 @@ export default function SubjectRoleReport() {
     doc.setFontSize(9);
     doc.text(`Generated: ${new Date().toLocaleDateString()}`, 105, 34, { align: "center" });
 
-    const tableData = data.map((row, idx) => [
-      idx + 1, row.contractCode, row.customerCode, row.roleOfCustomer,
+    const tableData = data.map((row) => [
+      row.contractCode, row.customerCode, row.roleOfCustomer,
     ]);
 
     autoTable(doc, {
       startY: 38,
-      head: [["#", "ContractCode", "CustomerCode", "RoleOfCustomer"]],
+      head: [["ContractCode", "CustomerCode", "RoleOfCustomer"]],
       body: tableData,
       theme: "grid",
       headStyles: { fillColor: [34, 87, 122], textColor: [255, 255, 255], fontStyle: "bold", halign: "center", fontSize: 9 },
       styles: { fontSize: 9, cellPadding: 2 },
-      columnStyles: { 0: { halign: "center", cellWidth: 12 } },
     });
 
     const pageCount = doc.getNumberOfPages();
@@ -192,7 +190,6 @@ export default function SubjectRoleReport() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]">
-                    <TableHead className="text-center w-10 text-primary-foreground font-semibold">#</TableHead>
                     <TableHead className="text-primary-foreground font-semibold">ContractCode</TableHead>
                     <TableHead className="text-primary-foreground font-semibold">CustomerCode</TableHead>
                     <TableHead className="text-primary-foreground font-semibold">RoleOfCustomer</TableHead>
@@ -201,7 +198,6 @@ export default function SubjectRoleReport() {
                 <TableBody>
                   {data.map((row, idx) => (
                     <TableRow key={idx} data-testid={`row-subject-role-${idx}`} className={idx % 2 === 0 ? "bg-muted/30" : ""}>
-                      <TableCell className="text-center font-mono">{idx + 1}</TableCell>
                       <TableCell className="font-mono">{row.contractCode}</TableCell>
                       <TableCell className="font-mono">{row.customerCode}</TableCell>
                       <TableCell>{row.roleOfCustomer}</TableCell>

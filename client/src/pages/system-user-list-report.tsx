@@ -68,14 +68,13 @@ export default function SystemUserListReport() {
     doc.setFont("helvetica", "normal");
     doc.text(`Generated: ${new Date().toLocaleDateString()}`, 148, 22, { align: "center" });
 
-    const tableData = data.map((row, idx) => [
-      idx + 1,
+    const tableData = data.map((row) => [
       ...COLUMNS.map((col) => String(row[col] ?? "")),
     ]);
 
     autoTable(doc, {
       startY: 28,
-      head: [["#", ...COLUMNS]],
+      head: [COLUMNS],
       body: tableData,
       theme: "grid",
       headStyles: {
@@ -86,7 +85,6 @@ export default function SystemUserListReport() {
         fontSize: 8,
       },
       styles: { fontSize: 8, cellPadding: 2 },
-      columnStyles: { 0: { halign: "center", cellWidth: 10 } },
     });
 
     const pageCount = doc.getNumberOfPages();
@@ -150,7 +148,6 @@ export default function SystemUserListReport() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]">
-                    <TableHead className="text-center w-10 text-primary-foreground font-semibold whitespace-nowrap">#</TableHead>
                     {COLUMNS.map((col) => (
                       <TableHead key={col} className="text-primary-foreground font-semibold whitespace-nowrap">{col}</TableHead>
                     ))}
@@ -159,7 +156,6 @@ export default function SystemUserListReport() {
                 <TableBody>
                   {data.map((row, idx) => (
                     <TableRow key={idx} data-testid={`row-user-${idx}`} className={idx % 2 === 0 ? "bg-muted/30" : ""}>
-                      <TableCell className="text-center font-mono">{idx + 1}</TableCell>
                       {COLUMNS.map((col) => (
                         <TableCell key={col} className="whitespace-nowrap">{String(row[col] ?? "")}</TableCell>
                       ))}

@@ -190,13 +190,12 @@ export default function ContractDataReport() {
   const handleExportExcel = () => {
     if (!data) return;
 
-    const rows = data.map((row, idx) => {
-      const mapped = mapRow(row);
-      return { "#": idx + 1, ...mapped };
+    const rows = data.map((row) => {
+      return mapRow(row);
     });
 
     const ws = XLSX.utils.json_to_sheet(rows);
-    const colWidths = [{ wch: 6 }];
+    const colWidths: { wch: number }[] = [];
     DAB_HEADERS.forEach(() => colWidths.push({ wch: 22 }));
     ws["!cols"] = colWidths;
 
@@ -224,32 +223,31 @@ export default function ContractDataReport() {
     doc.setFontSize(9);
     doc.text(`Generated: ${new Date().toLocaleDateString()}`, 148, 34, { align: "center" });
 
-    const tableData = data.map((row, idx) => {
+    const tableData = data.map((row) => {
       const mapped = mapRow(row);
-      return [idx + 1, ...DAB_HEADERS.map(h => {
+      return DAB_HEADERS.map(h => {
         const val = mapped[h as keyof typeof mapped];
         if (typeof val === "number") return val.toLocaleString();
         return val;
-      })];
+      });
     });
 
     autoTable(doc, {
       startY: 38,
-      head: [["#", ...DAB_HEADERS]],
+      head: [DAB_HEADERS],
       body: tableData,
       theme: "grid",
       headStyles: { fillColor: [34, 87, 122], textColor: [255, 255, 255], fontStyle: "bold", halign: "center", fontSize: 4 },
       styles: { fontSize: 4, cellPadding: 0.8 },
       columnStyles: {
-        0: { halign: "center", cellWidth: 5 },
-        7: { halign: "center" },
-        9: { halign: "right" },
-        11: { halign: "right" },
-        13: { halign: "right" },
-        15: { halign: "right" },
-        17: { halign: "right" },
-        22: { halign: "right" },
-        25: { halign: "right" },
+        6: { halign: "center" },
+        8: { halign: "right" },
+        10: { halign: "right" },
+        12: { halign: "right" },
+        14: { halign: "right" },
+        16: { halign: "right" },
+        21: { halign: "right" },
+        24: { halign: "right" },
       },
     });
 
@@ -347,7 +345,6 @@ export default function ContractDataReport() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]">
-                    <TableHead className="text-center w-10 text-primary-foreground font-semibold">#</TableHead>
                     {DAB_HEADERS.map((h) => (
                       <TableHead key={h} className={`text-primary-foreground font-semibold whitespace-nowrap ${h.includes("Value") ? "text-right" : ""}`}>{h}</TableHead>
                     ))}
@@ -358,7 +355,6 @@ export default function ContractDataReport() {
                     const mapped = mapRow(row);
                     return (
                       <TableRow key={idx} data-testid={`row-contract-${idx}`} className={idx % 2 === 0 ? "bg-muted/30" : ""}>
-                        <TableCell className="text-center font-mono">{idx + 1}</TableCell>
                         {DAB_HEADERS.map((h) => {
                           const val = mapped[h as keyof typeof mapped];
                           const isNumeric = h.includes("Value") || h === "InterestRate" || h === "PastDueDays" || h === "NumberOfDueInstallments";
