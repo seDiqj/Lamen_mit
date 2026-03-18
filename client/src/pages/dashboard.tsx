@@ -653,7 +653,7 @@ export default function Dashboard() {
         />
         <StatCard
           title="Average Loan Size"
-          value={formatCurrency(stats?.totalLoans && stats.totalLoans > 0 ? Math.round(stats.totalDisbursed / stats.totalLoans) : 0)}
+          value={formatCurrency(stats?.disbursedLoanCount && stats.disbursedLoanCount > 0 ? Math.round(stats.totalDisbursed / stats.disbursedLoanCount) : 0)}
           icon={BarChart3}
           loading={isLoading}
           gradient="bg-gradient-to-r from-amber-500 to-orange-500"

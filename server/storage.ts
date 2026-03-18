@@ -2292,7 +2292,8 @@ export class DatabaseStorage implements IStorage {
       SELECT
         COUNT(*) as total,
         COUNT(*) FILTER (WHERE status = 'active') as active,
-        COUNT(*) FILTER (WHERE status NOT IN ('disbursed', 'active', 'completed', 'rejected', 'defaulted')) as pending
+        COUNT(*) FILTER (WHERE status NOT IN ('disbursed', 'active', 'completed', 'rejected', 'defaulted')) as pending,
+        COUNT(*) FILTER (WHERE status IN ('disbursed', 'active', 'completed')) as disbursed_count
       FROM loans l
       WHERE 1=1 ${branchFilterRoot} ${dateFilterLoan}
     `);
@@ -2534,6 +2535,7 @@ export class DatabaseStorage implements IStorage {
 
     return {
       totalLoans: Number(loanCounts.total),
+      disbursedLoanCount: Number(loanCounts.disbursed_count || 0),
       activeLoans: Number(loanCounts.active),
       currentMonthCount: Number(cmStats.current_month_count || 0),
       currentMonthAmount: Number(cmStats.current_month_amount || 0),
