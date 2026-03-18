@@ -7727,7 +7727,7 @@ export async function registerRoutes(
         branch: {
           name: branch?.name || "",
           code: branch?.code || "",
-          province: branch?.address || "",
+          address: branch?.address || "",
         },
         business: {
           businessType: customerBusiness?.businessType || "",

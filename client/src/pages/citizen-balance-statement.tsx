@@ -2125,7 +2125,7 @@ export default function CitizenBalanceStatementPage() {
                             <p><span style={{ fontWeight: 600 }}>د څانګې کوډ نمبر: </span><span>{cd.branch.code}</span></p>
                             <p><span style={{ fontWeight: 600 }}>اړونــــد ولایــــــت: </span><span>{cd.customer.province}</span></p>
                             <p><span style={{ fontWeight: 600 }}>ولســـــــــــوالـــي: </span><span>{cd.customer.district}</span></p>
-                            <p><span style={{ fontWeight: 600 }}>د څانګې موقعیت: </span><span>{cd.branch.province || cd.branch.name}</span></p>
+                            <p><span style={{ fontWeight: 600 }}>د څانګې موقعیت: </span><span>{cd.branch.address || cd.branch.name}</span></p>
                           </td>
                         </tr>
                         <tr>
