@@ -663,6 +663,13 @@ export default function CitizenBalanceStatementPage() {
         if (!res.ok) continue;
         const cd = await res.json();
 
+        if (cd.loan.installmentAmount === 0 && ls.schedule?.length > 0) {
+          const firstPayable = ls.schedule.find((s: any) => (s.principleAmount || 0) + (s.marginAmount || 0) > 0);
+          if (firstPayable) {
+            cd.loan.installmentAmount = (firstPayable.principleAmount || 0) + (firstPayable.marginAmount || 0);
+          }
+        }
+
         if (!isFirstLoan) doc.addPage();
         isFirstLoan = false;
 
