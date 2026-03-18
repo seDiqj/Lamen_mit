@@ -206,6 +206,11 @@ export default function PaymentsPage() {
     enabled: activeTab === "summary",
   });
 
+  const { data: selectedLoanInstallments } = useQuery<SummaryInstallment[]>({
+    queryKey: ["/api/loans", selectedLoan?.id, "all-installments"],
+    enabled: !!selectedLoan?.id && showStatementDialog,
+  });
+
   const allLoans = loansData?.loans || [];
   const allInstallments = allInstallmentsData?.installments || [];
 
@@ -332,8 +337,9 @@ export default function PaymentsPage() {
   };
 
   const getStatementData = (loan: LoanItem) => {
-    const loanInstallments = allInstallments
-      .filter((i) => i.loanId === loan.id)
+    const directInstallments = selectedLoanInstallments && selectedLoan?.id === loan.id ? selectedLoanInstallments : [];
+    const fallbackInstallments = allInstallments.filter((i) => i.loanId === loan.id);
+    const loanInstallments = (directInstallments.length > 0 ? directInstallments : fallbackInstallments)
       .sort((a, b) => a.installmentNumber - b.installmentNumber);
     const fc = calcFinancing(loan);
     const totalFinancing = parseFloat(loan.totalReceivable || "0") || fc.financingAmount;

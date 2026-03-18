@@ -3318,6 +3318,16 @@ export async function registerRoutes(
   });
 
   // ===== INSTALLMENTS =====
+  app.get("/api/loans/:loanId/all-installments", isAuthenticated, async (req, res) => {
+    try {
+      const result = await storage.getInstallmentsByLoan(req.params.loanId);
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching loan installments:", error);
+      res.status(500).json({ message: "Failed to fetch loan installments" });
+    }
+  });
+
   app.get("/api/installments", isAuthenticated, async (req, res) => {
     try {
       const { search, page, limit, currentMonthOnly, paidOnly, customerName, applicationId, branchId, startDate, endDate } = req.query;
