@@ -2171,7 +2171,7 @@ export default function CitizenBalanceStatementPage() {
                         })().map(([label, value], ri) => (
                           <tr key={ri} style={{ borderBottom: "1px solid #e5e7eb" }}>
                             <td style={{ padding: "6px 8px 6px 0", fontWeight: 600, width: "50%", background: "#dcfce7", color: "#15803d" }}>{label}</td>
-                            <td style={{ padding: "6px 0", direction: "ltr", textAlign: "left" }}>{value}</td>
+                            <td style={{ padding: "6px 8px", direction: "ltr", textAlign: "right" }}>{value}</td>
                           </tr>
                         ))}
                       </tbody>
