@@ -5245,6 +5245,156 @@ export async function registerRoutes(
     }
   });
 
+  // Statement of Profit or Loss Report
+  app.get("/api/reports/profit-loss-statement", isAuthenticated, async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "startDate and endDate are required" });
+      }
+
+      const postedEntries = await db
+        .select({
+          accountCode: accounts.accountCode,
+          accountName: accounts.accountName,
+          accountType: accounts.accountType,
+          debitTotal: sql<string>`COALESCE(SUM(${journalLines.debitAmount}), 0)`,
+          creditTotal: sql<string>`COALESCE(SUM(${journalLines.creditAmount}), 0)`,
+        })
+        .from(journalLines)
+        .innerJoin(journalEntries, eq(journalLines.journalEntryId, journalEntries.id))
+        .innerJoin(accounts, eq(journalLines.accountId, accounts.id))
+        .where(and(
+          eq(journalEntries.isPosted, true),
+          gte(journalEntries.entryDate, startDate as string),
+          lte(journalEntries.entryDate, endDate as string),
+        ))
+        .groupBy(accounts.accountCode, accounts.accountName, accounts.accountType);
+
+      const balanceMap: Record<string, number> = {};
+      for (const entry of postedEntries) {
+        const debit = parseFloat(entry.debitTotal || "0");
+        const credit = parseFloat(entry.creditTotal || "0");
+        if (entry.accountType === "income") {
+          balanceMap[entry.accountCode] = credit - debit;
+        } else {
+          balanceMap[entry.accountCode] = debit - credit;
+        }
+      }
+
+      const getBalance = (...codes: string[]) => {
+        let total = 0;
+        for (const code of codes) {
+          if (balanceMap[code] !== undefined) {
+            total += balanceMap[code];
+          }
+        }
+        return total;
+      };
+
+      const getBalanceByPrefix = (...prefixes: string[]) => {
+        let total = 0;
+        for (const [code, val] of Object.entries(balanceMap)) {
+          for (const prefix of prefixes) {
+            if (code.startsWith(prefix)) {
+              total += val;
+              break;
+            }
+          }
+        }
+        return total;
+      };
+
+      const rev_murabaha = getBalance("50300", "20900");
+      const rev_mudaraba = getBalance("50100");
+      const rev_musharaka = getBalance("50200");
+      const rev_other = 0;
+      const totalRevenue = rev_murabaha + rev_mudaraba + rev_musharaka + rev_other;
+
+      const cost_murabaha = getBalance("51100", "51300", "51400");
+      const cost_fee_borrowings = getBalance("62000");
+      const cost_ecl = getBalance("80102");
+      const cost_credit_officer = getBalance("51200");
+      const cost_other = 0;
+      const totalCostOfServices = cost_murabaha + cost_fee_borrowings + cost_ecl + cost_credit_officer + cost_other;
+
+      const grossProfit = totalRevenue - totalCostOfServices;
+
+      const otherIncome = getBalance("40000", "40400", "40500");
+
+      const exp_staff_salaries = getBalance("60001");
+      const exp_depreciation = getBalance("61900");
+      const exp_technology = getBalance("70000", "15300");
+      const exp_marketing = getBalanceByPrefix("616");
+      const exp_legal = getBalance("61504");
+
+      const totalAllExpenses = Object.entries(balanceMap)
+        .filter(([code]) => {
+          const entry = postedEntries.find(e => e.accountCode === code);
+          return entry?.accountType === "expense";
+        })
+        .reduce((s, [, v]) => s + v, 0);
+
+      const specificExpenses = cost_murabaha + cost_fee_borrowings + cost_ecl + cost_credit_officer
+        + exp_staff_salaries + exp_depreciation + exp_technology + exp_marketing + exp_legal;
+      const exp_admin = Math.max(totalAllExpenses - specificExpenses, 0);
+      const exp_other_operating = 0;
+      const totalOperatingExpenses = exp_staff_salaries + exp_depreciation + exp_technology + exp_marketing + exp_admin + exp_legal + exp_other_operating;
+
+      const profitBeforeTax = grossProfit + otherIncome - totalOperatingExpenses;
+      const incomeTax = profitBeforeTax > 0 ? profitBeforeTax * 0.20 : 0;
+      const netProfit = profitBeforeTax - incomeTax;
+
+      const oci_revaluation = 0;
+      const oci_tax = 0;
+      const totalOCI = oci_revaluation - oci_tax;
+
+      const totalComprehensiveIncome = netProfit + totalOCI;
+
+      res.json({
+        revenue: {
+          murabaha: rev_murabaha,
+          mudaraba: rev_mudaraba,
+          musharaka: rev_musharaka,
+          other: rev_other,
+          total: totalRevenue,
+        },
+        costOfServices: {
+          murabahaCost: cost_murabaha,
+          feeBorrowings: cost_fee_borrowings,
+          eclProvision: cost_ecl,
+          creditOfficerSalaries: cost_credit_officer,
+          other: cost_other,
+          total: totalCostOfServices,
+        },
+        grossProfit,
+        otherIncome,
+        operatingExpenses: {
+          staffSalaries: exp_staff_salaries,
+          depreciation: exp_depreciation,
+          technology: exp_technology,
+          marketing: exp_marketing,
+          admin: exp_admin,
+          legal: exp_legal,
+          other: exp_other_operating,
+          total: totalOperatingExpenses,
+        },
+        profitBeforeTax,
+        incomeTax,
+        netProfit,
+        oci: {
+          revaluation: oci_revaluation,
+          tax: oci_tax,
+          total: totalOCI,
+        },
+        totalComprehensiveIncome,
+      });
+    } catch (error) {
+      console.error("Error fetching profit/loss statement:", error);
+      res.status(500).json({ message: "Failed to fetch statement" });
+    }
+  });
+
   // Active Customer Outstanding Summary Report
   app.get("/api/reports/active-customer-outstanding", isAuthenticated, async (req, res) => {
     try {

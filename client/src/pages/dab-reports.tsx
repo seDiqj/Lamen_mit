@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, FileBarChart, FileText as FileTextIcon, User, Users, UserCog, ClipboardList } from "lucide-react";
+import { Shield, FileBarChart, FileText as FileTextIcon, User, Users, UserCog, ClipboardList, TrendingUp } from "lucide-react";
 import CollateralReport from "./collateral-report";
 import ContractDataReport from "./contract-data-report";
 import IndividualReport from "./individual-report";
 import SubjectRoleReport from "./subject-role-report";
 import SystemUserListReport from "./system-user-list-report";
 import ActiveCustomerOutstandingReport from "./active-customer-outstanding-report";
+import ProfitLossStatementReport from "./profit-loss-statement-report";
 
 export default function DABReportsPage() {
   const [activeTab, setActiveTab] = useState("collateral");
@@ -24,30 +25,34 @@ export default function DABReportsPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full max-w-4xl grid-cols-6" data-testid="tabs-dab-reports">
-          <TabsTrigger value="collateral" className="gap-2" data-testid="tab-collateral">
-            <Shield className="h-4 w-4" />
+        <TabsList className="grid w-full max-w-5xl grid-cols-7" data-testid="tabs-dab-reports">
+          <TabsTrigger value="collateral" className="gap-1 text-xs" data-testid="tab-collateral">
+            <Shield className="h-3.5 w-3.5" />
             Collateral
           </TabsTrigger>
-          <TabsTrigger value="contract-data" className="gap-2" data-testid="tab-contract-data">
-            <FileBarChart className="h-4 w-4" />
+          <TabsTrigger value="contract-data" className="gap-1 text-xs" data-testid="tab-contract-data">
+            <FileBarChart className="h-3.5 w-3.5" />
             Contract Data
           </TabsTrigger>
-          <TabsTrigger value="individual" className="gap-2" data-testid="tab-individual">
-            <User className="h-4 w-4" />
+          <TabsTrigger value="individual" className="gap-1 text-xs" data-testid="tab-individual">
+            <User className="h-3.5 w-3.5" />
             Individual
           </TabsTrigger>
-          <TabsTrigger value="subject-role" className="gap-2" data-testid="tab-subject-role">
-            <Users className="h-4 w-4" />
+          <TabsTrigger value="subject-role" className="gap-1 text-xs" data-testid="tab-subject-role">
+            <Users className="h-3.5 w-3.5" />
             Subject Role
           </TabsTrigger>
-          <TabsTrigger value="system-user-list" className="gap-2" data-testid="tab-system-user-list">
-            <UserCog className="h-4 w-4" />
-            System User List
+          <TabsTrigger value="system-user-list" className="gap-1 text-xs" data-testid="tab-system-user-list">
+            <UserCog className="h-3.5 w-3.5" />
+            User List
           </TabsTrigger>
-          <TabsTrigger value="active-outstanding" className="gap-2" data-testid="tab-active-outstanding">
-            <ClipboardList className="h-4 w-4" />
+          <TabsTrigger value="active-outstanding" className="gap-1 text-xs" data-testid="tab-active-outstanding">
+            <ClipboardList className="h-3.5 w-3.5" />
             Outstanding
+          </TabsTrigger>
+          <TabsTrigger value="profit-loss" className="gap-1 text-xs" data-testid="tab-profit-loss">
+            <TrendingUp className="h-3.5 w-3.5" />
+            Profit & Loss
           </TabsTrigger>
         </TabsList>
 
@@ -73,6 +78,10 @@ export default function DABReportsPage() {
 
         <TabsContent value="active-outstanding" className="mt-4">
           <ActiveCustomerOutstandingReport />
+        </TabsContent>
+
+        <TabsContent value="profit-loss" className="mt-4">
+          <ProfitLossStatementReport />
         </TabsContent>
       </Tabs>
     </div>
