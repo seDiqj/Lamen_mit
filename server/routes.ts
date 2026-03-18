@@ -7756,18 +7756,29 @@ export async function registerRoutes(
       const rawVotes = await storage.getCommitteeVotesByLoanId(loanId);
       const votes: any[] = [];
       for (const v of rawVotes) {
-        let name = v.voterName || "";
-        if (!name && v.voterId) {
+        let name = "";
+        if (v.voterId) {
           const voter = await storage.getUser(v.voterId);
           if (voter) name = `${voter.firstName || ""} ${voter.lastName || ""}`.trim() || voter.username || "";
         }
+        if (!name) name = v.voterName || "";
+        if (name === "Committee Member") name = "";
         votes.push({ ...v, voterName: name });
       }
       const guarantorsData = await storage.getGuarantorsByLoanId(loanId);
 
       const principleAmount = parseFloat(loan.principleAmount?.toString() || "0");
-      const installmentAmount = parseFloat(loan.installmentAmount?.toString() || "0");
+      let installmentAmount = parseFloat(loan.installmentAmount?.toString() || "0");
       const requestAmount = parseFloat(loan.requestAmount?.toString() || "0");
+      const totalReceivable = parseFloat(loan.totalReceivable?.toString() || "0");
+      const numInstallments = loan.numberOfInstallments || 0;
+      const gracePeriod = loan.gracePeriod || 0;
+      if (installmentAmount === 0 && numInstallments > 0) {
+        const payableInstallments = numInstallments - gracePeriod;
+        if (payableInstallments > 0) {
+          installmentAmount = Math.round((totalReceivable || principleAmount) / payableInstallments * 100) / 100;
+        }
+      }
       const monthlyIncome = parseFloat(customerBusiness?.monthlyIncomeAmount?.toString() || "0");
 
       const lastVoteDate = votes.length > 0
@@ -7809,7 +7820,7 @@ export async function registerRoutes(
         },
         guarantors: guarantorsData.map((g: any) => ({
           guarantorNo: g.guarantorNo || "",
-          name: `${g.firstName || ""} ${g.lastName || ""}`.trim(),
+          name: g.fullName || `${g.firstName || ""} ${g.lastName || ""}`.trim() || "",
         })),
         votes: votes.map((v: any) => ({
           voterName: v.voterName || "",
