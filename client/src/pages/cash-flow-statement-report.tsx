@@ -8,37 +8,25 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
+type AdjustmentItem = {
+  accountCode: string;
+  accountName: string;
+  amount: number;
+};
+
 type CashFlowData = {
-  operating: {
-    pbt: number;
-    deprecAmort: number;
-    impairment: number;
-    gainLossDisposal: number;
-    fxGainLoss: number;
-    provisionChange: number;
-    receivablesPrep: number;
-    payablesAccruals: number;
-    financeToCustomers: number;
-    inventory: number;
-    taxPaid: number;
-    netCash: number;
-  };
-  financing: {
-    capitalIntro: number;
-    fundsRaised: number;
-    repaymentFunds: number;
-    dividendPaid: number;
-    netCash: number;
-  };
-  investing: {
-    purchasePPE: number;
-    intangibles: number;
-    proceedsDisposal: number;
-    netCash: number;
-  };
-  cashVariation: number;
-  cashBeginning: number;
-  cashEnd: number;
+  profitForYear: number;
+  adjustments: AdjustmentItem[];
+  totalAdjustments: number;
+  totalOperating: number;
+  investing: AdjustmentItem[];
+  financing: AdjustmentItem[];
+  totalInvesting: number;
+  totalFinancing: number;
+  netChange: number;
+  cashOpeningBalance: number;
+  cashClosingBalance: number;
+  period: { startDate: string; endDate: string };
 };
 
 type LineItem = {
@@ -54,40 +42,97 @@ type LineItem = {
 };
 
 function buildLines(d: CashFlowData): LineItem[] {
-  return [
-    { code: "1", label: "Cash Flow from Operating Activities", amount: null, source: "", isHeader: true },
-    { code: "1.1", label: "Profit Before Tax (PBT)", amount: d.operating.pbt, source: "From P&L Statement", indent: 1 },
-    { code: "-", label: "Adjustment for Cash Flow", amount: null, source: "", isSubHeader: true },
-    { code: "1.2", label: "Depreciation and Amortization", amount: d.operating.deprecAmort, source: "61900 Depreciation Expense, 15300 Accumulated Amortization", indent: 1 },
-    { code: "1.3", label: "Impairment Expense", amount: d.operating.impairment, source: "Not used currently", indent: 1 },
-    { code: "1.4", label: "Gain/Loss on Disposal", amount: d.operating.gainLossDisposal, source: "17900-Loss on disposal of assets", indent: 1 },
-    { code: "1.5", label: "Foreign Exchange Gain/Loss", amount: d.operating.fxGainLoss, source: "61802-Exchange (gain)/loss", indent: 1 },
-    { code: "1.6", label: "Increase/Decrease in Provision", amount: d.operating.provisionChange, source: "80102 Loan loss provision expense", indent: 1 },
-    { code: "-", label: "Changes in Working Capital", amount: null, source: "", isSubHeader: true },
-    { code: "1.7", label: "Receivables and Prepayments", amount: d.operating.receivablesPrep, source: "13000-Advances minus 20900 Deferred Murabaha Income", indent: 1 },
-    { code: "1.8", label: "Payables and Accruals", amount: d.operating.payablesAccruals, source: "20100 AP + 20150 Salaries Payable + 21100/21200 Withheld Taxes", indent: 1 },
-    { code: "1.9", label: "Finance to Customers", amount: d.operating.financeToCustomers, source: "11000 Accounts Receivable + 20900 Deferred Murabaha Income", indent: 1 },
-    { code: "1.10", label: "Inventory", amount: d.operating.inventory, source: "12000-Inventory", indent: 1 },
-    { code: "1.11", label: "Tax Paid", amount: d.operating.taxPaid, source: "21000 Withheld Taxes (debit balances)", indent: 1 },
-    { code: "1.12", label: "Net Cash Flow from Operating Activities", amount: d.operating.netCash, source: "", isTotal: true, isBold: true },
-    { code: "", label: "", amount: null, source: "" },
-    { code: "2", label: "Cash Flow from Financing Activities", amount: null, source: "", isHeader: true },
-    { code: "2.1", label: "Capital Introduced by Partners", amount: d.financing.capitalIntro, source: "30100 Opening Balance Equity", indent: 1 },
-    { code: "2.2", label: "Funds Raised through Shariah-compliant Instruments", amount: d.financing.fundsRaised, source: "20120-Donor's Funds (when received)", indent: 1 },
-    { code: "2.3", label: "Repayment of Shariah-compliant financing", amount: d.financing.repaymentFunds, source: "20122-Donor's Funds (when paid)", indent: 1 },
-    { code: "2.4", label: "Dividend Paid", amount: d.financing.dividendPaid, source: "30400 Dividend disbursed", indent: 1 },
-    { code: "2.5", label: "Net Cash Flow from Financing Activities", amount: d.financing.netCash, source: "", isTotal: true, isBold: true },
-    { code: "", label: "", amount: null, source: "" },
-    { code: "3", label: "Cash Flow From Investing Activities", amount: null, source: "", isHeader: true },
-    { code: "3.1", label: "Purchase of Property, Vehicles, and Equipment", amount: d.investing.purchasePPE, source: "17101, 17201, 17301, 17401, 17500", indent: 1 },
-    { code: "3.2", label: "Acquisition of Intangible Assets", amount: d.investing.intangibles, source: "15000-Intangibles", indent: 1 },
-    { code: "3.3", label: "Proceeds from Disposal of Assets", amount: d.investing.proceedsDisposal, source: "17900-Loss on disposal of assets", indent: 1 },
-    { code: "3.4", label: "Net Cash Flow from Investing Activities", amount: d.investing.netCash, source: "", isTotal: true, isBold: true },
-    { code: "", label: "", amount: null, source: "" },
-    { code: "4", label: "Cash Variation in the Month", amount: d.cashVariation, source: "", isBold: true, isTotal: true },
-    { code: "5", label: "Cash and Cash Equivalents at the Beginning of the Month", amount: d.cashBeginning, source: "Closing balance of prior period", isBold: true },
-    { code: "6", label: "Cash and Cash Equivalents at the End of the Month", amount: d.cashEnd, source: "", isBold: true, isTotal: true },
-  ];
+  const lines: LineItem[] = [];
+
+  lines.push({ code: "1", label: "Cash Flow from Operating Activities", amount: null, source: "", isHeader: true });
+  lines.push({ code: "1.1", label: "Profit Before Tax (PBT)", amount: d.profitForYear, source: "From P&L Statement", indent: 1 });
+  lines.push({ code: "-", label: "Adjustment for Cash Flow", amount: null, source: "", isSubHeader: true });
+
+  const deprecItems = d.adjustments.filter(a =>
+    a.accountCode.startsWith("171") || a.accountCode.startsWith("172") ||
+    a.accountCode.startsWith("173") || a.accountCode.startsWith("175") ||
+    a.accountCode === "15300"
+  );
+  const deprecTotal = deprecItems.reduce((s, a) => s + a.amount, 0);
+  lines.push({ code: "1.2", label: "Depreciation and Amortization", amount: deprecTotal, source: "Accumulated Depreciation accounts", indent: 1 });
+
+  const impairment = d.adjustments.filter(a => a.accountCode === "18000").reduce((s, a) => s + a.amount, 0);
+  lines.push({ code: "1.3", label: "Impairment Expense", amount: impairment || null, source: "18000 Provision for Loan Loss", indent: 1 });
+
+  lines.push({ code: "1.4", label: "Gain/Loss on Disposal", amount: null, source: "17900-Loss on disposal of assets", indent: 1 });
+
+  const fxGainLoss = d.adjustments.filter(a => a.accountCode === "61802").reduce((s, a) => s + a.amount, 0);
+  lines.push({ code: "1.5", label: "Foreign Exchange Gain/Loss", amount: fxGainLoss || null, source: "61802-Exchange (gain)/loss", indent: 1 });
+
+  lines.push({ code: "1.6", label: "Increase/Decrease in Provision", amount: impairment || null, source: "80102 Loan loss provision expense", indent: 1 });
+
+  lines.push({ code: "-", label: "Changes in Working Capital", amount: null, source: "", isSubHeader: true });
+
+  const receivables = d.adjustments.filter(a => a.accountCode === "13100" || a.accountCode.startsWith("130")).reduce((s, a) => s + a.amount, 0);
+  const deferredIncome = d.adjustments.filter(a => a.accountCode === "20900").reduce((s, a) => s + a.amount, 0);
+  lines.push({ code: "1.7", label: "Receivables and Prepayments", amount: receivables || null, source: "13000-Advances minus 20900 Deferred Murabaha Income", indent: 1 });
+
+  const payables = d.adjustments.filter(a =>
+    a.accountCode === "20100" ||
+    (a.accountCode >= "20150" && a.accountCode < "20200" && a.accountCode !== "20100") ||
+    a.accountCode === "21100" || a.accountCode === "21200"
+  ).reduce((s, a) => s + a.amount, 0);
+  lines.push({ code: "1.8", label: "Payables and Accruals", amount: payables || null, source: "20100 AP + Salaries Payable + Withheld Taxes", indent: 1 });
+
+  const financeToCustomers = d.adjustments.filter(a => a.accountCode === "11000").reduce((s, a) => s + a.amount, 0);
+  lines.push({ code: "1.9", label: "Finance to Customers", amount: financeToCustomers || null, source: "11000 Accounts Receivable + 20900 Deferred Murabaha Income", indent: 1 });
+
+  const inventory = d.adjustments.filter(a => a.accountCode.startsWith("120")).reduce((s, a) => s + a.amount, 0);
+  lines.push({ code: "1.10", label: "Inventory", amount: inventory || null, source: "12000-Inventory", indent: 1 });
+
+  const taxPaid = d.adjustments.filter(a => a.accountCode === "21000").reduce((s, a) => s + a.amount, 0);
+  lines.push({ code: "1.11", label: "Tax Paid", amount: taxPaid || null, source: "21000 Withheld Taxes", indent: 1 });
+
+  lines.push({ code: "1.12", label: "Net Cash Flow from Operating Activities", amount: d.totalOperating, source: "", isTotal: true, isBold: true });
+
+  lines.push({ code: "", label: "", amount: null, source: "" });
+
+  lines.push({ code: "2", label: "Cash Flow from Financing Activities", amount: null, source: "", isHeader: true });
+
+  const capitalIntro = d.financing.filter(a => a.accountCode === "30100").reduce((s, a) => s + a.amount, 0);
+  lines.push({ code: "2.1", label: "Capital Introduced by Partners", amount: capitalIntro || null, source: "30100 Opening Balance Equity", indent: 1 });
+
+  const fundsRaised = d.financing.filter(a => a.accountCode === "20120").reduce((s, a) => s + a.amount, 0);
+  lines.push({ code: "2.2", label: "Funds Raised through Shariah-compliant Instruments", amount: fundsRaised || null, source: "20120-Donor's Funds (when received)", indent: 1 });
+
+  const repayment = d.financing.filter(a => a.accountCode === "20122").reduce((s, a) => s + a.amount, 0);
+  lines.push({ code: "2.3", label: "Repayment of Shariah-compliant financing", amount: repayment || null, source: "20122-Donor's Funds (when paid)", indent: 1 });
+
+  const dividend = d.financing.filter(a => a.accountCode === "30400").reduce((s, a) => s + a.amount, 0);
+  lines.push({ code: "2.4", label: "Dividend Paid", amount: dividend || null, source: "30400 Dividend disbursed", indent: 1 });
+
+  lines.push({ code: "2.5", label: "Net Cash Flow from Financing Activities", amount: d.totalFinancing, source: "", isTotal: true, isBold: true });
+
+  lines.push({ code: "", label: "", amount: null, source: "" });
+
+  lines.push({ code: "3", label: "Cash Flow From Investing Activities", amount: null, source: "", isHeader: true });
+
+  const purchasePPE = d.investing.filter(a =>
+    a.accountCode === "17101" || a.accountCode === "17201" ||
+    a.accountCode === "17301" || a.accountCode === "17401" || a.accountCode === "17500"
+  ).reduce((s, a) => s + a.amount, 0);
+  lines.push({ code: "3.1", label: "Purchase of Property, Vehicles, and Equipment", amount: purchasePPE || null, source: "17101, 17201, 17301, 17401, 17500", indent: 1 });
+
+  const intangibles = d.investing.filter(a => a.accountCode === "15000").reduce((s, a) => s + a.amount, 0);
+  lines.push({ code: "3.2", label: "Acquisition of Intangible Assets", amount: intangibles || null, source: "15000-Intangibles", indent: 1 });
+
+  const proceedsDisposal = d.investing.filter(a => a.accountCode === "17900").reduce((s, a) => s + a.amount, 0);
+  lines.push({ code: "3.3", label: "Proceeds from Disposal of Assets", amount: proceedsDisposal || null, source: "17900-Loss on disposal of assets", indent: 1 });
+
+  lines.push({ code: "3.4", label: "Net Cash Flow from Investing Activities", amount: d.totalInvesting, source: "", isTotal: true, isBold: true });
+
+  lines.push({ code: "", label: "", amount: null, source: "" });
+
+  lines.push({ code: "4", label: "Cash Variation in the Month", amount: d.netChange, source: "", isBold: true, isTotal: true });
+  lines.push({ code: "5", label: "Cash and Cash Equivalents at the Beginning of the Month", amount: d.cashOpeningBalance, source: "Closing balance of prior period", isBold: true });
+  lines.push({ code: "6", label: "Cash and Cash Equivalents at the End of the Month", amount: d.cashClosingBalance, source: "", isBold: true, isTotal: true });
+
+  return lines;
 }
 
 export default function CashFlowStatementReport() {
