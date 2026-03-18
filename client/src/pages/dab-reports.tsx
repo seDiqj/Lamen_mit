@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, FileBarChart, FileText as FileTextIcon, User, Users, UserCog } from "lucide-react";
+import { Shield, FileBarChart, FileText as FileTextIcon, User, Users, UserCog, ClipboardList } from "lucide-react";
 import CollateralReport from "./collateral-report";
 import ContractDataReport from "./contract-data-report";
 import IndividualReport from "./individual-report";
 import SubjectRoleReport from "./subject-role-report";
 import SystemUserListReport from "./system-user-list-report";
+import ActiveCustomerOutstandingReport from "./active-customer-outstanding-report";
 
 export default function DABReportsPage() {
   const [activeTab, setActiveTab] = useState("collateral");
@@ -23,7 +24,7 @@ export default function DABReportsPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full max-w-3xl grid-cols-5" data-testid="tabs-dab-reports">
+        <TabsList className="grid w-full max-w-4xl grid-cols-6" data-testid="tabs-dab-reports">
           <TabsTrigger value="collateral" className="gap-2" data-testid="tab-collateral">
             <Shield className="h-4 w-4" />
             Collateral
@@ -43,6 +44,10 @@ export default function DABReportsPage() {
           <TabsTrigger value="system-user-list" className="gap-2" data-testid="tab-system-user-list">
             <UserCog className="h-4 w-4" />
             System User List
+          </TabsTrigger>
+          <TabsTrigger value="active-outstanding" className="gap-2" data-testid="tab-active-outstanding">
+            <ClipboardList className="h-4 w-4" />
+            Outstanding
           </TabsTrigger>
         </TabsList>
 
@@ -64,6 +69,10 @@ export default function DABReportsPage() {
 
         <TabsContent value="system-user-list" className="mt-4">
           <SystemUserListReport />
+        </TabsContent>
+
+        <TabsContent value="active-outstanding" className="mt-4">
+          <ActiveCustomerOutstandingReport />
         </TabsContent>
       </Tabs>
     </div>

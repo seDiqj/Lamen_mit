@@ -5245,6 +5245,127 @@ export async function registerRoutes(
     }
   });
 
+  // Active Customer Outstanding Summary Report
+  app.get("/api/reports/active-customer-outstanding", isAuthenticated, async (req, res) => {
+    try {
+      const { startDate, endDate, branchId, fundingSourceId } = req.query;
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "startDate and endDate are required" });
+      }
+
+      const conditions: any[] = [
+        gte(disbursements.disbursementDate, startDate as string),
+        lte(disbursements.disbursementDate, endDate as string),
+        inArray(loans.status, ["disbursed", "active", "completed"]),
+      ];
+      if (branchId && branchId !== "all") {
+        conditions.push(eq(loans.branchId, branchId as string));
+      }
+      if (fundingSourceId && fundingSourceId !== "all") {
+        conditions.push(eq(loans.fundingSourceId, fundingSourceId as string));
+      }
+
+      const results = await db
+        .select({
+          loanId: loans.id,
+          branchName: branches.name,
+          productName: loans.productName,
+          financeOfficerName: financeOfficers.name,
+          customerNo: customers.customerNo,
+          customerName: sql<string>`CONCAT(${customers.firstName}, ' ', ${customers.lastName})`,
+          disbursementDate: disbursements.disbursementDate,
+          principleAmount: loans.principleAmount,
+          totalReceivable: loans.totalReceivable,
+          numberOfInstallments: loans.numberOfInstallments,
+          status: loans.status,
+        })
+        .from(loans)
+        .innerJoin(customers, eq(loans.customerId, customers.id))
+        .innerJoin(disbursements, eq(loans.id, disbursements.loanId))
+        .leftJoin(branches, eq(loans.branchId, branches.id))
+        .leftJoin(financeOfficers, eq(loans.financeOfficerId, financeOfficers.id))
+        .leftJoin(fundingSourcesTable, eq(loans.fundingSourceId, fundingSourcesTable.id))
+        .where(and(...conditions))
+        .orderBy(branches.name, desc(disbursements.disbursementDate));
+
+      const loanIds = results.map(r => r.loanId);
+
+      if (loanIds.length === 0) {
+        return res.json([]);
+      }
+
+      const allInstallments = await db
+        .select()
+        .from(installments)
+        .where(inArray(installments.loanId, loanIds))
+        .orderBy(installments.loanId, installments.installmentNumber);
+
+      const yearStart = `${new Date().getFullYear()}-01-01`;
+
+      const reportData = results.map(loan => {
+        const loanInsts = allInstallments.filter(i => i.loanId === loan.loanId);
+        const financingAmount = parseFloat(loan.principleAmount || "0");
+        const totalReceivable = parseFloat(loan.totalReceivable || "0");
+
+        const paidInsts = loanInsts.filter(i => i.isPaid);
+        const unpaidInsts = loanInsts.filter(i => !i.isPaid);
+        const totalInstCount = loanInsts.length;
+        const paidInstCount = paidInsts.length;
+        const unpaidInstCount = unpaidInsts.length;
+
+        const totalPrincipalReceived = paidInsts.reduce((s, i) => s + parseFloat(i.principleAmount || "0"), 0);
+        const totalMarkupReceived = paidInsts.reduce((s, i) => s + parseFloat(i.marginAmount || "0"), 0);
+        const totalAmountReceived = paidInsts.reduce((s, i) => s + parseFloat(i.paidAmount || i.totalAmount || "0"), 0);
+
+        const balanceOutstanding = totalReceivable - totalAmountReceived;
+
+        const lastPaidInst = paidInsts.length > 0
+          ? paidInsts.sort((a, b) => (a.paymentDate || "").localeCompare(b.paymentDate || "")).pop()
+          : null;
+        const lastRepaymentDate = lastPaidInst?.paymentDate || null;
+
+        const now = new Date();
+        const nowStr = now.toISOString().split("T")[0];
+        const overdueInsts = unpaidInsts.filter(i => i.dueDate && i.dueDate < nowStr);
+        const maxLateDays = overdueInsts.reduce((max, i) => {
+          if (!i.dueDate) return max;
+          const diff = Math.floor((now.getTime() - new Date(i.dueDate).getTime()) / (1000 * 60 * 60 * 24));
+          return Math.max(max, diff);
+        }, 0);
+
+        const paidThisYear = paidInsts.filter(i => i.paymentDate && i.paymentDate >= yearStart);
+        const principalThisYear = paidThisYear.reduce((s, i) => s + parseFloat(i.principleAmount || "0"), 0);
+        const markupThisYear = paidThisYear.reduce((s, i) => s + parseFloat(i.marginAmount || "0"), 0);
+
+        return {
+          branchName: loan.branchName || "",
+          productName: loan.productName || "",
+          financeOfficerName: loan.financeOfficerName || "",
+          customerNo: loan.customerNo || "",
+          customerName: loan.customerName || "",
+          disbursementDate: loan.disbursementDate || "",
+          financingAmount,
+          balanceOutstanding: Math.max(balanceOutstanding, 0),
+          totalInstallments: totalInstCount,
+          installmentsPaid: paidInstCount,
+          installmentsUnpaid: unpaidInstCount,
+          lastRepaymentDate,
+          lateDays: maxLateDays,
+          totalPrincipalReceived,
+          totalMarkupReceived,
+          totalAmountReceived,
+          principalThisYear,
+          markupThisYear,
+        };
+      });
+
+      res.json(reportData);
+    } catch (error) {
+      console.error("Error fetching active customer outstanding report:", error);
+      res.status(500).json({ message: "Failed to fetch report" });
+    }
+  });
+
   // Collateral Report
   app.get("/api/reports/collateral", isAuthenticated, async (req, res) => {
     try {
