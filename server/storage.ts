@@ -3205,11 +3205,10 @@ export class DatabaseStorage implements IStorage {
 
   // Reports
   async getReportData(period: string): Promise<any> {
-    // Get portfolio summary from actual data
     const summaryResult = await db.execute(sql`
       SELECT 
         COALESCE(SUM(COALESCE(principle_amount, request_amount)), 0) as total_disbursed,
-        COALESCE(SUM(outstanding_portfolio), 0) as total_outstanding,
+        COALESCE(SUM(total_receivable::numeric), 0) as total_portfolio,
         COUNT(*) as loan_count
       FROM loans
       WHERE status IN ('disbursed', 'active', 'completed')
@@ -3217,9 +3216,18 @@ export class DatabaseStorage implements IStorage {
     
     const summary = summaryResult.rows[0] as any;
     const totalDisbursed = parseFloat(summary.total_disbursed) || 0;
-    const totalOutstanding = parseFloat(summary.total_outstanding) || 0;
+    const totalPortfolio = parseFloat(summary.total_portfolio) || 0;
     const loanCount = parseInt(summary.loan_count) || 1;
-    const totalCollected = totalDisbursed - totalOutstanding;
+
+    const collectedQuery = await db.execute(sql`
+      SELECT
+        COALESCE(SUM(COALESCE(i.paid_amount::numeric, 0)), 0) as total_collected
+      FROM installments i
+      JOIN loans l ON i.loan_id = l.id
+      WHERE i.is_paid = true
+    `);
+    const totalCollected = parseFloat((collectedQuery.rows[0] as any).total_collected) || 0;
+    const totalOutstanding = totalPortfolio - totalCollected;
     const averageLoanSize = loanCount > 0 ? totalDisbursed / loanCount : 0;
 
     // Get loans by product from actual data
