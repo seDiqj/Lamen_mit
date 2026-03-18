@@ -1,8 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { FileSpreadsheet, FileText } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { formatDate } from "@/lib/date-utils";
@@ -105,11 +103,8 @@ function buildLines(d: ProfitLossData): LineItem[] {
 }
 
 export default function ProfitLossStatementReport() {
-  const [startDate, setStartDate] = useState(() => {
-    const d = new Date();
-    return `${d.getFullYear()}-01-01`;
-  });
-  const [endDate, setEndDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const startDate = `${new Date().getFullYear()}-01-01`;
+  const endDate = new Date().toISOString().split("T")[0];
   const [data, setData] = useState<ProfitLossData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -127,6 +122,10 @@ export default function ProfitLossStatementReport() {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchReport();
+  }, []);
 
   const fmtAmount = (val: number | null) => {
     if (val === null) return "";
@@ -262,26 +261,11 @@ export default function ProfitLossStatementReport() {
         </div>
       )}
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Filter Options</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-end gap-4 flex-wrap">
-            <div className="space-y-2">
-              <Label>Start Date</Label>
-              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} data-testid="input-start-date-pnl" />
-            </div>
-            <div className="space-y-2">
-              <Label>End Date</Label>
-              <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} data-testid="input-end-date-pnl" />
-            </div>
-            <Button onClick={fetchReport} disabled={isLoading} data-testid="button-generate-pnl">
-              {isLoading ? "Loading..." : "Generate Report"}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      {isLoading && !data && (
+        <Card>
+          <CardContent className="p-8 text-center text-muted-foreground">Loading report...</CardContent>
+        </Card>
+      )}
 
       {data && (
         <Card>
