@@ -7758,7 +7758,7 @@ export async function registerRoutes(
       let riskReviewDate = "";
       if (riskReview) {
         if (riskReview.reviewedById) {
-          const reviewer = await storage.getUser(riskReview.reviewedById);
+          const reviewer = await storage.getUserById(riskReview.reviewedById);
           if (reviewer) riskReviewerName = `${reviewer.firstName || ""} ${reviewer.lastName || ""}`.trim() || reviewer.username || "";
         }
         if (!riskReviewerName) riskReviewerName = riskReview.reviewerName || "";
@@ -7771,7 +7771,7 @@ export async function registerRoutes(
       for (const v of rawVotes) {
         let name = "";
         if (v.voterId) {
-          const voter = await storage.getUser(v.voterId);
+          const voter = await storage.getUserById(v.voterId);
           if (voter) name = `${voter.firstName || ""} ${voter.lastName || ""}`.trim() || voter.username || "";
         }
         if (!name) name = v.voterName || "";
