@@ -304,7 +304,7 @@ type EquityLine = {
   isTotal?: boolean;
 };
 
-function ChangesInEquityReport({ asOfDate }: { asOfDate: string }) {
+function ChangesInEquityReport({ startDate, endDate }: { startDate: string; endDate: string }) {
   const [data, setData] = useState<{ lines: EquityLine[] } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -313,7 +313,7 @@ function ChangesInEquityReport({ asOfDate }: { asOfDate: string }) {
     setIsLoading(true);
     setError(false);
     try {
-      const params = new URLSearchParams({ asOfDate });
+      const params = new URLSearchParams({ startDate, endDate });
       const res = await fetch(`/api/reports/changes-in-equity?${params}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch");
       const result = await res.json();
@@ -328,10 +328,10 @@ function ChangesInEquityReport({ asOfDate }: { asOfDate: string }) {
 
   useEffect(() => {
     fetchReport();
-  }, [asOfDate]);
+  }, [startDate, endDate]);
 
   const getDateLabel = () => {
-    const d = new Date(asOfDate + "T00:00:00");
+    const d = new Date(endDate + "T00:00:00");
     return d.toLocaleString("en-US", { month: "long", year: "numeric" });
   };
 
@@ -596,8 +596,10 @@ export default function DABReportPage() {
   const [cfStartDateApplied, setCfStartDateApplied] = useState(yearStart);
   const [cfEndDateApplied, setCfEndDateApplied] = useState(today);
 
-  const [equityAsOfDate, setEquityAsOfDate] = useState(today);
-  const [equityAsOfDateApplied, setEquityAsOfDateApplied] = useState(today);
+  const [eqStartDate, setEqStartDate] = useState(yearStart);
+  const [eqEndDate, setEqEndDate] = useState(today);
+  const [eqStartDateApplied, setEqStartDateApplied] = useState(yearStart);
+  const [eqEndDateApplied, setEqEndDateApplied] = useState(today);
 
   return (
     <div className="p-4 max-w-7xl mx-auto space-y-4">
@@ -725,21 +727,30 @@ export default function DABReportPage() {
             <CardContent className="p-4">
               <div className="flex items-end gap-4 flex-wrap">
                 <div className="space-y-2">
-                  <Label>As of Date</Label>
+                  <Label>Start Date</Label>
                   <Input
                     type="date"
-                    value={equityAsOfDate}
-                    onChange={(e) => setEquityAsOfDate(e.target.value)}
-                    data-testid="input-equity-as-of-date"
+                    value={eqStartDate}
+                    onChange={(e) => setEqStartDate(e.target.value)}
+                    data-testid="input-eq-start-date"
                   />
                 </div>
-                <Button onClick={() => setEquityAsOfDateApplied(equityAsOfDate)} data-testid="button-generate-equity">
+                <div className="space-y-2">
+                  <Label>End Date</Label>
+                  <Input
+                    type="date"
+                    value={eqEndDate}
+                    onChange={(e) => setEqEndDate(e.target.value)}
+                    data-testid="input-eq-end-date"
+                  />
+                </div>
+                <Button onClick={() => { setEqStartDateApplied(eqStartDate); setEqEndDateApplied(eqEndDate); }} data-testid="button-generate-equity">
                   Generate Report
                 </Button>
               </div>
             </CardContent>
           </Card>
-          <ChangesInEquityReport asOfDate={equityAsOfDateApplied} />
+          <ChangesInEquityReport startDate={eqStartDateApplied} endDate={eqEndDateApplied} />
         </TabsContent>
       </Tabs>
     </div>

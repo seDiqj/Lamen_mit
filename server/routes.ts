@@ -3922,12 +3922,13 @@ export async function registerRoutes(
 
   app.get("/api/reports/changes-in-equity", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
     try {
-      const { asOfDate } = req.query;
-      const dateStr = (asOfDate as string) || new Date().toISOString().split("T")[0];
+      const { startDate, endDate } = req.query;
+      const endDateStr = (endDate as string) || new Date().toISOString().split("T")[0];
+      const startDateStr = (startDate as string) || `${new Date().getFullYear()}-01-01`;
 
       const allAccounts = await db.select().from(accounts).where(eq(accounts.isActive, true));
 
-      const journalBalances = await db
+      const journalBalancesEnd = await db
         .select({
           accountId: journalLines.accountId,
           totalDebit: sql<string>`COALESCE(SUM(CAST(${journalLines.debitAmount} AS numeric)), 0)`,
@@ -3937,57 +3938,83 @@ export async function registerRoutes(
         .innerJoin(journalEntries, eq(journalLines.journalEntryId, journalEntries.id))
         .where(and(
           eq(journalEntries.isPosted, true),
-          lte(journalEntries.entryDate, dateStr),
+          lte(journalEntries.entryDate, endDateStr),
         ))
         .groupBy(journalLines.accountId);
 
-      const jBalMap: Record<string, { debit: number; credit: number }> = {};
-      for (const jb of journalBalances) {
-        jBalMap[jb.accountId] = {
-          debit: parseFloat(jb.totalDebit || "0"),
-          credit: parseFloat(jb.totalCredit || "0"),
-        };
-      }
+      const journalBalancesBeforeStart = await db
+        .select({
+          accountId: journalLines.accountId,
+          totalDebit: sql<string>`COALESCE(SUM(CAST(${journalLines.debitAmount} AS numeric)), 0)`,
+          totalCredit: sql<string>`COALESCE(SUM(CAST(${journalLines.creditAmount} AS numeric)), 0)`,
+        })
+        .from(journalLines)
+        .innerJoin(journalEntries, eq(journalLines.journalEntryId, journalEntries.id))
+        .where(and(
+          eq(journalEntries.isPosted, true),
+          sql`${journalEntries.entryDate} < ${startDateStr}`,
+        ))
+        .groupBy(journalLines.accountId);
 
-      const getBalance = (acc: any): number => {
-        const opening = Number(acc.openingBalance) || 0;
-        const jb = jBalMap[acc.id] || { debit: 0, credit: 0 };
+      const buildBalMap = (rows: any[]): Record<string, { debit: number; credit: number }> => {
+        const m: Record<string, { debit: number; credit: number }> = {};
+        for (const jb of rows) {
+          m[jb.accountId] = {
+            debit: parseFloat(jb.totalDebit || "0"),
+            credit: parseFloat(jb.totalCredit || "0"),
+          };
+        }
+        return m;
+      };
+
+      const jBalMapEnd = buildBalMap(journalBalancesEnd);
+      const jBalMapOpen = buildBalMap(journalBalancesBeforeStart);
+
+      const calcBalance = (acc: any, jMap: Record<string, { debit: number; credit: number }>, includeOpening: boolean): number => {
+        const opening = includeOpening ? (Number(acc.openingBalance) || 0) : 0;
+        const jb = jMap[acc.id] || { debit: 0, credit: 0 };
         if (acc.accountType === 'asset' || acc.accountType === 'expense') {
           return opening + jb.debit - jb.credit;
         }
         return opening + jb.credit - jb.debit;
       };
 
-      const getBalanceByCode = (code: string): number => {
-        const acc = allAccounts.find(a => a.accountCode === code);
-        return acc ? getBalance(acc) : 0;
-      };
+      const getOpeningBalance = (acc: any): number => calcBalance(acc, jBalMapOpen, true);
+      const getClosingBalance = (acc: any): number => calcBalance(acc, jBalMapEnd, true);
+      const getPeriodMovement = (acc: any): number => getClosingBalance(acc) - getOpeningBalance(acc);
 
-      const sumByPrefix = (prefix: string): number => {
+      const sumByPrefixOpening = (prefix: string): number => {
         let total = 0;
         for (const acc of allAccounts) {
-          if (acc.accountCode.startsWith(prefix)) {
-            total += getBalance(acc);
-          }
+          if (acc.accountCode.startsWith(prefix)) total += getOpeningBalance(acc);
         }
         return total;
       };
 
-      const shareCapitalBalance = sumByPrefix('301');
+      const sumByPrefixClosing = (prefix: string): number => {
+        let total = 0;
+        for (const acc of allAccounts) {
+          if (acc.accountCode.startsWith(prefix)) total += getClosingBalance(acc);
+        }
+        return total;
+      };
+
+      const openingShareCapital = sumByPrefixOpening('301');
 
       const incomeAccts = allAccounts.filter(a => a.accountType === 'income');
       const expenseAccts = allAccounts.filter(a => a.accountType === 'expense');
-      const totalIncome = incomeAccts.reduce((s, a) => s + getBalance(a), 0);
-      const totalExpenses = expenseAccts.reduce((s, a) => s + getBalance(a), 0);
+      const totalIncome = incomeAccts.reduce((s, a) => s + getPeriodMovement(a), 0);
+      const totalExpenses = expenseAccts.reduce((s, a) => s + getPeriodMovement(a), 0);
       const netProfitLoss = totalIncome - totalExpenses;
 
-      const dividendPaid = Math.abs(getBalanceByCode('30400'));
+      const dividendAccEnd = allAccounts.find(a => a.accountCode === '30400');
+      const dividendPaid = dividendAccEnd ? Math.abs(getPeriodMovement(dividendAccEnd)) : 0;
 
       const ociRevaluation = 0;
 
       const priorPeriodErrors = 0;
 
-      const closingShareCapital = shareCapitalBalance - dividendPaid;
+      const closingShareCapital = openingShareCapital - dividendPaid;
       const closingRetainedEarnings = priorPeriodErrors + netProfitLoss;
       const closingRevaluationReserve = ociRevaluation;
       const closingTotalEquity = closingShareCapital + closingRetainedEarnings + closingRevaluationReserve;
@@ -3997,10 +4024,10 @@ export async function registerRoutes(
           {
             lineCode: 1,
             particular: "Opening Balance",
-            shareCapital: shareCapitalBalance,
+            shareCapital: openingShareCapital,
             retainedEarnings: null,
             revaluationReserve: null,
-            totalEquity: shareCapitalBalance,
+            totalEquity: openingShareCapital,
             inCell: "Share Capital",
             source: "Statement of Financial Position 3.1.1",
           },
