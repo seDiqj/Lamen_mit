@@ -3741,8 +3741,8 @@ export async function registerRoutes(
           COALESCE(SUM(COALESCE(i.margin_amount::numeric, 0)), 0) as collected
         FROM installments i
         JOIN loans l ON i.loan_id = l.id
-        WHERE i.status = 'paid'
-          AND i.paid_date <= ${dateStr}
+        WHERE i.is_paid = true
+          AND i.payment_date <= ${dateStr}
           AND l.status IN ('disbursed', 'active')
         GROUP BY l.funding_source_id
       `);
