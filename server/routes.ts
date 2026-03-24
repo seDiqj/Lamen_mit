@@ -3581,6 +3581,234 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/reports/financial-position", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
+    try {
+      const { asOfDate } = req.query;
+      if (!asOfDate) {
+        return res.status(400).json({ message: "asOfDate is required" });
+      }
+      const dateStr = asOfDate as string;
+
+      const allAccounts = await db.select().from(accounts).where(eq(accounts.isActive, true));
+
+      const journalBalances = await db
+        .select({
+          accountId: journalLines.accountId,
+          totalDebit: sql<string>`COALESCE(SUM(CAST(${journalLines.debitAmount} AS numeric)), 0)`,
+          totalCredit: sql<string>`COALESCE(SUM(CAST(${journalLines.creditAmount} AS numeric)), 0)`,
+        })
+        .from(journalLines)
+        .innerJoin(journalEntries, eq(journalLines.journalEntryId, journalEntries.id))
+        .where(and(
+          eq(journalEntries.isPosted, true),
+          lte(journalEntries.entryDate, dateStr),
+        ))
+        .groupBy(journalLines.accountId);
+
+      const jBalMap: Record<string, { debit: number; credit: number }> = {};
+      for (const jb of journalBalances) {
+        jBalMap[jb.accountId] = {
+          debit: parseFloat(jb.totalDebit || "0"),
+          credit: parseFloat(jb.totalCredit || "0"),
+        };
+      }
+
+      const getBalance = (acc: any): number => {
+        const opening = Number(acc.openingBalance) || 0;
+        const jb = jBalMap[acc.id] || { debit: 0, credit: 0 };
+        if (acc.accountType === 'asset' || acc.accountType === 'expense') {
+          return opening + jb.debit - jb.credit;
+        }
+        return opening + jb.credit - jb.debit;
+      };
+
+      const accountBalMap: Record<string, number> = {};
+      for (const acc of allAccounts) {
+        accountBalMap[acc.accountCode] = getBalance(acc);
+      }
+
+      const sumByPrefix = (prefix: string): number => {
+        let total = 0;
+        for (const acc of allAccounts) {
+          if (acc.accountCode.startsWith(prefix)) {
+            total += getBalance(acc);
+          }
+        }
+        return total;
+      };
+
+      const sumCodes = (...codes: string[]): number => {
+        return codes.reduce((sum, code) => sum + (accountBalMap[code] || 0), 0);
+      };
+
+      // Note 1.3 - Cash and Cash Equivalents
+      const cashOnHand = sumByPrefix('101');
+      const cashAtBank = sumByPrefix('102');
+      const note1_3 = cashOnHand + cashAtBank;
+
+      // Note 2.3 - Current Portion of Finance Receivables
+      const currentLoansResult = await db.execute(sql`
+        SELECT COALESCE(SUM(COALESCE(l.principle_amount::numeric, 0)), 0) as amount
+        FROM loans l
+        LEFT JOIN disbursements d ON d.loan_id = l.id
+        WHERE l.status IN ('disbursed', 'active')
+          AND COALESCE(l.financing_duration_months, 0) <= 12
+          AND (d.disbursement_date IS NULL OR d.disbursement_date <= ${dateStr})
+      `);
+      const note2_3 = parseFloat((currentLoansResult.rows as any[])[0]?.amount) || 0;
+
+      // Note 3.4 - Prepaid Expenses
+      const note3_4 = accountBalMap['13100'] || 0;
+
+      // 1.1.4 Receivables - Profit - profit collection + 14000
+      const receivablesResult = await db.execute(sql`
+        SELECT 
+          COALESCE(SUM(
+            COALESCE(l.total_receivable::numeric, 0) - COALESCE(l.principle_amount::numeric, 0)
+          ), 0) as total_margin
+        FROM loans l
+        LEFT JOIN disbursements d ON d.loan_id = l.id
+        WHERE l.status IN ('disbursed', 'active')
+          AND (d.disbursement_date IS NULL OR d.disbursement_date <= ${dateStr})
+      `);
+      const totalMargin = parseFloat((receivablesResult.rows as any[])[0]?.total_margin) || 0;
+
+      const marginCollectedResult = await db.execute(sql`
+        SELECT COALESCE(SUM(COALESCE(i.margin_amount::numeric, 0)), 0) as collected
+        FROM installments i
+        JOIN loans l ON i.loan_id = l.id
+        WHERE i.status = 'paid'
+          AND i.paid_date <= ${dateStr}
+          AND l.status IN ('disbursed', 'active')
+      `);
+      const marginCollected = parseFloat((marginCollectedResult.rows as any[])[0]?.collected) || 0;
+      const account14000 = accountBalMap['14000'] || 0;
+      const receivables = (totalMargin - marginCollected) + account14000;
+
+      // 1.1.5 Inventory
+      const inventory = sumByPrefix('120');
+
+      // Note 4.5 - Net Tangible Fixed Assets
+      const propVehiclesEquipCost = sumCodes('17101', '17201', '17301', '17501');
+      const accumDepreciation = sumCodes('17102', '17202', '17302', '17502');
+      const note4_5 = propVehiclesEquipCost + accumDepreciation;
+
+      // Note 5.6 - Net Intangible Assets
+      const software = accountBalMap['15200'] || 0;
+      const intellectualProperty = accountBalMap['15100'] || 0;
+      const accumAmortization = accountBalMap['15300'] || 0;
+      const note5_6 = software + intellectualProperty + accumAmortization;
+
+      // Note 6.3 - Long-Term Portion of Finance Receivables
+      const longLoansResult = await db.execute(sql`
+        SELECT COALESCE(SUM(COALESCE(l.principle_amount::numeric, 0)), 0) as amount
+        FROM loans l
+        LEFT JOIN disbursements d ON d.loan_id = l.id
+        WHERE l.status IN ('disbursed', 'active')
+          AND COALESCE(l.financing_duration_months, 0) > 12
+          AND (d.disbursement_date IS NULL OR d.disbursement_date <= ${dateStr})
+      `);
+      const note6_3 = parseFloat((longLoansResult.rows as any[])[0]?.amount) || 0;
+
+      // 1.2.4 Deferred Tax Asset - P&L * 20%
+      const incomeAccounts = allAccounts.filter(a => a.accountType === 'income');
+      const expenseAccounts = allAccounts.filter(a => a.accountType === 'expense');
+      const totalIncome = incomeAccounts.reduce((s, a) => s + Math.abs(getBalance(a)), 0);
+      const totalExpenses = expenseAccounts.reduce((s, a) => s + Math.abs(getBalance(a)), 0);
+      const profitLoss = totalIncome - totalExpenses;
+      const deferredTaxAsset = profitLoss < 0 ? Math.abs(profitLoss) * 0.20 : 0;
+
+      // Totals - Assets
+      const totalCurrentAssets = note1_3 + note2_3 + note3_4 + receivables + inventory;
+      const totalNonCurrentAssets = note4_5 + note5_6 + note6_3 + deferredTaxAsset;
+      const totalAssets = totalCurrentAssets + totalNonCurrentAssets;
+
+      // 3.1.1 Share Capital
+      const shareCapital = accountBalMap['30100'] || 0;
+
+      // Note 7.5 - Retained Earnings
+      const dividendPaid = accountBalMap['30400'] || 0;
+      const netRetainedEarnings = profitLoss - Math.abs(dividendPaid);
+
+      // 3.1.3 Revaluation Reserve - Not used
+      const revaluationReserve = 0;
+
+      const totalEquity = shareCapital + netRetainedEarnings + revaluationReserve;
+
+      // Note 8.5 - Payables
+      const tradePayables = Math.abs(accountBalMap['20100'] || 0);
+      const taxPayables = Math.abs(sumByPrefix('21'));
+      let accruedSalaries = 0;
+      for (const acc of allAccounts) {
+        const code = parseInt(acc.accountCode);
+        if (!isNaN(code) && code >= 20150 && code < 20800) {
+          accruedSalaries += Math.abs(getBalance(acc));
+        }
+      }
+      const note8_5 = tradePayables + taxPayables + accruedSalaries;
+
+      // 3.2.1.2 Current Portion of Finance Payables - Not Used
+      const currentFinancePayables = 0;
+
+      const totalCurrentLiabilities = note8_5 + currentFinancePayables;
+
+      // Note 9.5 - Non-Current Liabilities
+      const note9_5 = 0;
+
+      // 3.2.2.2 Non-Current Portion of Finance Payables - Balance of 20121
+      const nonCurrentFinancePayables = Math.abs(accountBalMap['20121'] || 0);
+
+      const totalNonCurrentLiabilities = note9_5 + nonCurrentFinancePayables;
+
+      const totalLiabilities = totalCurrentLiabilities + totalNonCurrentLiabilities;
+      const totalEquityAndLiabilities = totalEquity + totalLiabilities;
+
+      res.json({
+        assets: {
+          current: {
+            cashAndEquiv: note1_3,
+            currentFinanceReceivables: note2_3,
+            prepaidExpenses: note3_4,
+            receivables,
+            inventory,
+            total: totalCurrentAssets,
+          },
+          nonCurrent: {
+            propertyVehiclesEquip: note4_5,
+            intangibleAssets: note5_6,
+            longTermFinanceReceivables: note6_3,
+            deferredTaxAsset,
+            total: totalNonCurrentAssets,
+          },
+          total: totalAssets,
+        },
+        equity: {
+          shareCapital,
+          retainedEarnings: netRetainedEarnings,
+          revaluationReserve,
+          total: totalEquity,
+        },
+        liabilities: {
+          current: {
+            payables: note8_5,
+            currentFinancePayables,
+            total: totalCurrentLiabilities,
+          },
+          nonCurrent: {
+            nonCurrentLiabilities: note9_5,
+            nonCurrentFinancePayables,
+            total: totalNonCurrentLiabilities,
+          },
+          total: totalLiabilities,
+        },
+        totalEquityAndLiabilities,
+      });
+    } catch (error) {
+      console.error("Error fetching financial position:", error);
+      res.status(500).json({ message: "Failed to fetch financial position" });
+    }
+  });
+
   app.get("/api/reports/dab-notes-financial-statements", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
     try {
       const data = await storage.getDABNotesToFinancialStatements();
