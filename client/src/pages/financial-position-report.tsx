@@ -10,45 +10,47 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
+type RU = { restricted: number; unrestricted: number; total: number };
+
 type FinancialPositionData = {
   assets: {
     current: {
-      cashAndEquiv: number;
-      currentFinanceReceivables: number;
-      prepaidExpenses: number;
-      receivables: number;
-      inventory: number;
-      total: number;
+      cashAndEquiv: RU;
+      currentFinanceReceivables: RU;
+      prepaidExpenses: RU;
+      receivables: RU;
+      inventory: RU;
+      total: RU;
     };
     nonCurrent: {
-      propertyVehiclesEquip: number;
-      intangibleAssets: number;
-      longTermFinanceReceivables: number;
-      deferredTaxAsset: number;
-      total: number;
+      propertyVehiclesEquip: RU;
+      intangibleAssets: RU;
+      longTermFinanceReceivables: RU;
+      deferredTaxAsset: RU;
+      total: RU;
     };
-    total: number;
+    total: RU;
   };
   equity: {
-    shareCapital: number;
-    retainedEarnings: number;
-    revaluationReserve: number;
-    total: number;
+    shareCapital: RU;
+    retainedEarnings: RU;
+    revaluationReserve: RU;
+    total: RU;
   };
   liabilities: {
     current: {
-      payables: number;
-      currentFinancePayables: number;
-      total: number;
+      payables: RU;
+      currentFinancePayables: RU;
+      total: RU;
     };
     nonCurrent: {
-      nonCurrentLiabilities: number;
-      nonCurrentFinancePayables: number;
-      total: number;
+      nonCurrentLiabilities: RU;
+      nonCurrentFinancePayables: RU;
+      total: RU;
     };
-    total: number;
+    total: RU;
   };
-  totalEquityAndLiabilities: number;
+  totalEquityAndLiabilities: RU;
 };
 
 type LineItem = {
@@ -67,8 +69,14 @@ type LineItem = {
 };
 
 function buildLines(d: FinancialPositionData): LineItem[] {
-  const line = (code: string, label: string, total: number | null, source: string, opts: Partial<LineItem> = {}): LineItem => ({
-    code, label, restricted: null, unrestricted: null, total, source, ...opts,
+  const line = (code: string, label: string, ru: RU | null, source: string, opts: Partial<LineItem> = {}): LineItem => ({
+    code,
+    label,
+    restricted: ru ? ru.restricted : null,
+    unrestricted: ru ? ru.unrestricted : null,
+    total: ru ? ru.total : null,
+    source,
+    ...opts,
   });
 
   return [
@@ -182,7 +190,7 @@ export default function FinancialPositionReport() {
 
     const allRows = [...headerRows, ...dataRows];
     const ws = XLSX.utils.aoa_to_sheet(allRows);
-    ws["!cols"] = [{ wch: 12 }, { wch: 50 }, { wch: 15 }, { wch: 15 }, { wch: 18 }, { wch: 35 }];
+    ws["!cols"] = [{ wch: 12 }, { wch: 50 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 35 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Financial Position");
     XLSX.writeFile(wb, `Financial_Position_${asOfDate.replace(/-/g, "")}.xlsx`);
@@ -213,12 +221,14 @@ export default function FinancialPositionReport() {
     doc.text(`Currency: Afghani`, 20, 55);
     doc.text(`Frequency: Monthly`, 20, 60);
 
+    const fmtNum = (v: number | null) => v !== null ? v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "";
+
     const tableData = lines.map(line => [
       line.code,
       (line.indent ? "    " : "") + line.label,
-      "",
-      "",
-      line.total !== null ? line.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+      fmtNum(line.restricted),
+      fmtNum(line.unrestricted),
+      fmtNum(line.total),
       line.source,
     ]);
 
@@ -231,11 +241,11 @@ export default function FinancialPositionReport() {
       styles: { fontSize: 7, cellPadding: 1.2 },
       columnStyles: {
         0: { cellWidth: 18, halign: "center" },
-        1: { cellWidth: 60 },
+        1: { cellWidth: 55 },
         2: { cellWidth: 22, halign: "right" },
         3: { cellWidth: 22, halign: "right" },
         4: { cellWidth: 25, halign: "right" },
-        5: { cellWidth: 28 },
+        5: { cellWidth: 33 },
       },
       didParseCell: function(cellData: any) {
         if (cellData.section === "body") {
@@ -245,7 +255,7 @@ export default function FinancialPositionReport() {
           }
           if (line?.isTotal) {
             cellData.cell.styles.fontStyle = "bold";
-            if (cellData.column.index === 4) {
+            if (cellData.column.index >= 2 && cellData.column.index <= 4) {
               cellData.cell.styles.fillColor = [240, 240, 240];
             }
           }

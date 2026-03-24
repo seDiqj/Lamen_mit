@@ -3589,11 +3589,27 @@ export async function registerRoutes(
       }
       const dateStr = asOfDate as string;
 
-      const allAccounts = await db.select().from(accounts).where(eq(accounts.isActive, true));
+      const allFundingSources = await db.select().from(fundingSources);
+      const shareholderIds = new Set<string>();
+      for (const fs of allFundingSources) {
+        if (fs.name.toLowerCase().includes('shareholder')) {
+          shareholderIds.add(fs.id);
+        }
+      }
+      const isUnrestricted = (fsId: string | null): boolean => !fsId || shareholderIds.has(fsId);
 
-      const journalBalances = await db
+      const allAccounts = await db.select().from(accounts).where(eq(accounts.isActive, true));
+      const accIdToCode: Record<string, string> = {};
+      const accIdToType: Record<string, string> = {};
+      for (const acc of allAccounts) {
+        accIdToCode[acc.id] = acc.accountCode;
+        accIdToType[acc.id] = acc.accountType;
+      }
+
+      const journalBalSplit = await db
         .select({
           accountId: journalLines.accountId,
+          fundingSourceId: sql<string>`COALESCE(${journalEntries.fundingSourceId}, 'none')`,
           totalDebit: sql<string>`COALESCE(SUM(CAST(${journalLines.debitAmount} AS numeric)), 0)`,
           totalCredit: sql<string>`COALESCE(SUM(CAST(${journalLines.creditAmount} AS numeric)), 0)`,
         })
@@ -3603,205 +3619,289 @@ export async function registerRoutes(
           eq(journalEntries.isPosted, true),
           lte(journalEntries.entryDate, dateStr),
         ))
-        .groupBy(journalLines.accountId);
+        .groupBy(journalLines.accountId, sql`COALESCE(${journalEntries.fundingSourceId}, 'none')`);
 
-      const jBalMap: Record<string, { debit: number; credit: number }> = {};
-      for (const jb of journalBalances) {
-        jBalMap[jb.accountId] = {
-          debit: parseFloat(jb.totalDebit || "0"),
-          credit: parseFloat(jb.totalCredit || "0"),
-        };
+      type RU = { restricted: number; unrestricted: number; total: number };
+      const ru = (): RU => ({ restricted: 0, unrestricted: 0, total: 0 });
+
+      const accBalSplit: Record<string, { restricted: { debit: number; credit: number }; unrestricted: { debit: number; credit: number } }> = {};
+      for (const jb of journalBalSplit) {
+        if (!accBalSplit[jb.accountId]) {
+          accBalSplit[jb.accountId] = {
+            restricted: { debit: 0, credit: 0 },
+            unrestricted: { debit: 0, credit: 0 },
+          };
+        }
+        const d = parseFloat(jb.totalDebit || "0");
+        const c = parseFloat(jb.totalCredit || "0");
+        const fsId = jb.fundingSourceId === 'none' ? null : jb.fundingSourceId;
+        const bucket = isUnrestricted(fsId) ? 'unrestricted' : 'restricted';
+        accBalSplit[jb.accountId][bucket].debit += d;
+        accBalSplit[jb.accountId][bucket].credit += c;
       }
 
-      const getBalance = (acc: any): number => {
+      const getBalanceSplit = (acc: any): RU => {
         const opening = Number(acc.openingBalance) || 0;
-        const jb = jBalMap[acc.id] || { debit: 0, credit: 0 };
-        if (acc.accountType === 'asset' || acc.accountType === 'expense') {
-          return opening + jb.debit - jb.credit;
-        }
-        return opening + jb.credit - jb.debit;
+        const bs = accBalSplit[acc.id] || { restricted: { debit: 0, credit: 0 }, unrestricted: { debit: 0, credit: 0 } };
+        const calcBal = (bucket: { debit: number; credit: number }, addOpening: boolean): number => {
+          const op = addOpening ? opening : 0;
+          if (acc.accountType === 'asset' || acc.accountType === 'expense') {
+            return op + bucket.debit - bucket.credit;
+          }
+          return op + bucket.credit - bucket.debit;
+        };
+        const unrestricted = calcBal(bs.unrestricted, true);
+        const restricted = calcBal(bs.restricted, false);
+        return { restricted, unrestricted, total: restricted + unrestricted };
       };
 
-      const accountBalMap: Record<string, number> = {};
-      for (const acc of allAccounts) {
-        accountBalMap[acc.accountCode] = getBalance(acc);
-      }
-
-      const sumByPrefix = (prefix: string): number => {
-        let total = 0;
+      const sumByPrefixSplit = (...prefixes: string[]): RU => {
+        const r = ru();
         for (const acc of allAccounts) {
-          if (acc.accountCode.startsWith(prefix)) {
-            total += getBalance(acc);
+          for (const p of prefixes) {
+            if (acc.accountCode.startsWith(p)) {
+              const s = getBalanceSplit(acc);
+              r.restricted += s.restricted;
+              r.unrestricted += s.unrestricted;
+              r.total += s.total;
+              break;
+            }
           }
         }
-        return total;
+        return r;
       };
 
-      const sumCodes = (...codes: string[]): number => {
-        return codes.reduce((sum, code) => sum + (accountBalMap[code] || 0), 0);
+      const sumCodesSplit = (...codes: string[]): RU => {
+        const r = ru();
+        for (const code of codes) {
+          const acc = allAccounts.find(a => a.accountCode === code);
+          if (acc) {
+            const s = getBalanceSplit(acc);
+            r.restricted += s.restricted;
+            r.unrestricted += s.unrestricted;
+            r.total += s.total;
+          }
+        }
+        return r;
       };
+
+      const addRU = (...items: RU[]): RU => ({
+        restricted: items.reduce((s, i) => s + i.restricted, 0),
+        unrestricted: items.reduce((s, i) => s + i.unrestricted, 0),
+        total: items.reduce((s, i) => s + i.total, 0),
+      });
 
       // Note 1.3 - Cash and Cash Equivalents
-      const cashOnHand = sumByPrefix('101');
-      const cashAtBank = sumByPrefix('102');
-      const note1_3 = cashOnHand + cashAtBank;
+      const note1_3 = addRU(sumByPrefixSplit('101'), sumByPrefixSplit('102'));
 
-      // Note 2.3 - Current Portion of Finance Receivables
-      const currentLoansResult = await db.execute(sql`
-        SELECT COALESCE(SUM(COALESCE(l.principle_amount::numeric, 0)), 0) as amount
+      // Note 2.3 - Current Portion of Finance Receivables (split by loan funding source)
+      const currentLoansSplit = await db.execute(sql`
+        SELECT
+          l.funding_source_id,
+          COALESCE(SUM(COALESCE(l.principle_amount::numeric, 0)), 0) as amount
         FROM loans l
         LEFT JOIN disbursements d ON d.loan_id = l.id
         WHERE l.status IN ('disbursed', 'active')
           AND COALESCE(l.financing_duration_months, 0) <= 12
           AND (d.disbursement_date IS NULL OR d.disbursement_date <= ${dateStr})
+        GROUP BY l.funding_source_id
       `);
-      const note2_3 = parseFloat((currentLoansResult.rows as any[])[0]?.amount) || 0;
+      const note2_3 = ru();
+      for (const row of currentLoansSplit.rows as any[]) {
+        const amt = parseFloat(row.amount) || 0;
+        if (isUnrestricted(row.funding_source_id)) note2_3.unrestricted += amt;
+        else note2_3.restricted += amt;
+      }
+      note2_3.total = note2_3.restricted + note2_3.unrestricted;
 
       // Note 3.4 - Prepaid Expenses
-      const note3_4 = accountBalMap['13100'] || 0;
+      const note3_4 = sumCodesSplit('13100');
 
-      // 1.1.4 Receivables - Profit - profit collection + 14000
-      const receivablesResult = await db.execute(sql`
-        SELECT 
-          COALESCE(SUM(
-            COALESCE(l.total_receivable::numeric, 0) - COALESCE(l.principle_amount::numeric, 0)
-          ), 0) as total_margin
+      // 1.1.4 Receivables (split by loan funding source)
+      const receivablesSplit = await db.execute(sql`
+        SELECT
+          l.funding_source_id,
+          COALESCE(SUM(COALESCE(l.total_receivable::numeric, 0) - COALESCE(l.principle_amount::numeric, 0)), 0) as total_margin
         FROM loans l
         LEFT JOIN disbursements d ON d.loan_id = l.id
         WHERE l.status IN ('disbursed', 'active')
           AND (d.disbursement_date IS NULL OR d.disbursement_date <= ${dateStr})
+        GROUP BY l.funding_source_id
       `);
-      const totalMargin = parseFloat((receivablesResult.rows as any[])[0]?.total_margin) || 0;
+      const marginSplit = { restricted: 0, unrestricted: 0 };
+      for (const row of receivablesSplit.rows as any[]) {
+        const amt = parseFloat(row.total_margin) || 0;
+        if (isUnrestricted(row.funding_source_id)) marginSplit.unrestricted += amt;
+        else marginSplit.restricted += amt;
+      }
 
-      const marginCollectedResult = await db.execute(sql`
-        SELECT COALESCE(SUM(COALESCE(i.margin_amount::numeric, 0)), 0) as collected
+      const marginCollSplit = await db.execute(sql`
+        SELECT
+          l.funding_source_id,
+          COALESCE(SUM(COALESCE(i.margin_amount::numeric, 0)), 0) as collected
         FROM installments i
         JOIN loans l ON i.loan_id = l.id
         WHERE i.status = 'paid'
           AND i.paid_date <= ${dateStr}
           AND l.status IN ('disbursed', 'active')
+        GROUP BY l.funding_source_id
       `);
-      const marginCollected = parseFloat((marginCollectedResult.rows as any[])[0]?.collected) || 0;
-      const account14000 = accountBalMap['14000'] || 0;
-      const receivables = (totalMargin - marginCollected) + account14000;
+      const marginCollected = { restricted: 0, unrestricted: 0 };
+      for (const row of marginCollSplit.rows as any[]) {
+        const amt = parseFloat(row.collected) || 0;
+        if (isUnrestricted(row.funding_source_id)) marginCollected.unrestricted += amt;
+        else marginCollected.restricted += amt;
+      }
+      const acc14000 = sumCodesSplit('14000');
+      const receivablesRU: RU = {
+        restricted: (marginSplit.restricted - marginCollected.restricted) + acc14000.restricted,
+        unrestricted: (marginSplit.unrestricted - marginCollected.unrestricted) + acc14000.unrestricted,
+        total: 0,
+      };
+      receivablesRU.total = receivablesRU.restricted + receivablesRU.unrestricted;
 
       // 1.1.5 Inventory
-      const inventory = sumByPrefix('120');
+      const inventoryRU = sumByPrefixSplit('120');
 
       // Note 4.5 - Net Tangible Fixed Assets
-      const propVehiclesEquipCost = sumCodes('17101', '17201', '17301', '17501');
-      const accumDepreciation = sumCodes('17102', '17202', '17302', '17502');
-      const note4_5 = propVehiclesEquipCost + accumDepreciation;
+      const note4_5 = addRU(
+        sumCodesSplit('17101', '17201', '17301', '17501'),
+        sumCodesSplit('17102', '17202', '17302', '17502')
+      );
 
       // Note 5.6 - Net Intangible Assets
-      const software = accountBalMap['15200'] || 0;
-      const intellectualProperty = accountBalMap['15100'] || 0;
-      const accumAmortization = accountBalMap['15300'] || 0;
-      const note5_6 = software + intellectualProperty + accumAmortization;
+      const note5_6 = addRU(sumCodesSplit('15200', '15100', '15300'));
 
-      // Note 6.3 - Long-Term Portion of Finance Receivables
-      const longLoansResult = await db.execute(sql`
-        SELECT COALESCE(SUM(COALESCE(l.principle_amount::numeric, 0)), 0) as amount
+      // Note 6.3 - Long-Term Finance Receivables (split by loan funding source)
+      const longLoansSplit = await db.execute(sql`
+        SELECT
+          l.funding_source_id,
+          COALESCE(SUM(COALESCE(l.principle_amount::numeric, 0)), 0) as amount
         FROM loans l
         LEFT JOIN disbursements d ON d.loan_id = l.id
         WHERE l.status IN ('disbursed', 'active')
           AND COALESCE(l.financing_duration_months, 0) > 12
           AND (d.disbursement_date IS NULL OR d.disbursement_date <= ${dateStr})
+        GROUP BY l.funding_source_id
       `);
-      const note6_3 = parseFloat((longLoansResult.rows as any[])[0]?.amount) || 0;
+      const note6_3 = ru();
+      for (const row of longLoansSplit.rows as any[]) {
+        const amt = parseFloat(row.amount) || 0;
+        if (isUnrestricted(row.funding_source_id)) note6_3.unrestricted += amt;
+        else note6_3.restricted += amt;
+      }
+      note6_3.total = note6_3.restricted + note6_3.unrestricted;
 
       // 1.2.4 Deferred Tax Asset - P&L * 20%
-      const incomeAccounts = allAccounts.filter(a => a.accountType === 'income');
-      const expenseAccounts = allAccounts.filter(a => a.accountType === 'expense');
-      const totalIncome = incomeAccounts.reduce((s, a) => s + Math.abs(getBalance(a)), 0);
-      const totalExpenses = expenseAccounts.reduce((s, a) => s + Math.abs(getBalance(a)), 0);
-      const profitLoss = totalIncome - totalExpenses;
-      const deferredTaxAsset = profitLoss < 0 ? Math.abs(profitLoss) * 0.20 : 0;
+      let totalIncomeRU = ru();
+      let totalExpenseRU = ru();
+      for (const acc of allAccounts) {
+        const s = getBalanceSplit(acc);
+        if (acc.accountType === 'income') {
+          totalIncomeRU.restricted += Math.abs(s.restricted);
+          totalIncomeRU.unrestricted += Math.abs(s.unrestricted);
+          totalIncomeRU.total += Math.abs(s.total);
+        } else if (acc.accountType === 'expense') {
+          totalExpenseRU.restricted += Math.abs(s.restricted);
+          totalExpenseRU.unrestricted += Math.abs(s.unrestricted);
+          totalExpenseRU.total += Math.abs(s.total);
+        }
+      }
+      const profitLossTotal = totalIncomeRU.total - totalExpenseRU.total;
+      const deferredTaxAssetRU: RU = {
+        restricted: 0,
+        unrestricted: profitLossTotal < 0 ? Math.abs(profitLossTotal) * 0.20 : 0,
+        total: profitLossTotal < 0 ? Math.abs(profitLossTotal) * 0.20 : 0,
+      };
 
       // Totals - Assets
-      const totalCurrentAssets = note1_3 + note2_3 + note3_4 + receivables + inventory;
-      const totalNonCurrentAssets = note4_5 + note5_6 + note6_3 + deferredTaxAsset;
-      const totalAssets = totalCurrentAssets + totalNonCurrentAssets;
+      const totalCurrentAssets = addRU(note1_3, note2_3, note3_4, receivablesRU, inventoryRU);
+      const totalNonCurrentAssets = addRU(note4_5, note5_6, note6_3, deferredTaxAssetRU);
+      const totalAssets = addRU(totalCurrentAssets, totalNonCurrentAssets);
 
       // 3.1.1 Share Capital
-      const shareCapital = accountBalMap['30100'] || 0;
+      const shareCapitalRU = sumCodesSplit('30100');
 
       // Note 7.5 - Retained Earnings
-      const dividendPaid = accountBalMap['30400'] || 0;
-      const netRetainedEarnings = profitLoss - Math.abs(dividendPaid);
+      const dividendPaidRU = sumCodesSplit('30400');
+      const retainedEarningsRU: RU = {
+        restricted: (totalIncomeRU.restricted - totalExpenseRU.restricted) - Math.abs(dividendPaidRU.restricted),
+        unrestricted: (totalIncomeRU.unrestricted - totalExpenseRU.unrestricted) - Math.abs(dividendPaidRU.unrestricted),
+        total: 0,
+      };
+      retainedEarningsRU.total = retainedEarningsRU.restricted + retainedEarningsRU.unrestricted;
 
-      // 3.1.3 Revaluation Reserve - Not used
-      const revaluationReserve = 0;
-
-      const totalEquity = shareCapital + netRetainedEarnings + revaluationReserve;
+      const revaluationReserveRU = ru();
+      const totalEquityRU = addRU(shareCapitalRU, retainedEarningsRU, revaluationReserveRU);
 
       // Note 8.5 - Payables
-      const tradePayables = Math.abs(accountBalMap['20100'] || 0);
-      const taxPayables = Math.abs(sumByPrefix('21'));
-      let accruedSalaries = 0;
+      const tradePayablesRU = sumCodesSplit('20100');
+      const taxPayablesRU = sumByPrefixSplit('21');
+      const accruedSalRU = ru();
       for (const acc of allAccounts) {
         const code = parseInt(acc.accountCode);
         if (!isNaN(code) && code >= 20150 && code < 20800) {
-          accruedSalaries += Math.abs(getBalance(acc));
+          const s = getBalanceSplit(acc);
+          accruedSalRU.restricted += Math.abs(s.restricted);
+          accruedSalRU.unrestricted += Math.abs(s.unrestricted);
+          accruedSalRU.total += Math.abs(s.total);
         }
       }
-      const note8_5 = tradePayables + taxPayables + accruedSalaries;
+      const absRU = (r: RU): RU => ({ restricted: Math.abs(r.restricted), unrestricted: Math.abs(r.unrestricted), total: Math.abs(r.total) });
+      const note8_5 = addRU(absRU(tradePayablesRU), absRU(taxPayablesRU), accruedSalRU);
 
-      // 3.2.1.2 Current Portion of Finance Payables - Not Used
-      const currentFinancePayables = 0;
+      const currentFinPayRU = ru();
+      const totalCurrentLiabRU = addRU(note8_5, currentFinPayRU);
 
-      const totalCurrentLiabilities = note8_5 + currentFinancePayables;
+      const note9_5 = ru();
+      const nonCurrentFinPayRU = sumCodesSplit('20121');
+      const absNonCurrentFinPayRU = absRU(nonCurrentFinPayRU);
+      const totalNonCurrentLiabRU = addRU(note9_5, absNonCurrentFinPayRU);
 
-      // Note 9.5 - Non-Current Liabilities
-      const note9_5 = 0;
+      const totalLiabRU = addRU(totalCurrentLiabRU, totalNonCurrentLiabRU);
+      const totalEquityAndLiabRU = addRU(totalEquityRU, totalLiabRU);
 
-      // 3.2.2.2 Non-Current Portion of Finance Payables - Balance of 20121
-      const nonCurrentFinancePayables = Math.abs(accountBalMap['20121'] || 0);
-
-      const totalNonCurrentLiabilities = note9_5 + nonCurrentFinancePayables;
-
-      const totalLiabilities = totalCurrentLiabilities + totalNonCurrentLiabilities;
-      const totalEquityAndLiabilities = totalEquity + totalLiabilities;
+      const toSplit = (r: RU) => ({ restricted: r.restricted, unrestricted: r.unrestricted, total: r.total });
 
       res.json({
         assets: {
           current: {
-            cashAndEquiv: note1_3,
-            currentFinanceReceivables: note2_3,
-            prepaidExpenses: note3_4,
-            receivables,
-            inventory,
-            total: totalCurrentAssets,
+            cashAndEquiv: toSplit(note1_3),
+            currentFinanceReceivables: toSplit(note2_3),
+            prepaidExpenses: toSplit(note3_4),
+            receivables: toSplit(receivablesRU),
+            inventory: toSplit(inventoryRU),
+            total: toSplit(totalCurrentAssets),
           },
           nonCurrent: {
-            propertyVehiclesEquip: note4_5,
-            intangibleAssets: note5_6,
-            longTermFinanceReceivables: note6_3,
-            deferredTaxAsset,
-            total: totalNonCurrentAssets,
+            propertyVehiclesEquip: toSplit(note4_5),
+            intangibleAssets: toSplit(note5_6),
+            longTermFinanceReceivables: toSplit(note6_3),
+            deferredTaxAsset: toSplit(deferredTaxAssetRU),
+            total: toSplit(totalNonCurrentAssets),
           },
-          total: totalAssets,
+          total: toSplit(totalAssets),
         },
         equity: {
-          shareCapital,
-          retainedEarnings: netRetainedEarnings,
-          revaluationReserve,
-          total: totalEquity,
+          shareCapital: toSplit(shareCapitalRU),
+          retainedEarnings: toSplit(retainedEarningsRU),
+          revaluationReserve: toSplit(revaluationReserveRU),
+          total: toSplit(totalEquityRU),
         },
         liabilities: {
           current: {
-            payables: note8_5,
-            currentFinancePayables,
-            total: totalCurrentLiabilities,
+            payables: toSplit(note8_5),
+            currentFinancePayables: toSplit(currentFinPayRU),
+            total: toSplit(totalCurrentLiabRU),
           },
           nonCurrent: {
-            nonCurrentLiabilities: note9_5,
-            nonCurrentFinancePayables,
-            total: totalNonCurrentLiabilities,
+            nonCurrentLiabilities: toSplit(note9_5),
+            nonCurrentFinancePayables: toSplit(absNonCurrentFinPayRU),
+            total: toSplit(totalNonCurrentLiabRU),
           },
-          total: totalLiabilities,
+          total: toSplit(totalLiabRU),
         },
-        totalEquityAndLiabilities,
+        totalEquityAndLiabilities: toSplit(totalEquityAndLiabRU),
       });
     } catch (error) {
       console.error("Error fetching financial position:", error);
