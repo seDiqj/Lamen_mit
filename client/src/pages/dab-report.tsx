@@ -1,6 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect } from "react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -48,10 +50,36 @@ type DABNotesData = {
   notes: Note[];
 };
 
-function NotesToFinancialStatements() {
-  const { data, isLoading, error } = useQuery<DABNotesData>({
-    queryKey: ["/api/reports/dab-notes-financial-statements"],
-  });
+function NotesToFinancialStatements({ asOfDate }: { asOfDate: string }) {
+  const [data, setData] = useState<DABNotesData | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(false);
+
+  const fetchReport = async () => {
+    setIsLoading(true);
+    setError(false);
+    try {
+      const params = new URLSearchParams({ asOfDate });
+      const res = await fetch(`/api/reports/dab-notes-financial-statements?${params}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch");
+      const result = await res.json();
+      setData(result);
+    } catch (err) {
+      console.error("Failed to fetch notes:", err);
+      setError(true);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchReport();
+  }, [asOfDate]);
+
+  const getDateLabel = () => {
+    const d = new Date(asOfDate + "T00:00:00");
+    return d.toLocaleString("en-US", { month: "long", year: "numeric" });
+  };
 
   const exportExcel = () => {
     if (!data) return;
@@ -63,6 +91,9 @@ function NotesToFinancialStatements() {
     rows.push([]);
     rows.push([data.header.reportName]);
     rows.push([]);
+    rows.push(["", "MFI Name", "Lamen Micro Finance Institution"]);
+    rows.push(["", "License Number", "97950"]);
+    rows.push(["", "Date/Period", getDateLabel()]);
     rows.push(["", "Currency", data.header.currency]);
     rows.push(["", "Frequency", data.header.frequency]);
     rows.push([]);
@@ -103,9 +134,10 @@ function NotesToFinancialStatements() {
     doc.text(data.header.reportName, 105, 30, { align: "center" });
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
-    doc.text(`Currency: ${data.header.currency}  |  Frequency: ${data.header.frequency}`, 105, 36, { align: "center" });
+    doc.text(`MFI Name: Lamen Micro Finance Institution  |  License: 97950  |  Date: ${getDateLabel()}`, 105, 36, { align: "center" });
+    doc.text(`Currency: ${data.header.currency}  |  Frequency: ${data.header.frequency}`, 105, 41, { align: "center" });
 
-    let startY = 42;
+    let startY = 47;
 
     data.notes.forEach((note) => {
       const rows: any[][] = [];
@@ -151,7 +183,7 @@ function NotesToFinancialStatements() {
     doc.save("dab_notes_to_financial_statements.pdf");
   };
 
-  if (isLoading) {
+  if (isLoading && !data) {
     return (
       <div className="space-y-4 p-4">
         <Skeleton className="h-8 w-64" />
@@ -205,7 +237,7 @@ function NotesToFinancialStatements() {
               <TableRow>
                 <TableCell className="text-center font-semibold text-xs py-1.5 border">Date/Period</TableCell>
                 <TableCell className="text-xs py-1.5 border" data-testid="text-date-period">
-                  {new Date().toLocaleString("en-US", { month: "long", year: "numeric" })}
+                  {getDateLabel()}
                 </TableCell>
               </TableRow>
               <TableRow>
@@ -261,6 +293,22 @@ function NotesToFinancialStatements() {
 }
 
 export default function DABReportPage() {
+  const today = new Date().toISOString().split("T")[0];
+  const yearStart = `${new Date().getFullYear()}-01-01`;
+
+  const [notesAsOfDate, setNotesAsOfDate] = useState(today);
+  const [notesAsOfDateApplied, setNotesAsOfDateApplied] = useState(today);
+
+  const [plStartDate, setPlStartDate] = useState(yearStart);
+  const [plEndDate, setPlEndDate] = useState(today);
+  const [plStartDateApplied, setPlStartDateApplied] = useState(yearStart);
+  const [plEndDateApplied, setPlEndDateApplied] = useState(today);
+
+  const [cfStartDate, setCfStartDate] = useState(yearStart);
+  const [cfEndDate, setCfEndDate] = useState(today);
+  const [cfStartDateApplied, setCfStartDateApplied] = useState(yearStart);
+  const [cfEndDateApplied, setCfEndDateApplied] = useState(today);
+
   return (
     <div className="p-4 max-w-7xl mx-auto space-y-4">
       <div>
@@ -289,15 +337,91 @@ export default function DABReportPage() {
             Financial Position
           </TabsTrigger>
         </TabsList>
+
         <TabsContent value="notes-to-financial-statements">
-          <NotesToFinancialStatements />
+          <Card className="mb-4">
+            <CardContent className="p-4">
+              <div className="flex items-end gap-4 flex-wrap">
+                <div className="space-y-2">
+                  <Label>As of Date</Label>
+                  <Input
+                    type="date"
+                    value={notesAsOfDate}
+                    onChange={(e) => setNotesAsOfDate(e.target.value)}
+                    data-testid="input-notes-as-of-date"
+                  />
+                </div>
+                <Button onClick={() => setNotesAsOfDateApplied(notesAsOfDate)} data-testid="button-generate-notes">
+                  Generate Report
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+          <NotesToFinancialStatements asOfDate={notesAsOfDateApplied} />
         </TabsContent>
+
         <TabsContent value="profit-loss">
-          <ProfitLossStatementReport />
+          <Card className="mb-4">
+            <CardContent className="p-4">
+              <div className="flex items-end gap-4 flex-wrap">
+                <div className="space-y-2">
+                  <Label>Start Date</Label>
+                  <Input
+                    type="date"
+                    value={plStartDate}
+                    onChange={(e) => setPlStartDate(e.target.value)}
+                    data-testid="input-pl-start-date"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>End Date</Label>
+                  <Input
+                    type="date"
+                    value={plEndDate}
+                    onChange={(e) => setPlEndDate(e.target.value)}
+                    data-testid="input-pl-end-date"
+                  />
+                </div>
+                <Button onClick={() => { setPlStartDateApplied(plStartDate); setPlEndDateApplied(plEndDate); }} data-testid="button-generate-pl">
+                  Generate Report
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+          <ProfitLossStatementReport startDate={plStartDateApplied} endDate={plEndDateApplied} />
         </TabsContent>
+
         <TabsContent value="cash-flow">
-          <CashFlowStatementReport />
+          <Card className="mb-4">
+            <CardContent className="p-4">
+              <div className="flex items-end gap-4 flex-wrap">
+                <div className="space-y-2">
+                  <Label>Start Date</Label>
+                  <Input
+                    type="date"
+                    value={cfStartDate}
+                    onChange={(e) => setCfStartDate(e.target.value)}
+                    data-testid="input-cf-start-date"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>End Date</Label>
+                  <Input
+                    type="date"
+                    value={cfEndDate}
+                    onChange={(e) => setCfEndDate(e.target.value)}
+                    data-testid="input-cf-end-date"
+                  />
+                </div>
+                <Button onClick={() => { setCfStartDateApplied(cfStartDate); setCfEndDateApplied(cfEndDate); }} data-testid="button-generate-cf">
+                  Generate Report
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+          <CashFlowStatementReport startDate={cfStartDateApplied} endDate={cfEndDateApplied} />
         </TabsContent>
+
         <TabsContent value="financial-position">
           <FinancialPositionReport />
         </TabsContent>

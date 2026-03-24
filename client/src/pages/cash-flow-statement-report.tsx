@@ -136,9 +136,9 @@ function buildLines(d: CashFlowData): LineItem[] {
   return lines;
 }
 
-export default function CashFlowStatementReport() {
-  const startDate = `${new Date().getFullYear()}-01-01`;
-  const endDate = new Date().toISOString().split("T")[0];
+export default function CashFlowStatementReport({ startDate: propStartDate, endDate: propEndDate }: { startDate?: string; endDate?: string } = {}) {
+  const startDate = propStartDate || `${new Date().getFullYear()}-01-01`;
+  const endDate = propEndDate || new Date().toISOString().split("T")[0];
   const [data, setData] = useState<CashFlowData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -159,7 +159,7 @@ export default function CashFlowStatementReport() {
 
   useEffect(() => {
     fetchReport();
-  }, []);
+  }, [startDate, endDate]);
 
   const fmtAmount = (val: number | null) => {
     if (val === null) return "";

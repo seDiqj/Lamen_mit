@@ -3911,7 +3911,8 @@ export async function registerRoutes(
 
   app.get("/api/reports/dab-notes-financial-statements", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
     try {
-      const data = await storage.getDABNotesToFinancialStatements();
+      const asOfDate = req.query.asOfDate as string | undefined;
+      const data = await storage.getDABNotesToFinancialStatements(asOfDate);
       res.json(data);
     } catch (error) {
       console.error("Error fetching DAB notes to financial statements:", error);

@@ -103,9 +103,9 @@ function buildLines(d: ProfitLossData): LineItem[] {
   ];
 }
 
-export default function ProfitLossStatementReport() {
-  const startDate = `${new Date().getFullYear()}-01-01`;
-  const endDate = new Date().toISOString().split("T")[0];
+export default function ProfitLossStatementReport({ startDate: propStartDate, endDate: propEndDate }: { startDate?: string; endDate?: string } = {}) {
+  const startDate = propStartDate || `${new Date().getFullYear()}-01-01`;
+  const endDate = propEndDate || new Date().toISOString().split("T")[0];
   const [data, setData] = useState<ProfitLossData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -126,7 +126,7 @@ export default function ProfitLossStatementReport() {
 
   useEffect(() => {
     fetchReport();
-  }, []);
+  }, [startDate, endDate]);
 
   const fmtAmount = (val: number | null) => {
     if (val === null) return "";

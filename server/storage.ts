@@ -283,7 +283,7 @@ export interface IStorage {
   getLoanClassificationReport(): Promise<any>;
 
   // DAB Report
-  getDABNotesToFinancialStatements(): Promise<any>;
+  getDABNotesToFinancialStatements(asOfDate?: string): Promise<any>;
 
   // Citizen Balance Statement helpers
   getLoansByCustomer(customerId: string): Promise<any[]>;
@@ -2023,18 +2023,51 @@ export class DatabaseStorage implements IStorage {
     return { categories, totals };
   }
 
-  async getDABNotesToFinancialStatements(): Promise<any> {
+  async getDABNotesToFinancialStatements(asOfDate?: string): Promise<any> {
     const allAccounts = await db.select().from(accounts).where(eq(accounts.isActive, true));
+    const dateStr = asOfDate || new Date().toISOString().split('T')[0];
+
+    const journalBalances = await db
+      .select({
+        accountId: journalLines.accountId,
+        totalDebit: sql<string>`COALESCE(SUM(CAST(${journalLines.debitAmount} AS numeric)), 0)`,
+        totalCredit: sql<string>`COALESCE(SUM(CAST(${journalLines.creditAmount} AS numeric)), 0)`,
+      })
+      .from(journalLines)
+      .innerJoin(journalEntries, eq(journalLines.journalEntryId, journalEntries.id))
+      .where(and(
+        eq(journalEntries.isPosted, true),
+        lte(journalEntries.entryDate, dateStr),
+      ))
+      .groupBy(journalLines.accountId);
+
+    const jBalMap: Record<string, { debit: number; credit: number }> = {};
+    for (const jb of journalBalances) {
+      jBalMap[jb.accountId] = {
+        debit: parseFloat(jb.totalDebit || "0"),
+        credit: parseFloat(jb.totalCredit || "0"),
+      };
+    }
+
+    const getBalance = (acc: any): number => {
+      const opening = Number(acc.openingBalance) || 0;
+      const jb = jBalMap[acc.id] || { debit: 0, credit: 0 };
+      if (acc.accountType === 'asset' || acc.accountType === 'expense') {
+        return opening + jb.debit - jb.credit;
+      }
+      return opening + jb.credit - jb.debit;
+    };
+
     const accountMap: Record<string, number> = {};
     for (const acc of allAccounts) {
-      accountMap[acc.accountCode] = Number(acc.currentBalance) || 0;
+      accountMap[acc.accountCode] = getBalance(acc);
     }
 
     const sumByPrefix = (prefix: string): number => {
       let total = 0;
       for (const acc of allAccounts) {
         if (acc.accountCode.startsWith(prefix)) {
-          total += Number(acc.currentBalance) || 0;
+          total += getBalance(acc);
         }
       }
       return total;
@@ -2053,8 +2086,10 @@ export class DatabaseStorage implements IStorage {
         COUNT(l.id) as customer_count,
         COALESCE(SUM(COALESCE(l.principle_amount::numeric, 0)), 0) as principle_outstanding
       FROM loans l
+      LEFT JOIN disbursements d ON d.loan_id = l.id
       WHERE l.status IN ('disbursed', 'active')
         AND COALESCE(l.financing_duration_months, 0) <= 12
+        AND (d.disbursement_date IS NULL OR d.disbursement_date <= ${dateStr})
     `);
     const currentLoans = (currentLoansResult.rows as any[])[0] || {};
     const currentFinanceReceivable = parseFloat(currentLoans.principle_outstanding) || 0;
@@ -2085,8 +2120,10 @@ export class DatabaseStorage implements IStorage {
         COUNT(l.id) as customer_count,
         COALESCE(SUM(COALESCE(l.principle_amount::numeric, 0)), 0) as principle_outstanding
       FROM loans l
+      LEFT JOIN disbursements d ON d.loan_id = l.id
       WHERE l.status IN ('disbursed', 'active')
         AND COALESCE(l.financing_duration_months, 0) > 12
+        AND (d.disbursement_date IS NULL OR d.disbursement_date <= ${dateStr})
     `);
     const longLoans = (longLoansResult.rows as any[])[0] || {};
     const longFinanceReceivable = parseFloat(longLoans.principle_outstanding) || 0;
@@ -2096,8 +2133,8 @@ export class DatabaseStorage implements IStorage {
 
     const incomeAccounts = allAccounts.filter(a => a.accountType === 'income');
     const expenseAccounts = allAccounts.filter(a => a.accountType === 'expense');
-    const totalIncome = incomeAccounts.reduce((s, a) => s + Math.abs(Number(a.currentBalance) || 0), 0);
-    const totalExpenses = expenseAccounts.reduce((s, a) => s + Math.abs(Number(a.currentBalance) || 0), 0);
+    const totalIncome = incomeAccounts.reduce((s, a) => s + Math.abs(getBalance(a)), 0);
+    const totalExpenses = expenseAccounts.reduce((s, a) => s + Math.abs(getBalance(a)), 0);
     const currentMonthPL = totalIncome - totalExpenses;
     const priorPeriodPL = 0;
     const priorPeriodErrors = 0;
@@ -2110,7 +2147,7 @@ export class DatabaseStorage implements IStorage {
     for (const acc of allAccounts) {
       const code = parseInt(acc.accountCode);
       if (!isNaN(code) && code >= 20150 && code < 20800) {
-        accruedSalaries += Math.abs(Number(acc.currentBalance) || 0);
+        accruedSalaries += Math.abs(getBalance(acc));
       }
     }
     const otherCurrentLiabilities = 0;
