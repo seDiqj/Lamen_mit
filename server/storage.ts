@@ -1869,6 +1869,10 @@ export class DatabaseStorage implements IStorage {
         throw new Error("Installment not found");
       }
 
+      if (existing.isPaid) {
+        throw new Error("This installment is already fully paid");
+      }
+
       const today = paymentDateStr || new Date().toISOString().split("T")[0];
       const paidInstallments: Installment[] = [];
       let remainingPayment = amount;
