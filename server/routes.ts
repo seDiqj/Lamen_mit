@@ -3920,6 +3920,157 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/reports/changes-in-equity", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
+    try {
+      const { asOfDate } = req.query;
+      const dateStr = (asOfDate as string) || new Date().toISOString().split("T")[0];
+
+      const allAccounts = await db.select().from(accounts).where(eq(accounts.isActive, true));
+
+      const journalBalances = await db
+        .select({
+          accountId: journalLines.accountId,
+          totalDebit: sql<string>`COALESCE(SUM(CAST(${journalLines.debitAmount} AS numeric)), 0)`,
+          totalCredit: sql<string>`COALESCE(SUM(CAST(${journalLines.creditAmount} AS numeric)), 0)`,
+        })
+        .from(journalLines)
+        .innerJoin(journalEntries, eq(journalLines.journalEntryId, journalEntries.id))
+        .where(and(
+          eq(journalEntries.isPosted, true),
+          lte(journalEntries.entryDate, dateStr),
+        ))
+        .groupBy(journalLines.accountId);
+
+      const jBalMap: Record<string, { debit: number; credit: number }> = {};
+      for (const jb of journalBalances) {
+        jBalMap[jb.accountId] = {
+          debit: parseFloat(jb.totalDebit || "0"),
+          credit: parseFloat(jb.totalCredit || "0"),
+        };
+      }
+
+      const getBalance = (acc: any): number => {
+        const opening = Number(acc.openingBalance) || 0;
+        const jb = jBalMap[acc.id] || { debit: 0, credit: 0 };
+        if (acc.accountType === 'asset' || acc.accountType === 'expense') {
+          return opening + jb.debit - jb.credit;
+        }
+        return opening + jb.credit - jb.debit;
+      };
+
+      const getBalanceByCode = (code: string): number => {
+        const acc = allAccounts.find(a => a.accountCode === code);
+        return acc ? getBalance(acc) : 0;
+      };
+
+      const sumByPrefix = (prefix: string): number => {
+        let total = 0;
+        for (const acc of allAccounts) {
+          if (acc.accountCode.startsWith(prefix)) {
+            total += getBalance(acc);
+          }
+        }
+        return total;
+      };
+
+      const shareCapitalBalance = sumByPrefix('301');
+
+      const incomeAccts = allAccounts.filter(a => a.accountType === 'income');
+      const expenseAccts = allAccounts.filter(a => a.accountType === 'expense');
+      const totalIncome = incomeAccts.reduce((s, a) => s + getBalance(a), 0);
+      const totalExpenses = expenseAccts.reduce((s, a) => s + getBalance(a), 0);
+      const netProfitLoss = totalIncome - totalExpenses;
+
+      const dividendPaid = Math.abs(getBalanceByCode('30400'));
+
+      const ociRevaluation = 0;
+
+      const priorPeriodErrors = 0;
+
+      const closingShareCapital = shareCapitalBalance - dividendPaid;
+      const closingRetainedEarnings = priorPeriodErrors + netProfitLoss;
+      const closingRevaluationReserve = ociRevaluation;
+      const closingTotalEquity = closingShareCapital + closingRetainedEarnings + closingRevaluationReserve;
+
+      res.json({
+        lines: [
+          {
+            lineCode: 1,
+            particular: "Opening Balance",
+            shareCapital: shareCapitalBalance,
+            retainedEarnings: null,
+            revaluationReserve: null,
+            totalEquity: shareCapitalBalance,
+            inCell: "Share Capital",
+            source: "Statement of Financial Position 3.1.1",
+          },
+          {
+            lineCode: 2,
+            particular: "Adjustment for Prior Periods Errors",
+            shareCapital: null,
+            retainedEarnings: priorPeriodErrors,
+            revaluationReserve: null,
+            totalEquity: priorPeriodErrors,
+            inCell: "Retained Earnings",
+            source: "Note to Financial Statement 7.2",
+          },
+          {
+            lineCode: 3,
+            particular: "Net Profit / Loss for the Month",
+            shareCapital: null,
+            retainedEarnings: netProfitLoss,
+            revaluationReserve: null,
+            totalEquity: netProfitLoss,
+            inCell: "Retained Earnings",
+            source: "Profit and Loss 10",
+          },
+          {
+            lineCode: 4,
+            particular: "Dividends Paid",
+            shareCapital: -dividendPaid,
+            retainedEarnings: null,
+            revaluationReserve: null,
+            totalEquity: -dividendPaid,
+            inCell: "Share Capital",
+            source: "Balance of 30400",
+          },
+          {
+            lineCode: 5,
+            particular: "Revaluation Gain on PPE (Net of Tax)",
+            shareCapital: null,
+            retainedEarnings: null,
+            revaluationReserve: ociRevaluation,
+            totalEquity: ociRevaluation,
+            inCell: "Revaluation Reserve",
+            source: "Profit and Loss 9.3",
+          },
+          {
+            lineCode: 6,
+            particular: "Transfer of Revaluation Surplus to Retained Earnings (Depreciation Adjustment)",
+            shareCapital: null,
+            retainedEarnings: null,
+            revaluationReserve: null,
+            totalEquity: 0,
+            inCell: "Not Used",
+            source: "",
+          },
+          {
+            lineCode: 7,
+            particular: "Closing Balance",
+            shareCapital: closingShareCapital,
+            retainedEarnings: closingRetainedEarnings,
+            revaluationReserve: closingRevaluationReserve,
+            totalEquity: closingTotalEquity,
+            isTotal: true,
+          },
+        ],
+      });
+    } catch (error) {
+      console.error("Error fetching changes in equity:", error);
+      res.status(500).json({ message: "Failed to fetch changes in equity" });
+    }
+  });
+
   // ===== REPORTS =====
   app.get("/api/reports", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
     try {

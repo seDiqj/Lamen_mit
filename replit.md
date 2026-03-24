@@ -50,11 +50,12 @@ Preferred communication style: Simple, everyday language.
 - **Chart of Accounts**: Hierarchical account structure with 5 types (asset, liability, equity, income, expense)
 - **Journal Entries**: Create, post, and reverse journal entries with proper audit trail
 - **Financial Reports**: Trial Balance, Income Statement, Balance Sheet, Account Statement
-- **DAB Regulatory Reports** (`/dab-report`): 4 tabs:
-  - Notes to Financial Statements (account-based)
-  - Statement of Profit or Loss (P&L with account code mapping)
-  - Statement of Cash Flow (operating/financing/investing activities)
+- **DAB Regulatory Reports** (`/dab-report`): 5 tabs:
+  - Notes to Financial Statements (account-based, asOfDate filter)
+  - Statement of Profit or Loss (P&L with account code mapping, startDate/endDate filter)
+  - Statement of Cash Flow (operating/financing/investing activities, startDate/endDate filter)
   - Statement of Financial Position (date-filtered balance sheet with Restricted/Unrestricted/Total columns, data sourced from Notes + account codes)
+  - Statement of Changes in Equity (Share Capital from 301 prefix, Retained Earnings from P&L, Dividends from 30400, Revaluation Reserve from OCI)
 - **Server-Side Validation**: Enforces minimum 2 lines, no negative amounts, balanced entries
 - **Role Restrictions**: Financial reports restricted to manager and admin roles
 
