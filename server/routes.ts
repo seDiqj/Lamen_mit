@@ -3589,7 +3589,7 @@ export async function registerRoutes(
       }
       const dateStr = asOfDate as string;
 
-      const allFundingSources = await db.select().from(fundingSources);
+      const allFundingSources = await db.select().from(fundingSourcesTable);
       const shareholderIds = new Set<string>();
       for (const fs of allFundingSources) {
         if (fs.name.toLowerCase().includes('shareholder')) {
