@@ -1,0 +1,81 @@
+-- Import JE1185 back to production database
+BEGIN;
+
+-- Insert journal entry header
+INSERT INTO journal_entries (id, entry_number, entry_date, description, reference, reference_type, reference_id, fiscal_period_id, total_debit, total_credit, is_posted, is_reversed, reversed_entry_id, created_by, posted_by, posted_at, created_at, funding_source_id)
+VALUES (
+  'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6',
+  'JE1185',
+  '2026-01-28',
+  'Paid for taxi to Zabihullah Ahmad and Almas for Marketing',
+  'JV-JV-1049',
+  'journal_entry',
+  NULL,
+  NULL,
+  341923.00,
+  341923.00,
+  true,
+  false,
+  NULL,
+  'import-script',
+  NULL,
+  '2026-02-12 05:27:47.739675',
+  '2026-02-12 05:27:47.739675',
+  NULL
+);
+
+-- Insert 50 journal lines
+INSERT INTO journal_lines (id, journal_entry_id, account_id, description, debit_amount, credit_amount, funding_source_id)
+VALUES
+  ('11c3ca2a-20b3-4d4d-91e2-936270d239ad', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', 'a68da106-bae6-43d4-9c59-faaaae108f7e', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 0.00, 10960.00, NULL),
+  ('14851cbb-f9ed-49c3-b030-20749c65d6eb', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', 'fe4ff4a4-e62b-4c3a-9192-fc494aacb325', 'Paid for monthly lunch expense', 10440.00, 0.00, NULL),
+  ('1bf6c857-2058-400e-bc01-fb3a8e234eda', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', 'a68da106-bae6-43d4-9c59-faaaae108f7e', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 0.00, 6960.00, NULL),
+  ('27c0f80c-1a7f-48f8-9942-f840ed9c85d4', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', '1863be64-3d77-4ae1-b281-8caa3892ab11', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 19335.00, 0.00, NULL),
+  ('2e96f766-0143-4f76-9b9a-37e502670d0f', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', '1dc9e912-6da0-4a02-a4f3-b1f733f150e2', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 820.00, 0.00, NULL),
+  ('30ca61db-d960-4813-b8fe-55e001e29834', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', '1863be64-3d77-4ae1-b281-8caa3892ab11', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 4835.00, 0.00, NULL),
+  ('31722fd7-5216-4766-9f51-99ec6659a2cc', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', '1863be64-3d77-4ae1-b281-8caa3892ab11', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 32230.00, 0.00, NULL),
+  ('36925526-b823-4b9e-9cf5-b9cdc1bbe380', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', 'a68da106-bae6-43d4-9c59-faaaae108f7e', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 0.00, 7500.00, NULL),
+  ('38643772-baa8-46c7-a454-761368c0863e', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', 'a68da106-bae6-43d4-9c59-faaaae108f7e', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 0.00, 32230.00, NULL),
+  ('39fcf1ee-bf99-4f0c-b501-477707c8c88a', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', 'a68da106-bae6-43d4-9c59-faaaae108f7e', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 0.00, 6630.00, NULL),
+  ('3bd1fd8c-cacc-44c2-bc22-3894a0c40c19', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', 'a68da106-bae6-43d4-9c59-faaaae108f7e', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 0.00, 4835.00, NULL),
+  ('3d7a6f88-79c9-40a0-8859-2653f17c8f82', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', 'a68da106-bae6-43d4-9c59-faaaae108f7e', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 0.00, 27070.00, NULL),
+  ('4310f8e9-8648-4016-b769-15fe641349bf', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', '1863be64-3d77-4ae1-b281-8caa3892ab11', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 18125.00, 0.00, NULL),
+  ('4877ff85-0087-4308-96ac-7590c224c472', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', 'b2a2a15f-806c-4f1a-8dcc-b2dc7ae4dea5', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 0.00, 820.00, NULL),
+  ('5ac40ce4-0325-41a3-85e2-20f88329b9f3', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', '1863be64-3d77-4ae1-b281-8caa3892ab11', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 6630.00, 0.00, NULL),
+  ('5b82b4e7-bb3a-4711-a22c-7a202ad97e2b', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', '1863be64-3d77-4ae1-b281-8caa3892ab11', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 34800.00, 0.00, NULL),
+  ('5e5ee673-1e32-4b5f-9046-19d4d407b29f', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', 'a68da106-bae6-43d4-9c59-faaaae108f7e', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 0.00, 19330.00, NULL),
+  ('5f3ac31f-9de8-4969-ba9d-1d1602226627', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', '1863be64-3d77-4ae1-b281-8caa3892ab11', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 7733.00, 0.00, NULL),
+  ('694ec269-b3a9-451d-a2fe-10f51a25dd65', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', 'a68da106-bae6-43d4-9c59-faaaae108f7e', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 0.00, 19330.00, NULL),
+  ('6c6570a8-2efc-42d6-bf31-5c6fa2eb7557', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', 'a68da106-bae6-43d4-9c59-faaaae108f7e', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 0.00, 7735.00, NULL),
+  ('70d1d406-caeb-4681-a639-b4e5aceb21ee', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', 'a68da106-bae6-43d4-9c59-faaaae108f7e', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 0.00, 12240.00, NULL),
+  ('75856e9c-e364-4b4b-97a5-69e24a308d56', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', '1dc9e912-6da0-4a02-a4f3-b1f733f150e2', 'Paid for taxi by Gulzar for purchasing materials for office', 80.00, 0.00, NULL),
+  ('786c073d-4938-456d-90b8-6ada89fef657', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', 'a68da106-bae6-43d4-9c59-faaaae108f7e', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 0.00, 19330.00, NULL),
+  ('7feb8d12-cb5c-4eb6-a250-b985302ff6df', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', 'a68da106-bae6-43d4-9c59-faaaae108f7e', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 0.00, 8110.00, NULL),
+  ('83313432-f63c-4149-828d-b1e78ed022a7', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', 'a68da106-bae6-43d4-9c59-faaaae108f7e', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 0.00, 19670.00, NULL),
+  ('88b1c01f-c8f0-405a-b0cc-19297d9abd6a', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', 'a68da106-bae6-43d4-9c59-faaaae108f7e', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 0.00, 31910.00, NULL),
+  ('96f4f982-701a-4124-90ab-f4a5d0ffefc2', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', '1dc9e912-6da0-4a02-a4f3-b1f733f150e2', 'Paid for taxi by Gulzar for bringing letter from DAB and Azizi Bank', 420.00, 0.00, NULL),
+  ('997a7759-5078-4793-a5b4-267a0921b3d3', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', '1863be64-3d77-4ae1-b281-8caa3892ab11', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 19330.00, 0.00, NULL),
+  ('9a00e74c-9908-4fb2-bb0b-5d699e31826b', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', 'a68da106-bae6-43d4-9c59-faaaae108f7e', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 0.00, 34800.00, NULL),
+  ('9b83576b-bbe0-4201-a7e0-9b68dc2d94d6', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', '1863be64-3d77-4ae1-b281-8caa3892ab11', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 31910.00, 0.00, NULL),
+  ('9b89e7d3-5d76-4932-8ac0-c82099e61399', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', '1c1d8401-a0e0-48cd-bf6b-714c800020e2', 'Paid for monthly lunch expense', 120.00, 0.00, NULL),
+  ('a2c0121f-67e3-47c3-b9d4-3add75901476', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', 'b2a2a15f-806c-4f1a-8dcc-b2dc7ae4dea5', 'Paid for monthly lunch expense', 0.00, 10640.00, NULL),
+  ('a2e88702-8670-4589-8a47-bc35fd4a0387', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', '1863be64-3d77-4ae1-b281-8caa3892ab11', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 19670.00, 0.00, NULL),
+  ('ac9190b3-3215-40a2-b0f4-08a9af89e1cd', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', '1863be64-3d77-4ae1-b281-8caa3892ab11', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 16110.00, 0.00, NULL),
+  ('af27cb16-adf4-4eae-bf48-321d758f6558', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', 'a68da106-bae6-43d4-9c59-faaaae108f7e', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 0.00, 18125.00, NULL),
+  ('b735ab40-088d-4e38-9497-1482f21c8a28', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', '1863be64-3d77-4ae1-b281-8caa3892ab11', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 8110.00, 0.00, NULL),
+  ('b80c8039-9287-4f26-ae06-544e87db5dfb', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', '1863be64-3d77-4ae1-b281-8caa3892ab11', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 7500.00, 0.00, NULL),
+  ('bef5dc00-6dae-4204-b698-8958a3c06ae4', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', '1863be64-3d77-4ae1-b281-8caa3892ab11', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 19330.00, 0.00, NULL),
+  ('c079d013-d97b-4eb7-bb1b-64e77e6774b4', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', '1863be64-3d77-4ae1-b281-8caa3892ab11', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 27070.00, 0.00, NULL),
+  ('c97724b5-dc27-4642-8677-1f2566d06499', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', 'a68da106-bae6-43d4-9c59-faaaae108f7e', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 0.00, 19335.00, NULL),
+  ('d3d0bba4-e9c1-41d6-8c7b-4a4f128c7b09', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', 'b2a2a15f-806c-4f1a-8dcc-b2dc7ae4dea5', 'Paid for taxi by Gulzar for bringing letter from DAB and Azizi Bank', 0.00, 420.00, NULL),
+  ('de4337ed-742e-4885-8cc8-b6f91a76be71', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', '1863be64-3d77-4ae1-b281-8caa3892ab11', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 12240.00, 0.00, NULL),
+  ('df3a660e-f990-4936-918b-2328f0e0d4c9', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', '1863be64-3d77-4ae1-b281-8caa3892ab11', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 10960.00, 0.00, NULL),
+  ('e27e783f-62e8-42ed-9b08-1a2f76395e0b', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', 'a68da106-bae6-43d4-9c59-faaaae108f7e', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 0.00, 7733.00, NULL),
+  ('e2f8ae8d-9a8b-4785-8380-28b176a940c3', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', '1863be64-3d77-4ae1-b281-8caa3892ab11', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 7735.00, 0.00, NULL),
+  ('e793edf2-27eb-4e3e-96a5-ae08f6826bb3', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', '1863be64-3d77-4ae1-b281-8caa3892ab11', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 6960.00, 0.00, NULL),
+  ('ee4016fb-946c-4856-a73b-e7a997fe338a', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', 'b2a2a15f-806c-4f1a-8dcc-b2dc7ae4dea5', 'Paid for lunch expenses', 0.00, 100.00, NULL),
+  ('f082d38d-e628-4a2f-9bf4-b51413ab6c95', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', 'a68da106-bae6-43d4-9c59-faaaae108f7e', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 0.00, 16110.00, NULL),
+  ('f17f618a-ba63-45db-8aae-0d961d984d3f', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', 'fe4ff4a4-e62b-4c3a-9192-fc494aacb325', 'Paid for lunch expenses', 100.00, 0.00, NULL),
+  ('f4d436a2-759f-4435-93e3-4ab9557dee4f', 'f8450ab3-0aa7-4075-8b1f-a0a6ff16d6a6', '1863be64-3d77-4ae1-b281-8caa3892ab11', 'Paid for taxi to Zabihullah Ahmad and Almas for Marketing', 19330.00, 0.00, NULL);
+
+COMMIT;
