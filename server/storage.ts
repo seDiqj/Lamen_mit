@@ -4757,11 +4757,20 @@ export class DatabaseStorage implements IStorage {
     
     const conditions = [];
     if (filters?.search) {
-      conditions.push(or(
-        like(journalEntries.entryNumber, `%${filters.search}%`),
-        like(journalEntries.description, `%${filters.search}%`),
-        like(journalEntries.reference, `%${filters.search}%`)
-      ));
+      const searchVal = filters.search.replace(/,/g, '');
+      const numericSearch = parseFloat(searchVal);
+      const searchConditions = [
+        ilike(journalEntries.entryNumber, `%${filters.search}%`),
+        ilike(journalEntries.description, `%${filters.search}%`),
+        ilike(journalEntries.reference, `%${filters.search}%`)
+      ];
+      if (!isNaN(numericSearch)) {
+        searchConditions.push(
+          eq(journalEntries.totalDebit, numericSearch.toFixed(2)),
+          eq(journalEntries.totalCredit, numericSearch.toFixed(2))
+        );
+      }
+      conditions.push(or(...searchConditions));
     }
     if (filters?.startDate) {
       conditions.push(gte(journalEntries.entryDate, filters.startDate));

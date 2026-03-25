@@ -446,7 +446,7 @@ export default function JournalEntries() {
           <div className="flex items-center gap-3">
             <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search entries..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} className="pl-9" data-testid="input-search" />
+              <Input placeholder="Search by entry number, amount, or description..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} className="pl-9" data-testid="input-search" />
             </div>
             <Select value={fundingSourceFilter} onValueChange={(val) => { setFundingSourceFilter(val); setCurrentPage(1); }}>
               <SelectTrigger className="w-[200px]" data-testid="filter-funding-source">
