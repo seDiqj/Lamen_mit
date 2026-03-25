@@ -322,7 +322,7 @@ export default function JournalEntries() {
               <Plus className="h-4 w-4" /> New Entry
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingEntry ? "Edit Journal Entry" : "Create Journal Entry"}</DialogTitle>
             </DialogHeader>
@@ -367,11 +367,11 @@ export default function JournalEntries() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[220px]">Account</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead className="w-[150px]">Fund</TableHead>
-                      <TableHead className="w-28 text-right">Debit</TableHead>
-                      <TableHead className="w-28 text-right">Credit</TableHead>
+                      <TableHead className="w-[300px]">Account</TableHead>
+                      <TableHead className="min-w-[200px]">Description</TableHead>
+                      <TableHead className="w-[160px]">Fund</TableHead>
+                      <TableHead className="w-32 text-right">Debit</TableHead>
+                      <TableHead className="w-32 text-right">Credit</TableHead>
                       <TableHead className="w-12"></TableHead>
                     </TableRow>
                   </TableHeader>
