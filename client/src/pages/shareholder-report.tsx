@@ -141,8 +141,8 @@ export default function ShareholderReportPage() {
     rows.push([]);
     rows.push(["TOTAL EXPENSES", "", formatCurrency(data.expense.total), ""]);
     rows.push([]);
-    rows.push(["NET PROFIT (Collected)", "", formatCurrency(data.netProfit), ""]);
-    rows.push(["NET PROFIT (Including Receivable)", "", formatCurrency(data.netProfitIncludingReceivable), ""]);
+    rows.push([data.netProfit >= 0 ? "TOTAL PROFIT (Collected)" : "TOTAL LOSS (Collected)", "", formatCurrency(data.netProfit), ""]);
+    rows.push([data.netProfitIncludingReceivable >= 0 ? "TOTAL PROFIT (Including Receivable)" : "TOTAL LOSS (Including Receivable)", "", formatCurrency(data.netProfitIncludingReceivable), ""]);
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
     ws["!cols"] = [{ wch: 45 }, { wch: 15 }, { wch: 20 }, { wch: 20 }];
@@ -203,13 +203,14 @@ export default function ShareholderReportPage() {
       { content: "", styles: { fillColor: [254, 226, 226] } }]);
 
     const profitColor = data.netProfit >= 0 ? [220, 252, 231] : [254, 226, 226];
-    tableRows.push([{ content: "NET PROFIT (Collected)", colSpan: 2, styles: { fontStyle: "bold", fillColor: profitColor } },
+    tableRows.push([{ content: data.netProfit >= 0 ? "TOTAL PROFIT (Collected)" : "TOTAL LOSS (Collected)", colSpan: 2, styles: { fontStyle: "bold", fillColor: profitColor } },
       { content: formatCurrency(data.netProfit), styles: { fontStyle: "bold", fillColor: profitColor } },
       { content: "", styles: { fillColor: profitColor } }]);
 
-    tableRows.push([{ content: "NET PROFIT (Including Receivable)", colSpan: 2, styles: { fontStyle: "bold", fillColor: profitColor } },
-      { content: formatCurrency(data.netProfitIncludingReceivable), styles: { fontStyle: "bold", fillColor: profitColor } },
-      { content: "", styles: { fillColor: profitColor } }]);
+    const profitColorReceivable = data.netProfitIncludingReceivable >= 0 ? [220, 252, 231] : [254, 226, 226];
+    tableRows.push([{ content: data.netProfitIncludingReceivable >= 0 ? "TOTAL PROFIT (Including Receivable)" : "TOTAL LOSS (Including Receivable)", colSpan: 2, styles: { fontStyle: "bold", fillColor: profitColorReceivable } },
+      { content: formatCurrency(data.netProfitIncludingReceivable), styles: { fontStyle: "bold", fillColor: profitColorReceivable } },
+      { content: "", styles: { fillColor: profitColorReceivable } }]);
 
     autoTable(doc, {
       startY: 35,
@@ -374,29 +375,29 @@ export default function ShareholderReportPage() {
 
               <Card className={`bg-gradient-to-br ${data.netProfit >= 0
                 ? "from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 border-green-200 dark:border-green-800"
-                : "from-orange-50 to-orange-100 dark:from-orange-950 dark:to-orange-900 border-orange-200 dark:border-orange-800"
+                : "from-red-50 to-red-100 dark:from-red-950 dark:to-red-900 border-red-200 dark:border-red-800"
               }`}>
                 <CardContent className="p-5">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className={`text-xs font-medium uppercase tracking-wider ${data.netProfit >= 0
                         ? "text-green-600 dark:text-green-400"
-                        : "text-orange-600 dark:text-orange-400"
-                      }`}>Net Profit</p>
+                        : "text-red-600 dark:text-red-400"
+                      }`}>{data.netProfit >= 0 ? "Total Profit" : "Total Loss"}</p>
                       <p className={`text-2xl font-bold mt-1 ${data.netProfit >= 0
                         ? "text-green-800 dark:text-green-200"
-                        : "text-orange-800 dark:text-orange-200"
+                        : "text-red-800 dark:text-red-200"
                       }`} data-testid="text-net-profit">
                         {data.netProfit < 0 ? "(" : ""}{formatCurrency(data.netProfit)}{data.netProfit < 0 ? ")" : ""}
                       </p>
                     </div>
                     <div className={`h-12 w-12 rounded-full flex items-center justify-center ${data.netProfit >= 0
                       ? "bg-green-200 dark:bg-green-800"
-                      : "bg-orange-200 dark:bg-orange-800"
+                      : "bg-red-200 dark:bg-red-800"
                     }`}>
                       <DollarSign className={`h-6 w-6 ${data.netProfit >= 0
                         ? "text-green-600 dark:text-green-400"
-                        : "text-orange-600 dark:text-orange-400"
+                        : "text-red-600 dark:text-red-400"
                       }`} />
                     </div>
                   </div>
@@ -637,25 +638,25 @@ export default function ShareholderReportPage() {
 
             <Card className={`border-2 ${data.netProfit >= 0
               ? "border-green-300 dark:border-green-700 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950"
-              : "border-orange-300 dark:border-orange-700 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950 dark:to-amber-950"
+              : "border-red-300 dark:border-red-700 bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-950 dark:to-rose-950"
             }`}>
               <CardContent className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="flex items-center gap-4">
                     <div className={`h-16 w-16 rounded-2xl flex items-center justify-center ${data.netProfit >= 0
                       ? "bg-green-200 dark:bg-green-800"
-                      : "bg-orange-200 dark:bg-orange-800"
+                      : "bg-red-200 dark:bg-red-800"
                     }`}>
                       <DollarSign className={`h-8 w-8 ${data.netProfit >= 0
                         ? "text-green-600 dark:text-green-400"
-                        : "text-orange-600 dark:text-orange-400"
+                        : "text-red-600 dark:text-red-400"
                       }`} />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">Net Profit (Collected Only)</p>
+                      <p className="text-sm font-medium text-muted-foreground">{data.netProfit >= 0 ? "Total Profit (Collected Only)" : "Total Loss (Collected Only)"}</p>
                       <p className={`text-3xl font-bold ${data.netProfit >= 0
                         ? "text-green-700 dark:text-green-300"
-                        : "text-orange-700 dark:text-orange-300"
+                        : "text-red-700 dark:text-red-300"
                       }`} data-testid="text-net-profit-collected">
                         {data.netProfit < 0 ? "(" : ""}{formatCurrency(data.netProfit)}{data.netProfit < 0 ? ")" : ""}
                       </p>
@@ -666,19 +667,19 @@ export default function ShareholderReportPage() {
                   </div>
                   <div className="flex items-center gap-4">
                     <div className={`h-16 w-16 rounded-2xl flex items-center justify-center ${data.netProfitIncludingReceivable >= 0
-                      ? "bg-blue-200 dark:bg-blue-800"
-                      : "bg-orange-200 dark:bg-orange-800"
+                      ? "bg-green-200 dark:bg-green-800"
+                      : "bg-red-200 dark:bg-red-800"
                     }`}>
                       <TrendingUp className={`h-8 w-8 ${data.netProfitIncludingReceivable >= 0
-                        ? "text-blue-600 dark:text-blue-400"
-                        : "text-orange-600 dark:text-orange-400"
+                        ? "text-green-600 dark:text-green-400"
+                        : "text-red-600 dark:text-red-400"
                       }`} />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">Net Profit (Including Receivable)</p>
+                      <p className="text-sm font-medium text-muted-foreground">{data.netProfitIncludingReceivable >= 0 ? "Total Profit (Including Receivable)" : "Total Loss (Including Receivable)"}</p>
                       <p className={`text-3xl font-bold ${data.netProfitIncludingReceivable >= 0
-                        ? "text-blue-700 dark:text-blue-300"
-                        : "text-orange-700 dark:text-orange-300"
+                        ? "text-green-700 dark:text-green-300"
+                        : "text-red-700 dark:text-red-300"
                       }`} data-testid="text-net-profit-receivable">
                         {data.netProfitIncludingReceivable < 0 ? "(" : ""}{formatCurrency(data.netProfitIncludingReceivable)}{data.netProfitIncludingReceivable < 0 ? ")" : ""}
                       </p>
