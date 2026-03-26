@@ -5719,7 +5719,7 @@ export class DatabaseStorage implements IStorage {
     const disbursedResult = await db.execute(sql`
       SELECT l.id as loan_id, l.application_id, l.principle_amount,
              d.disbursement_date,
-             COALESCE(c.name, '') || ' ' || COALESCE(c.father_name, '') as customer_name
+             COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, '') || ' ' || COALESCE(c.father_name, '') as customer_name
       FROM loans l
       INNER JOIN disbursements d ON d.loan_id = l.id
       INNER JOIN customers c ON l.customer_id = c.id
