@@ -21,7 +21,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileSpreadsheet, FileText, Landmark } from "lucide-react";
+import { FileSpreadsheet, FileText, Landmark, Banknote } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { formatDate } from "@/lib/date-utils";
 import * as XLSX from "xlsx";
@@ -68,6 +68,27 @@ type FundStatementData = {
   openingBalance: number;
   transactions: FundTransaction[];
   closingBalance: number;
+};
+
+type PrincipalTransaction = {
+  date: string;
+  type: 'disbursement' | 'collection';
+  applicationId: string;
+  customerName: string;
+  debitAmount: number;
+  creditAmount: number;
+  balance: number;
+};
+
+type PrincipalStatementData = {
+  fundingSource: FundingSource;
+  openingBalance: number;
+  transactions: PrincipalTransaction[];
+  closingBalance: number;
+  summary: {
+    totalDisbursed: number;
+    totalCollected: number;
+  };
 };
 
 const quickDateOptions = [
@@ -316,6 +337,16 @@ export default function AccountStatement() {
   const [fundStatement, setFundStatement] = useState<FundStatementData | null>(null);
   const [isFundLoading, setIsFundLoading] = useState(false);
 
+  const [selectedPrincipalFund, setSelectedPrincipalFund] = useState<string>("");
+  const [principalStartDate, setPrincipalStartDate] = useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 1);
+    return d.toISOString().split("T")[0];
+  });
+  const [principalEndDate, setPrincipalEndDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [principalStatement, setPrincipalStatement] = useState<PrincipalStatementData | null>(null);
+  const [isPrincipalLoading, setIsPrincipalLoading] = useState(false);
+
   const { data: accounts = [] } = useQuery<Account[]>({
     queryKey: ["/api/accounts"],
   });
@@ -357,6 +388,129 @@ export default function AccountStatement() {
     } finally {
       setIsFundLoading(false);
     }
+  };
+
+  const fetchPrincipalStatement = async () => {
+    if (!selectedPrincipalFund) return;
+    setIsPrincipalLoading(true);
+    try {
+      const params = new URLSearchParams({ startDate: principalStartDate, endDate: principalEndDate });
+      const res = await fetch(`/api/reports/funding-source-principle-statement/${selectedPrincipalFund}?${params}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch");
+      const data = await res.json();
+      setPrincipalStatement(data);
+    } catch (error) {
+      console.error("Failed to fetch principal statement:", error);
+    } finally {
+      setIsPrincipalLoading(false);
+    }
+  };
+
+  const handlePrincipalExportExcel = () => {
+    if (!principalStatement) return;
+    const startStr = principalStartDate.replace(/-/g, "");
+    const endStr = principalEndDate.replace(/-/g, "");
+    const fundCode = principalStatement.fundingSource.code;
+    const exportData: any[] = [];
+    exportData.push({
+      "Date": "",
+      "Type": "",
+      "Loan ID": "",
+      "Customer": "",
+      "Debit (AFN)": "",
+      "Credit (AFN)": "",
+      "Balance (AFN)": principalStatement.openingBalance,
+    });
+    principalStatement.transactions.forEach(tx => {
+      exportData.push({
+        "Date": formatDate(tx.date),
+        "Type": tx.type === 'disbursement' ? 'Disbursed' : 'Collected',
+        "Loan ID": tx.applicationId,
+        "Customer": tx.customerName,
+        "Debit (AFN)": tx.debitAmount > 0 ? tx.debitAmount : "",
+        "Credit (AFN)": tx.creditAmount > 0 ? tx.creditAmount : "",
+        "Balance (AFN)": tx.balance,
+      });
+    });
+    exportData.push({
+      "Date": "",
+      "Type": "",
+      "Loan ID": "",
+      "Customer": "Total",
+      "Debit (AFN)": principalStatement.summary.totalDisbursed,
+      "Credit (AFN)": principalStatement.summary.totalCollected,
+      "Balance (AFN)": "",
+    });
+    exportData.push({
+      "Date": "",
+      "Type": "",
+      "Loan ID": "",
+      "Customer": "Closing Balance",
+      "Debit (AFN)": "",
+      "Credit (AFN)": "",
+      "Balance (AFN)": principalStatement.closingBalance,
+    });
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Principal Statement");
+    XLSX.writeFile(wb, `Principal_Statement_${fundCode}_${startStr}_to_${endStr}.xlsx`);
+  };
+
+  const handlePrincipalExportPDF = () => {
+    if (!principalStatement) return;
+    const startStr = principalStartDate.replace(/-/g, "");
+    const endStr = principalEndDate.replace(/-/g, "");
+    const fundCode = principalStatement.fundingSource.code;
+    const doc = new jsPDF("landscape");
+    doc.setFontSize(14);
+    doc.text("Lamen Micro Finance Institution", 148, 15, { align: "center" });
+    doc.setFontSize(12);
+    doc.text("Funding Source Principle Statement", 148, 23, { align: "center" });
+    doc.setFontSize(10);
+    doc.text(`Fund: ${fundCode} - ${principalStatement.fundingSource.name}`, 14, 33);
+    doc.text(`Period: ${formatDate(principalStartDate)} to ${formatDate(principalEndDate)}`, 14, 40);
+
+    const body: any[] = [];
+    body.push([{ content: "Opening Balance", colSpan: 5, styles: { fontStyle: "bold" } }, "", "", "", "", { content: principalStatement.openingBalance.toLocaleString(), styles: { halign: "right", fontStyle: "bold" } }]);
+    principalStatement.transactions.forEach(tx => {
+      body.push([
+        formatDate(tx.date),
+        tx.type === 'disbursement' ? 'Disbursed' : 'Collected',
+        tx.applicationId,
+        tx.customerName,
+        tx.debitAmount > 0 ? tx.debitAmount.toLocaleString() : "-",
+        tx.creditAmount > 0 ? tx.creditAmount.toLocaleString() : "-",
+        tx.balance.toLocaleString(),
+      ]);
+    });
+    body.push([
+      { content: "Total", colSpan: 4, styles: { fontStyle: "bold", halign: "right" } }, "", "", "",
+      { content: principalStatement.summary.totalDisbursed.toLocaleString(), styles: { halign: "right", fontStyle: "bold" } },
+      { content: principalStatement.summary.totalCollected.toLocaleString(), styles: { halign: "right", fontStyle: "bold" } },
+      "",
+    ]);
+    body.push([
+      { content: "Closing Balance", colSpan: 6, styles: { fontStyle: "bold" } }, "", "", "", "", "",
+      { content: principalStatement.closingBalance.toLocaleString(), styles: { halign: "right", fontStyle: "bold" } },
+    ]);
+
+    autoTable(doc, {
+      startY: 46,
+      head: [["Date", "Type", "Loan ID", "Customer", "Debit (AFN)", "Credit (AFN)", "Balance (AFN)"]],
+      body,
+      styles: { fontSize: 8, cellPadding: 2 },
+    });
+
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(128, 128, 128);
+      doc.text(`Page ${i} of ${pageCount}`, 148, 200, { align: "center" });
+      doc.text("Lamen Microfinance Institution - Confidential", 14, 200);
+    }
+
+    doc.save(`Principal_Statement_${fundCode}_${startStr}_to_${endStr}.pdf`);
   };
 
   const handleExportExcel = () => {
@@ -455,15 +609,28 @@ export default function AccountStatement() {
             </Button>
           </div>
         )}
+        {activeTab === "principal" && principalStatement && (
+          <div className="flex items-center gap-2">
+            <Button onClick={handlePrincipalExportExcel} className="gap-2 bg-green-600 hover:bg-green-700 text-white" data-testid="button-principal-export-excel">
+              <FileSpreadsheet className="h-4 w-4" /> Excel
+            </Button>
+            <Button onClick={handlePrincipalExportPDF} className="gap-2 bg-red-600 hover:bg-red-700 text-white" data-testid="button-principal-export-pdf">
+              <FileText className="h-4 w-4" /> PDF
+            </Button>
+          </div>
+        )}
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2 max-w-md">
+        <TabsList className="grid w-full grid-cols-3 max-w-2xl">
           <TabsTrigger value="account" className="gap-2" data-testid="tab-account-statement">
             <FileSpreadsheet className="h-4 w-4" /> Account Statement
           </TabsTrigger>
           <TabsTrigger value="fund" className="gap-2" data-testid="tab-fund-statement">
             <Landmark className="h-4 w-4" /> Funding Source Statement
+          </TabsTrigger>
+          <TabsTrigger value="principal" className="gap-2" data-testid="tab-principal-statement">
+            <Banknote className="h-4 w-4" /> Principle Statement
           </TabsTrigger>
         </TabsList>
 
@@ -705,6 +872,134 @@ export default function AccountStatement() {
                     <TableRow className="bg-muted/30 font-semibold">
                       <TableCell colSpan={7}>Closing Balance</TableCell>
                       <TableCell className="text-right font-mono">{formatCurrency(fundStatement.closingBalance.toString())}</TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="principal" className="flex flex-col gap-4 mt-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">Funding Source Principle Statement</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col gap-3">
+                <QuickDateButtons setStartDate={setPrincipalStartDate} setEndDate={setPrincipalEndDate} />
+                <div className="flex flex-wrap items-end gap-4">
+                  <div className="space-y-2 min-w-[250px]">
+                    <Label>Funding Source</Label>
+                    <Select value={selectedPrincipalFund} onValueChange={setSelectedPrincipalFund}>
+                      <SelectTrigger data-testid="select-principal-fund">
+                        <SelectValue placeholder="Select a fund..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {fundingSources.map((fs) => (
+                          <SelectItem key={fs.id} value={fs.id}>{fs.code} - {fs.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Start Date</Label>
+                    <Input type="date" value={principalStartDate} onChange={(e) => setPrincipalStartDate(e.target.value)} data-testid="input-principal-start-date" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>End Date</Label>
+                    <Input type="date" value={principalEndDate} onChange={(e) => setPrincipalEndDate(e.target.value)} data-testid="input-principal-end-date" />
+                  </div>
+                  <Button onClick={fetchPrincipalStatement} disabled={!selectedPrincipalFund || isPrincipalLoading} data-testid="button-principal-generate">
+                    {isPrincipalLoading ? "Loading..." : "Generate Statement"}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {principalStatement && (
+            <Card className="print:shadow-none">
+              <CardHeader className="border-b">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <CardTitle className="text-xl">{principalStatement.fundingSource.code} - {principalStatement.fundingSource.name}</CardTitle>
+                    <p className="text-muted-foreground text-sm mt-1">
+                      Principle Statement: {formatDate(principalStartDate)} to {formatDate(principalEndDate)}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-6">
+                    <div className="text-right">
+                      <p className="text-sm text-muted-foreground">Total Disbursed</p>
+                      <p className="text-lg font-bold text-red-600">{formatCurrency(principalStatement.summary.totalDisbursed.toString())}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-muted-foreground">Total Collected</p>
+                      <p className="text-lg font-bold text-green-600">{formatCurrency(principalStatement.summary.totalCollected.toString())}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-muted-foreground">Outstanding</p>
+                      <p className="text-lg font-bold">{formatCurrency(principalStatement.closingBalance.toString())}</p>
+                    </div>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Loan ID</TableHead>
+                      <TableHead>Customer</TableHead>
+                      <TableHead className="text-right">Debit (Disbursed)</TableHead>
+                      <TableHead className="text-right">Credit (Collected)</TableHead>
+                      <TableHead className="text-right">Balance</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    <TableRow className="bg-muted/30">
+                      <TableCell colSpan={6} className="font-medium">Opening Balance</TableCell>
+                      <TableCell className="text-right font-mono font-medium">{formatCurrency(principalStatement.openingBalance.toString())}</TableCell>
+                    </TableRow>
+                    {principalStatement.transactions.length > 0 ? principalStatement.transactions.map((tx, idx) => (
+                      <TableRow key={idx} className={tx.type === 'disbursement' ? 'bg-red-50/30 dark:bg-red-950/10' : 'bg-green-50/30 dark:bg-green-950/10'}>
+                        <TableCell>{formatDate(tx.date)}</TableCell>
+                        <TableCell>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${tx.type === 'disbursement' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
+                            {tx.type === 'disbursement' ? 'Disbursed' : 'Collected'}
+                          </span>
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">{tx.applicationId}</TableCell>
+                        <TableCell>{tx.customerName}</TableCell>
+                        <TableCell className="text-right font-mono">
+                          {tx.debitAmount > 0 ? formatCurrency(tx.debitAmount.toString()) : "-"}
+                        </TableCell>
+                        <TableCell className="text-right font-mono">
+                          {tx.creditAmount > 0 ? formatCurrency(tx.creditAmount.toString()) : "-"}
+                        </TableCell>
+                        <TableCell className="text-right font-mono">{formatCurrency(tx.balance.toString())}</TableCell>
+                      </TableRow>
+                    )) : (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                          No principal transactions found in this period.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    <TableRow className="bg-muted/20 font-semibold border-t-2">
+                      <TableCell colSpan={4} className="text-right">Total</TableCell>
+                      <TableCell className="text-right font-mono">
+                        {formatCurrency(principalStatement.summary.totalDisbursed.toString())}
+                      </TableCell>
+                      <TableCell className="text-right font-mono">
+                        {formatCurrency(principalStatement.summary.totalCollected.toString())}
+                      </TableCell>
+                      <TableCell></TableCell>
+                    </TableRow>
+                    <TableRow className="bg-muted/30 font-semibold">
+                      <TableCell colSpan={6}>Closing Balance</TableCell>
+                      <TableCell className="text-right font-mono">{formatCurrency(principalStatement.closingBalance.toString())}</TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>

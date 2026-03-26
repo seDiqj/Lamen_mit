@@ -387,6 +387,7 @@ export interface IStorage {
   getBalanceSheet(asOfDate: string): Promise<any>;
   getAccountStatement(accountId: string, startDate?: string, endDate?: string, fundingSourceId?: string): Promise<any>;
   getFundingSourceStatement(fundingSourceId: string, startDate?: string, endDate?: string): Promise<any>;
+  getFundingSourcePrincipleStatement(fundingSourceId: string, startDate?: string, endDate?: string): Promise<any>;
   getCashFlowStatement(startDate: string, endDate: string): Promise<any>;
   getNextEntryNumber(): Promise<string>;
   
@@ -5708,6 +5709,150 @@ export class DatabaseStorage implements IStorage {
       openingBalance,
       transactions: statement,
       closingBalance: runningBalance,
+    };
+  }
+
+  async getFundingSourcePrincipleStatement(fundingSourceId: string, startDate?: string, endDate?: string): Promise<any> {
+    const [fund] = await db.select().from(fundingSources).where(eq(fundingSources.id, fundingSourceId));
+    if (!fund) return null;
+
+    const disbursedRows = await db
+      .select({
+        loanId: loans.id,
+        applicationId: loans.applicationId,
+        principleAmount: loans.principleAmount,
+        disbursementDate: disbursements.disbursementDate,
+        customerName: customers.name,
+        fatherName: customers.fatherName,
+      })
+      .from(loans)
+      .innerJoin(disbursements, eq(disbursements.loanId, loans.id))
+      .innerJoin(customers, eq(loans.customerId, customers.id))
+      .where(and(
+        eq(loans.fundingSourceId, fundingSourceId),
+        sql`${loans.status} IN ('active', 'disbursed', 'completed', 'closed')`
+      ));
+
+    const loanInfoMap = new Map<string, { applicationId: string; customerName: string }>();
+    for (const row of disbursedRows) {
+      loanInfoMap.set(row.loanId, {
+        applicationId: row.applicationId || '',
+        customerName: `${row.customerName || ''} ${row.fatherName || ''}`.trim(),
+      });
+    }
+
+    const installmentRows = await db
+      .select({
+        loanId: installments.loanId,
+        principleAmount: installments.principleAmount,
+        paidAmount: installments.paidAmount,
+        totalAmount: installments.totalAmount,
+        marginAmount: installments.marginAmount,
+        paymentDate: installments.paymentDate,
+      })
+      .from(installments)
+      .innerJoin(loans, eq(installments.loanId, loans.id))
+      .where(and(
+        eq(loans.fundingSourceId, fundingSourceId),
+        sql`COALESCE(${installments.paidAmount}::numeric, 0) > 0`,
+        sql`${installments.paymentDate} IS NOT NULL`
+      ));
+
+    type PrincipalTx = {
+      date: string;
+      type: 'disbursement' | 'collection';
+      applicationId: string;
+      customerName: string;
+      debitAmount: number;
+      creditAmount: number;
+      balance: number;
+    };
+
+    const allTransactions: PrincipalTx[] = [];
+
+    for (const row of disbursedRows) {
+      if (row.disbursementDate) {
+        allTransactions.push({
+          date: row.disbursementDate,
+          type: 'disbursement',
+          applicationId: row.applicationId || '',
+          customerName: `${row.customerName || ''} ${row.fatherName || ''}`.trim(),
+          debitAmount: Number(row.principleAmount || 0),
+          creditAmount: 0,
+          balance: 0,
+        });
+      }
+    }
+
+    for (const inst of installmentRows) {
+      const loanId = inst.loanId!;
+      const info = loanInfoMap.get(loanId);
+      if (!info) continue;
+
+      const paidAmt = Number(inst.paidAmount || 0);
+      const marginAmt = Number(inst.marginAmount || 0);
+      const principalAmt = Number(inst.principleAmount || 0);
+      const totalAmt = Number(inst.totalAmount || 0);
+
+      let principalCollected = 0;
+      if (totalAmt > 0 && paidAmt >= totalAmt) {
+        principalCollected = principalAmt;
+      } else if (paidAmt > 0) {
+        if (paidAmt > marginAmt) {
+          principalCollected = Math.min(paidAmt - marginAmt, principalAmt);
+        }
+      }
+
+      if (principalCollected > 0) {
+        allTransactions.push({
+          date: inst.paymentDate!,
+          type: 'collection',
+          applicationId: info.applicationId,
+          customerName: info.customerName,
+          debitAmount: 0,
+          creditAmount: principalCollected,
+          balance: 0,
+        });
+      }
+    }
+
+    allTransactions.sort((a, b) => {
+      const dateCompare = (a.date || '').localeCompare(b.date || '');
+      if (dateCompare !== 0) return dateCompare;
+      if (a.type === 'disbursement' && b.type !== 'disbursement') return -1;
+      if (a.type !== 'disbursement' && b.type === 'disbursement') return 1;
+      return 0;
+    });
+
+    let priorBalance = 0;
+    const filteredTransactions: PrincipalTx[] = [];
+
+    for (const tx of allTransactions) {
+      const beforeRange = startDate && tx.date < startDate;
+      const inRange = (!startDate || tx.date >= startDate) && (!endDate || tx.date <= endDate);
+
+      if (beforeRange) {
+        priorBalance += tx.debitAmount - tx.creditAmount;
+      } else if (inRange) {
+        filteredTransactions.push(tx);
+      }
+    }
+
+    let runningBalance = priorBalance;
+    for (const tx of filteredTransactions) {
+      runningBalance += tx.debitAmount - tx.creditAmount;
+      tx.balance = runningBalance;
+    }
+
+    return {
+      fundingSource: fund,
+      openingBalance: priorBalance,
+      transactions: filteredTransactions,
+      closingBalance: runningBalance,
+      summary: {
+        totalDisbursed: filteredTransactions.reduce((s, t) => s + t.debitAmount, 0),
+        totalCollected: filteredTransactions.reduce((s, t) => s + t.creditAmount, 0),
+      },
     };
   }
 
