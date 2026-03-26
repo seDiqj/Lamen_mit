@@ -142,7 +142,7 @@ export default function ShareholderReportPage() {
     rows.push(["TOTAL EXPENSES", "", formatCurrency(data.expense.total), ""]);
     rows.push([]);
     rows.push([data.netProfit >= 0 ? "TOTAL PROFIT (Collected)" : "TOTAL LOSS (Collected)", "", formatCurrency(data.netProfit), ""]);
-    rows.push([data.netProfitIncludingReceivable >= 0 ? "TOTAL PROFIT (Including Receivable)" : "TOTAL LOSS (Including Receivable)", "", formatCurrency(data.netProfitIncludingReceivable), ""]);
+    rows.push(["Margin Receivable (Pending Collection)", "", formatCurrency(data.netProfitIncludingReceivable - data.netProfit), ""]);
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
     ws["!cols"] = [{ wch: 45 }, { wch: 15 }, { wch: 20 }, { wch: 20 }];
@@ -207,10 +207,9 @@ export default function ShareholderReportPage() {
       { content: formatCurrency(data.netProfit), styles: { fontStyle: "bold", fillColor: profitColor } },
       { content: "", styles: { fillColor: profitColor } }]);
 
-    const profitColorReceivable = data.netProfitIncludingReceivable >= 0 ? [220, 252, 231] : [254, 226, 226];
-    tableRows.push([{ content: data.netProfitIncludingReceivable >= 0 ? "TOTAL PROFIT (Including Receivable)" : "TOTAL LOSS (Including Receivable)", colSpan: 2, styles: { fontStyle: "bold", fillColor: profitColorReceivable } },
-      { content: formatCurrency(data.netProfitIncludingReceivable), styles: { fontStyle: "bold", fillColor: profitColorReceivable } },
-      { content: "", styles: { fillColor: profitColorReceivable } }]);
+    tableRows.push([{ content: "Margin Receivable (Pending Collection)", colSpan: 2, styles: { fontStyle: "italic", textColor: [100, 100, 100] } },
+      { content: formatCurrency(data.netProfitIncludingReceivable - data.netProfit), styles: { fontStyle: "italic", textColor: [100, 100, 100] } },
+      { content: "" }]);
 
     autoTable(doc, {
       startY: 35,
@@ -641,52 +640,27 @@ export default function ShareholderReportPage() {
               : "border-red-300 dark:border-red-700 bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-950 dark:to-rose-950"
             }`}>
               <CardContent className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="flex items-center gap-4">
-                    <div className={`h-16 w-16 rounded-2xl flex items-center justify-center ${data.netProfit >= 0
-                      ? "bg-green-200 dark:bg-green-800"
-                      : "bg-red-200 dark:bg-red-800"
-                    }`}>
-                      <DollarSign className={`h-8 w-8 ${data.netProfit >= 0
-                        ? "text-green-600 dark:text-green-400"
-                        : "text-red-600 dark:text-red-400"
-                      }`} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">{data.netProfit >= 0 ? "Total Profit (Collected Only)" : "Total Loss (Collected Only)"}</p>
-                      <p className={`text-3xl font-bold ${data.netProfit >= 0
-                        ? "text-green-700 dark:text-green-300"
-                        : "text-red-700 dark:text-red-300"
-                      }`} data-testid="text-net-profit-collected">
-                        {data.netProfit < 0 ? "(" : ""}{formatCurrency(data.netProfit)}{data.netProfit < 0 ? ")" : ""}
-                      </p>
-                      <Badge variant={data.netProfit >= 0 ? "default" : "destructive"} className="mt-1">
-                        {data.netProfit >= 0 ? "Profitable" : "Loss"}
-                      </Badge>
-                    </div>
+                <div className="flex items-center gap-4">
+                  <div className={`h-16 w-16 rounded-2xl flex items-center justify-center ${data.netProfit >= 0
+                    ? "bg-green-200 dark:bg-green-800"
+                    : "bg-red-200 dark:bg-red-800"
+                  }`}>
+                    <DollarSign className={`h-8 w-8 ${data.netProfit >= 0
+                      ? "text-green-600 dark:text-green-400"
+                      : "text-red-600 dark:text-red-400"
+                    }`} />
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className={`h-16 w-16 rounded-2xl flex items-center justify-center ${data.netProfitIncludingReceivable >= 0
-                      ? "bg-green-200 dark:bg-green-800"
-                      : "bg-red-200 dark:bg-red-800"
-                    }`}>
-                      <TrendingUp className={`h-8 w-8 ${data.netProfitIncludingReceivable >= 0
-                        ? "text-green-600 dark:text-green-400"
-                        : "text-red-600 dark:text-red-400"
-                      }`} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">{data.netProfitIncludingReceivable >= 0 ? "Total Profit (Including Receivable)" : "Total Loss (Including Receivable)"}</p>
-                      <p className={`text-3xl font-bold ${data.netProfitIncludingReceivable >= 0
-                        ? "text-green-700 dark:text-green-300"
-                        : "text-red-700 dark:text-red-300"
-                      }`} data-testid="text-net-profit-receivable">
-                        {data.netProfitIncludingReceivable < 0 ? "(" : ""}{formatCurrency(data.netProfitIncludingReceivable)}{data.netProfitIncludingReceivable < 0 ? ")" : ""}
-                      </p>
-                      <Badge variant={data.netProfitIncludingReceivable >= 0 ? "default" : "destructive"} className="mt-1">
-                        {data.netProfitIncludingReceivable >= 0 ? "Profitable" : "Loss"}
-                      </Badge>
-                    </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">{data.netProfit >= 0 ? "Total Profit" : "Total Loss"}</p>
+                    <p className={`text-3xl font-bold ${data.netProfit >= 0
+                      ? "text-green-700 dark:text-green-300"
+                      : "text-red-700 dark:text-red-300"
+                    }`} data-testid="text-net-profit-collected">
+                      {data.netProfit < 0 ? "(" : ""}{formatCurrency(data.netProfit)}{data.netProfit < 0 ? ")" : ""}
+                    </p>
+                    <Badge variant={data.netProfit >= 0 ? "default" : "destructive"} className="mt-1">
+                      {data.netProfit >= 0 ? "Profitable" : "Loss"}
+                    </Badge>
                   </div>
                 </div>
               </CardContent>
