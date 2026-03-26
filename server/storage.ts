@@ -5834,7 +5834,7 @@ export class DatabaseStorage implements IStorage {
       const inRange = (!startDate || tx.date >= startDate) && (!endDate || tx.date <= endDate);
 
       if (beforeRange) {
-        priorBalance += tx.debitAmount - tx.creditAmount;
+        priorBalance += tx.creditAmount - tx.debitAmount;
       } else if (inRange) {
         filteredTransactions.push(tx);
       }
@@ -5842,7 +5842,7 @@ export class DatabaseStorage implements IStorage {
 
     let runningBalance = priorBalance;
     for (const tx of filteredTransactions) {
-      runningBalance += tx.debitAmount - tx.creditAmount;
+      runningBalance += tx.creditAmount - tx.debitAmount;
       tx.balance = runningBalance;
     }
 
