@@ -5716,47 +5716,49 @@ export class DatabaseStorage implements IStorage {
     const [fund] = await db.select().from(fundingSources).where(eq(fundingSources.id, fundingSourceId));
     if (!fund) return null;
 
-    const disbursedRows = await db
-      .select({
-        loanId: loans.id,
-        applicationId: loans.applicationId,
-        principleAmount: loans.principleAmount,
-        disbursementDate: disbursements.disbursementDate,
-        customerName: customers.name,
-        fatherName: customers.fatherName,
-      })
-      .from(loans)
-      .innerJoin(disbursements, eq(disbursements.loanId, loans.id))
-      .innerJoin(customers, eq(loans.customerId, customers.id))
-      .where(and(
-        eq(loans.fundingSourceId, fundingSourceId),
-        sql`${loans.status} IN ('active', 'disbursed', 'completed', 'closed')`
-      ));
+    const disbursedResult = await db.execute(sql`
+      SELECT l.id as loan_id, l.application_id, l.principle_amount,
+             d.disbursement_date,
+             COALESCE(c.name, '') || ' ' || COALESCE(c.father_name, '') as customer_name
+      FROM loans l
+      INNER JOIN disbursements d ON d.loan_id = l.id
+      INNER JOIN customers c ON l.customer_id = c.id
+      WHERE l.funding_source_id = ${fundingSourceId}
+        AND l.status IN ('active', 'disbursed', 'completed', 'closed')
+    `);
+    const disbursedRows = disbursedResult.rows as Array<{
+      loan_id: string;
+      application_id: string | null;
+      principle_amount: string | null;
+      disbursement_date: string | null;
+      customer_name: string;
+    }>;
 
     const loanInfoMap = new Map<string, { applicationId: string; customerName: string }>();
     for (const row of disbursedRows) {
-      loanInfoMap.set(row.loanId, {
-        applicationId: row.applicationId || '',
-        customerName: `${row.customerName || ''} ${row.fatherName || ''}`.trim(),
+      loanInfoMap.set(row.loan_id, {
+        applicationId: row.application_id || '',
+        customerName: (row.customer_name || '').trim(),
       });
     }
 
-    const installmentRows = await db
-      .select({
-        loanId: installments.loanId,
-        principleAmount: installments.principleAmount,
-        paidAmount: installments.paidAmount,
-        totalAmount: installments.totalAmount,
-        marginAmount: installments.marginAmount,
-        paymentDate: installments.paymentDate,
-      })
-      .from(installments)
-      .innerJoin(loans, eq(installments.loanId, loans.id))
-      .where(and(
-        eq(loans.fundingSourceId, fundingSourceId),
-        sql`COALESCE(${installments.paidAmount}::numeric, 0) > 0`,
-        sql`${installments.paymentDate} IS NOT NULL`
-      ));
+    const installmentResult = await db.execute(sql`
+      SELECT i.loan_id, i.principle_amount, i.paid_amount, i.total_amount,
+             i.margin_amount, i.payment_date
+      FROM installments i
+      INNER JOIN loans l ON i.loan_id = l.id
+      WHERE l.funding_source_id = ${fundingSourceId}
+        AND COALESCE(i.paid_amount::numeric, 0) > 0
+        AND i.payment_date IS NOT NULL
+    `);
+    const installmentRows = installmentResult.rows as Array<{
+      loan_id: string;
+      principle_amount: string | null;
+      paid_amount: string | null;
+      total_amount: string | null;
+      margin_amount: string | null;
+      payment_date: string;
+    }>;
 
     type PrincipalTx = {
       date: string;
@@ -5771,13 +5773,13 @@ export class DatabaseStorage implements IStorage {
     const allTransactions: PrincipalTx[] = [];
 
     for (const row of disbursedRows) {
-      if (row.disbursementDate) {
+      if (row.disbursement_date) {
         allTransactions.push({
-          date: row.disbursementDate,
+          date: row.disbursement_date,
           type: 'disbursement',
-          applicationId: row.applicationId || '',
-          customerName: `${row.customerName || ''} ${row.fatherName || ''}`.trim(),
-          debitAmount: Number(row.principleAmount || 0),
+          applicationId: row.application_id || '',
+          customerName: (row.customer_name || '').trim(),
+          debitAmount: Number(row.principle_amount || 0),
           creditAmount: 0,
           balance: 0,
         });
@@ -5785,14 +5787,14 @@ export class DatabaseStorage implements IStorage {
     }
 
     for (const inst of installmentRows) {
-      const loanId = inst.loanId!;
+      const loanId = inst.loan_id;
       const info = loanInfoMap.get(loanId);
       if (!info) continue;
 
-      const paidAmt = Number(inst.paidAmount || 0);
-      const marginAmt = Number(inst.marginAmount || 0);
-      const principalAmt = Number(inst.principleAmount || 0);
-      const totalAmt = Number(inst.totalAmount || 0);
+      const paidAmt = Number(inst.paid_amount || 0);
+      const marginAmt = Number(inst.margin_amount || 0);
+      const principalAmt = Number(inst.principle_amount || 0);
+      const totalAmt = Number(inst.total_amount || 0);
 
       let principalCollected = 0;
       if (totalAmt > 0 && paidAmt >= totalAmt) {
@@ -5805,7 +5807,7 @@ export class DatabaseStorage implements IStorage {
 
       if (principalCollected > 0) {
         allTransactions.push({
-          date: inst.paymentDate!,
+          date: inst.payment_date,
           type: 'collection',
           applicationId: info.applicationId,
           customerName: info.customerName,
