@@ -2076,7 +2076,7 @@ export default function Dashboard() {
 
       {/* Collection Rate Details Dialog */}
       <Dialog open={collectionRateDialogOpen} onOpenChange={(open) => { setCollectionRateDialogOpen(open); if (!open) setExpandedMonth(null); }}>
-        <DialogContent className="max-w-5xl max-h-[85vh] overflow-hidden flex flex-col" data-testid="dialog-collection-rate">
+        <DialogContent className="max-w-7xl max-h-[90vh] overflow-hidden flex flex-col" data-testid="dialog-collection-rate">
           <DialogHeader className="flex-shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-blue-500" />
