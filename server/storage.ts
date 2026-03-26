@@ -2362,11 +2362,19 @@ export class DatabaseStorage implements IStorage {
     const collectedResultQuery = await db.execute(sql`
       SELECT
         COALESCE(SUM(COALESCE(i.paid_amount::numeric, 0)), 0) as total_collected,
-        COALESCE(SUM(i.principle_amount::numeric), 0) as principal_collected,
-        COALESCE(SUM(i.margin_amount::numeric), 0) as margin_collected
+        COALESCE(SUM(CASE WHEN i.is_paid = true THEN i.principle_amount::numeric ELSE
+          CASE WHEN (i.principle_amount::numeric + i.margin_amount::numeric) > 0
+            THEN COALESCE(i.paid_amount::numeric, 0) * i.principle_amount::numeric / (i.principle_amount::numeric + i.margin_amount::numeric)
+            ELSE 0 END
+        END), 0) as principal_collected,
+        COALESCE(SUM(CASE WHEN i.is_paid = true THEN i.margin_amount::numeric ELSE
+          CASE WHEN (i.principle_amount::numeric + i.margin_amount::numeric) > 0
+            THEN COALESCE(i.paid_amount::numeric, 0) * i.margin_amount::numeric / (i.principle_amount::numeric + i.margin_amount::numeric)
+            ELSE 0 END
+        END), 0) as margin_collected
       FROM installments i
       JOIN loans l ON i.loan_id = l.id
-      WHERE i.is_paid = true ${branchFilter} ${dateFilterInstallment}
+      WHERE COALESCE(i.paid_amount::numeric, 0) > 0 ${branchFilter} ${dateFilterInstallment}
     `);
     const collectedResult = collectedResultQuery.rows[0] as any;
 
@@ -2438,7 +2446,7 @@ export class DatabaseStorage implements IStorage {
         COALESCE(SUM(i.paid_amount::numeric), 0) as collected
       FROM installments i
       JOIN loans l ON i.loan_id = l.id
-      WHERE i.is_paid = true
+      WHERE COALESCE(i.paid_amount::numeric, 0) > 0
         AND i.payment_date IS NOT NULL
         AND i.payment_date >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '5 months')
         ${branchFilter} ${dateFilterInstallment}
@@ -2470,7 +2478,7 @@ export class DatabaseStorage implements IStorage {
         (SELECT COUNT(*) FROM disbursements d JOIN loans l ON d.loan_id = l.id WHERE d.disbursement_date = CURRENT_DATE ${branchFilter}) as disbursed_today,
         (SELECT COALESCE(SUM(l.principle_amount::numeric), 0) FROM disbursements d JOIN loans l ON d.loan_id = l.id WHERE d.disbursement_date = CURRENT_DATE ${branchFilter}) as amount_disbursed_today,
         (SELECT COALESCE(SUM(ins.total_amount::numeric), 0) FROM installments ins JOIN loans l ON ins.loan_id = l.id WHERE ins.due_date = CURRENT_DATE AND ins.is_paid = false ${branchFilter}) as amount_due_today,
-        (SELECT COALESCE(SUM(ins.paid_amount::numeric), 0) FROM installments ins JOIN loans l ON ins.loan_id = l.id WHERE DATE(ins.payment_date) = CURRENT_DATE AND ins.is_paid = true ${branchFilter}) as amount_collected_today,
+        (SELECT COALESCE(SUM(ins.paid_amount::numeric), 0) FROM installments ins JOIN loans l ON ins.loan_id = l.id WHERE DATE(ins.payment_date) = CURRENT_DATE AND COALESCE(ins.paid_amount::numeric, 0) > 0 ${branchFilter}) as amount_collected_today,
         (SELECT COUNT(*) FROM installments ins JOIN loans l ON ins.loan_id = l.id WHERE ins.due_date < CURRENT_DATE AND ins.is_paid = false AND COALESCE(ins.principle_amount::numeric, 0) > 0 ${branchFilter}) as missed_payments_total,
         (SELECT COUNT(*) FROM installments ins JOIN loans l ON ins.loan_id = l.id WHERE ins.due_date = CURRENT_DATE AND ins.is_paid = false ${branchFilter}) as due_today_count,
         (SELECT COUNT(*) FROM installments ins JOIN loans l ON ins.loan_id = l.id WHERE DATE(ins.payment_date) = CURRENT_DATE AND ins.is_paid = true ${branchFilter}) as collected_today_count
@@ -2519,7 +2527,7 @@ export class DatabaseStorage implements IStorage {
         l.id as loan_id,
         GREATEST(
           COALESCE(l.total_receivable::numeric, COALESCE(l.principle_amount, l.request_amount)::numeric, 0)
-          - COALESCE((SELECT SUM(COALESCE(i2.paid_amount::numeric, 0)) FROM installments i2 WHERE i2.loan_id = l.id AND i2.is_paid = true), 0),
+          - COALESCE((SELECT SUM(COALESCE(i2.paid_amount::numeric, 0)) FROM installments i2 WHERE i2.loan_id = l.id AND COALESCE(i2.paid_amount::numeric, 0) > 0), 0),
           0
         ) as olb,
         COALESCE((
@@ -3165,7 +3173,7 @@ export class DatabaseStorage implements IStorage {
           SELECT SUM(COALESCE(i.paid_amount::numeric, 0))
           FROM installments i
           WHERE i.loan_id IN (SELECT l2.id FROM loans l2 WHERE l2.branch_id = b.id AND l2.status IN ('disbursed', 'active', 'completed'))
-          AND i.is_paid = true
+          AND COALESCE(i.paid_amount::numeric, 0) > 0
         ), 0) as total_collected,
         COALESCE(SUM(CASE WHEN l.total_receivable IS NOT NULL THEN l.total_receivable::numeric ELSE COALESCE(l.principle_amount, l.request_amount)::numeric END), 0) as total_portfolio
       FROM loans l
@@ -6854,7 +6862,7 @@ export class DatabaseStorage implements IStorage {
         l.sector,
         GREATEST(
           COALESCE(l.total_receivable::numeric, COALESCE(l.principle_amount, l.request_amount)::numeric, 0) 
-          - COALESCE((SELECT SUM(COALESCE(i2.paid_amount::numeric, 0)) FROM installments i2 WHERE i2.loan_id = l.id AND i2.is_paid = true), 0),
+          - COALESCE((SELECT SUM(COALESCE(i2.paid_amount::numeric, 0)) FROM installments i2 WHERE i2.loan_id = l.id AND COALESCE(i2.paid_amount::numeric, 0) > 0), 0),
           0
         ) as olb,
         COALESCE((SELECT MAX(i3.late_days) FROM installments i3 WHERE i3.loan_id = l.id), 0) as max_late_days
