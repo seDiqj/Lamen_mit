@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, Fragment } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +38,10 @@ import {
   Filter,
   RotateCcw,
   BarChart3,
+  ChevronDown,
+  ChevronRight,
+  Phone,
+  Eye,
 } from "lucide-react";
 import { Link } from "wouter";
 import {
@@ -366,6 +370,7 @@ export default function Dashboard() {
   const [alertDialogOpen, setAlertDialogOpen] = useState(false);
   const [selectedAlertCategory, setSelectedAlertCategory] = useState<string | null>(null);
   const [collectionRateDialogOpen, setCollectionRateDialogOpen] = useState(false);
+  const [expandedMonth, setExpandedMonth] = useState<string | null>(null);
   const [customersByStatusDialogOpen, setCustomersByStatusDialogOpen] = useState(false);
   const [sectorDialogOpen, setSectorDialogOpen] = useState(false);
   const [selectedSector, setSelectedSector] = useState<string | null>(null);
@@ -431,7 +436,7 @@ export default function Dashboard() {
   });
 
   const { data: collectionRateData, isLoading: collectionRateLoading } = useQuery<{
-    rows: { month: string; dueAmount: number; collectedAmount: number; balance: number }[];
+    rows: { month: string; monthKey: string; dueAmount: number; collectedAmount: number; balance: number }[];
     totals: { dueAmount: number; collectedAmount: number; balance: number };
   }>({
     queryKey: ["/api/dashboard/collection-rate-details", filterBranch],
@@ -442,6 +447,42 @@ export default function Dashboard() {
       return response.json();
     },
     enabled: collectionRateDialogOpen,
+  });
+
+  type MonthDetailItem = {
+    installmentId: string;
+    installmentNumber: number;
+    dueDate: string;
+    dueAmount: number;
+    principalAmount: number;
+    markupAmount: number;
+    paidAmount: number;
+    paymentDate: string | null;
+    isPaid: boolean;
+    balance: number;
+    status: string;
+    loanId: string;
+    applicationId: string;
+    productName: string;
+    customerName: string;
+    phoneNumber: string;
+    branchName: string;
+    officerName: string;
+  };
+
+  const { data: monthDetailData, isLoading: monthDetailLoading } = useQuery<{
+    month: string;
+    items: MonthDetailItem[];
+  }>({
+    queryKey: ["/api/dashboard/collection-rate-month-details", expandedMonth, filterBranch],
+    queryFn: async () => {
+      const params = new URLSearchParams({ month: expandedMonth! });
+      if (filterBranch) params.set("branchId", filterBranch);
+      const response = await fetch(`/api/dashboard/collection-rate-month-details?${params}`);
+      if (!response.ok) throw new Error("Failed to fetch");
+      return response.json();
+    },
+    enabled: !!expandedMonth,
   });
 
   const { data: customersByStatusData, isLoading: customersByStatusLoading } = useQuery<
@@ -2034,8 +2075,8 @@ export default function Dashboard() {
       </Dialog>
 
       {/* Collection Rate Details Dialog */}
-      <Dialog open={collectionRateDialogOpen} onOpenChange={setCollectionRateDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col" data-testid="dialog-collection-rate">
+      <Dialog open={collectionRateDialogOpen} onOpenChange={(open) => { setCollectionRateDialogOpen(open); if (!open) setExpandedMonth(null); }}>
+        <DialogContent className="max-w-5xl max-h-[85vh] overflow-hidden flex flex-col" data-testid="dialog-collection-rate">
           <DialogHeader className="flex-shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-blue-500" />
@@ -2056,6 +2097,7 @@ export default function Dashboard() {
               <table className="w-full text-sm" data-testid="table-collection-rate">
                 <thead className="sticky top-0 bg-background z-10">
                   <tr className="border-b bg-muted/30">
+                    <th className="px-4 py-2 text-left font-semibold text-muted-foreground text-xs uppercase w-8"></th>
                     <th className="px-4 py-2 text-left font-semibold text-muted-foreground text-xs uppercase">Month</th>
                     <th className="px-4 py-2 text-right font-semibold text-muted-foreground text-xs uppercase">Due Amount</th>
                     <th className="px-4 py-2 text-right font-semibold text-muted-foreground text-xs uppercase">Collected</th>
@@ -2064,18 +2106,119 @@ export default function Dashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {collectionRateData.rows.map((row, idx) => (
-                    <tr key={idx} className={`border-b last:border-0 hover:bg-muted/30 ${idx % 2 === 0 ? 'bg-background' : 'bg-muted/10'}`}>
-                      <td className="px-4 py-2 font-medium">{row.month}</td>
-                      <td className="px-4 py-2 text-right font-mono">{formatCurrency(row.dueAmount)}</td>
-                      <td className="px-4 py-2 text-right font-mono text-emerald-600">{formatCurrency(row.collectedAmount)}</td>
-                      <td className="px-4 py-2 text-right font-mono text-amber-600">{formatCurrency(row.balance)}</td>
-                      <td className="px-4 py-2 text-right font-mono">
-                        {row.dueAmount > 0 ? `${Math.round((row.collectedAmount / row.dueAmount) * 100)}%` : '0%'}
-                      </td>
-                    </tr>
-                  ))}
+                  {collectionRateData.rows.map((row, idx) => {
+                    const isExpanded = expandedMonth === row.monthKey;
+                    const rate = row.dueAmount > 0 ? Math.round((row.collectedAmount / row.dueAmount) * 100) : 0;
+                    return (
+                      <Fragment key={`month-${row.monthKey}`}>
+                        <tr
+                          className={`border-b last:border-0 cursor-pointer transition-colors ${isExpanded ? 'bg-blue-50 dark:bg-blue-950/30' : idx % 2 === 0 ? 'bg-background hover:bg-muted/30' : 'bg-muted/10 hover:bg-muted/30'}`}
+                          onClick={() => setExpandedMonth(isExpanded ? null : row.monthKey)}
+                          data-testid={`row-month-${row.monthKey}`}
+                        >
+                          <td className="px-2 py-2 text-center">
+                            {isExpanded ? (
+                              <ChevronDown className="h-4 w-4 text-blue-500 inline" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4 text-muted-foreground inline" />
+                            )}
+                          </td>
+                          <td className="px-4 py-2 font-medium">{row.month}</td>
+                          <td className="px-4 py-2 text-right font-mono">{formatCurrency(row.dueAmount)}</td>
+                          <td className="px-4 py-2 text-right font-mono text-emerald-600">{formatCurrency(row.collectedAmount)}</td>
+                          <td className="px-4 py-2 text-right font-mono text-amber-600">{formatCurrency(row.balance)}</td>
+                          <td className="px-4 py-2 text-right font-mono">{rate}%</td>
+                        </tr>
+                        {isExpanded && (
+                          <tr key={`detail-${idx}`}>
+                            <td colSpan={6} className="p-0">
+                              <div className="bg-slate-50 dark:bg-slate-900/50 border-y border-blue-200 dark:border-blue-800">
+                                {monthDetailLoading ? (
+                                  <div className="flex items-center justify-center py-6">
+                                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mr-2" />
+                                    <span className="text-sm text-muted-foreground">Loading installment details...</span>
+                                  </div>
+                                ) : monthDetailData?.items && monthDetailData.items.length > 0 ? (
+                                  <div className="max-h-[300px] overflow-auto">
+                                    <table className="w-full text-xs">
+                                      <thead className="sticky top-0 bg-slate-100 dark:bg-slate-800 z-10">
+                                        <tr>
+                                          <th className="px-3 py-1.5 text-left font-semibold text-muted-foreground uppercase">Customer</th>
+                                          <th className="px-3 py-1.5 text-left font-semibold text-muted-foreground uppercase">Loan ID</th>
+                                          <th className="px-3 py-1.5 text-left font-semibold text-muted-foreground uppercase">Due Date</th>
+                                          <th className="px-3 py-1.5 text-right font-semibold text-muted-foreground uppercase">Due</th>
+                                          <th className="px-3 py-1.5 text-right font-semibold text-muted-foreground uppercase">Paid</th>
+                                          <th className="px-3 py-1.5 text-right font-semibold text-muted-foreground uppercase">Balance</th>
+                                          <th className="px-3 py-1.5 text-left font-semibold text-muted-foreground uppercase">Paid Date</th>
+                                          <th className="px-3 py-1.5 text-center font-semibold text-muted-foreground uppercase">Status</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {monthDetailData.items.map((item, i) => (
+                                          <tr key={item.installmentId} className={`border-b last:border-0 ${i % 2 === 0 ? '' : 'bg-white/50 dark:bg-black/10'}`}>
+                                            <td className="px-3 py-1.5 font-medium truncate max-w-[150px]" title={item.customerName}>
+                                              {item.customerName}
+                                            </td>
+                                            <td className="px-3 py-1.5 font-mono text-blue-600 dark:text-blue-400">
+                                              {item.applicationId}
+                                            </td>
+                                            <td className="px-3 py-1.5">{formatDate(item.dueDate)}</td>
+                                            <td className="px-3 py-1.5 text-right font-mono">{formatCurrency(item.dueAmount)}</td>
+                                            <td className="px-3 py-1.5 text-right font-mono text-emerald-600">{formatCurrency(item.paidAmount)}</td>
+                                            <td className="px-3 py-1.5 text-right font-mono text-amber-600">{formatCurrency(item.balance)}</td>
+                                            <td className="px-3 py-1.5">{item.paymentDate ? formatDate(item.paymentDate) : '-'}</td>
+                                            <td className="px-3 py-1.5 text-center">
+                                              <Badge
+                                                variant={item.status === 'paid' ? 'default' : item.status === 'partial' ? 'outline' : 'destructive'}
+                                                className={`text-[10px] px-1.5 py-0 ${item.status === 'paid' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300' : item.status === 'partial' ? 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900 dark:text-amber-300' : ''}`}
+                                              >
+                                                {item.status === 'paid' ? 'Paid' : item.status === 'partial' ? 'Partial' : 'Unpaid'}
+                                              </Badge>
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                      <tfoot className="bg-slate-100 dark:bg-slate-800 font-semibold text-xs">
+                                        <tr>
+                                          <td className="px-3 py-1.5" colSpan={3}>
+                                            Total ({monthDetailData.items.length} installments)
+                                          </td>
+                                          <td className="px-3 py-1.5 text-right font-mono">
+                                            {formatCurrency(monthDetailData.items.reduce((s, i) => s + i.dueAmount, 0))}
+                                          </td>
+                                          <td className="px-3 py-1.5 text-right font-mono text-emerald-600">
+                                            {formatCurrency(monthDetailData.items.reduce((s, i) => s + i.paidAmount, 0))}
+                                          </td>
+                                          <td className="px-3 py-1.5 text-right font-mono text-amber-600">
+                                            {formatCurrency(monthDetailData.items.reduce((s, i) => s + i.balance, 0))}
+                                          </td>
+                                          <td colSpan={2} className="px-3 py-1.5 text-center">
+                                            <span className="text-emerald-600">{monthDetailData.items.filter(i => i.status === 'paid').length} paid</span>
+                                            {monthDetailData.items.filter(i => i.status === 'partial').length > 0 && (
+                                              <span className="text-amber-600 ml-2">{monthDetailData.items.filter(i => i.status === 'partial').length} partial</span>
+                                            )}
+                                            {monthDetailData.items.filter(i => i.status === 'unpaid').length > 0 && (
+                                              <span className="text-red-600 ml-2">{monthDetailData.items.filter(i => i.status === 'unpaid').length} unpaid</span>
+                                            )}
+                                          </td>
+                                        </tr>
+                                      </tfoot>
+                                    </table>
+                                  </div>
+                                ) : (
+                                  <div className="text-center py-4 text-muted-foreground text-sm">
+                                    No installment details found for this month
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })}
                   <tr className="border-t-2 bg-muted/40 font-bold">
+                    <td className="px-2 py-3"></td>
                     <td className="px-4 py-3">Total</td>
                     <td className="px-4 py-3 text-right font-mono">{formatCurrency(collectionRateData.totals.dueAmount)}</td>
                     <td className="px-4 py-3 text-right font-mono text-emerald-600">{formatCurrency(collectionRateData.totals.collectedAmount)}</td>

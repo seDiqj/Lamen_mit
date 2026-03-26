@@ -486,6 +486,7 @@ export async function registerRoutes(
       `);
       const rows = (result.rows as any[]).map(r => ({
         month: r.month_label,
+        monthKey: r.month,
         dueAmount: Number(r.due_amount),
         collectedAmount: Number(r.collected_amount),
         balance: Number(r.due_amount) - Number(r.collected_amount),
@@ -499,6 +500,73 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching collection rate details:", error);
       res.status(500).json({ message: "Failed to fetch collection rate details" });
+    }
+  });
+
+  app.get("/api/dashboard/collection-rate-month-details", isAuthenticated, async (req, res) => {
+    try {
+      const { month, branchId } = req.query;
+      if (!month) {
+        return res.status(400).json({ message: "month parameter is required (YYYY-MM)" });
+      }
+      const branchFilter = branchId ? sql`AND l.branch_id = ${branchId}` : sql``;
+      const result = await db.execute(sql`
+        SELECT 
+          i.id as installment_id,
+          i.installment_number,
+          i.due_date,
+          i.total_amount,
+          i.principal_amount,
+          i.markup_amount,
+          i.paid_amount,
+          i.payment_date,
+          i.is_paid,
+          l.id as loan_id,
+          l.application_id,
+          l.product_name,
+          CONCAT(c.first_name, ' ', c.last_name) as customer_name,
+          c.phone_number,
+          COALESCE(b.name, 'N/A') as branch_name,
+          COALESCE(fo.name, 'N/A') as officer_name
+        FROM installments i
+        JOIN loans l ON i.loan_id = l.id
+        JOIN customers c ON l.customer_id = c.id
+        LEFT JOIN branches b ON l.branch_id = b.id
+        LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
+        WHERE TO_CHAR(i.due_date, 'YYYY-MM') = ${month}
+          AND i.due_date <= CURRENT_DATE
+          AND l.status IN ('disbursed', 'active', 'completed')
+          ${branchFilter}
+        ORDER BY i.due_date, l.application_id
+      `);
+      const items = (result.rows as any[]).map(r => {
+        const dueAmount = Number(r.total_amount || 0);
+        const paidAmount = Number(r.paid_amount || 0);
+        return {
+          installmentId: r.installment_id,
+          installmentNumber: r.installment_number,
+          dueDate: r.due_date,
+          dueAmount,
+          principalAmount: Number(r.principal_amount || 0),
+          markupAmount: Number(r.markup_amount || 0),
+          paidAmount,
+          paymentDate: r.payment_date,
+          isPaid: r.is_paid,
+          balance: dueAmount - paidAmount,
+          status: r.is_paid ? 'paid' : paidAmount > 0 ? 'partial' : 'unpaid',
+          loanId: r.loan_id,
+          applicationId: r.application_id,
+          productName: r.product_name,
+          customerName: r.customer_name,
+          phoneNumber: r.phone_number,
+          branchName: r.branch_name,
+          officerName: r.officer_name,
+        };
+      });
+      res.json({ month: month as string, items });
+    } catch (error) {
+      console.error("Error fetching collection month details:", error);
+      res.status(500).json({ message: "Failed to fetch month details" });
     }
   });
 
