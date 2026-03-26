@@ -4675,10 +4675,18 @@ export class DatabaseStorage implements IStorage {
     const buildTree = (parentId: string | null): any[] => {
       return allAccounts
         .filter(acc => acc.parentId === parentId)
-        .map(acc => ({
-          ...acc,
-          children: buildTree(acc.id)
-        }));
+        .map(acc => {
+          const children = buildTree(acc.id);
+          let currentBalance = Number(acc.currentBalance || 0);
+          if (children.length > 0) {
+            currentBalance = children.reduce((sum: number, child: any) => sum + Number(child.currentBalance || 0), 0);
+          }
+          return {
+            ...acc,
+            currentBalance: String(currentBalance),
+            children,
+          };
+        });
     };
     
     return buildTree(null);
@@ -5093,14 +5101,27 @@ export class DatabaseStorage implements IStorage {
       ...otherIncomeCodes, ...fixedExpenseCodes, ...variableExpenseCodes
     ];
 
-    const matchedAccounts = await db.select().from(accounts).where(
-      sql`${accounts.accountCode} IN (${sql.join(allCodes.map(c => sql`${c}`), sql`, `)})`
-    );
+    const allAccts = await db.select().from(accounts).orderBy(asc(accounts.accountCode));
 
-    const accountIds = matchedAccounts.map(a => a.id);
+    const findAccountAndSubs = (code: string): typeof allAccts => {
+      const mainAcct = allAccts.find(a => a.accountCode === code);
+      if (!mainAcct) return [];
+      const subs = allAccts.filter(a => a.parentId === mainAcct.id);
+      if (subs.length > 0) return subs;
+      return [mainAcct];
+    };
+
+    const expandedMap: Record<string, typeof allAccts> = {};
+    for (const code of allCodes) {
+      expandedMap[code] = findAccountAndSubs(code);
+    }
+
+    const allMatchedAccounts = Object.values(expandedMap).flat();
+    const uniqueAccountIds = [...new Set(allMatchedAccounts.map(a => a.id))];
+
     const periodBalances: Record<string, { debit: number; credit: number }> = {};
 
-    if (accountIds.length > 0) {
+    if (uniqueAccountIds.length > 0) {
       const balanceRows = await db
         .select({
           accountId: journalLines.accountId,
@@ -5112,7 +5133,7 @@ export class DatabaseStorage implements IStorage {
         .where(
           and(
             eq(journalEntries.isPosted, true),
-            inArray(journalLines.accountId, accountIds),
+            inArray(journalLines.accountId, uniqueAccountIds),
             gte(journalEntries.entryDate, startDate),
             lte(journalEntries.entryDate, endDate)
           )
@@ -5127,9 +5148,7 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
-    const getAccountBalance = (code: string) => {
-      const acc = matchedAccounts.find(a => a.accountCode === code);
-      if (!acc) return 0;
+    const getBalanceForAccount = (acc: typeof allAccts[0]) => {
       const bal = periodBalances[acc.id];
       if (!bal) return 0;
       if (acc.accountType === 'income') return bal.credit - bal.debit;
@@ -5139,17 +5158,18 @@ export class DatabaseStorage implements IStorage {
       return bal.credit - bal.debit;
     };
 
-    const getAccountInfo = (code: string) => {
-      const acc = matchedAccounts.find(a => a.accountCode === code);
-      return {
-        accountCode: code,
-        accountName: acc?.accountName || code,
-        balance: getAccountBalance(code),
-      };
-    };
-
     const buildGroup = (codes: string[]) => {
-      const items = codes.map(c => getAccountInfo(c));
+      const items: { accountCode: string; accountName: string; balance: number }[] = [];
+      for (const code of codes) {
+        const accts = expandedMap[code] || [];
+        for (const acc of accts) {
+          items.push({
+            accountCode: acc.accountCode,
+            accountName: acc.accountName,
+            balance: getBalanceForAccount(acc),
+          });
+        }
+      }
       return {
         items,
         total: items.reduce((s, i) => s + i.balance, 0),
