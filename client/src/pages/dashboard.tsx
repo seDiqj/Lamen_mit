@@ -66,7 +66,10 @@ type DashboardStats = {
   pendingLoans: number;
   totalCustomers: number;
   totalDisbursed: number;
+  disbursedLoanCount: number;
   totalPortfolio: number;
+  portfolioPrincipal: number;
+  portfolioMargin: number;
   totalCollected: number;
   principalCollected: number;
   marginCollected: number;
@@ -362,6 +365,10 @@ export default function Dashboard() {
   const [filterEndDate, setFilterEndDate] = useState<string>("");
   const [alertDialogOpen, setAlertDialogOpen] = useState(false);
   const [selectedAlertCategory, setSelectedAlertCategory] = useState<string | null>(null);
+  const [collectionRateDialogOpen, setCollectionRateDialogOpen] = useState(false);
+  const [customersByStatusDialogOpen, setCustomersByStatusDialogOpen] = useState(false);
+  const [sectorDialogOpen, setSectorDialogOpen] = useState(false);
+  const [selectedSector, setSelectedSector] = useState<string | null>(null);
 
   const buildFilterParams = () => {
     const params = new URLSearchParams();
@@ -421,6 +428,47 @@ export default function Dashboard() {
       return response.json();
     },
     enabled: !!selectedStatus && dialogOpen,
+  });
+
+  const { data: collectionRateData, isLoading: collectionRateLoading } = useQuery<{
+    rows: { month: string; dueAmount: number; collectedAmount: number; balance: number }[];
+    totals: { dueAmount: number; collectedAmount: number; balance: number };
+  }>({
+    queryKey: ["/api/dashboard/collection-rate-details", filterBranch],
+    queryFn: async () => {
+      const params = filterBranch ? `?branchId=${filterBranch}` : "";
+      const response = await fetch(`/api/dashboard/collection-rate-details${params}`);
+      if (!response.ok) throw new Error("Failed to fetch");
+      return response.json();
+    },
+    enabled: collectionRateDialogOpen,
+  });
+
+  const { data: customersByStatusData, isLoading: customersByStatusLoading } = useQuery<
+    { status: string; customerCount: number; loanCount: number; totalAmount: number }[]
+  >({
+    queryKey: ["/api/dashboard/customers-by-status", filterBranch],
+    queryFn: async () => {
+      const params = filterBranch ? `?branchId=${filterBranch}` : "";
+      const response = await fetch(`/api/dashboard/customers-by-status${params}`);
+      if (!response.ok) throw new Error("Failed to fetch");
+      return response.json();
+    },
+    enabled: customersByStatusDialogOpen,
+  });
+
+  const { data: sectorCustomersData, isLoading: sectorCustomersLoading } = useQuery<{
+    sector: string;
+    items: { id: string; applicationId: string; customerName: string; phoneNumber: string; principleAmount: number; totalReceivable: number; totalPaid: number; outstanding: number; status: string; productName: string; branchName: string; officerName: string }[];
+  }>({
+    queryKey: ["/api/dashboard/sector-customers", selectedSector, filterBranch],
+    queryFn: async () => {
+      const params = filterBranch ? `?branchId=${filterBranch}` : "";
+      const response = await fetch(`/api/dashboard/sector-customers/${encodeURIComponent(selectedSector!)}${params}`);
+      if (!response.ok) throw new Error("Failed to fetch");
+      return response.json();
+    },
+    enabled: !!selectedSector && sectorDialogOpen,
   });
 
   const formatCurrency = (amount: number) => {
@@ -560,14 +608,25 @@ export default function Dashboard() {
             />
           );
         })()}
-        <StatCard
-          title="Total Customers"
-          value={stats?.totalCustomers?.toString() || "0"}
-          icon={Users}
-          loading={isLoading}
-          gradient="bg-gradient-to-r from-violet-500 to-purple-500"
-          iconBg="bg-gradient-to-br from-violet-500 to-purple-600"
-        />
+        <Card
+          className="overflow-hidden border-0 shadow-lg cursor-pointer"
+          onClick={() => setCustomersByStatusDialogOpen(true)}
+          data-testid="card-stat-total-customers"
+        >
+          <div className="h-1 bg-gradient-to-r from-violet-500 to-purple-500" />
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm text-muted-foreground font-medium">Total Customers</p>
+                <p className="text-2xl font-bold mt-1">{stats?.totalCustomers?.toString() || "0"}</p>
+              </div>
+              <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg">
+                <Users className="h-7 w-7 text-white" />
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-2 text-center">Click for details</p>
+          </CardContent>
+        </Card>
         {isLoading ? (
           <Card className="overflow-hidden">
             <CardContent className="p-6">
@@ -581,7 +640,7 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         ) : (
-          <Card className="overflow-hidden border-0 shadow-lg" data-testid="card-stat-collection-rate">
+          <Card className="overflow-hidden border-0 shadow-lg cursor-pointer" data-testid="card-stat-collection-rate" onClick={() => setCollectionRateDialogOpen(true)}>
             <div className="h-1 bg-gradient-to-r from-blue-500 to-indigo-500" />
             <CardContent className="p-5">
               <div className="flex items-center justify-between gap-4">
@@ -605,6 +664,7 @@ export default function Dashboard() {
                   }}
                 />
               </div>
+              <p className="text-[10px] text-muted-foreground mt-2 text-center">Click for details</p>
             </CardContent>
           </Card>
         )}
@@ -650,6 +710,10 @@ export default function Dashboard() {
           loading={isLoading}
           gradient="bg-gradient-to-r from-indigo-500 to-blue-500"
           iconBg="bg-gradient-to-br from-indigo-500 to-blue-600"
+          breakdown={[
+            { label: "Principal Amount", value: formatCurrency((stats?.portfolioPrincipal || 0) - (stats?.principalCollected || 0)) },
+            { label: "Profit (Margin)", value: formatCurrency((stats?.portfolioMargin || 0) - (stats?.marginCollected || 0)) },
+          ]}
         />
         <StatCard
           title="Average Loan Size"
@@ -1548,9 +1612,14 @@ export default function Dashboard() {
                 {(stats?.sectorDistribution || []).map((sector, idx) => {
                   const barColors = ["bg-teal-500", "bg-emerald-500", "bg-amber-500", "bg-blue-500", "bg-slate-500", "bg-purple-500", "bg-rose-500"];
                   return (
-                    <div key={sector.sector} data-testid={`sector-row-${idx}`}>
+                    <div
+                      key={sector.sector}
+                      data-testid={`sector-row-${idx}`}
+                      className="cursor-pointer hover:bg-muted/30 rounded-lg p-2 -mx-2 transition-colors"
+                      onClick={() => { setSelectedSector(sector.sector); setSectorDialogOpen(true); }}
+                    >
                       <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-sm font-medium">{sector.sector}</span>
+                        <span className="text-sm font-medium">{sector.sector} <span className="text-xs text-muted-foreground">({sector.count} loans)</span></span>
                         <span className="text-sm font-bold">{sector.percentage}%</span>
                       </div>
                       <div className="w-full bg-muted/50 rounded-full h-2.5">
@@ -1958,6 +2027,192 @@ export default function Dashboard() {
               <div className="text-center py-12 text-muted-foreground">
                 <CheckCircle2 className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
                 <p>No items found for this alert</p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Collection Rate Details Dialog */}
+      <Dialog open={collectionRateDialogOpen} onOpenChange={setCollectionRateDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col" data-testid="dialog-collection-rate">
+          <DialogHeader className="flex-shrink-0">
+            <DialogTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-blue-500" />
+              Collection Rate Details
+              {collectionRateData && (
+                <Badge variant="outline" className="ml-2">
+                  {collectionRateData.rows.length} months
+                </Badge>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto">
+            {collectionRateLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : collectionRateData?.rows && collectionRateData.rows.length > 0 ? (
+              <table className="w-full text-sm" data-testid="table-collection-rate">
+                <thead className="sticky top-0 bg-background z-10">
+                  <tr className="border-b bg-muted/30">
+                    <th className="px-4 py-2 text-left font-semibold text-muted-foreground text-xs uppercase">Month</th>
+                    <th className="px-4 py-2 text-right font-semibold text-muted-foreground text-xs uppercase">Due Amount</th>
+                    <th className="px-4 py-2 text-right font-semibold text-muted-foreground text-xs uppercase">Collected</th>
+                    <th className="px-4 py-2 text-right font-semibold text-muted-foreground text-xs uppercase">Balance</th>
+                    <th className="px-4 py-2 text-right font-semibold text-muted-foreground text-xs uppercase">Rate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {collectionRateData.rows.map((row, idx) => (
+                    <tr key={idx} className={`border-b last:border-0 hover:bg-muted/30 ${idx % 2 === 0 ? 'bg-background' : 'bg-muted/10'}`}>
+                      <td className="px-4 py-2 font-medium">{row.month}</td>
+                      <td className="px-4 py-2 text-right font-mono">{formatCurrency(row.dueAmount)}</td>
+                      <td className="px-4 py-2 text-right font-mono text-emerald-600">{formatCurrency(row.collectedAmount)}</td>
+                      <td className="px-4 py-2 text-right font-mono text-amber-600">{formatCurrency(row.balance)}</td>
+                      <td className="px-4 py-2 text-right font-mono">
+                        {row.dueAmount > 0 ? `${Math.round((row.collectedAmount / row.dueAmount) * 100)}%` : '0%'}
+                      </td>
+                    </tr>
+                  ))}
+                  <tr className="border-t-2 bg-muted/40 font-bold">
+                    <td className="px-4 py-3">Total</td>
+                    <td className="px-4 py-3 text-right font-mono">{formatCurrency(collectionRateData.totals.dueAmount)}</td>
+                    <td className="px-4 py-3 text-right font-mono text-emerald-600">{formatCurrency(collectionRateData.totals.collectedAmount)}</td>
+                    <td className="px-4 py-3 text-right font-mono text-amber-600">{formatCurrency(collectionRateData.totals.balance)}</td>
+                    <td className="px-4 py-3 text-right font-mono">
+                      {collectionRateData.totals.dueAmount > 0 ? `${Math.round((collectionRateData.totals.collectedAmount / collectionRateData.totals.dueAmount) * 100)}%` : '0%'}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">
+                <p>No collection data available</p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Customers by Status Dialog */}
+      <Dialog open={customersByStatusDialogOpen} onOpenChange={setCustomersByStatusDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col" data-testid="dialog-customers-by-status">
+          <DialogHeader className="flex-shrink-0">
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-violet-500" />
+              Customer Loans by Status
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto">
+            {customersByStatusLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : customersByStatusData && customersByStatusData.length > 0 ? (
+              <table className="w-full text-sm" data-testid="table-customers-by-status">
+                <thead className="sticky top-0 bg-background z-10">
+                  <tr className="border-b bg-muted/30">
+                    <th className="px-4 py-2 text-left font-semibold text-muted-foreground text-xs uppercase">Status</th>
+                    <th className="px-4 py-2 text-right font-semibold text-muted-foreground text-xs uppercase">Customers</th>
+                    <th className="px-4 py-2 text-right font-semibold text-muted-foreground text-xs uppercase">Loans</th>
+                    <th className="px-4 py-2 text-right font-semibold text-muted-foreground text-xs uppercase">Total Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {customersByStatusData.map((row, idx) => (
+                    <tr key={idx} className={`border-b last:border-0 hover:bg-muted/30 ${idx % 2 === 0 ? 'bg-background' : 'bg-muted/10'}`}>
+                      <td className="px-4 py-2">
+                        <Badge variant="outline" className={getStatusColor(row.status)}>
+                          {row.status}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-2 text-right font-mono font-semibold">{row.customerCount}</td>
+                      <td className="px-4 py-2 text-right font-mono">{row.loanCount}</td>
+                      <td className="px-4 py-2 text-right font-mono">{formatCurrency(row.totalAmount)}</td>
+                    </tr>
+                  ))}
+                  <tr className="border-t-2 bg-muted/40 font-bold">
+                    <td className="px-4 py-3">Total</td>
+                    <td className="px-4 py-3 text-right font-mono">{customersByStatusData.reduce((s, r) => s + r.customerCount, 0)}</td>
+                    <td className="px-4 py-3 text-right font-mono">{customersByStatusData.reduce((s, r) => s + r.loanCount, 0)}</td>
+                    <td className="px-4 py-3 text-right font-mono">{formatCurrency(customersByStatusData.reduce((s, r) => s + r.totalAmount, 0))}</td>
+                  </tr>
+                </tbody>
+              </table>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">
+                <p>No customer data available</p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Sector Customers Dialog */}
+      <Dialog open={sectorDialogOpen} onOpenChange={(open) => { setSectorDialogOpen(open); if (!open) setSelectedSector(null); }}>
+        <DialogContent className="max-w-6xl max-h-[80vh] overflow-hidden flex flex-col" data-testid="dialog-sector-customers">
+          <DialogHeader className="flex-shrink-0">
+            <DialogTitle className="flex items-center gap-2">
+              <Briefcase className="h-5 w-5 text-teal-500" />
+              {selectedSector} Sector - Active Loans
+              {sectorCustomersData && (
+                <Badge variant="outline" className="ml-2">
+                  {sectorCustomersData.items.length} loans
+                </Badge>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto">
+            {sectorCustomersLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : sectorCustomersData?.items && sectorCustomersData.items.length > 0 ? (
+              <table className="w-full text-sm" data-testid="table-sector-customers">
+                <thead className="sticky top-0 bg-background z-10">
+                  <tr className="border-b bg-muted/30">
+                    <th className="px-3 py-2 text-left font-semibold text-muted-foreground text-xs uppercase">#</th>
+                    <th className="px-3 py-2 text-left font-semibold text-muted-foreground text-xs uppercase">App ID</th>
+                    <th className="px-3 py-2 text-left font-semibold text-muted-foreground text-xs uppercase">Customer</th>
+                    <th className="px-3 py-2 text-left font-semibold text-muted-foreground text-xs uppercase">Phone</th>
+                    <th className="px-3 py-2 text-left font-semibold text-muted-foreground text-xs uppercase">Branch</th>
+                    <th className="px-3 py-2 text-left font-semibold text-muted-foreground text-xs uppercase">Officer</th>
+                    <th className="px-3 py-2 text-left font-semibold text-muted-foreground text-xs uppercase">Product</th>
+                    <th className="px-3 py-2 text-right font-semibold text-muted-foreground text-xs uppercase">Principal</th>
+                    <th className="px-3 py-2 text-right font-semibold text-muted-foreground text-xs uppercase">Total Paid</th>
+                    <th className="px-3 py-2 text-right font-semibold text-muted-foreground text-xs uppercase">Outstanding</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sectorCustomersData.items.map((item, idx) => (
+                    <tr key={item.id} className={`border-b last:border-0 hover:bg-muted/30 ${idx % 2 === 0 ? 'bg-background' : 'bg-muted/10'}`}>
+                      <td className="px-3 py-2 text-muted-foreground">{idx + 1}</td>
+                      <td className="px-3 py-2 font-medium">
+                        <Link href={`/loans/${item.id}`} className="text-blue-600 hover:underline">{item.applicationId}</Link>
+                      </td>
+                      <td className="px-3 py-2">{item.customerName}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{item.phoneNumber || '-'}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{item.branchName}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{item.officerName}</td>
+                      <td className="px-3 py-2">{item.productName || '-'}</td>
+                      <td className="px-3 py-2 text-right font-mono">{formatCurrency(item.principleAmount)}</td>
+                      <td className="px-3 py-2 text-right font-mono text-emerald-600">{formatCurrency(item.totalPaid)}</td>
+                      <td className="px-3 py-2 text-right font-mono text-amber-600">{formatCurrency(item.outstanding)}</td>
+                    </tr>
+                  ))}
+                  <tr className="border-t-2 bg-muted/40 font-bold">
+                    <td colSpan={7} className="px-3 py-3">Total</td>
+                    <td className="px-3 py-3 text-right font-mono">{formatCurrency(sectorCustomersData.items.reduce((s, r) => s + r.principleAmount, 0))}</td>
+                    <td className="px-3 py-3 text-right font-mono text-emerald-600">{formatCurrency(sectorCustomersData.items.reduce((s, r) => s + r.totalPaid, 0))}</td>
+                    <td className="px-3 py-3 text-right font-mono text-amber-600">{formatCurrency(sectorCustomersData.items.reduce((s, r) => s + r.outstanding, 0))}</td>
+                  </tr>
+                </tbody>
+              </table>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">
+                <Briefcase className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
+                <p>No loans found in this sector</p>
               </div>
             )}
           </div>

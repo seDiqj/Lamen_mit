@@ -465,6 +465,123 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/dashboard/collection-rate-details", isAuthenticated, async (req, res) => {
+    try {
+      const { branchId } = req.query;
+      const branchFilter = branchId ? sql`AND l.branch_id = ${branchId}` : sql``;
+      const result = await db.execute(sql`
+        SELECT 
+          TO_CHAR(i.due_date, 'YYYY-MM') as month,
+          TO_CHAR(i.due_date, 'Mon YYYY') as month_label,
+          COALESCE(SUM(i.total_amount::numeric), 0) as due_amount,
+          COALESCE(SUM(COALESCE(i.paid_amount::numeric, 0)), 0) as collected_amount
+        FROM installments i
+        JOIN loans l ON i.loan_id = l.id
+        WHERE i.due_date IS NOT NULL 
+          AND i.due_date <= CURRENT_DATE
+          AND l.status IN ('disbursed', 'active', 'completed')
+          ${branchFilter}
+        GROUP BY TO_CHAR(i.due_date, 'YYYY-MM'), TO_CHAR(i.due_date, 'Mon YYYY')
+        ORDER BY TO_CHAR(i.due_date, 'YYYY-MM')
+      `);
+      const rows = (result.rows as any[]).map(r => ({
+        month: r.month_label,
+        dueAmount: Number(r.due_amount),
+        collectedAmount: Number(r.collected_amount),
+        balance: Number(r.due_amount) - Number(r.collected_amount),
+      }));
+      const totals = rows.reduce((acc, r) => ({
+        dueAmount: acc.dueAmount + r.dueAmount,
+        collectedAmount: acc.collectedAmount + r.collectedAmount,
+        balance: acc.balance + r.balance,
+      }), { dueAmount: 0, collectedAmount: 0, balance: 0 });
+      res.json({ rows, totals });
+    } catch (error) {
+      console.error("Error fetching collection rate details:", error);
+      res.status(500).json({ message: "Failed to fetch collection rate details" });
+    }
+  });
+
+  app.get("/api/dashboard/sector-customers/:sector", isAuthenticated, async (req, res) => {
+    try {
+      const sectorName = req.params.sector;
+      const { branchId } = req.query;
+      const branchFilter = branchId ? sql`AND l.branch_id = ${branchId}` : sql``;
+      const sectorFilter = sectorName === 'Other' 
+        ? sql`AND (l.sector IS NULL OR l.sector = '' OR l.sector = 'Other')`
+        : sql`AND l.sector = ${sectorName}`;
+      const result = await db.execute(sql`
+        SELECT 
+          l.id,
+          l.application_id,
+          CONCAT(c.first_name, ' ', c.last_name) as customer_name,
+          c.phone_number,
+          l.principle_amount,
+          l.total_receivable,
+          l.status,
+          l.product_name,
+          COALESCE(b.name, 'N/A') as branch_name,
+          COALESCE(fo.name, 'N/A') as officer_name,
+          COALESCE((SELECT SUM(COALESCE(i.paid_amount::numeric, 0)) FROM installments i WHERE i.loan_id = l.id AND COALESCE(i.paid_amount::numeric, 0) > 0), 0) as total_paid
+        FROM loans l
+        JOIN customers c ON l.customer_id = c.id
+        LEFT JOIN branches b ON l.branch_id = b.id
+        LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
+        WHERE l.status IN ('disbursed', 'active')
+          ${sectorFilter}
+          ${branchFilter}
+        ORDER BY l.application_id
+      `);
+      res.json({
+        sector: sectorName,
+        items: (result.rows as any[]).map(r => ({
+          id: r.id,
+          applicationId: r.application_id,
+          customerName: r.customer_name,
+          phoneNumber: r.phone_number,
+          principleAmount: Number(r.principle_amount || 0),
+          totalReceivable: Number(r.total_receivable || 0),
+          totalPaid: Number(r.total_paid || 0),
+          outstanding: Math.max(Number(r.total_receivable || 0) - Number(r.total_paid || 0), 0),
+          status: r.status,
+          productName: r.product_name,
+          branchName: r.branch_name,
+          officerName: r.officer_name,
+        })),
+      });
+    } catch (error) {
+      console.error("Error fetching sector customers:", error);
+      res.status(500).json({ message: "Failed to fetch sector customers" });
+    }
+  });
+
+  app.get("/api/dashboard/customers-by-status", isAuthenticated, async (req, res) => {
+    try {
+      const { branchId } = req.query;
+      const branchFilter = branchId ? sql`AND l.branch_id = ${branchId}` : sql``;
+      const result = await db.execute(sql`
+        SELECT 
+          l.status,
+          COUNT(DISTINCT l.customer_id) as customer_count,
+          COUNT(*) as loan_count,
+          COALESCE(SUM(COALESCE(l.principle_amount, l.request_amount)::numeric), 0) as total_amount
+        FROM loans l
+        WHERE 1=1 ${branchFilter}
+        GROUP BY l.status
+        ORDER BY loan_count DESC
+      `);
+      res.json((result.rows as any[]).map(r => ({
+        status: r.status,
+        customerCount: Number(r.customer_count),
+        loanCount: Number(r.loan_count),
+        totalAmount: Number(r.total_amount),
+      })));
+    } catch (error) {
+      console.error("Error fetching customers by status:", error);
+      res.status(500).json({ message: "Failed to fetch customers by status" });
+    }
+  });
+
   // ===== BRANCHES =====
   app.get("/api/branches", isAuthenticated, async (req, res) => {
     try {
