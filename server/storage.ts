@@ -5724,7 +5724,7 @@ export class DatabaseStorage implements IStorage {
       INNER JOIN disbursements d ON d.loan_id = l.id
       INNER JOIN customers c ON l.customer_id = c.id
       WHERE l.funding_source_id = ${fundingSourceId}
-        AND l.status IN ('active', 'disbursed', 'completed', 'closed')
+        AND l.status IN ('active', 'disbursed', 'completed', 'defaulted')
     `);
     const disbursedRows = disbursedResult.rows as Array<{
       loan_id: string;
