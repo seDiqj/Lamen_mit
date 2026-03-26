@@ -94,6 +94,7 @@ const PAGE_URL_TO_NAME: Record<string, string> = {
   "/reports": "reports",
   "/citizen-balance-statement": "citizen-balance-statement",
   "/par-report": "par-report",
+  "/shareholder-report": "shareholder-report",
   "/loan-disbursement-report": "loan-disbursement-report",
   "/dab-reports": "dab-reports",
   "/lctr-report": "lctr-report",
@@ -246,6 +247,7 @@ export function AppSidebar() {
         { title: "Loan DAB Reports", url: "/dab-reports", icon: FileBarChart, iconColor: "text-purple-500" },
         { title: "LCTR Report", url: "/lctr-report", icon: Receipt, iconColor: "text-orange-500" },
         { title: "PAR Report", url: "/par-report", icon: AlertTriangle, iconColor: "text-red-500" },
+        { title: "Shareholder Report", url: "/shareholder-report", icon: PieChart, iconColor: "text-indigo-500" },
       ],
     },
   ];
@@ -326,6 +328,7 @@ export function AppSidebar() {
         { title: "Loan Disbursement", url: "/loan-disbursement-report", icon: Banknote, iconColor: "text-teal-500" },
         { title: "Loan DAB Reports", url: "/dab-reports", icon: FileBarChart, iconColor: "text-purple-500" },
         { title: "LCTR Report", url: "/lctr-report", icon: Receipt, iconColor: "text-orange-500" },
+        { title: "Shareholder Report", url: "/shareholder-report", icon: PieChart, iconColor: "text-indigo-500" },
       ],
     },
   ];
@@ -411,6 +414,7 @@ export function AppSidebar() {
         { title: "Loan DAB Reports", url: "/dab-reports", icon: FileBarChart, iconColor: "text-purple-500" },
         { title: "LCTR Report", url: "/lctr-report", icon: Receipt, iconColor: "text-orange-500" },
         { title: "PAR Report", url: "/par-report", icon: AlertTriangle, iconColor: "text-red-500" },
+        { title: "Shareholder Report", url: "/shareholder-report", icon: PieChart, iconColor: "text-indigo-500" },
         { title: "Activity Log", url: "/activity", icon: Activity, iconColor: "text-lime-500" },
       ],
     },

@@ -389,6 +389,7 @@ export interface IStorage {
   getFundingSourceStatement(fundingSourceId: string, startDate?: string, endDate?: string): Promise<any>;
   getFundingSourcePrincipleStatement(fundingSourceId: string, startDate?: string, endDate?: string): Promise<any>;
   getCashFlowStatement(startDate: string, endDate: string): Promise<any>;
+  getShareholderReport(startDate: string, endDate: string): Promise<any>;
   getNextEntryNumber(): Promise<string>;
   
   // Seed
@@ -5074,6 +5075,116 @@ export class DatabaseStorage implements IStorage {
     }
     
     return { updated };
+  }
+
+  async getShareholderReport(startDate: string, endDate: string): Promise<any> {
+    const incomeMarginCollectedCodes = ['50000'];
+    const incomeMarginReceivableCodes = ['20900'];
+    const otherIncomeCodes = ['40500', '40400', '40000'];
+    const fixedExpenseCodes = ['61001', '60001'];
+    const variableExpenseCodes = [
+      '51000', '60002', '60003', '60004', '60005', '60100', '60500', '60600',
+      '60700', '60800', '60900', '61002', '61100', '61200', '61300', '61500',
+      '61600', '61700', '61800', '70000', '80000', '80100', '62000', '61400', '61900'
+    ];
+
+    const allCodes = [
+      ...incomeMarginCollectedCodes, ...incomeMarginReceivableCodes,
+      ...otherIncomeCodes, ...fixedExpenseCodes, ...variableExpenseCodes
+    ];
+
+    const matchedAccounts = await db.select().from(accounts).where(
+      sql`${accounts.accountCode} IN (${sql.join(allCodes.map(c => sql`${c}`), sql`, `)})`
+    );
+
+    const accountIds = matchedAccounts.map(a => a.id);
+    const periodBalances: Record<string, { debit: number; credit: number }> = {};
+
+    if (accountIds.length > 0) {
+      const balanceRows = await db
+        .select({
+          accountId: journalLines.accountId,
+          totalDebit: sql<string>`COALESCE(SUM(CAST(${journalLines.debitAmount} AS numeric)), 0)`,
+          totalCredit: sql<string>`COALESCE(SUM(CAST(${journalLines.creditAmount} AS numeric)), 0)`,
+        })
+        .from(journalLines)
+        .leftJoin(journalEntries, eq(journalLines.journalEntryId, journalEntries.id))
+        .where(
+          and(
+            eq(journalEntries.isPosted, true),
+            inArray(journalLines.accountId, accountIds),
+            gte(journalEntries.entryDate, startDate),
+            lte(journalEntries.entryDate, endDate)
+          )
+        )
+        .groupBy(journalLines.accountId);
+
+      for (const row of balanceRows) {
+        periodBalances[row.accountId] = {
+          debit: Number(row.totalDebit || 0),
+          credit: Number(row.totalCredit || 0),
+        };
+      }
+    }
+
+    const getAccountBalance = (code: string) => {
+      const acc = matchedAccounts.find(a => a.accountCode === code);
+      if (!acc) return 0;
+      const bal = periodBalances[acc.id];
+      if (!bal) return 0;
+      if (acc.accountType === 'income') return bal.credit - bal.debit;
+      if (acc.accountType === 'expense') return bal.debit - bal.credit;
+      if (acc.accountType === 'asset') return bal.debit - bal.credit;
+      if (acc.accountType === 'liability' || acc.accountType === 'equity') return bal.credit - bal.debit;
+      return bal.credit - bal.debit;
+    };
+
+    const getAccountInfo = (code: string) => {
+      const acc = matchedAccounts.find(a => a.accountCode === code);
+      return {
+        accountCode: code,
+        accountName: acc?.accountName || code,
+        balance: getAccountBalance(code),
+      };
+    };
+
+    const buildGroup = (codes: string[]) => {
+      const items = codes.map(c => getAccountInfo(c));
+      return {
+        items,
+        total: items.reduce((s, i) => s + i.balance, 0),
+      };
+    };
+
+    const incomeMarginCollected = buildGroup(incomeMarginCollectedCodes);
+    const incomeMarginReceivable = buildGroup(incomeMarginReceivableCodes);
+    const otherIncome = buildGroup(otherIncomeCodes);
+    const fixedExpense = buildGroup(fixedExpenseCodes);
+    const variableExpense = buildGroup(variableExpenseCodes);
+
+    const totalIncome = incomeMarginCollected.total + otherIncome.total;
+    const totalReceivable = incomeMarginReceivable.total;
+    const totalExpense = fixedExpense.total + variableExpense.total;
+    const netProfit = totalIncome - totalExpense;
+
+    return {
+      income: {
+        margin: {
+          collected: incomeMarginCollected,
+          receivable: incomeMarginReceivable,
+        },
+        other: otherIncome,
+        totalCollected: totalIncome,
+        totalReceivable,
+      },
+      expense: {
+        fixed: fixedExpense,
+        variable: variableExpense,
+        total: totalExpense,
+      },
+      netProfit,
+      netProfitIncludingReceivable: netProfit + totalReceivable,
+    };
   }
 
   async getNextEntryNumber(): Promise<string> {

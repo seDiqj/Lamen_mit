@@ -5765,6 +5765,20 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/reports/shareholder-report", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "startDate and endDate are required" });
+      }
+      const result = await storage.getShareholderReport(startDate as string, endDate as string);
+      res.json(result);
+    } catch (error) {
+      console.error("Shareholder report error:", error);
+      res.status(500).json({ message: "Failed to generate shareholder report" });
+    }
+  });
+
   app.get("/api/reports/loan-disbursement", isAuthenticated, async (req, res) => {
     try {
       const { startDate, endDate, branchId, fundingSourceId } = req.query;
