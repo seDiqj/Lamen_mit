@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -50,7 +50,9 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Switch } from "@/components/ui/switch";
-import { Search, Plus, Pencil, Trash2, Users, Shield, UserCheck, UserX, Crown, Lock, Unlock, LayoutDashboard, FileText, BarChart3, AlertTriangle, Activity, Settings, CreditCard, ClipboardList, PiggyBank, ChevronDown, ChevronRight, Building2, UserPlus, Briefcase, Gavel, FileCheck, Banknote, BookOpen, FolderOpen, Layers, Receipt, Scale, FileSpreadsheet, UserCog, Network, Calendar, Clock, Plane, CalendarOff, GitBranch } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, Users, Shield, UserCheck, UserX, Crown, Lock, Unlock, LayoutDashboard, FileText, BarChart3, AlertTriangle, Activity, Settings, CreditCard, ClipboardList, PiggyBank, ChevronDown, ChevronRight, Building2, UserPlus, Briefcase, Gavel, FileCheck, Banknote, BookOpen, FolderOpen, Layers, Receipt, Scale, FileSpreadsheet, UserCog, Network, Calendar, Clock, Plane, CalendarOff, GitBranch, Check, ChevronsUpDown } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -307,6 +309,7 @@ export default function UsersPage() {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [officerComboOpen, setOfficerComboOpen] = useState(false);
   const [editUser, setEditUser] = useState<User | null>(null);
   const [deleteUser, setDeleteUser] = useState<User | null>(null);
   const [toggleStatusUser, setToggleStatusUser] = useState<User | null>(null);
@@ -817,23 +820,36 @@ export default function UsersPage() {
               {formData.role === "finance_officer" && (
                 <div className="space-y-2">
                   <Label htmlFor="financeOfficerId">Link to Financing Officer *</Label>
-                  <Select value={formData.financeOfficerId} onValueChange={(value) => setFormData({ ...formData, financeOfficerId: value })}>
-                    <SelectTrigger data-testid="select-finance-officer">
-                      <SelectValue placeholder="Select financing officer..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {financeOfficers.map((officer) => (
-                        <SelectItem key={officer.id} value={officer.id}>
-                          <div className="flex items-center gap-2">
-                            <Briefcase className="h-4 w-4 text-emerald-500" />
-                            <span>{officer.name}</span>
-                            {officer.code && <span className="text-muted-foreground text-xs">({officer.code})</span>}
-                            {officer.branchName && <span className="text-muted-foreground text-xs">- {officer.branchName}</span>}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Popover open={officerComboOpen} onOpenChange={setOfficerComboOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" role="combobox" aria-expanded={officerComboOpen} className="w-full justify-between font-normal" data-testid="select-finance-officer">
+                        {formData.financeOfficerId ? (() => {
+                          const o = financeOfficers.find((o) => o.id === formData.financeOfficerId);
+                          return o ? `${o.name}${o.code ? ` (${o.code})` : ""}${o.branchName ? ` - ${o.branchName}` : ""}` : "Select financing officer...";
+                        })() : "Select financing officer..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[400px] p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Search financing officer..." />
+                        <CommandList>
+                          <CommandEmpty>No officer found.</CommandEmpty>
+                          <CommandGroup>
+                            {financeOfficers.map((officer) => (
+                              <CommandItem key={officer.id} value={`${officer.name} ${officer.code || ""} ${officer.branchName || ""}`} onSelect={() => { setFormData({ ...formData, financeOfficerId: officer.id }); setOfficerComboOpen(false); }}>
+                                <Check className={cn("mr-2 h-4 w-4", formData.financeOfficerId === officer.id ? "opacity-100" : "opacity-0")} />
+                                <Briefcase className="mr-2 h-4 w-4 text-emerald-500" />
+                                <span>{officer.name}</span>
+                                {officer.code && <span className="text-muted-foreground text-xs ml-1">({officer.code})</span>}
+                                {officer.branchName && <span className="text-muted-foreground text-xs ml-1">- {officer.branchName}</span>}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
               )}
               <DialogFooter className="pt-4">
@@ -1305,23 +1321,36 @@ export default function UsersPage() {
             {formData.role === "finance_officer" && (
               <div className="space-y-2">
                 <Label htmlFor="edit-financeOfficerId">Link to Financing Officer *</Label>
-                <Select value={formData.financeOfficerId} onValueChange={(value) => setFormData({ ...formData, financeOfficerId: value })}>
-                  <SelectTrigger data-testid="select-edit-finance-officer">
-                    <SelectValue placeholder="Select financing officer..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {financeOfficers.map((officer) => (
-                      <SelectItem key={officer.id} value={officer.id}>
-                        <div className="flex items-center gap-2">
-                          <Briefcase className="h-4 w-4 text-emerald-500" />
-                          <span>{officer.name}</span>
-                          {officer.code && <span className="text-muted-foreground text-xs">({officer.code})</span>}
-                          {officer.branchName && <span className="text-muted-foreground text-xs">- {officer.branchName}</span>}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={officerComboOpen} onOpenChange={setOfficerComboOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" aria-expanded={officerComboOpen} className="w-full justify-between font-normal" data-testid="select-edit-finance-officer">
+                      {formData.financeOfficerId ? (() => {
+                        const o = financeOfficers.find((o) => o.id === formData.financeOfficerId);
+                        return o ? `${o.name}${o.code ? ` (${o.code})` : ""}${o.branchName ? ` - ${o.branchName}` : ""}` : "Select financing officer...";
+                      })() : "Select financing officer..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[400px] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search financing officer..." />
+                      <CommandList>
+                        <CommandEmpty>No officer found.</CommandEmpty>
+                        <CommandGroup>
+                          {financeOfficers.map((officer) => (
+                            <CommandItem key={officer.id} value={`${officer.name} ${officer.code || ""} ${officer.branchName || ""}`} onSelect={() => { setFormData({ ...formData, financeOfficerId: officer.id }); setOfficerComboOpen(false); }}>
+                              <Check className={cn("mr-2 h-4 w-4", formData.financeOfficerId === officer.id ? "opacity-100" : "opacity-0")} />
+                              <Briefcase className="mr-2 h-4 w-4 text-emerald-500" />
+                              <span>{officer.name}</span>
+                              {officer.code && <span className="text-muted-foreground text-xs ml-1">({officer.code})</span>}
+                              {officer.branchName && <span className="text-muted-foreground text-xs ml-1">- {officer.branchName}</span>}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
             )}
             <DialogFooter className="pt-4">
