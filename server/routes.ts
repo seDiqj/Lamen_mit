@@ -9024,7 +9024,7 @@ export async function registerRoutes(
 
       const verifyResult = await db.execute(sql`
         SELECT id, application_id FROM loans
-        WHERE id = ANY(${loanIds}::text[])
+        WHERE id IN (${sql.join(loanIds.map((id: string) => sql`${id}`), sql`, `)})
         AND finance_officer_id = ${fromOfficerId}
       `);
       if (verifyResult.rows.length !== loanIds.length) {
