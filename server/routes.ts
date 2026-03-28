@@ -726,13 +726,15 @@ export async function registerRoutes(
         const marginIncomeResult = await db.execute(sql`
           SELECT COALESCE(SUM(l.profit::numeric), 0) as total_margin
           FROM loans l
-          LEFT JOIN disbursements d ON l.id = d.loan_id
-          WHERE d.disbursement_date >= ${startDate} AND d.disbursement_date <= ${endDate}
+          INNER JOIN disbursements d ON l.id = d.loan_id
+          WHERE d.disbursement_date <= ${endDate}
+            AND l.status IN ('active', 'disbursed', 'completed', 'defaulted')
+            AND (l.status != 'completed' OR l.updated_at >= ${startDate}::timestamp)
         `);
         const totalMarginIncome = parseFloat(marginIncomeResult.rows[0]?.total_margin as string || "0");
 
         const avgCostPerLoan = totalLoans > 0 ? operatingExpenses / totalLoans : 0;
-        const avgIncomePerLoan = totalLoans > 0 ? totalIncome / totalLoans : 0;
+        const avgIncomePerLoan = totalLoans > 0 ? totalMarginIncome / totalLoans : 0;
         const costIncomeRatio = totalIncome > 0 ? (operatingExpenses / totalIncome) * 100 : 0;
         const netIncomePerLoan = avgIncomePerLoan - avgCostPerLoan;
 

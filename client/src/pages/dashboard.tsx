@@ -1314,7 +1314,7 @@ export default function Dashboard() {
               </div>
 
               <div className="rounded-xl border p-4 space-y-1">
-                <p className="text-xs text-muted-foreground">Avg Income Per Loan</p>
+                <p className="text-xs text-muted-foreground">Avg Margin Income / Loan</p>
                 <p className="text-xl font-bold text-emerald-600" data-testid="text-avg-income-current">{formatCurrency(costAnalysis.currentYear.avgIncomePerLoan)}</p>
                 <p className="text-[10px] text-muted-foreground">{costAnalysis.previousYear.year}: {formatCurrency(costAnalysis.previousYear.avgIncomePerLoan)}</p>
               </div>
