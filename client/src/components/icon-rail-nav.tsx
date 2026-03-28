@@ -91,6 +91,7 @@ const PAGE_URL_TO_NAME: Record<string, string> = {
   "/collections": "collections",
   "/installment-management": "installment-management",
   "/loan-transfers": "loan-transfers",
+  "/collection-approvals": "collection-approvals",
   "/disbursements": "disbursements",
   "/branches": "branches",
   "/officers": "officers",
@@ -215,6 +216,7 @@ export function IconRailNav({ children }: IconRailNavProps) {
         { title: "Collections", url: "/collections", icon: Banknote, iconColor: "text-green-600" },
         { title: "Installment Management", url: "/installment-management", icon: ListChecks, iconColor: "text-orange-500" },
         { title: "Loan Officer Transfer", url: "/loan-transfers", icon: ArrowRightLeft, iconColor: "text-indigo-500" },
+        { title: "Collection Approvals", url: "/collection-approvals", icon: ClipboardCheck, iconColor: "text-purple-600" },
       ],
     },
     {

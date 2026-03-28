@@ -395,6 +395,30 @@ export const loanTransfers = pgTable("loan_transfers", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Collection Records (pending approval workflow)
+export const collectionRecordStatusEnum = pgEnum("collection_record_status", ["pending", "approved", "rejected"]);
+
+export const collectionRecords = pgTable("collection_records", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  installmentId: varchar("installment_id").references(() => installments.id).notNull(),
+  loanId: varchar("loan_id").references(() => loans.id).notNull(),
+  loanApplicationId: varchar("loan_application_id"),
+  customerId: varchar("customer_id"),
+  customerName: varchar("customer_name", { length: 500 }),
+  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
+  paymentDate: varchar("payment_date", { length: 20 }).notNull(),
+  debitAccountCode: varchar("debit_account_code", { length: 20 }).default("10206"),
+  notes: text("notes"),
+  status: collectionRecordStatusEnum("status").default("pending"),
+  submittedBy: varchar("submitted_by").notNull(),
+  submittedAt: timestamp("submitted_at").defaultNow(),
+  reviewedBy: varchar("reviewed_by"),
+  reviewedAt: timestamp("reviewed_at"),
+  rejectionReason: text("rejection_reason"),
+  journalEntryId: varchar("journal_entry_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Activity Logs
 export const activityLogs = pgTable("activity_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -430,6 +454,7 @@ export const insertCommitteeVoteSchema = createInsertSchema(committeeVotes).omit
 export const insertDisbursementSchema = createInsertSchema(disbursements).omit({ id: true, createdAt: true });
 export const insertInstallmentSchema = createInsertSchema(installments).omit({ id: true, createdAt: true });
 export const insertLoanTransferSchema = createInsertSchema(loanTransfers).omit({ id: true, createdAt: true });
+export const insertCollectionRecordSchema = createInsertSchema(collectionRecords).omit({ id: true, createdAt: true });
 export const insertActivityLogSchema = createInsertSchema(activityLogs).omit({ id: true, createdAt: true });
 export const insertParCategorySchema = createInsertSchema(parCategories).omit({ id: true });
 export const insertLookupRoleSchema = createInsertSchema(lookupRoles).omit({ id: true, createdAt: true });
@@ -481,6 +506,8 @@ export type InsertInstallment = z.infer<typeof insertInstallmentSchema>;
 export type Installment = typeof installments.$inferSelect;
 export type InsertLoanTransfer = z.infer<typeof insertLoanTransferSchema>;
 export type LoanTransfer = typeof loanTransfers.$inferSelect;
+export type InsertCollectionRecord = z.infer<typeof insertCollectionRecordSchema>;
+export type CollectionRecord = typeof collectionRecords.$inferSelect;
 export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
 export type ActivityLog = typeof activityLogs.$inferSelect;
 export type InsertParCategory = z.infer<typeof insertParCategorySchema>;

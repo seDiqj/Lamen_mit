@@ -1,8 +1,11 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -11,10 +14,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
   Calendar, Banknote, AlertTriangle, Clock, CheckCircle,
-  ChevronDown, ChevronUp, Search
+  ChevronDown, ChevronUp, Search, Send, Loader2, HourglassIcon
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 type FinanceOfficer = {
   id: string;
@@ -71,16 +83,22 @@ function getDaysStatus(dueDate: string) {
   }
 }
 
-function getStatusIcon(isPaid: boolean, isOverdue: boolean) {
+function getStatusIcon(isPaid: boolean, isOverdue: boolean, hasPending: boolean) {
   if (isPaid) return <CheckCircle className="h-4 w-4 text-primary" />;
+  if (hasPending) return <HourglassIcon className="h-4 w-4 text-amber-500" />;
   if (isOverdue) return <AlertTriangle className="h-4 w-4 text-destructive" />;
   return <Clock className="h-4 w-4 text-muted-foreground" />;
 }
 
 export default function MobileCollections() {
+  const { toast } = useToast();
   const [filter, setFilter] = useState("due_soon");
   const [search, setSearch] = useState("");
   const [expandedLoan, setExpandedLoan] = useState<string | null>(null);
+  const [paymentDialog, setPaymentDialog] = useState<CollectionInstallment | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split("T")[0]);
+  const [paymentNotes, setPaymentNotes] = useState("");
 
   const { data: roleData, isLoading: roleLoading } = useQuery<{ role: string; roleType: string }>({
     queryKey: ["/api/user/role"],
@@ -115,6 +133,52 @@ export default function MobileCollections() {
     },
     enabled: !roleLoading && officerReady,
   });
+
+  const { data: pendingRecords = [] } = useQuery<any[]>({
+    queryKey: ["/api/collection-records", "pending"],
+    queryFn: async () => {
+      const res = await fetch("/api/collection-records?status=pending", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const pendingInstallmentIds = new Set(pendingRecords.map((r: any) => r.installment_id));
+
+  const submitMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("POST", "/api/collection-records", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Submitted", description: "Collection record submitted for approval" });
+      setPaymentDialog(null);
+      setPaymentAmount("");
+      setPaymentNotes("");
+      queryClient.invalidateQueries({ queryKey: ["/api/collection-records"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to submit", variant: "destructive" });
+    },
+  });
+
+  const handleSubmitPayment = () => {
+    if (!paymentDialog || !paymentAmount) return;
+    submitMutation.mutate({
+      installmentId: paymentDialog.id,
+      amount: parseFloat(paymentAmount),
+      paymentDate,
+      notes: paymentNotes || undefined,
+    });
+  };
+
+  const openPaymentDialog = (inst: CollectionInstallment) => {
+    const remaining = parseFloat(inst.totalAmount || "0") - parseFloat(inst.paidAmount || "0");
+    setPaymentAmount(remaining > 0 ? remaining.toString() : "");
+    setPaymentDate(new Date().toISOString().split("T")[0]);
+    setPaymentNotes("");
+    setPaymentDialog(inst);
+  };
 
   const installments = data?.installments || [];
   const summary = data?.summary;
@@ -263,7 +327,7 @@ export default function MobileCollections() {
                           <span>#</span>
                           <span>Due Date</span>
                           <span className="text-right">Amount</span>
-                          <span className="text-right">Paid</span>
+                          <span className="text-right">Remaining</span>
                           <span className="text-center w-5">St</span>
                         </div>
                         {group.installments
@@ -271,28 +335,60 @@ export default function MobileCollections() {
                           .map((inst) => {
                             const status = getDaysStatus(inst.dueDate);
                             const remaining = parseFloat(inst.totalAmount || "0") - parseFloat(inst.paidAmount || "0");
+                            const hasPending = pendingInstallmentIds.has(inst.id);
                             return (
-                              <div
-                                key={inst.id}
-                                className={`grid grid-cols-[2rem_1fr_1fr_1fr_auto] gap-1 items-center px-1 py-1.5 rounded text-xs ${
-                                  inst.isPaid ? "bg-muted/50" : ""
-                                }`}
-                                data-testid={`row-mobile-installment-${inst.id}`}
-                              >
-                                <span className="text-muted-foreground">{inst.installmentNumber}</span>
-                                <span className="flex items-center gap-0.5">
-                                  <Calendar className="h-3 w-3 text-muted-foreground shrink-0" />
-                                  <span className="truncate">
-                                    {new Date(inst.dueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
+                              <div key={inst.id}>
+                                <div
+                                  className={`grid grid-cols-[2rem_1fr_1fr_1fr_auto] gap-1 items-center px-1 py-1.5 rounded text-xs ${
+                                    inst.isPaid ? "bg-muted/50" : ""
+                                  }`}
+                                  data-testid={`row-mobile-installment-${inst.id}`}
+                                >
+                                  <span className="text-muted-foreground">{inst.installmentNumber}</span>
+                                  <span className="flex items-center gap-0.5">
+                                    <Calendar className="h-3 w-3 text-muted-foreground shrink-0" />
+                                    <span className="truncate">
+                                      {new Date(inst.dueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
+                                    </span>
                                   </span>
-                                </span>
-                                <span className="text-right font-medium">{formatCurrency(inst.totalAmount)}</span>
-                                <span className={`text-right ${inst.isPaid ? "text-primary" : remaining > 0 ? "text-orange-600" : ""}`}>
-                                  {formatCurrency(inst.paidAmount)}
-                                </span>
-                                <span className="w-5 flex justify-center">
-                                  {getStatusIcon(inst.isPaid, status.isOverdue)}
-                                </span>
+                                  <span className="text-right font-medium">{formatCurrency(inst.totalAmount)}</span>
+                                  <span className={`text-right ${inst.isPaid ? "text-primary" : remaining > 0 ? "text-orange-600" : ""}`}>
+                                    {inst.isPaid ? "Paid" : formatCurrency(remaining)}
+                                  </span>
+                                  <span className="w-5 flex justify-center">
+                                    {getStatusIcon(inst.isPaid, status.isOverdue, hasPending)}
+                                  </span>
+                                </div>
+                                {!inst.isPaid && (
+                                  <div className="flex items-center justify-between px-1 py-1">
+                                    {hasPending ? (
+                                      <Badge variant="outline" className="text-[9px] text-amber-600 border-amber-300">
+                                        <HourglassIcon className="h-3 w-3 mr-1" /> Pending Approval
+                                      </Badge>
+                                    ) : (
+                                      <>
+                                        {status.isOverdue && (
+                                          <span className="text-[10px] text-destructive font-medium">{status.label}</span>
+                                        )}
+                                        {!status.isOverdue && status.days <= 7 && (
+                                          <span className="text-[10px] text-amber-600 font-medium">{status.label}</span>
+                                        )}
+                                        {!status.isOverdue && status.days > 7 && (
+                                          <span className="text-[10px] text-muted-foreground">{status.label}</span>
+                                        )}
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="h-6 text-[10px] px-2"
+                                          onClick={() => openPaymentDialog(inst)}
+                                          data-testid={`button-record-payment-${inst.id}`}
+                                        >
+                                          <Send className="h-3 w-3 mr-1" /> Record
+                                        </Button>
+                                      </>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             );
                           })}
@@ -305,6 +401,86 @@ export default function MobileCollections() {
           })
         )}
       </div>
+
+      <Dialog open={!!paymentDialog} onOpenChange={(open) => { if (!open) setPaymentDialog(null); }}>
+        <DialogContent className="max-w-sm mx-auto">
+          <DialogHeader>
+            <DialogTitle className="text-base">Record Collection</DialogTitle>
+          </DialogHeader>
+          {paymentDialog && (
+            <div className="space-y-3">
+              <div className="bg-muted/50 rounded-lg p-3 space-y-1">
+                <p className="text-sm font-semibold">{paymentDialog.customerName}</p>
+                <p className="text-xs text-muted-foreground">{paymentDialog.loanApplicationId} - Installment #{paymentDialog.installmentNumber}</p>
+                <div className="flex justify-between text-xs mt-2">
+                  <span className="text-muted-foreground">Total Amount:</span>
+                  <span className="font-medium">{formatCurrency(paymentDialog.totalAmount)} AFN</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Already Paid:</span>
+                  <span className="font-medium">{formatCurrency(paymentDialog.paidAmount)} AFN</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Remaining:</span>
+                  <span className="font-bold text-orange-600">
+                    {formatCurrency(parseFloat(paymentDialog.totalAmount || "0") - parseFloat(paymentDialog.paidAmount || "0"))} AFN
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs">Payment Amount (AFN)</Label>
+                <Input
+                  type="number"
+                  value={paymentAmount}
+                  onChange={(e) => setPaymentAmount(e.target.value)}
+                  placeholder="Enter amount"
+                  className="h-9"
+                  data-testid="input-payment-amount"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs">Payment Date</Label>
+                <Input
+                  type="date"
+                  value={paymentDate}
+                  onChange={(e) => setPaymentDate(e.target.value)}
+                  className="h-9"
+                  data-testid="input-payment-date"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs">Notes (optional)</Label>
+                <Textarea
+                  value={paymentNotes}
+                  onChange={(e) => setPaymentNotes(e.target.value)}
+                  placeholder="Any notes about the collection..."
+                  rows={2}
+                  className="text-sm"
+                  data-testid="input-payment-notes"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPaymentDialog(null)} className="flex-1">Cancel</Button>
+            <Button
+              onClick={handleSubmitPayment}
+              disabled={submitMutation.isPending || !paymentAmount || parseFloat(paymentAmount) <= 0}
+              className="flex-1"
+              data-testid="button-submit-collection"
+            >
+              {submitMutation.isPending ? (
+                <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Submitting...</>
+              ) : (
+                <><Send className="h-4 w-4 mr-1" /> Submit</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

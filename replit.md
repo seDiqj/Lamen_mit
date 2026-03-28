@@ -40,6 +40,8 @@ Preferred communication style: Simple, everyday language.
   - `productCycleLimits` - Unlimited cycle-based min/max amount limits per financing product
   - `loans`, `collaterals`, `guarantors` - Loan information (loans includes `businessDetailedDescription`, `clientOccupation` fields; collaterals includes `description`, `district` fields)
   - `loanApprovals`, `disbursements`, `installments` - Loan lifecycle
+  - `loanTransfers` - Officer-to-officer loan transfers
+  - `collectionRecords` - Collection approval workflow (pending/approved/rejected) with journal entry tracking
   - `activityLogs` - Audit trail
   - `accounts` - Chart of accounts with hierarchical structure for double-entry bookkeeping
   - `journalEntries`, `journalLines` - Double-entry transactions with posting/reversal support

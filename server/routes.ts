@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { customers, loans, disbursements, branches, financeOfficers, installments, fundingSources as fundingSourcesTable, collaterals, customerBusinesses, businessLicenses, loanApprovals, guarantors, userRoles, fadReviews, riskComplianceReviews, accounts, journalEntries, journalLines, clientOccupations, productCycleLimits, loanTransfers } from "@shared/schema";
+import { customers, loans, disbursements, branches, financeOfficers, installments, fundingSources as fundingSourcesTable, collaterals, customerBusinesses, businessLicenses, loanApprovals, guarantors, userRoles, fadReviews, riskComplianceReviews, accounts, journalEntries, journalLines, clientOccupations, productCycleLimits, loanTransfers, collectionRecords } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { eq, and, or, inArray, sql, gte, lte, desc } from "drizzle-orm";
 import { z } from "zod";
@@ -8972,6 +8972,230 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Error saving cycle limits:", error);
       res.status(500).json({ message: "Failed to save cycle limits" });
+    }
+  });
+
+  // ===== COLLECTION RECORDS (Mobile submission + Approval workflow) =====
+
+  app.post("/api/collection-records", isAuthenticated, async (req: any, res) => {
+    try {
+      const schema = z.object({
+        installmentId: z.string(),
+        amount: z.number().positive(),
+        paymentDate: z.string(),
+        notes: z.string().optional(),
+        debitAccountCode: z.string().optional(),
+      });
+      const parsed = schema.parse(req.body);
+      const userId = req.session.userId;
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+      const instResult = await db.execute(sql`
+        SELECT i.id, i.loan_id, i.total_amount, i.paid_amount, i.is_paid, i.installment_number,
+          l.application_id, l.customer_id,
+          c.first_name || ' ' || c.last_name as customer_name
+        FROM installments i
+        LEFT JOIN loans l ON i.loan_id = l.id
+        LEFT JOIN customers c ON l.customer_id = c.id
+        WHERE i.id = ${parsed.installmentId}
+      `);
+      if (instResult.rows.length === 0) return res.status(404).json({ message: "Installment not found" });
+
+      const inst: any = instResult.rows[0];
+      if (inst.is_paid) return res.status(400).json({ message: "Installment is already fully paid" });
+
+      const pendingCheck = await db.execute(sql`
+        SELECT id FROM collection_records 
+        WHERE installment_id = ${parsed.installmentId} AND status = 'pending'
+      `);
+      if (pendingCheck.rows.length > 0) {
+        return res.status(400).json({ message: "A pending collection record already exists for this installment" });
+      }
+
+      const [record] = await db.insert(collectionRecords).values({
+        installmentId: parsed.installmentId,
+        loanId: inst.loan_id,
+        loanApplicationId: inst.application_id,
+        customerId: inst.customer_id,
+        customerName: inst.customer_name,
+        amount: parsed.amount.toFixed(2),
+        paymentDate: parsed.paymentDate,
+        debitAccountCode: parsed.debitAccountCode || "10206",
+        notes: parsed.notes || null,
+        submittedBy: userId,
+      }).returning();
+
+      await logActivity(req, "submit_collection", "collection_record", record.id,
+        `Submitted collection record: AFN ${parsed.amount.toLocaleString()} for ${inst.customer_name} (${inst.application_id}) Inst #${inst.installment_number}`
+      );
+
+      res.status(201).json(record);
+    } catch (error: any) {
+      console.error("Error creating collection record:", error);
+      res.status(400).json({ message: error.message || "Failed to create collection record" });
+    }
+  });
+
+  app.get("/api/collection-records", isAuthenticated, requirePageAccess("collection-approvals"), async (req, res) => {
+    try {
+      const status = req.query.status as string || "pending";
+      let statusFilter = sql`cr.status = ${status}`;
+      if (status === "all") statusFilter = sql`1=1`;
+
+      const result = await db.execute(sql`
+        SELECT cr.*,
+          i.installment_number, i.due_date, i.total_amount as installment_total,
+          i.paid_amount as installment_paid, i.is_paid,
+          l.application_id, l.product_name,
+          l.funding_source_id,
+          c.first_name || ' ' || c.last_name as customer_full_name,
+          fo.name as finance_officer_name,
+          b.name as branch_name,
+          u_sub.username as submitted_by_name,
+          u_rev.username as reviewed_by_name
+        FROM collection_records cr
+        LEFT JOIN installments i ON cr.installment_id = i.id
+        LEFT JOIN loans l ON cr.loan_id = l.id
+        LEFT JOIN customers c ON l.customer_id = c.id
+        LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
+        LEFT JOIN branches b ON l.branch_id = b.id
+        LEFT JOIN users u_sub ON cr.submitted_by = u_sub.id
+        LEFT JOIN users u_rev ON cr.reviewed_by = u_rev.id
+        WHERE ${statusFilter}
+        ORDER BY cr.submitted_at DESC
+      `);
+      res.json(result.rows);
+    } catch (error) {
+      console.error("Error fetching collection records:", error);
+      res.status(500).json({ message: "Failed to fetch collection records" });
+    }
+  });
+
+  app.get("/api/collection-records/pending-count", isAuthenticated, requirePageAccess("collection-approvals"), async (req, res) => {
+    try {
+      const result = await db.execute(sql`
+        SELECT COUNT(*) as count FROM collection_records WHERE status = 'pending'
+      `);
+      res.json({ count: parseInt(result.rows[0]?.count as string || "0") });
+    } catch (error) {
+      console.error("Error fetching pending count:", error);
+      res.status(500).json({ message: "Failed to fetch pending count" });
+    }
+  });
+
+  app.patch("/api/collection-records/:id/approve", isAuthenticated, requirePageAccess("collection-approvals"), async (req: any, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+      const recordResult = await db.execute(sql`
+        SELECT cr.*, l.funding_source_id
+        FROM collection_records cr
+        LEFT JOIN loans l ON cr.loan_id = l.id
+        WHERE cr.id = ${req.params.id}
+      `);
+      if (recordResult.rows.length === 0) return res.status(404).json({ message: "Record not found" });
+
+      const record: any = recordResult.rows[0];
+      if (record.status !== "pending") return res.status(400).json({ message: "Record is not pending" });
+
+      const amount = parseFloat(record.amount);
+
+      const debitCode = record.debit_account_code || "10206";
+      const creditCode = "11000";
+      const debitAccount = await storage.getAccountByCode(debitCode);
+      const creditAccount = await storage.getAccountByCode(creditCode);
+
+      if (!debitAccount || !creditAccount) {
+        return res.status(400).json({ message: `Account codes not found: debit=${debitCode}, credit=${creditCode}. Please set up the chart of accounts first.` });
+      }
+
+      const payResult = await storage.recordPaymentWithOverflow(record.installment_id, amount, record.payment_date);
+      const firstInstallment = payResult.paidInstallments[0];
+      const installmentNums = payResult.paidInstallments.map((i: any) => `#${i.installmentNumber}`).join(", ");
+
+      const entryNumber = await storage.getNextEntryNumber();
+      const description = `Collection: ${record.customer_name} (${record.loan_application_id}) - Inst ${installmentNums} - AFN ${amount.toLocaleString()}`;
+      const fundId = record.funding_source_id || null;
+
+      const lines: any[] = [
+        {
+          accountId: debitAccount.id,
+          description: `Cash received - ${record.customer_name} Inst ${installmentNums}`,
+          debitAmount: payResult.totalApplied.toFixed(2),
+          creditAmount: "0",
+          fundingSourceId: fundId,
+        },
+        {
+          accountId: creditAccount.id,
+          description: `Loan receivable - ${record.customer_name} Inst ${installmentNums}`,
+          debitAmount: "0",
+          creditAmount: payResult.totalApplied.toFixed(2),
+          fundingSourceId: fundId,
+        },
+      ];
+
+      const je = await storage.createJournalEntry(
+        {
+          entryNumber,
+          entryDate: record.payment_date,
+          description,
+          reference: record.loan_application_id,
+          referenceType: "collection",
+          referenceId: firstInstallment.id,
+          fundingSourceId: fundId,
+          isPosted: true,
+          createdBy: userId,
+          postedBy: userId,
+          postedAt: new Date(),
+        },
+        lines
+      );
+
+      await db.execute(sql`
+        UPDATE collection_records 
+        SET status = 'approved', reviewed_by = ${userId}, reviewed_at = NOW(), journal_entry_id = ${je.id}
+        WHERE id = ${req.params.id}
+      `);
+
+      await logActivity(req, "approve_collection", "collection_record", req.params.id,
+        `Approved collection: AFN ${amount.toLocaleString()} for ${record.customer_name} (${record.loan_application_id})`
+      );
+
+      res.json({ message: "Collection approved and payment recorded", journalEntryId: je.id });
+    } catch (error: any) {
+      console.error("Error approving collection record:", error);
+      res.status(400).json({ message: error.message || "Failed to approve collection record" });
+    }
+  });
+
+  app.patch("/api/collection-records/:id/reject", isAuthenticated, requirePageAccess("collection-approvals"), async (req: any, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+      const { reason } = req.body;
+
+      const recordResult = await db.execute(sql`SELECT * FROM collection_records WHERE id = ${req.params.id}`);
+      if (recordResult.rows.length === 0) return res.status(404).json({ message: "Record not found" });
+
+      const record: any = recordResult.rows[0];
+      if (record.status !== "pending") return res.status(400).json({ message: "Record is not pending" });
+
+      await db.execute(sql`
+        UPDATE collection_records 
+        SET status = 'rejected', reviewed_by = ${userId}, reviewed_at = NOW(), rejection_reason = ${reason || null}
+        WHERE id = ${req.params.id}
+      `);
+
+      await logActivity(req, "reject_collection", "collection_record", req.params.id,
+        `Rejected collection: AFN ${record.amount} for ${record.customer_name}. Reason: ${reason || 'N/A'}`
+      );
+
+      res.json({ message: "Collection record rejected" });
+    } catch (error: any) {
+      console.error("Error rejecting collection record:", error);
+      res.status(400).json({ message: error.message || "Failed to reject collection record" });
     }
   });
 

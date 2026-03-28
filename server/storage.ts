@@ -4189,6 +4189,10 @@ export class DatabaseStorage implements IStorage {
       "hr-holidays",
       "disbursement-targets",
       "financing-products",
+      "collections",
+      "installment-management",
+      "loan-transfers",
+      "collection-approvals",
     ];
   }
 
