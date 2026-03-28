@@ -46,7 +46,6 @@ import {
   TrendingUp,
   FileSpreadsheet,
   FileText,
-  Wrench,
   Hash,
   Target,
   BarChart3,
@@ -137,7 +136,6 @@ export default function PaymentsPage() {
   const [page, setPage] = useState(1);
   const [selectedInstallment, setSelectedInstallment] = useState<InstallmentWithDetails | null>(null);
   const [showPayDialog, setShowPayDialog] = useState(false);
-  const [showCorrectDialog, setShowCorrectDialog] = useState(false);
   const [activeTab, setActiveTab] = useState("list");
   const [repaidExpanded, setRepaidExpanded] = useState(false);
   const [showStatementDialog, setShowStatementDialog] = useState(false);
@@ -266,29 +264,6 @@ export default function PaymentsPage() {
     },
   });
 
-  const correctRepaidMutation = useMutation({
-    mutationFn: async () => {
-      return apiRequest("POST", "/api/admin/correct-repaid-amounts", {});
-    },
-    onSuccess: async (res: any) => {
-      const data = await res.json();
-      queryClient.invalidateQueries({ queryKey: ["/api/installments"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/loans"] });
-      toast({
-        title: "Correction Complete",
-        description: `${data.updated} loans updated, ${data.skipped} skipped out of ${data.total} total.`,
-      });
-      setShowCorrectDialog(false);
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to correct repaid amounts. Please try again.",
-        variant: "destructive",
-      });
-      setShowCorrectDialog(false);
-    },
-  });
 
   const formatCurrency = (amount: string | number | null) => {
     if (!amount) return "AFN 0";
@@ -581,16 +556,6 @@ export default function PaymentsPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {roleData?.role === "admin" && (
-            <Button
-              variant="outline"
-              onClick={() => setShowCorrectDialog(true)}
-              data-testid="button-correct-repaid"
-            >
-              <Wrench className="mr-2 h-4 w-4" />
-              Correct Repaid Amounts
-            </Button>
-          )}
           <Button variant="outline" data-testid="button-export-payments">
             <Download className="mr-2 h-4 w-4" />
             Export
@@ -1169,39 +1134,6 @@ export default function PaymentsPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showCorrectDialog} onOpenChange={setShowCorrectDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Correct Repaid Amounts</DialogTitle>
-            <DialogDescription>
-              This will update installment #8 for 45 loans to match the corrected repaid totals from the Excel data. This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 py-4">
-            <div className="flex items-start gap-3 p-3 rounded-md bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800">
-              <AlertTriangle className="h-5 w-5 text-yellow-600 dark:text-yellow-400 mt-0.5 shrink-0" />
-              <div className="text-sm">
-                <p className="font-medium text-yellow-800 dark:text-yellow-300">Warning</p>
-                <p className="text-yellow-700 dark:text-yellow-400 mt-1">
-                  This will modify installment amounts for 45 financing accounts. Make sure you want to proceed.
-                </p>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCorrectDialog(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => correctRepaidMutation.mutate()}
-              disabled={correctRepaidMutation.isPending}
-              data-testid="button-confirm-correct-repaid"
-            >
-              {correctRepaidMutation.isPending ? "Processing..." : "Run Correction"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={showStatementDialog} onOpenChange={setShowStatementDialog}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
