@@ -107,10 +107,8 @@ export default function ShareholderReportPage() {
     rows.push([]);
     rows.push(["Income (Margin)", "", "", ""]);
     data.income.margin.collected.items.forEach(item => {
-      rows.push([`  ${item.accountCode} - ${item.accountName}`, "", formatCurrency(item.balance), ""]);
-    });
-    data.income.margin.receivable.items.forEach(item => {
-      rows.push([`  ${item.accountCode} - ${item.accountName}`, "", "", formatCurrency(item.balance)]);
+      const receivable = item.accountCode === "50300" ? data.income.margin.receivable.total : 0;
+      rows.push([`  ${item.accountCode} - ${item.accountName}`, "", formatCurrency(item.balance), formatCurrency(receivable)]);
     });
     rows.push(["Subtotal Income (Margin)", "", formatCurrency(data.income.margin.collected.total), formatCurrency(data.income.margin.receivable.total)]);
     rows.push([]);
@@ -167,10 +165,8 @@ export default function ShareholderReportPage() {
 
     tableRows.push([{ content: "Income (Margin)", colSpan: 2, styles: { fontStyle: "bold" } }, "Collected", "Receivable"]);
     data.income.margin.collected.items.forEach(item => {
-      tableRows.push([`  ${item.accountCode}`, item.accountName, formatCurrency(item.balance), "-"]);
-    });
-    data.income.margin.receivable.items.forEach(item => {
-      tableRows.push([`  ${item.accountCode}`, item.accountName, "-", formatCurrency(item.balance)]);
+      const receivable = item.accountCode === "50300" ? data.income.margin.receivable.total : 0;
+      tableRows.push([`  ${item.accountCode}`, item.accountName, formatCurrency(item.balance), formatCurrency(receivable)]);
     });
     tableRows.push([{ content: "Subtotal", colSpan: 2, styles: { fontStyle: "bold" } }, formatCurrency(data.income.margin.collected.total), formatCurrency(data.income.margin.receivable.total)]);
 
@@ -499,9 +495,9 @@ export default function ShareholderReportPage() {
                       </thead>
                       <tbody>
                         {data.income.margin.collected.items.map((item) => {
-                          const receivableItem = data.income.margin.receivable.items.find(
-                            (r) => r.accountCode === "20900"
-                          );
+                          const receivableAmount = item.accountCode === "50300"
+                            ? data.income.margin.receivable.total
+                            : 0;
                           return (
                             <tr key={item.accountCode} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/30">
                               <td className="px-5 py-2.5">
@@ -512,7 +508,7 @@ export default function ShareholderReportPage() {
                                 {formatCurrency(item.balance)}
                               </td>
                               <td className="text-right px-5 py-2.5 font-medium text-blue-600 dark:text-blue-400">
-                                {receivableItem ? formatCurrency(receivableItem.balance) : "-"}
+                                {formatCurrency(receivableAmount)}
                               </td>
                             </tr>
                           );
