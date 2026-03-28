@@ -1345,7 +1345,7 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="rounded-xl border p-4 space-y-1">
                 <p className="text-xs text-muted-foreground font-semibold mb-2 flex items-center gap-1">
-                  <Briefcase className="h-3.5 w-3.5" /> {costAnalysis.currentYear.year} — Loans Disbursed: {costAnalysis.currentYear.totalLoans}
+                  <Briefcase className="h-3.5 w-3.5" /> {costAnalysis.currentYear.year} — Active Loans Serviced: {costAnalysis.currentYear.totalLoans}
                 </p>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div>
@@ -1368,7 +1368,7 @@ export default function Dashboard() {
               </div>
               <div className="rounded-xl border p-4 space-y-1">
                 <p className="text-xs text-muted-foreground font-semibold mb-2 flex items-center gap-1">
-                  <Briefcase className="h-3.5 w-3.5" /> {costAnalysis.previousYear.year} — Loans Disbursed: {costAnalysis.previousYear.totalLoans}
+                  <Briefcase className="h-3.5 w-3.5" /> {costAnalysis.previousYear.year} — Active Loans Serviced: {costAnalysis.previousYear.totalLoans}
                 </p>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div>

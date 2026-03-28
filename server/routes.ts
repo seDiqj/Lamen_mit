@@ -662,12 +662,14 @@ export async function registerRoutes(
         const loansByProduct = await db.execute(sql`
           SELECT 
             COALESCE(l.product_name, 'Unknown') as product_name,
-            COUNT(*) as loan_count,
+            COUNT(DISTINCT l.id) as loan_count,
             COALESCE(SUM(l.principle_amount::numeric), 0) as total_disbursed,
             COALESCE(SUM(l.profit::numeric), 0) as total_margin_income
           FROM loans l
-          LEFT JOIN disbursements d ON l.id = d.loan_id
-          WHERE d.disbursement_date >= ${startDate} AND d.disbursement_date <= ${endDate}
+          INNER JOIN disbursements d ON l.id = d.loan_id
+          WHERE d.disbursement_date <= ${endDate}
+            AND l.status IN ('active', 'disbursed', 'completed', 'defaulted')
+            AND (l.status != 'completed' OR l.updated_at >= ${startDate}::timestamp)
           GROUP BY l.product_name
           ORDER BY loan_count DESC
         `);
@@ -675,22 +677,26 @@ export async function registerRoutes(
         const loansByBranch = await db.execute(sql`
           SELECT 
             COALESCE(b.name, 'Unknown') as branch_name,
-            COUNT(*) as loan_count,
+            COUNT(DISTINCT l.id) as loan_count,
             COALESCE(SUM(l.principle_amount::numeric), 0) as total_disbursed,
             COALESCE(SUM(l.profit::numeric), 0) as total_margin_income
           FROM loans l
-          LEFT JOIN disbursements d ON l.id = d.loan_id
+          INNER JOIN disbursements d ON l.id = d.loan_id
           LEFT JOIN branches b ON l.branch_id = b.id
-          WHERE d.disbursement_date >= ${startDate} AND d.disbursement_date <= ${endDate}
+          WHERE d.disbursement_date <= ${endDate}
+            AND l.status IN ('active', 'disbursed', 'completed', 'defaulted')
+            AND (l.status != 'completed' OR l.updated_at >= ${startDate}::timestamp)
           GROUP BY b.name
           ORDER BY loan_count DESC
         `);
 
         const totalLoansResult = await db.execute(sql`
-          SELECT COUNT(*) as count
+          SELECT COUNT(DISTINCT l.id) as count
           FROM loans l
-          LEFT JOIN disbursements d ON l.id = d.loan_id
-          WHERE d.disbursement_date >= ${startDate} AND d.disbursement_date <= ${endDate}
+          INNER JOIN disbursements d ON l.id = d.loan_id
+          WHERE d.disbursement_date <= ${endDate}
+            AND l.status IN ('active', 'disbursed', 'completed', 'defaulted')
+            AND (l.status != 'completed' OR l.updated_at >= ${startDate}::timestamp)
         `);
         const totalLoans = parseInt(totalLoansResult.rows[0]?.count as string || "0");
 
