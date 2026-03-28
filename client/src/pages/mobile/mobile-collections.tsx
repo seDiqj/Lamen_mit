@@ -92,7 +92,7 @@ function getStatusIcon(isPaid: boolean, isOverdue: boolean, hasPending: boolean)
 
 export default function MobileCollections() {
   const { toast } = useToast();
-  const [filter, setFilter] = useState("due_soon");
+  const [filter, setFilter] = useState("all_unpaid");
   const [search, setSearch] = useState("");
   const [expandedLoan, setExpandedLoan] = useState<string | null>(null);
   const [paymentDialog, setPaymentDialog] = useState<CollectionInstallment | null>(null);
@@ -235,6 +235,7 @@ export default function MobileCollections() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="all_unpaid">Unpaid</SelectItem>
             <SelectItem value="due_soon">Due Soon</SelectItem>
             <SelectItem value="overdue">Overdue</SelectItem>
             <SelectItem value="upcoming">Upcoming</SelectItem>
