@@ -17,6 +17,8 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Minus,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import {
   BarChart,
@@ -80,6 +82,10 @@ export default function ShareholderReportPage() {
   const [startDate, setStartDate] = useState(firstDayOfYear.toISOString().split("T")[0]);
   const [endDate, setEndDate] = useState(today.toISOString().split("T")[0]);
   const [queryDates, setQueryDates] = useState({ startDate, endDate });
+  const [incomeMarginExpanded, setIncomeMarginExpanded] = useState(false);
+  const [incomeOtherExpanded, setIncomeOtherExpanded] = useState(false);
+  const [fixedExpenseExpanded, setFixedExpenseExpanded] = useState(false);
+  const [variableExpenseExpanded, setVariableExpenseExpanded] = useState(false);
 
   const { data, isLoading, error } = useQuery<ShareholderReportData>({
     queryKey: ["/api/reports/shareholder-report", queryDates.startDate, queryDates.endDate],
@@ -481,24 +487,70 @@ export default function ShareholderReportPage() {
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="divide-y dark:divide-gray-700">
-                    <div className="bg-emerald-50 dark:bg-emerald-950/50 px-5 py-2">
-                      <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">Income (Margin)</p>
+                    <div
+                      className="bg-emerald-50 dark:bg-emerald-950/50 px-5 py-2 flex items-center justify-between cursor-pointer hover:bg-emerald-100 dark:hover:bg-emerald-900/50"
+                      onClick={() => setIncomeMarginExpanded(!incomeMarginExpanded)}
+                      data-testid="toggle-income-margin"
+                    >
+                      <div className="flex items-center gap-2">
+                        {incomeMarginExpanded ? <ChevronDown className="h-4 w-4 text-emerald-600" /> : <ChevronRight className="h-4 w-4 text-emerald-600" />}
+                        <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">Income (Margin)</p>
+                      </div>
+                      <div className="flex gap-6 text-sm font-semibold">
+                        <span className="text-emerald-700 dark:text-emerald-300">{formatCurrency(data.income.margin.collected.total)}</span>
+                        <span className="text-blue-700 dark:text-blue-300">{formatCurrency(data.income.margin.receivable.total)}</span>
+                      </div>
                     </div>
 
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                          <th className="text-left px-5 py-2 font-medium text-muted-foreground">Account</th>
-                          <th className="text-right px-5 py-2 font-medium text-muted-foreground">Collected</th>
-                          <th className="text-right px-5 py-2 font-medium text-muted-foreground">Receivable</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {data.income.margin.collected.items.map((item) => {
-                          const receivableAmount = item.accountCode === "50300"
-                            ? data.income.margin.receivable.total
-                            : 0;
-                          return (
+                    {incomeMarginExpanded && (
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                            <th className="text-left px-5 py-2 font-medium text-muted-foreground">Account</th>
+                            <th className="text-right px-5 py-2 font-medium text-muted-foreground">Collected</th>
+                            <th className="text-right px-5 py-2 font-medium text-muted-foreground">Receivable</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.income.margin.collected.items.map((item) => {
+                            const receivableAmount = item.accountCode === "50300"
+                              ? data.income.margin.receivable.total
+                              : 0;
+                            return (
+                              <tr key={item.accountCode} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/30">
+                                <td className="px-5 py-2.5">
+                                  <span className="text-xs text-muted-foreground mr-2">{item.accountCode}</span>
+                                  {item.accountName}
+                                </td>
+                                <td className="text-right px-5 py-2.5 font-medium text-emerald-600 dark:text-emerald-400">
+                                  {formatCurrency(item.balance)}
+                                </td>
+                                <td className="text-right px-5 py-2.5 font-medium text-blue-600 dark:text-blue-400">
+                                  {formatCurrency(receivableAmount)}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    )}
+
+                    <div
+                      className="bg-emerald-50 dark:bg-emerald-950/50 px-5 py-2 flex items-center justify-between cursor-pointer hover:bg-emerald-100 dark:hover:bg-emerald-900/50"
+                      onClick={() => setIncomeOtherExpanded(!incomeOtherExpanded)}
+                      data-testid="toggle-income-other"
+                    >
+                      <div className="flex items-center gap-2">
+                        {incomeOtherExpanded ? <ChevronDown className="h-4 w-4 text-emerald-600" /> : <ChevronRight className="h-4 w-4 text-emerald-600" />}
+                        <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">Other Income</p>
+                      </div>
+                      <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">{formatCurrency(data.income.other.total)}</span>
+                    </div>
+
+                    {incomeOtherExpanded && (
+                      <table className="w-full text-sm">
+                        <tbody>
+                          {data.income.other.items.map((item) => (
                             <tr key={item.accountCode} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/30">
                               <td className="px-5 py-2.5">
                                 <span className="text-xs text-muted-foreground mr-2">{item.accountCode}</span>
@@ -507,44 +559,11 @@ export default function ShareholderReportPage() {
                               <td className="text-right px-5 py-2.5 font-medium text-emerald-600 dark:text-emerald-400">
                                 {formatCurrency(item.balance)}
                               </td>
-                              <td className="text-right px-5 py-2.5 font-medium text-blue-600 dark:text-blue-400">
-                                {formatCurrency(receivableAmount)}
-                              </td>
                             </tr>
-                          );
-                        })}
-                        <tr className="bg-emerald-50/50 dark:bg-emerald-950/30 font-semibold">
-                          <td className="px-5 py-2">Subtotal</td>
-                          <td className="text-right px-5 py-2 text-emerald-700 dark:text-emerald-300">{formatCurrency(data.income.margin.collected.total)}</td>
-                          <td className="text-right px-5 py-2 text-blue-700 dark:text-blue-300">{formatCurrency(data.income.margin.receivable.total)}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-
-                    <div className="bg-emerald-50 dark:bg-emerald-950/50 px-5 py-2 mt-2">
-                      <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">Other Income</p>
-                    </div>
-                    <table className="w-full text-sm">
-                      <tbody>
-                        {data.income.other.items.map((item) => (
-                          <tr key={item.accountCode} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/30">
-                            <td className="px-5 py-2.5">
-                              <span className="text-xs text-muted-foreground mr-2">{item.accountCode}</span>
-                              {item.accountName}
-                            </td>
-                            <td className="text-right px-5 py-2.5 font-medium text-emerald-600 dark:text-emerald-400">
-                              {formatCurrency(item.balance)}
-                            </td>
-                            <td className="text-right px-5 py-2.5 text-muted-foreground">-</td>
-                          </tr>
-                        ))}
-                        <tr className="bg-emerald-50/50 dark:bg-emerald-950/30 font-semibold">
-                          <td className="px-5 py-2">Subtotal</td>
-                          <td className="text-right px-5 py-2 text-emerald-700 dark:text-emerald-300">{formatCurrency(data.income.other.total)}</td>
-                          <td className="text-right px-5 py-2">-</td>
-                        </tr>
-                      </tbody>
-                    </table>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
 
                     <div className="bg-emerald-100 dark:bg-emerald-900 px-5 py-3">
                       <div className="flex justify-between items-center">
@@ -568,57 +587,71 @@ export default function ShareholderReportPage() {
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="divide-y dark:divide-gray-700">
-                    <div className="bg-red-50 dark:bg-red-950/50 px-5 py-2">
-                      <p className="text-sm font-semibold text-red-700 dark:text-red-300">Fixed Expenses</p>
+                    <div
+                      className="bg-red-50 dark:bg-red-950/50 px-5 py-2 flex items-center justify-between cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/50"
+                      onClick={() => setFixedExpenseExpanded(!fixedExpenseExpanded)}
+                      data-testid="toggle-fixed-expense"
+                    >
+                      <div className="flex items-center gap-2">
+                        {fixedExpenseExpanded ? <ChevronDown className="h-4 w-4 text-red-600" /> : <ChevronRight className="h-4 w-4 text-red-600" />}
+                        <p className="text-sm font-semibold text-red-700 dark:text-red-300">Fixed Expenses</p>
+                      </div>
+                      <span className="text-sm font-semibold text-red-700 dark:text-red-300">{formatCurrency(data.expense.fixed.total)}</span>
                     </div>
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                          <th className="text-left px-5 py-2 font-medium text-muted-foreground">Account</th>
-                          <th className="text-right px-5 py-2 font-medium text-muted-foreground">Amount</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {data.expense.fixed.items.map((item) => (
-                          <tr key={item.accountCode} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/30">
-                            <td className="px-5 py-2.5">
-                              <span className="text-xs text-muted-foreground mr-2">{item.accountCode}</span>
-                              {item.accountName}
-                            </td>
-                            <td className="text-right px-5 py-2.5 font-medium text-red-600 dark:text-red-400">
-                              {formatCurrency(item.balance)}
-                            </td>
-                          </tr>
-                        ))}
-                        <tr className="bg-red-50/50 dark:bg-red-950/30 font-semibold">
-                          <td className="px-5 py-2">Subtotal Fixed</td>
-                          <td className="text-right px-5 py-2 text-red-700 dark:text-red-300">{formatCurrency(data.expense.fixed.total)}</td>
-                        </tr>
-                      </tbody>
-                    </table>
 
-                    <div className="bg-red-50 dark:bg-red-950/50 px-5 py-2">
-                      <p className="text-sm font-semibold text-red-700 dark:text-red-300">Variable Expenses</p>
-                    </div>
-                    <table className="w-full text-sm">
-                      <tbody>
-                        {data.expense.variable.items.map((item) => (
-                          <tr key={item.accountCode} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/30">
-                            <td className="px-5 py-2.5">
-                              <span className="text-xs text-muted-foreground mr-2">{item.accountCode}</span>
-                              {item.accountName}
-                            </td>
-                            <td className="text-right px-5 py-2.5 font-medium text-red-600 dark:text-red-400">
-                              {formatCurrency(item.balance)}
-                            </td>
+                    {fixedExpenseExpanded && (
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                            <th className="text-left px-5 py-2 font-medium text-muted-foreground">Account</th>
+                            <th className="text-right px-5 py-2 font-medium text-muted-foreground">Amount</th>
                           </tr>
-                        ))}
-                        <tr className="bg-red-50/50 dark:bg-red-950/30 font-semibold">
-                          <td className="px-5 py-2">Subtotal Variable</td>
-                          <td className="text-right px-5 py-2 text-red-700 dark:text-red-300">{formatCurrency(data.expense.variable.total)}</td>
-                        </tr>
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {data.expense.fixed.items.map((item) => (
+                            <tr key={item.accountCode} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/30">
+                              <td className="px-5 py-2.5">
+                                <span className="text-xs text-muted-foreground mr-2">{item.accountCode}</span>
+                                {item.accountName}
+                              </td>
+                              <td className="text-right px-5 py-2.5 font-medium text-red-600 dark:text-red-400">
+                                {formatCurrency(item.balance)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+
+                    <div
+                      className="bg-red-50 dark:bg-red-950/50 px-5 py-2 flex items-center justify-between cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/50"
+                      onClick={() => setVariableExpenseExpanded(!variableExpenseExpanded)}
+                      data-testid="toggle-variable-expense"
+                    >
+                      <div className="flex items-center gap-2">
+                        {variableExpenseExpanded ? <ChevronDown className="h-4 w-4 text-red-600" /> : <ChevronRight className="h-4 w-4 text-red-600" />}
+                        <p className="text-sm font-semibold text-red-700 dark:text-red-300">Variable Expenses</p>
+                      </div>
+                      <span className="text-sm font-semibold text-red-700 dark:text-red-300">{formatCurrency(data.expense.variable.total)}</span>
+                    </div>
+
+                    {variableExpenseExpanded && (
+                      <table className="w-full text-sm">
+                        <tbody>
+                          {data.expense.variable.items.map((item) => (
+                            <tr key={item.accountCode} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/30">
+                              <td className="px-5 py-2.5">
+                                <span className="text-xs text-muted-foreground mr-2">{item.accountCode}</span>
+                                {item.accountName}
+                              </td>
+                              <td className="text-right px-5 py-2.5 font-medium text-red-600 dark:text-red-400">
+                                {formatCurrency(item.balance)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
 
                     <div className="bg-red-100 dark:bg-red-900 px-5 py-3">
                       <div className="flex justify-between items-center">
