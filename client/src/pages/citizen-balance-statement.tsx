@@ -1658,16 +1658,6 @@ export default function CitizenBalanceStatementPage() {
                       />
                     </div>
                   </div>
-                  <div className="flex justify-end mt-3">
-                    <Button
-                      onClick={() => handleGenerate(loanId)}
-                      disabled={regenerateMutation.isPending}
-                      data-testid="button-generate-cleanup"
-                    >
-                      <RefreshCw className={`h-4 w-4 mr-2 ${regenerateMutation.isPending ? "animate-spin" : ""}`} />
-                      Generate
-                    </Button>
-                  </div>
                 </CardContent>
               </Card>
             );
@@ -1740,14 +1730,6 @@ export default function CitizenBalanceStatementPage() {
                       {instScheduleData.loan.productName && <span className="font-medium">{instScheduleData.loan.productName} | </span>}
                       Principal: {formatAFN(instScheduleData.loan.principalAmount)} AFN | Margin Rate: {instScheduleData.loan.marginRate > 1 ? instScheduleData.loan.marginRate : (instScheduleData.loan.marginRate * 100).toFixed(0)}% | {instScheduleData.loan.numberOfInstallments} installments
                     </p>
-                  </div>
-                  <div className="flex gap-2 flex-wrap">
-                    {hasInstChanges && (
-                      <Button onClick={handleInstSave} className="bg-green-600 text-white" disabled={bulkUpdateMutation.isPending} data-testid="inst-button-save-installments">
-                        <Save className="mr-2 h-4 w-4" />
-                        {bulkUpdateMutation.isPending ? "Saving..." : "Save Changes"}
-                      </Button>
-                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="p-0">
