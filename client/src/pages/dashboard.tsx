@@ -1302,7 +1302,7 @@ export default function Dashboard() {
           <CardContent className="space-y-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="rounded-xl border p-4 space-y-1">
-                <p className="text-xs text-muted-foreground">Avg Cost Per Loan</p>
+                <p className="text-xs text-muted-foreground">Avg Operating Cost / Loan</p>
                 <p className="text-xl font-bold" data-testid="text-avg-cost-current">{formatCurrency(costAnalysis.currentYear.avgCostPerLoan)}</p>
                 <p className="text-[10px] text-muted-foreground">{costAnalysis.previousYear.year}: {formatCurrency(costAnalysis.previousYear.avgCostPerLoan)}</p>
                 {costAnalysis.costImprovement !== 0 && (
@@ -1347,10 +1347,14 @@ export default function Dashboard() {
                 <p className="text-xs text-muted-foreground font-semibold mb-2 flex items-center gap-1">
                   <Briefcase className="h-3.5 w-3.5" /> {costAnalysis.currentYear.year} — Loans Disbursed: {costAnalysis.currentYear.totalLoans}
                 </p>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div>
                     <p className="text-[10px] text-muted-foreground">Total Income</p>
                     <p className="text-sm font-bold text-emerald-600">{formatCurrency(costAnalysis.currentYear.totalIncome)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-muted-foreground">Operating Expenses</p>
+                    <p className="text-sm font-bold text-amber-600">{formatCurrency(costAnalysis.currentYear.operatingExpenses)}</p>
                   </div>
                   <div>
                     <p className="text-[10px] text-muted-foreground">Total Expenses</p>
@@ -1366,10 +1370,14 @@ export default function Dashboard() {
                 <p className="text-xs text-muted-foreground font-semibold mb-2 flex items-center gap-1">
                   <Briefcase className="h-3.5 w-3.5" /> {costAnalysis.previousYear.year} — Loans Disbursed: {costAnalysis.previousYear.totalLoans}
                 </p>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div>
                     <p className="text-[10px] text-muted-foreground">Total Income</p>
                     <p className="text-sm font-bold text-emerald-600">{formatCurrency(costAnalysis.previousYear.totalIncome)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-muted-foreground">Operating Expenses</p>
+                    <p className="text-sm font-bold text-amber-600">{formatCurrency(costAnalysis.previousYear.operatingExpenses)}</p>
                   </div>
                   <div>
                     <p className="text-[10px] text-muted-foreground">Total Expenses</p>

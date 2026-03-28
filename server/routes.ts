@@ -700,7 +700,11 @@ export async function registerRoutes(
           ), 0) as total_income,
           COALESCE(SUM(
             CASE WHEN a.account_type = 'expense' THEN jl.debit_amount::numeric - jl.credit_amount::numeric ELSE 0 END
-          ), 0) as total_expenses
+          ), 0) as total_expenses,
+          COALESCE(SUM(
+            CASE WHEN a.account_type = 'expense' AND a.account_code >= '60000' AND a.account_code < '70000'
+            THEN jl.debit_amount::numeric - jl.credit_amount::numeric ELSE 0 END
+          ), 0) as operating_expenses
           FROM journal_lines jl
           JOIN journal_entries je ON jl.journal_entry_id = je.id
           JOIN accounts a ON jl.account_id = a.id
@@ -711,6 +715,7 @@ export async function registerRoutes(
 
         const totalIncome = parseFloat(totalIncomeResult.rows[0]?.total_income as string || "0");
         const totalExpenses = parseFloat(totalIncomeResult.rows[0]?.total_expenses as string || "0");
+        const operatingExpenses = parseFloat(totalIncomeResult.rows[0]?.operating_expenses as string || "0");
 
         const marginIncomeResult = await db.execute(sql`
           SELECT COALESCE(SUM(l.profit::numeric), 0) as total_margin
@@ -720,9 +725,9 @@ export async function registerRoutes(
         `);
         const totalMarginIncome = parseFloat(marginIncomeResult.rows[0]?.total_margin as string || "0");
 
-        const avgCostPerLoan = totalLoans > 0 ? totalExpenses / totalLoans : 0;
+        const avgCostPerLoan = totalLoans > 0 ? operatingExpenses / totalLoans : 0;
         const avgIncomePerLoan = totalLoans > 0 ? totalIncome / totalLoans : 0;
-        const costIncomeRatio = totalIncome > 0 ? (totalExpenses / totalIncome) * 100 : 0;
+        const costIncomeRatio = totalIncome > 0 ? (operatingExpenses / totalIncome) * 100 : 0;
         const netIncomePerLoan = avgIncomePerLoan - avgCostPerLoan;
 
         return {
@@ -730,6 +735,7 @@ export async function registerRoutes(
           totalLoans,
           totalIncome,
           totalExpenses,
+          operatingExpenses,
           totalMarginIncome,
           avgCostPerLoan,
           avgIncomePerLoan,
@@ -740,8 +746,8 @@ export async function registerRoutes(
             loanCount: parseInt(r.loan_count),
             totalDisbursed: parseFloat(r.total_disbursed),
             totalMarginIncome: parseFloat(r.total_margin_income),
-            avgCostPerLoan: parseInt(r.loan_count) > 0 ? totalExpenses / parseInt(r.loan_count) * (parseInt(r.loan_count) / totalLoans) : 0,
-            costPerLoanShare: totalLoans > 0 ? (totalExpenses * (parseInt(r.loan_count) / totalLoans)) / parseInt(r.loan_count) : 0,
+            avgCostPerLoan: parseInt(r.loan_count) > 0 ? operatingExpenses / parseInt(r.loan_count) * (parseInt(r.loan_count) / totalLoans) : 0,
+            costPerLoanShare: totalLoans > 0 ? (operatingExpenses * (parseInt(r.loan_count) / totalLoans)) / parseInt(r.loan_count) : 0,
           })),
           byBranch: (loansByBranch.rows as any[]).map(r => ({
             branchName: r.branch_name,
@@ -749,9 +755,9 @@ export async function registerRoutes(
             totalDisbursed: parseFloat(r.total_disbursed),
             totalMarginIncome: parseFloat(r.total_margin_income),
             profitPerLoan: parseInt(r.loan_count) > 0 
-              ? (parseFloat(r.total_margin_income) - (totalExpenses * (parseInt(r.loan_count) / totalLoans))) / parseInt(r.loan_count)
+              ? (parseFloat(r.total_margin_income) - (operatingExpenses * (parseInt(r.loan_count) / totalLoans))) / parseInt(r.loan_count)
               : 0,
-            allocatedExpenses: totalLoans > 0 ? totalExpenses * (parseInt(r.loan_count) / totalLoans) : 0,
+            allocatedExpenses: totalLoans > 0 ? operatingExpenses * (parseInt(r.loan_count) / totalLoans) : 0,
           })),
         };
       };
