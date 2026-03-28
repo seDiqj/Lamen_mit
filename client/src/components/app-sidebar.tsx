@@ -56,6 +56,7 @@ import {
   Target,
   ArrowDownUp,
   FileBarChart,
+  ArrowRightLeft,
 } from "lucide-react";
 import lamenLogo from "@assets/LamenLogo_1769936371528.jpeg";
 import {
@@ -103,6 +104,7 @@ const PAGE_URL_TO_NAME: Record<string, string> = {
   "/payments": "payments",
   "/collections": "collections",
   "/installment-management": "installment-management",
+  "/loan-transfers": "loan-transfers",
   "/disbursements": "disbursements",
   "/branches": "branches",
   "/officers": "officers",
@@ -203,6 +205,7 @@ export function AppSidebar() {
         { title: "Payments", url: "/payments", icon: CreditCard, iconColor: "text-cyan-500" },
         { title: "Collections", url: "/collections", icon: Banknote, iconColor: "text-green-600" },
         { title: "Installment Management", url: "/installment-management", icon: ListChecks, iconColor: "text-orange-500" },
+        { title: "Loan Officer Transfer", url: "/loan-transfers", icon: ArrowRightLeft, iconColor: "text-indigo-500" },
       ],
     },
     {
@@ -285,6 +288,7 @@ export function AppSidebar() {
         { title: "Payments", url: "/payments", icon: CreditCard, iconColor: "text-cyan-500" },
         { title: "Collections", url: "/collections", icon: Banknote, iconColor: "text-green-600" },
         { title: "Installment Management", url: "/installment-management", icon: ListChecks, iconColor: "text-orange-500" },
+        { title: "Loan Officer Transfer", url: "/loan-transfers", icon: ArrowRightLeft, iconColor: "text-indigo-500" },
       ],
     },
     {
@@ -370,6 +374,7 @@ export function AppSidebar() {
         { title: "Payments", url: "/payments", icon: CreditCard, iconColor: "text-cyan-500" },
         { title: "Collections", url: "/collections", icon: Banknote, iconColor: "text-green-600" },
         { title: "Installment Management", url: "/installment-management", icon: ListChecks, iconColor: "text-orange-500" },
+        { title: "Loan Officer Transfer", url: "/loan-transfers", icon: ArrowRightLeft, iconColor: "text-indigo-500" },
       ],
     },
     {

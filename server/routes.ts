@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { customers, loans, disbursements, branches, financeOfficers, installments, fundingSources as fundingSourcesTable, collaterals, customerBusinesses, businessLicenses, loanApprovals, guarantors, userRoles, fadReviews, riskComplianceReviews, accounts, journalEntries, journalLines, clientOccupations, productCycleLimits } from "@shared/schema";
+import { customers, loans, disbursements, branches, financeOfficers, installments, fundingSources as fundingSourcesTable, collaterals, customerBusinesses, businessLicenses, loanApprovals, guarantors, userRoles, fadReviews, riskComplianceReviews, accounts, journalEntries, journalLines, clientOccupations, productCycleLimits, loanTransfers } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { eq, and, or, inArray, sql, gte, lte, desc } from "drizzle-orm";
 import { z } from "zod";
@@ -8950,6 +8950,121 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Error saving cycle limits:", error);
       res.status(500).json({ message: "Failed to save cycle limits" });
+    }
+  });
+
+  // ===== LOAN TRANSFERS =====
+
+  app.get("/api/loan-transfers", isAuthenticated, requirePageAccess("loan-transfers"), async (req, res) => {
+    try {
+      const result = await db.execute(sql`
+        SELECT lt.*,
+          fo_from.name as from_officer_name,
+          fo_to.name as to_officer_name,
+          l.application_id,
+          c.first_name || ' ' || c.last_name as customer_name,
+          l.product_name,
+          l.request_amount,
+          l.status as loan_status,
+          u.username as transferred_by_name
+        FROM loan_transfers lt
+        LEFT JOIN finance_officers fo_from ON lt.from_officer_id = fo_from.id
+        LEFT JOIN finance_officers fo_to ON lt.to_officer_id = fo_to.id
+        LEFT JOIN loans l ON lt.loan_id = l.id
+        LEFT JOIN customers c ON l.customer_id = c.id
+        LEFT JOIN users u ON lt.transferred_by = u.id
+        ORDER BY lt.transfer_date DESC
+      `);
+      res.json(result.rows);
+    } catch (error: any) {
+      console.error("Error fetching loan transfers:", error);
+      res.status(500).json({ message: "Failed to fetch loan transfers" });
+    }
+  });
+
+  app.get("/api/loan-transfers/officer-loans/:officerId", isAuthenticated, requirePageAccess("loan-transfers"), async (req, res) => {
+    try {
+      const { officerId } = req.params;
+      const statusFilter = req.query.status as string | undefined;
+      let query = sql`
+        SELECT l.id, l.application_id, l.request_amount, l.status, l.product_name,
+          c.first_name || ' ' || c.last_name as customer_name
+        FROM loans l
+        LEFT JOIN customers c ON l.customer_id = c.id
+        WHERE l.finance_officer_id = ${officerId}
+      `;
+      if (statusFilter && statusFilter !== 'all') {
+        query = sql`${query} AND l.status = ${statusFilter}`;
+      } else {
+        query = sql`${query} AND l.status NOT IN ('completed', 'rejected')`;
+      }
+      query = sql`${query} ORDER BY l.application_id`;
+      const result = await db.execute(query);
+      res.json(result.rows);
+    } catch (error: any) {
+      console.error("Error fetching officer loans:", error);
+      res.status(500).json({ message: "Failed to fetch officer loans" });
+    }
+  });
+
+  app.post("/api/loan-transfers", isAuthenticated, requirePageAccess("loan-transfers"), async (req, res) => {
+    try {
+      const { fromOfficerId, toOfficerId, loanIds, reason } = req.body;
+      if (!fromOfficerId || !toOfficerId || !loanIds || !Array.isArray(loanIds) || !loanIds.length) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+      if (fromOfficerId === toOfficerId) {
+        return res.status(400).json({ message: "Source and destination officer cannot be the same" });
+      }
+
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const verifyResult = await db.execute(sql`
+        SELECT id, application_id FROM loans
+        WHERE id = ANY(${loanIds}::text[])
+        AND finance_officer_id = ${fromOfficerId}
+      `);
+      if (verifyResult.rows.length !== loanIds.length) {
+        return res.status(400).json({ message: "Some loans do not belong to the selected source officer" });
+      }
+
+      const toOfficerResult = await db.execute(sql`
+        SELECT id FROM finance_officers WHERE id = ${toOfficerId} AND is_active = true
+      `);
+      if (toOfficerResult.rows.length === 0) {
+        return res.status(400).json({ message: "Destination officer is not active" });
+      }
+
+      const transferRecords: any[] = [];
+      await db.transaction(async (tx) => {
+        for (const loanId of loanIds) {
+          const loan = verifyResult.rows.find((r: any) => r.id === loanId);
+          await tx.execute(sql`
+            UPDATE loans SET finance_officer_id = ${toOfficerId} WHERE id = ${loanId}
+          `);
+          const [record] = await tx.insert(loanTransfers).values({
+            fromOfficerId,
+            toOfficerId,
+            loanId,
+            loanApplicationId: loan?.application_id || null,
+            reason: reason || null,
+            transferredBy: userId,
+          }).returning();
+          transferRecords.push(record);
+        }
+      });
+
+      await logActivity(req, "loan_transfer", "loan_transfer", transferRecords[0]?.id,
+        `Transferred ${loanIds.length} loan(s) from officer ${fromOfficerId} to ${toOfficerId}. Reason: ${reason || 'N/A'}`
+      );
+
+      res.json({ message: `Successfully transferred ${loanIds.length} loan(s)`, transfers: transferRecords });
+    } catch (error: any) {
+      console.error("Error transferring loans:", error);
+      res.status(500).json({ message: "Failed to transfer loans" });
     }
   });
 

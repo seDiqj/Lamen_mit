@@ -382,6 +382,19 @@ export const lookupRoles = pgTable("lookup_roles", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Loan Transfers
+export const loanTransfers = pgTable("loan_transfers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  fromOfficerId: varchar("from_officer_id").references(() => financeOfficers.id).notNull(),
+  toOfficerId: varchar("to_officer_id").references(() => financeOfficers.id).notNull(),
+  loanId: varchar("loan_id").references(() => loans.id).notNull(),
+  loanApplicationId: varchar("loan_application_id"),
+  reason: text("reason"),
+  transferredBy: varchar("transferred_by").notNull(),
+  transferDate: timestamp("transfer_date").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Activity Logs
 export const activityLogs = pgTable("activity_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -416,6 +429,7 @@ export const insertRiskComplianceReviewSchema = createInsertSchema(riskComplianc
 export const insertCommitteeVoteSchema = createInsertSchema(committeeVotes).omit({ id: true, createdAt: true });
 export const insertDisbursementSchema = createInsertSchema(disbursements).omit({ id: true, createdAt: true });
 export const insertInstallmentSchema = createInsertSchema(installments).omit({ id: true, createdAt: true });
+export const insertLoanTransferSchema = createInsertSchema(loanTransfers).omit({ id: true, createdAt: true });
 export const insertActivityLogSchema = createInsertSchema(activityLogs).omit({ id: true, createdAt: true });
 export const insertParCategorySchema = createInsertSchema(parCategories).omit({ id: true });
 export const insertLookupRoleSchema = createInsertSchema(lookupRoles).omit({ id: true, createdAt: true });
@@ -465,6 +479,8 @@ export type InsertDisbursement = z.infer<typeof insertDisbursementSchema>;
 export type Disbursement = typeof disbursements.$inferSelect;
 export type InsertInstallment = z.infer<typeof insertInstallmentSchema>;
 export type Installment = typeof installments.$inferSelect;
+export type InsertLoanTransfer = z.infer<typeof insertLoanTransferSchema>;
+export type LoanTransfer = typeof loanTransfers.$inferSelect;
 export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
 export type ActivityLog = typeof activityLogs.$inferSelect;
 export type InsertParCategory = z.infer<typeof insertParCategorySchema>;

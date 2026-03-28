@@ -68,6 +68,7 @@ import CollectionsPage from "@/pages/collections";
 import CitizenBalanceStatementPage from "@/pages/citizen-balance-statement";
 import InstallmentManagementPage from "@/pages/installment-management";
 import FinancingProductsPage from "@/pages/financing-products";
+import LoanTransfersPage from "@/pages/loan-transfers";
 import MobileLogin from "@/pages/mobile/mobile-login";
 import MobileCustomers from "@/pages/mobile/mobile-customers";
 import MobileFinancing from "@/pages/mobile/mobile-financing";
@@ -158,6 +159,7 @@ function AppRoutes() {
         <Route path="/payments" component={PaymentsPage} />
         <Route path="/collections" component={CollectionsPage} />
         <Route path="/installment-management" component={InstallmentManagementPage} />
+        <Route path="/loan-transfers" component={LoanTransfersPage} />
         <Route path="/fad-review" component={FadReviewPage} />
         <Route path="/risk-compliance" component={RiskCompliancePage} />
         <Route path="/committee-voting" component={CommitteeVotingPage} />
