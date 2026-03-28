@@ -893,10 +893,9 @@ export default function CitizenBalanceStatementPage() {
         ["", "", "", "", "", "", "Time", nowTime],
         [],
         ["Branch", ls.branch?.name || "", "", "Principle Amount", formatNumber(ls.loan.principleAmount), "", "Financing Status", ls.loan.status],
-        ["Financing Type", ls.loan.productName, "", "Margin Rate", `${ls.loan.marginRate}%`, "", "", ""],
-        ["Financing No./ Cycle", `${ls.loan.applicationId} / ${ls.loan.financingCycle}`, "", "Disbursement Date", ls.disbursement?.disbursementDate ? formatDateDMY(ls.disbursement.disbursementDate) : "", "", "", ""],
-        ["Client Name", statementData.customer.name, "", "No. of Installments", ls.loan.numberOfInstallments, "", "", ""],
-        ["Finance Officer", ls.officer?.name || "", "", "Grace Period", `${ls.loan.gracePeriod} months`, "", "", ""],
+        ["Financing Type", ls.loan.productName, "", "Margin Rate", `${ls.loan.marginRate}%`, "", "No. of Installments", ls.loan.numberOfInstallments],
+        ["Financing No./ Cycle", `${ls.loan.applicationId} / ${ls.loan.financingCycle}`, "", "Disbursement Date", ls.disbursement?.disbursementDate ? formatDateDMY(ls.disbursement.disbursementDate) : "", "", "Grace Period", `${ls.loan.gracePeriod} months`],
+        ["Client Name", statementData.customer.name, "", "Finance Officer", ls.officer?.name || "", "", "", ""],
         [],
         ["Schedule", "", "", "", "", "Actual Payment", "", "", "", "", ""],
         ["No.", "Installment Date", "Principle", "Margin", "Total", "No.", "Payment Date", "Principle", "Margin", "Total", "PAR Days"],
@@ -965,7 +964,7 @@ export default function CitizenBalanceStatementPage() {
       const { date: nowDate, time: nowTime } = formatDateTime();
 
       if (logoBase64) {
-        try { doc.addImage(logoBase64, "JPEG", 14, 6, 20, 16); } catch (e) {}
+        try { doc.addImage(logoBase64, "JPEG", 14, 8, 28, 10); } catch (e) {}
       }
 
       const pageWidth = doc.internal.pageSize.getWidth();
@@ -994,48 +993,39 @@ export default function CitizenBalanceStatementPage() {
       const col3V = 232;
       const lineH = 4.5;
 
-      const infoFields: [string, string, number, number][] = [
-        ["Branch:", ls.branch?.name || "", col1X, col1V],
-        ["Financing Type:", ls.loan.productName, col1X, col1V],
-        ["Financing No./ Cycle:", `${ls.loan.applicationId} / ${ls.loan.financingCycle}`, col1X, col1V],
-        ["Client Name:", statementData.customer.name, col1X, col1V],
-        ["Finance Officer:", ls.officer?.name || "", col1X, col1V],
-      ];
-      const infoFields2: [string, string, number, number][] = [
-        ["Principle Amount:", formatNumber(ls.loan.principleAmount), col2X, col2V],
-        ["Margin Rate:", `${ls.loan.marginRate}%`, col2X, col2V],
-        ["Disbursement Date:", ls.disbursement?.disbursementDate ? formatDateDMY(ls.disbursement.disbursementDate) : "", col2X, col2V],
-        ["No. of Installments:", `${ls.loan.numberOfInstallments}`, col2X, col2V],
-        ["Grace Period:", `${ls.loan.gracePeriod} months`, col2X, col2V],
-      ];
-      const infoFields3: [string, string, number, number][] = [
-        ["Financing Status:", ls.loan.status, col3X, col3V],
+      const infoGrid: [string, string, number, number][][] = [
+        [
+          ["Branch:", ls.branch?.name || "", col1X, col1V],
+          ["Principle Amount:", formatNumber(ls.loan.principleAmount), col2X, col2V],
+          ["Financing Status:", ls.loan.status, col3X, col3V],
+        ],
+        [
+          ["Financing Type:", ls.loan.productName, col1X, col1V],
+          ["Margin Rate:", `${ls.loan.marginRate}%`, col2X, col2V],
+          ["No. of Installments:", `${ls.loan.numberOfInstallments}`, col3X, col3V],
+        ],
+        [
+          ["Financing No./ Cycle:", `${ls.loan.applicationId} / ${ls.loan.financingCycle}`, col1X, col1V],
+          ["Disbursement Date:", ls.disbursement?.disbursementDate ? formatDateDMY(ls.disbursement.disbursementDate) : "", col2X, col2V],
+          ["Grace Period:", `${ls.loan.gracePeriod} months`, col3X, col3V],
+        ],
+        [
+          ["Client Name:", statementData.customer.name, col1X, col1V],
+          ["Finance Officer:", ls.officer?.name || "", col2X, col2V],
+        ],
       ];
 
-      const maxRows = Math.max(infoFields.length, infoFields2.length, infoFields3.length);
-      for (let i = 0; i < maxRows; i++) {
-        const y = infoY + i * lineH;
-        if (i < infoFields.length) {
+      infoGrid.forEach((row, rowIdx) => {
+        const y = infoY + rowIdx * lineH;
+        row.forEach(([label, value, lx, vx]) => {
           doc.setFont("helvetica", "bold");
-          doc.text(infoFields[i][0], infoFields[i][2], y);
+          doc.text(label, lx, y);
           doc.setFont("helvetica", "normal");
-          doc.text(infoFields[i][1], infoFields[i][3], y);
-        }
-        if (i < infoFields2.length) {
-          doc.setFont("helvetica", "bold");
-          doc.text(infoFields2[i][0], infoFields2[i][2], y);
-          doc.setFont("helvetica", "normal");
-          doc.text(infoFields2[i][1], infoFields2[i][3], y);
-        }
-        if (i < infoFields3.length) {
-          doc.setFont("helvetica", "bold");
-          doc.text(infoFields3[i][0], infoFields3[i][2], y);
-          doc.setFont("helvetica", "normal");
-          doc.text(infoFields3[i][1], infoFields3[i][3], y);
-        }
-      }
+          doc.text(value, vx, y);
+        });
+      });
 
-      const tableStartY = infoY + maxRows * lineH + 4;
+      const tableStartY = infoY + infoGrid.length * lineH + 4;
 
       doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
@@ -1341,7 +1331,7 @@ export default function CitizenBalanceStatementPage() {
                   <div className="bg-muted/50 p-3 sm:p-4 border-b border-border">
                     <div className="grid grid-cols-3 items-center">
                       <div className="flex items-center">
-                        <img src="/logo.jpeg" alt="Lamen" className="h-14 w-auto" />
+                        <img src="/logo.jpeg" alt="Lamen" className="h-14 object-contain" style={{ aspectRatio: "auto" }} />
                       </div>
                       <div className="text-center">
                         <h2 className="text-lg font-bold text-green-700 dark:text-green-400" data-testid={`text-statement-header-${lsIdx}`}>Lamen Micro Finance Institution</h2>
@@ -1349,15 +1339,15 @@ export default function CitizenBalanceStatementPage() {
                       </div>
                       <div className="text-right text-sm">
                         <div className="flex justify-end gap-6">
-                          <span className="text-muted-foreground">User</span>
+                          <span className="text-muted-foreground">User:</span>
                           <span className="font-medium" data-testid={`text-user-${lsIdx}`}>{userData?.firstName || ""}</span>
                         </div>
                         <div className="flex justify-end gap-6">
-                          <span className="text-muted-foreground">Date</span>
+                          <span className="text-muted-foreground">Date:</span>
                           <span className="font-medium">{nowDate}</span>
                         </div>
                         <div className="flex justify-end gap-6">
-                          <span className="text-muted-foreground">Time</span>
+                          <span className="text-muted-foreground">Time:</span>
                           <span className="font-medium">{nowTime}</span>
                         </div>
                       </div>
@@ -1365,59 +1355,57 @@ export default function CitizenBalanceStatementPage() {
                   </div>
 
                   <div className="p-3 sm:p-4 border-b border-border">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="space-y-1.5 text-sm">
-                        <div className="flex gap-2">
-                          <span className="font-semibold text-muted-foreground w-32 shrink-0">Branch</span>
-                          <span className="font-medium" data-testid={`text-branch-${lsIdx}`}>{ls.branch?.name || ""}</span>
-                        </div>
-                        <div className="flex gap-2">
-                          <span className="font-semibold text-muted-foreground w-32 shrink-0">Financing Type</span>
-                          <span className="font-medium">{ls.loan.productName}</span>
-                        </div>
-                        <div className="flex gap-2">
-                          <span className="font-semibold text-muted-foreground w-32 shrink-0">Financing No./ Cycle</span>
-                          <span className="font-medium" data-testid={`text-app-id-${lsIdx}`}>{ls.loan.applicationId} / {ls.loan.financingCycle}</span>
-                        </div>
-                        <div className="flex gap-2">
-                          <span className="font-semibold text-muted-foreground w-32 shrink-0">Client Name</span>
-                          <span className="font-medium" data-testid={`text-client-name-${lsIdx}`}>{statementData.customer.name}</span>
-                        </div>
-                        <div className="flex gap-2">
-                          <span className="font-semibold text-muted-foreground w-32 shrink-0">Finance Officer</span>
-                          <span className="font-medium">{ls.officer?.name || ""}</span>
-                        </div>
+                    <div className="grid grid-cols-3 gap-x-6 gap-y-1.5 text-sm">
+                      <div className="flex gap-2">
+                        <span className="font-semibold text-muted-foreground w-36 shrink-0">Branch:</span>
+                        <span className="font-medium" data-testid={`text-branch-${lsIdx}`}>{ls.branch?.name || ""}</span>
                       </div>
-                      <div className="space-y-1.5 text-sm">
-                        <div className="flex gap-2">
-                          <span className="font-semibold text-muted-foreground w-32 shrink-0">Principle Amount</span>
-                          <span className="font-medium" data-testid={`text-financing-amount-${lsIdx}`}>{formatNumber(ls.loan.principleAmount)}</span>
-                        </div>
-                        <div className="flex gap-2">
-                          <span className="font-semibold text-muted-foreground w-32 shrink-0">Margin Rate</span>
-                          <span className="font-medium">{ls.loan.marginRate}%</span>
-                        </div>
-                        <div className="flex gap-2">
-                          <span className="font-semibold text-muted-foreground w-32 shrink-0">Disbursement Date</span>
-                          <span className="font-medium">{ls.disbursement?.disbursementDate ? formatDateDMY(ls.disbursement.disbursementDate) : ""}</span>
-                        </div>
-                        <div className="flex gap-2">
-                          <span className="font-semibold text-muted-foreground w-32 shrink-0">No. of Installments</span>
-                          <span className="font-medium">{ls.loan.numberOfInstallments}</span>
-                        </div>
-                        <div className="flex gap-2">
-                          <span className="font-semibold text-muted-foreground w-32 shrink-0">Grace Period</span>
-                          <span className="font-medium">{ls.loan.gracePeriod} months</span>
-                        </div>
+                      <div className="flex gap-2">
+                        <span className="font-semibold text-muted-foreground w-36 shrink-0">Principle Amount:</span>
+                        <span className="font-medium" data-testid={`text-financing-amount-${lsIdx}`}>{formatNumber(ls.loan.principleAmount)}</span>
                       </div>
-                      <div className="space-y-1.5 text-sm">
-                        <div className="flex gap-2">
-                          <span className="font-semibold text-muted-foreground w-32 shrink-0">Financing Status</span>
-                          <span className={`font-medium ${ls.loan.status === "active" || ls.loan.status === "disbursed" ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}`}>
-                            {ls.loan.status ? ls.loan.status.charAt(0).toUpperCase() + ls.loan.status.slice(1) : ""}
-                          </span>
-                        </div>
+                      <div className="flex gap-2">
+                        <span className="font-semibold text-muted-foreground w-36 shrink-0">Financing Status:</span>
+                        <span className={`font-medium ${ls.loan.status === "active" || ls.loan.status === "disbursed" ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}`}>
+                          {ls.loan.status ? ls.loan.status.charAt(0).toUpperCase() + ls.loan.status.slice(1) : ""}
+                        </span>
                       </div>
+
+                      <div className="flex gap-2">
+                        <span className="font-semibold text-muted-foreground w-36 shrink-0">Financing Type:</span>
+                        <span className="font-medium">{ls.loan.productName}</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <span className="font-semibold text-muted-foreground w-36 shrink-0">Margin Rate:</span>
+                        <span className="font-medium">{ls.loan.marginRate}%</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <span className="font-semibold text-muted-foreground w-36 shrink-0">No. of Installments:</span>
+                        <span className="font-medium">{ls.loan.numberOfInstallments}</span>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <span className="font-semibold text-muted-foreground w-36 shrink-0">Financing No./ Cycle:</span>
+                        <span className="font-medium" data-testid={`text-app-id-${lsIdx}`}>{ls.loan.applicationId} / {ls.loan.financingCycle}</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <span className="font-semibold text-muted-foreground w-36 shrink-0">Disbursement Date:</span>
+                        <span className="font-medium">{ls.disbursement?.disbursementDate ? formatDateDMY(ls.disbursement.disbursementDate) : ""}</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <span className="font-semibold text-muted-foreground w-36 shrink-0">Grace Period:</span>
+                        <span className="font-medium">{ls.loan.gracePeriod} months</span>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <span className="font-semibold text-muted-foreground w-36 shrink-0">Client Name:</span>
+                        <span className="font-medium" data-testid={`text-client-name-${lsIdx}`}>{statementData.customer.name}</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <span className="font-semibold text-muted-foreground w-36 shrink-0">Finance Officer:</span>
+                        <span className="font-medium">{ls.officer?.name || ""}</span>
+                      </div>
+                      <div></div>
                     </div>
                   </div>
 
