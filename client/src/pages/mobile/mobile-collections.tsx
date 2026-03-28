@@ -324,8 +324,8 @@ export default function MobileCollections() {
                       </div>
 
                       <div className="space-y-1">
-                        <div className="grid grid-cols-[2rem_1fr_1fr_1fr_auto] gap-1 text-[10px] font-medium text-muted-foreground px-1 pb-1">
-                          <span>#</span>
+                        <div className="grid grid-cols-[2.5rem_1fr_1fr_1fr_auto] gap-1 text-[10px] font-medium text-muted-foreground px-1 pb-1">
+                          <span>Inst #</span>
                           <span>Due Date</span>
                           <span className="text-right">Amount</span>
                           <span className="text-right">Remaining</span>
@@ -340,12 +340,12 @@ export default function MobileCollections() {
                             return (
                               <div key={inst.id}>
                                 <div
-                                  className={`grid grid-cols-[2rem_1fr_1fr_1fr_auto] gap-1 items-center px-1 py-1.5 rounded text-xs ${
+                                  className={`grid grid-cols-[2.5rem_1fr_1fr_1fr_auto] gap-1 items-center px-1 py-1.5 rounded text-xs ${
                                     inst.isPaid ? "bg-muted/50" : ""
                                   }`}
                                   data-testid={`row-mobile-installment-${inst.id}`}
                                 >
-                                  <span className="text-muted-foreground">{inst.installmentNumber}</span>
+                                  <span className="font-semibold">{inst.installmentNumber}</span>
                                   <span className="flex items-center gap-0.5">
                                     <Calendar className="h-3 w-3 text-muted-foreground shrink-0" />
                                     <span className="truncate">
