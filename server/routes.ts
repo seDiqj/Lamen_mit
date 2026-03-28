@@ -6873,6 +6873,28 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/hr/employees/financing-officers", isAuthenticated, async (req, res) => {
+    try {
+      const result = await db.execute(sql`
+        SELECT e.id, e.first_name, e.last_name, e.employee_code, e.finance_officer_id,
+          e.user_id, e.branch_id, e.employment_status,
+          p.title as position_title,
+          b.name as branch_name
+        FROM employees e
+        LEFT JOIN positions p ON e.position_id = p.id
+        LEFT JOIN branches b ON e.branch_id = b.id
+        WHERE LOWER(p.title) LIKE '%financing%officer%'
+          OR LOWER(p.title) LIKE '%finance%officer%'
+          OR e.finance_officer_id IS NOT NULL
+        ORDER BY e.first_name, e.last_name
+      `);
+      res.json(result.rows);
+    } catch (error) {
+      console.error("Error fetching financing officer employees:", error);
+      res.status(500).json({ message: "Failed to fetch financing officer employees" });
+    }
+  });
+
   app.get("/api/hr/employees/:id", isAuthenticated, async (req, res) => {
     try {
       const employee = await storage.getEmployee(req.params.id);

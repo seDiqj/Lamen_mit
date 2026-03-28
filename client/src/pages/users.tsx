@@ -303,6 +303,8 @@ interface FinanceOfficerItem {
   code?: string;
   branchName?: string;
   userId?: string;
+  employeeId?: string;
+  financeOfficerId?: string;
 }
 
 export default function UsersPage() {
@@ -498,9 +500,21 @@ export default function UsersPage() {
     })).filter(cat => cat.pages.length > 0 || cat.label.toLowerCase().includes(lower));
   };
 
-  const { data: financeOfficers = [] } = useQuery<FinanceOfficerItem[]>({
-    queryKey: ["/api/finance-officers"],
+  const { data: financingOfficerEmployees = [] } = useQuery<any[]>({
+    queryKey: ["/api/hr/employees/financing-officers"],
   });
+
+  const financeOfficers: FinanceOfficerItem[] = useMemo(() => {
+    return financingOfficerEmployees.map((emp: any) => ({
+      id: emp.finance_officer_id || emp.id,
+      name: `${emp.first_name} ${emp.last_name}`.trim(),
+      code: emp.employee_code || undefined,
+      branchName: emp.branch_name || undefined,
+      userId: undefined,
+      employeeId: emp.id,
+      financeOfficerId: emp.finance_officer_id,
+    }));
+  }, [financingOfficerEmployees]);
 
   const { data: branches = [] } = useQuery<BranchItem[]>({
     queryKey: ["/api/branches"],
@@ -599,7 +613,8 @@ export default function UsersPage() {
   };
 
   const openEditDialog = async (user: User) => {
-    const linkedOfficer = financeOfficers.find((o) => o.userId === user.id);
+    const linkedEmp = financingOfficerEmployees.find((e: any) => e.user_id === user.id);
+    const linkedOfficer = linkedEmp ? financeOfficers.find((o) => o.employeeId === linkedEmp.id) : undefined;
     setFormData({
       username: user.username,
       password: "",
