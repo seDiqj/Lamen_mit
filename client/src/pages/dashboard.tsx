@@ -374,6 +374,8 @@ export default function Dashboard() {
   const [customersByStatusDialogOpen, setCustomersByStatusDialogOpen] = useState(false);
   const [sectorDialogOpen, setSectorDialogOpen] = useState(false);
   const [selectedSector, setSelectedSector] = useState<string | null>(null);
+  const [incomeExpanded, setIncomeExpanded] = useState(false);
+  const [expenseExpanded, setExpenseExpanded] = useState(false);
 
   const buildFilterParams = () => {
     const params = new URLSearchParams();
@@ -510,6 +512,10 @@ export default function Dashboard() {
       return response.json();
     },
     enabled: !!selectedSector && sectorDialogOpen,
+  });
+
+  const { data: costAnalysis, isLoading: costAnalysisLoading } = useQuery<any>({
+    queryKey: ["/api/dashboard/loan-cost-analysis"],
   });
 
   const formatCurrency = (amount: number) => {
@@ -1208,43 +1214,63 @@ export default function Dashboard() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {stats.financialPerformance.incomeBreakdown.length > 0 && (
                   <div>
-                    <p className="text-sm font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <button
+                      onClick={() => setIncomeExpanded(!incomeExpanded)}
+                      className="w-full text-sm font-semibold text-muted-foreground mb-2 flex items-center gap-1.5 hover:text-foreground transition-colors"
+                      data-testid="button-toggle-income"
+                    >
+                      {incomeExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
                       <TrendingUp className="h-3.5 w-3.5 text-emerald-500" /> Income Breakdown
-                    </p>
-                    <div className="space-y-1.5">
-                      {stats.financialPerformance.incomeBreakdown
-                        .sort((a, b) => b.amount - a.amount)
-                        .map((item, idx) => (
-                        <div key={idx} className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-emerald-500/5 border border-emerald-500/10" data-testid={`income-item-${idx}`}>
-                          <span className="text-xs">
-                            <span className="text-muted-foreground">{item.accountCode}</span>
-                            <span className="ml-2 font-medium">{item.accountName}</span>
-                          </span>
-                          <span className="text-sm font-semibold text-emerald-600">{formatCurrency(item.amount)}</span>
-                        </div>
-                      ))}
-                    </div>
+                      <Badge variant="outline" className="ml-auto text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
+                        {stats.financialPerformance.incomeBreakdown.length} items
+                      </Badge>
+                    </button>
+                    {incomeExpanded && (
+                      <div className="space-y-1.5">
+                        {stats.financialPerformance.incomeBreakdown
+                          .sort((a, b) => b.amount - a.amount)
+                          .map((item, idx) => (
+                          <div key={idx} className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-emerald-500/5 border border-emerald-500/10" data-testid={`income-item-${idx}`}>
+                            <span className="text-xs">
+                              <span className="text-muted-foreground">{item.accountCode}</span>
+                              <span className="ml-2 font-medium">{item.accountName}</span>
+                            </span>
+                            <span className="text-sm font-semibold text-emerald-600">{formatCurrency(item.amount)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {stats.financialPerformance.expenseBreakdown.length > 0 && (
                   <div>
-                    <p className="text-sm font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <button
+                      onClick={() => setExpenseExpanded(!expenseExpanded)}
+                      className="w-full text-sm font-semibold text-muted-foreground mb-2 flex items-center gap-1.5 hover:text-foreground transition-colors"
+                      data-testid="button-toggle-expense"
+                    >
+                      {expenseExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
                       <TrendingDown className="h-3.5 w-3.5 text-red-500" /> Expense Breakdown
-                    </p>
-                    <div className="space-y-1.5">
-                      {stats.financialPerformance.expenseBreakdown
-                        .sort((a, b) => b.amount - a.amount)
-                        .map((item, idx) => (
-                        <div key={idx} className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-red-500/5 border border-red-500/10" data-testid={`expense-item-${idx}`}>
-                          <span className="text-xs">
-                            <span className="text-muted-foreground">{item.accountCode}</span>
-                            <span className="ml-2 font-medium">{item.accountName}</span>
-                          </span>
-                          <span className="text-sm font-semibold text-red-500">{formatCurrency(item.amount)}</span>
-                        </div>
-                      ))}
-                    </div>
+                      <Badge variant="outline" className="ml-auto text-[10px] bg-red-500/10 text-red-500 border-red-500/20">
+                        {stats.financialPerformance.expenseBreakdown.length} items
+                      </Badge>
+                    </button>
+                    {expenseExpanded && (
+                      <div className="space-y-1.5">
+                        {stats.financialPerformance.expenseBreakdown
+                          .sort((a, b) => b.amount - a.amount)
+                          .map((item, idx) => (
+                          <div key={idx} className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-red-500/5 border border-red-500/10" data-testid={`expense-item-${idx}`}>
+                            <span className="text-xs">
+                              <span className="text-muted-foreground">{item.accountCode}</span>
+                              <span className="ml-2 font-medium">{item.accountName}</span>
+                            </span>
+                            <span className="text-sm font-semibold text-red-500">{formatCurrency(item.amount)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1258,6 +1284,175 @@ export default function Dashboard() {
           )}
         </CardContent>
       </Card>
+
+      {costAnalysis && (
+        <Card className="border-0 shadow-lg overflow-hidden" data-testid="card-loan-cost-analysis">
+          <div className="h-1 bg-gradient-to-r from-amber-500 to-orange-500" />
+          <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg">
+                <BarChart3 className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <CardTitle className="text-lg font-semibold">Loan Cost Analysis</CardTitle>
+                <p className="text-sm text-muted-foreground">Year-over-year cost efficiency and profitability</p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="rounded-xl border p-4 space-y-1">
+                <p className="text-xs text-muted-foreground">Avg Cost Per Loan</p>
+                <p className="text-xl font-bold" data-testid="text-avg-cost-current">{formatCurrency(costAnalysis.currentYear.avgCostPerLoan)}</p>
+                <p className="text-[10px] text-muted-foreground">{costAnalysis.previousYear.year}: {formatCurrency(costAnalysis.previousYear.avgCostPerLoan)}</p>
+                {costAnalysis.costImprovement !== 0 && (
+                  <div className={`flex items-center gap-1 text-xs font-medium ${costAnalysis.costImprovement > 0 ? "text-emerald-600" : "text-red-500"}`}>
+                    {costAnalysis.costImprovement > 0 ? <TrendingDown className="h-3 w-3" /> : <TrendingUp className="h-3 w-3" />}
+                    {Math.abs(costAnalysis.costImprovement).toFixed(1)}% {costAnalysis.costImprovement > 0 ? "decrease" : "increase"}
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-xl border p-4 space-y-1">
+                <p className="text-xs text-muted-foreground">Avg Income Per Loan</p>
+                <p className="text-xl font-bold text-emerald-600" data-testid="text-avg-income-current">{formatCurrency(costAnalysis.currentYear.avgIncomePerLoan)}</p>
+                <p className="text-[10px] text-muted-foreground">{costAnalysis.previousYear.year}: {formatCurrency(costAnalysis.previousYear.avgIncomePerLoan)}</p>
+              </div>
+
+              <div className="rounded-xl border p-4 space-y-1">
+                <p className="text-xs text-muted-foreground">Net Income Per Loan</p>
+                <p className={`text-xl font-bold ${costAnalysis.currentYear.netIncomePerLoan >= 0 ? "text-emerald-600" : "text-red-500"}`} data-testid="text-net-per-loan">
+                  {formatCurrency(costAnalysis.currentYear.netIncomePerLoan)}
+                </p>
+                <p className="text-[10px] text-muted-foreground">{costAnalysis.previousYear.year}: {formatCurrency(costAnalysis.previousYear.netIncomePerLoan)}</p>
+              </div>
+
+              <div className="rounded-xl border p-4 space-y-1">
+                <p className="text-xs text-muted-foreground">Cost-to-Income Ratio</p>
+                <p className={`text-xl font-bold ${costAnalysis.currentYear.costIncomeRatio <= 100 ? "text-emerald-600" : "text-red-500"}`} data-testid="text-cost-ratio">
+                  {costAnalysis.currentYear.costIncomeRatio.toFixed(1)}%
+                </p>
+                <p className="text-[10px] text-muted-foreground">{costAnalysis.previousYear.year}: {costAnalysis.previousYear.costIncomeRatio.toFixed(1)}%</p>
+                {costAnalysis.ratioImprovement !== 0 && (
+                  <div className={`flex items-center gap-1 text-xs font-medium ${costAnalysis.ratioImprovement > 0 ? "text-emerald-600" : "text-red-500"}`}>
+                    {costAnalysis.ratioImprovement > 0 ? <TrendingDown className="h-3 w-3" /> : <TrendingUp className="h-3 w-3" />}
+                    {Math.abs(costAnalysis.ratioImprovement).toFixed(1)}pp {costAnalysis.ratioImprovement > 0 ? "improved" : "worsened"}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="rounded-xl border p-4 space-y-1">
+                <p className="text-xs text-muted-foreground font-semibold mb-2 flex items-center gap-1">
+                  <Briefcase className="h-3.5 w-3.5" /> {costAnalysis.currentYear.year} — Loans Disbursed: {costAnalysis.currentYear.totalLoans}
+                </p>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <p className="text-[10px] text-muted-foreground">Total Income</p>
+                    <p className="text-sm font-bold text-emerald-600">{formatCurrency(costAnalysis.currentYear.totalIncome)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-muted-foreground">Total Expenses</p>
+                    <p className="text-sm font-bold text-red-500">{formatCurrency(costAnalysis.currentYear.totalExpenses)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-muted-foreground">Margin Income</p>
+                    <p className="text-sm font-bold text-blue-600">{formatCurrency(costAnalysis.currentYear.totalMarginIncome)}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-xl border p-4 space-y-1">
+                <p className="text-xs text-muted-foreground font-semibold mb-2 flex items-center gap-1">
+                  <Briefcase className="h-3.5 w-3.5" /> {costAnalysis.previousYear.year} — Loans Disbursed: {costAnalysis.previousYear.totalLoans}
+                </p>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <p className="text-[10px] text-muted-foreground">Total Income</p>
+                    <p className="text-sm font-bold text-emerald-600">{formatCurrency(costAnalysis.previousYear.totalIncome)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-muted-foreground">Total Expenses</p>
+                    <p className="text-sm font-bold text-red-500">{formatCurrency(costAnalysis.previousYear.totalExpenses)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-muted-foreground">Margin Income</p>
+                    <p className="text-sm font-bold text-blue-600">{formatCurrency(costAnalysis.previousYear.totalMarginIncome)}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {costAnalysis.currentYear.byProduct.length > 0 && (
+              <div>
+                <p className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-1.5">
+                  <Wallet className="h-3.5 w-3.5" /> Cost by Product ({costAnalysis.currentYear.year})
+                </p>
+                <div className="overflow-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-xs text-muted-foreground">
+                        <th className="text-left py-2 px-2">Product</th>
+                        <th className="text-right py-2 px-2">Loans</th>
+                        <th className="text-right py-2 px-2">Disbursed</th>
+                        <th className="text-right py-2 px-2">Margin Income</th>
+                        <th className="text-right py-2 px-2">Cost/Loan</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {costAnalysis.currentYear.byProduct.map((p: any, idx: number) => (
+                        <tr key={idx} className="border-b border-dashed" data-testid={`row-product-cost-${idx}`}>
+                          <td className="py-2 px-2 font-medium">{p.productName}</td>
+                          <td className="text-right py-2 px-2">{p.loanCount}</td>
+                          <td className="text-right py-2 px-2">{formatCurrency(p.totalDisbursed)}</td>
+                          <td className="text-right py-2 px-2 text-emerald-600">{formatCurrency(p.totalMarginIncome)}</td>
+                          <td className="text-right py-2 px-2 text-amber-600 font-semibold">{formatCurrency(p.costPerLoanShare)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {costAnalysis.currentYear.byBranch.length > 0 && (
+              <div>
+                <p className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-1.5">
+                  <Building2 className="h-3.5 w-3.5" /> Profitability by Branch ({costAnalysis.currentYear.year})
+                </p>
+                <div className="overflow-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-xs text-muted-foreground">
+                        <th className="text-left py-2 px-2">Branch</th>
+                        <th className="text-right py-2 px-2">Loans</th>
+                        <th className="text-right py-2 px-2">Disbursed</th>
+                        <th className="text-right py-2 px-2">Margin Income</th>
+                        <th className="text-right py-2 px-2">Allocated Cost</th>
+                        <th className="text-right py-2 px-2">Profit/Loan</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {costAnalysis.currentYear.byBranch.map((b: any, idx: number) => (
+                        <tr key={idx} className="border-b border-dashed" data-testid={`row-branch-profit-${idx}`}>
+                          <td className="py-2 px-2 font-medium">{b.branchName}</td>
+                          <td className="text-right py-2 px-2">{b.loanCount}</td>
+                          <td className="text-right py-2 px-2">{formatCurrency(b.totalDisbursed)}</td>
+                          <td className="text-right py-2 px-2 text-emerald-600">{formatCurrency(b.totalMarginIncome)}</td>
+                          <td className="text-right py-2 px-2 text-red-500">{formatCurrency(b.allocatedExpenses)}</td>
+                          <td className={`text-right py-2 px-2 font-semibold ${b.profitPerLoan >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                            {formatCurrency(b.profitPerLoan)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="border-0 shadow-lg overflow-hidden">
         <div className="h-1 bg-gradient-to-r from-violet-500 to-purple-500" />

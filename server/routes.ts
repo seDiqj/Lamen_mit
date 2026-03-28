@@ -650,6 +650,137 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/dashboard/loan-cost-analysis", isAuthenticated, async (req, res) => {
+    try {
+      const currentYear = new Date().getFullYear();
+      const previousYear = currentYear - 1;
+
+      const yearlyData = async (year: number) => {
+        const startDate = `${year}-01-01`;
+        const endDate = `${year}-12-31`;
+
+        const loansByProduct = await db.execute(sql`
+          SELECT 
+            COALESCE(l.product_name, 'Unknown') as product_name,
+            COUNT(*) as loan_count,
+            COALESCE(SUM(l.principle_amount::numeric), 0) as total_disbursed,
+            COALESCE(SUM(l.profit::numeric), 0) as total_margin_income
+          FROM loans l
+          LEFT JOIN disbursements d ON l.id = d.loan_id
+          WHERE d.disbursement_date >= ${startDate} AND d.disbursement_date <= ${endDate}
+          GROUP BY l.product_name
+          ORDER BY loan_count DESC
+        `);
+
+        const loansByBranch = await db.execute(sql`
+          SELECT 
+            COALESCE(b.name, 'Unknown') as branch_name,
+            COUNT(*) as loan_count,
+            COALESCE(SUM(l.principle_amount::numeric), 0) as total_disbursed,
+            COALESCE(SUM(l.profit::numeric), 0) as total_margin_income
+          FROM loans l
+          LEFT JOIN disbursements d ON l.id = d.loan_id
+          LEFT JOIN branches b ON l.branch_id = b.id
+          WHERE d.disbursement_date >= ${startDate} AND d.disbursement_date <= ${endDate}
+          GROUP BY b.name
+          ORDER BY loan_count DESC
+        `);
+
+        const totalLoansResult = await db.execute(sql`
+          SELECT COUNT(*) as count
+          FROM loans l
+          LEFT JOIN disbursements d ON l.id = d.loan_id
+          WHERE d.disbursement_date >= ${startDate} AND d.disbursement_date <= ${endDate}
+        `);
+        const totalLoans = parseInt(totalLoansResult.rows[0]?.count as string || "0");
+
+        const totalIncomeResult = await db.execute(sql`
+          SELECT COALESCE(SUM(
+            CASE WHEN a.account_type = 'income' THEN jl.credit_amount::numeric - jl.debit_amount::numeric ELSE 0 END
+          ), 0) as total_income,
+          COALESCE(SUM(
+            CASE WHEN a.account_type = 'expense' THEN jl.debit_amount::numeric - jl.credit_amount::numeric ELSE 0 END
+          ), 0) as total_expenses
+          FROM journal_lines jl
+          JOIN journal_entries je ON jl.journal_entry_id = je.id
+          JOIN accounts a ON jl.account_id = a.id
+          WHERE je.is_posted = true
+            AND je.entry_date >= ${startDate} AND je.entry_date <= ${endDate}
+            AND (a.account_type = 'income' OR a.account_type = 'expense')
+        `);
+
+        const totalIncome = parseFloat(totalIncomeResult.rows[0]?.total_income as string || "0");
+        const totalExpenses = parseFloat(totalIncomeResult.rows[0]?.total_expenses as string || "0");
+
+        const marginIncomeResult = await db.execute(sql`
+          SELECT COALESCE(SUM(l.profit::numeric), 0) as total_margin
+          FROM loans l
+          LEFT JOIN disbursements d ON l.id = d.loan_id
+          WHERE d.disbursement_date >= ${startDate} AND d.disbursement_date <= ${endDate}
+        `);
+        const totalMarginIncome = parseFloat(marginIncomeResult.rows[0]?.total_margin as string || "0");
+
+        const avgCostPerLoan = totalLoans > 0 ? totalExpenses / totalLoans : 0;
+        const avgIncomePerLoan = totalLoans > 0 ? totalIncome / totalLoans : 0;
+        const costIncomeRatio = totalIncome > 0 ? (totalExpenses / totalIncome) * 100 : 0;
+        const netIncomePerLoan = avgIncomePerLoan - avgCostPerLoan;
+
+        return {
+          year,
+          totalLoans,
+          totalIncome,
+          totalExpenses,
+          totalMarginIncome,
+          avgCostPerLoan,
+          avgIncomePerLoan,
+          netIncomePerLoan,
+          costIncomeRatio,
+          byProduct: (loansByProduct.rows as any[]).map(r => ({
+            productName: r.product_name,
+            loanCount: parseInt(r.loan_count),
+            totalDisbursed: parseFloat(r.total_disbursed),
+            totalMarginIncome: parseFloat(r.total_margin_income),
+            avgCostPerLoan: parseInt(r.loan_count) > 0 ? totalExpenses / parseInt(r.loan_count) * (parseInt(r.loan_count) / totalLoans) : 0,
+            costPerLoanShare: totalLoans > 0 ? (totalExpenses * (parseInt(r.loan_count) / totalLoans)) / parseInt(r.loan_count) : 0,
+          })),
+          byBranch: (loansByBranch.rows as any[]).map(r => ({
+            branchName: r.branch_name,
+            loanCount: parseInt(r.loan_count),
+            totalDisbursed: parseFloat(r.total_disbursed),
+            totalMarginIncome: parseFloat(r.total_margin_income),
+            profitPerLoan: parseInt(r.loan_count) > 0 
+              ? (parseFloat(r.total_margin_income) - (totalExpenses * (parseInt(r.loan_count) / totalLoans))) / parseInt(r.loan_count)
+              : 0,
+            allocatedExpenses: totalLoans > 0 ? totalExpenses * (parseInt(r.loan_count) / totalLoans) : 0,
+          })),
+        };
+      };
+
+      const [currentYearData, previousYearData] = await Promise.all([
+        yearlyData(currentYear),
+        yearlyData(previousYear),
+      ]);
+
+      const costImprovement = previousYearData.avgCostPerLoan > 0
+        ? ((previousYearData.avgCostPerLoan - currentYearData.avgCostPerLoan) / previousYearData.avgCostPerLoan) * 100
+        : 0;
+
+      const ratioImprovement = previousYearData.costIncomeRatio > 0
+        ? previousYearData.costIncomeRatio - currentYearData.costIncomeRatio
+        : 0;
+
+      res.json({
+        currentYear: currentYearData,
+        previousYear: previousYearData,
+        costImprovement,
+        ratioImprovement,
+      });
+    } catch (error) {
+      console.error("Error fetching loan cost analysis:", error);
+      res.status(500).json({ message: "Failed to fetch loan cost analysis" });
+    }
+  });
+
   // ===== BRANCHES =====
   app.get("/api/branches", isAuthenticated, async (req, res) => {
     try {
