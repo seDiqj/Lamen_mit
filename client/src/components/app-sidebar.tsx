@@ -207,7 +207,6 @@ export function AppSidebar() {
         { title: "Collections", url: "/collections", icon: Banknote, iconColor: "text-green-600" },
         { title: "Installment Management", url: "/installment-management", icon: ListChecks, iconColor: "text-orange-500" },
         { title: "Loan Officer Transfer", url: "/loan-transfers", icon: ArrowRightLeft, iconColor: "text-indigo-500" },
-        { title: "Collection Approvals", url: "/collection-approvals", icon: ClipboardList, iconColor: "text-purple-600" },
       ],
     },
     {
@@ -215,6 +214,7 @@ export function AppSidebar() {
       icon: BookOpen,
       items: [
         { title: "Accounting Dashboard", url: "/accounting-dashboard", icon: LayoutDashboard, iconColor: "text-purple-500" },
+        { title: "Collection Approvals", url: "/collection-approvals", icon: ClipboardList, iconColor: "text-purple-600" },
         { title: "Chart of Accounts", url: "/chart-of-accounts", icon: BookOpen, iconColor: "text-emerald-500" },
         { title: "Journal Entries", url: "/journal-entries", icon: Receipt, iconColor: "text-blue-500" },
         { title: "Account Statement", url: "/account-statement", icon: FileSpreadsheet, iconColor: "text-violet-500" },
@@ -291,7 +291,6 @@ export function AppSidebar() {
         { title: "Collections", url: "/collections", icon: Banknote, iconColor: "text-green-600" },
         { title: "Installment Management", url: "/installment-management", icon: ListChecks, iconColor: "text-orange-500" },
         { title: "Loan Officer Transfer", url: "/loan-transfers", icon: ArrowRightLeft, iconColor: "text-indigo-500" },
-        { title: "Collection Approvals", url: "/collection-approvals", icon: ClipboardList, iconColor: "text-purple-600" },
       ],
     },
     {
@@ -299,6 +298,7 @@ export function AppSidebar() {
       icon: BookOpen,
       items: [
         { title: "Accounting Dashboard", url: "/accounting-dashboard", icon: LayoutDashboard, iconColor: "text-purple-500" },
+        { title: "Collection Approvals", url: "/collection-approvals", icon: ClipboardList, iconColor: "text-purple-600" },
         { title: "Chart of Accounts", url: "/chart-of-accounts", icon: BookOpen, iconColor: "text-emerald-500" },
         { title: "Journal Entries", url: "/journal-entries", icon: Receipt, iconColor: "text-blue-500" },
         { title: "Account Statement", url: "/account-statement", icon: FileSpreadsheet, iconColor: "text-violet-500" },
@@ -378,7 +378,6 @@ export function AppSidebar() {
         { title: "Collections", url: "/collections", icon: Banknote, iconColor: "text-green-600" },
         { title: "Installment Management", url: "/installment-management", icon: ListChecks, iconColor: "text-orange-500" },
         { title: "Loan Officer Transfer", url: "/loan-transfers", icon: ArrowRightLeft, iconColor: "text-indigo-500" },
-        { title: "Collection Approvals", url: "/collection-approvals", icon: ClipboardList, iconColor: "text-purple-600" },
       ],
     },
     {
@@ -386,6 +385,7 @@ export function AppSidebar() {
       icon: BookOpen,
       items: [
         { title: "Accounting Dashboard", url: "/accounting-dashboard", icon: LayoutDashboard, iconColor: "text-purple-500" },
+        { title: "Collection Approvals", url: "/collection-approvals", icon: ClipboardList, iconColor: "text-purple-600" },
         { title: "Chart of Accounts", url: "/chart-of-accounts", icon: BookOpen, iconColor: "text-emerald-500" },
         { title: "Journal Entries", url: "/journal-entries", icon: Receipt, iconColor: "text-blue-500" },
         { title: "Account Statement", url: "/account-statement", icon: FileSpreadsheet, iconColor: "text-violet-500" },
