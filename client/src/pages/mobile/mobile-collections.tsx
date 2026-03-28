@@ -378,8 +378,8 @@ export default function MobileCollections() {
                                         )}
                                         <Button
                                           size="sm"
-                                          variant="outline"
-                                          className="h-6 text-[10px] px-2"
+                                          variant="default"
+                                          className="h-6 text-[10px] px-2 bg-green-600 hover:bg-green-700 text-white"
                                           onClick={() => openPaymentDialog(inst)}
                                           data-testid={`button-record-payment-${inst.id}`}
                                         >
