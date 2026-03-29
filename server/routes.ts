@@ -335,8 +335,8 @@ export async function registerRoutes(
         return res.status(401).json({ message: "Unauthorized" });
       }
       
-      // Admins and managers have full access
-      if (await hasRole(userId, ["admin", "manager"])) {
+      // Only admins have full access
+      if (await hasRole(userId, ["admin"])) {
         return next();
       }
       
@@ -1574,7 +1574,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/customers", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
+  app.get("/api/customers", isAuthenticated, requirePageAccess("customers"), async (req, res) => {
     try {
       const { search, page, limit } = req.query;
       const result = await storage.getCustomers(
@@ -1634,7 +1634,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/customers", isAuthenticated, requireRole("manager", "admin"), async (req: any, res) => {
+  app.post("/api/customers", isAuthenticated, requirePageAccess("customers"), async (req: any, res) => {
     try {
       const customer = await storage.createCustomer(req.body);
       await logActivity(req, "create_customer", "customer", customer.id, `Created customer: ${customer.firstName} ${customer.lastName}`);
@@ -1645,7 +1645,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/customers/:id", isAuthenticated, requireRole("manager", "admin"), async (req: any, res) => {
+  app.patch("/api/customers/:id", isAuthenticated, requirePageAccess("customers"), async (req: any, res) => {
     try {
       const customer = await storage.updateCustomer(req.params.id, req.body);
       await logActivity(req, "update_customer", "customer", customer.id, `Updated customer: ${customer.firstName} ${customer.lastName}`);
@@ -1827,7 +1827,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/loans/pending", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
+  app.get("/api/loans/pending", isAuthenticated, requirePageAccess("loans"), async (req, res) => {
     try {
       const search = req.query.search as string | undefined;
       const loans = await storage.getPendingLoans(search);
@@ -1838,7 +1838,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/loans/approved", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
+  app.get("/api/loans/approved", isAuthenticated, requirePageAccess("loans"), async (req, res) => {
     try {
       const search = req.query.search as string | undefined;
       const loans = await storage.getApprovedLoans(search);
@@ -2226,7 +2226,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/loans", isAuthenticated, requireRole("manager", "admin"), async (req: any, res) => {
+  app.post("/api/loans", isAuthenticated, requirePageAccess("loans"), async (req: any, res) => {
     try {
       const loanData = { ...req.body, createdBy: req.session.userId };
       if (loanData.customerId) {
@@ -2889,7 +2889,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/loans/:id", isAuthenticated, requireRole("manager", "admin"), async (req: any, res) => {
+  app.patch("/api/loans/:id", isAuthenticated, requirePageAccess("loans"), async (req: any, res) => {
     try {
       const loan = await storage.updateLoan(req.params.id, req.body);
       await logActivity(req, "update_loan", "loan", loan.id, `Updated loan: ${loan.applicationId}`);
@@ -2900,7 +2900,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/loans/:id/approve", isAuthenticated, requireRole("manager", "admin"), async (req: any, res) => {
+  app.post("/api/loans/:id/approve", isAuthenticated, requirePageAccess("loans"), async (req: any, res) => {
     try {
       const loan = await storage.getLoan(req.params.id);
       if (!loan) {
@@ -2924,7 +2924,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/loans/:id/reject", isAuthenticated, requireRole("manager", "admin"), async (req: any, res) => {
+  app.post("/api/loans/:id/reject", isAuthenticated, requirePageAccess("loans"), async (req: any, res) => {
     try {
       const loan = await storage.getLoan(req.params.id);
       if (!loan) {
@@ -2940,7 +2940,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/loans/:id/disburse", isAuthenticated, requireRole("manager", "admin"), async (req: any, res) => {
+  app.post("/api/loans/:id/disburse", isAuthenticated, requirePageAccess("loans"), async (req: any, res) => {
     try {
       const loan = await storage.getLoan(req.params.id);
       if (!loan) {
@@ -3291,7 +3291,7 @@ export async function registerRoutes(
     return result;
   }
 
-  app.post("/api/loans/bulk-disburse", isAuthenticated, requireRole("manager", "admin"), csvUpload.single("file"), async (req: any, res) => {
+  app.post("/api/loans/bulk-disburse", isAuthenticated, requirePageAccess("loans"), csvUpload.single("file"), async (req: any, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No CSV file uploaded" });
@@ -3864,7 +3864,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/collections/:id/reverse", isAuthenticated, requireRole("manager", "admin"), async (req: any, res) => {
+  app.post("/api/collections/:id/reverse", isAuthenticated, requirePageAccess("collection-approvals"), async (req: any, res) => {
     try {
       const installmentId = req.params.id;
       const installment = await storage.getInstallmentById(installmentId);
@@ -3961,7 +3961,7 @@ export async function registerRoutes(
   });
 
   // ===== LOAN CLASSIFICATION REPORT =====
-  app.get("/api/reports/loan-classification", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
+  app.get("/api/reports/loan-classification", isAuthenticated, requirePageAccess("reports"), async (req, res) => {
     try {
       const data = await storage.getLoanClassificationReport();
       res.json(data);
@@ -3971,7 +3971,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/reports/financial-position", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
+  app.get("/api/reports/financial-position", isAuthenticated, requirePageAccess("reports"), async (req, res) => {
     try {
       const { asOfDate } = req.query;
       if (!asOfDate) {
@@ -4299,7 +4299,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/reports/dab-notes-financial-statements", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
+  app.get("/api/reports/dab-notes-financial-statements", isAuthenticated, requirePageAccess("reports"), async (req, res) => {
     try {
       const asOfDate = req.query.asOfDate as string | undefined;
       const data = await storage.getDABNotesToFinancialStatements(asOfDate);
@@ -4310,7 +4310,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/reports/changes-in-equity", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
+  app.get("/api/reports/changes-in-equity", isAuthenticated, requirePageAccess("reports"), async (req, res) => {
     try {
       const { startDate, endDate } = req.query;
       const endDateStr = (endDate as string) || new Date().toISOString().split("T")[0];
@@ -4489,7 +4489,7 @@ export async function registerRoutes(
   });
 
   // ===== REPORTS =====
-  app.get("/api/reports", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
+  app.get("/api/reports", isAuthenticated, requirePageAccess("reports"), async (req, res) => {
     try {
       const period = req.query.period as string || "6months";
       const data = await storage.getReportData(period);
@@ -4500,7 +4500,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/reports/export", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
+  app.get("/api/reports/export", isAuthenticated, requirePageAccess("reports"), async (req, res) => {
     try {
       const format = req.query.format as string;
       const period = req.query.period as string || "6months";
@@ -4514,7 +4514,7 @@ export async function registerRoutes(
   });
 
   // ===== PAR ANALYSIS =====
-  app.get("/api/reports/par-analysis", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
+  app.get("/api/reports/par-analysis", isAuthenticated, requirePageAccess("reports"), async (req, res) => {
     try {
       const data = await storage.getParAnalysis();
       res.json(data);
@@ -4524,7 +4524,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/reports/par-by-branch", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
+  app.get("/api/reports/par-by-branch", isAuthenticated, requirePageAccess("reports"), async (req, res) => {
     try {
       const data = await storage.getParByBranch();
       res.json(data);
@@ -4534,7 +4534,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/reports/par-by-officer", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
+  app.get("/api/reports/par-by-officer", isAuthenticated, requirePageAccess("reports"), async (req, res) => {
     try {
       const data = await storage.getParByOfficer();
       res.json(data);
@@ -4544,7 +4544,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/reports/par-by-product", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
+  app.get("/api/reports/par-by-product", isAuthenticated, requirePageAccess("reports"), async (req, res) => {
     try {
       const data = await storage.getParByProduct();
       res.json(data);
@@ -4554,7 +4554,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/reports/aging", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
+  app.get("/api/reports/aging", isAuthenticated, requirePageAccess("reports"), async (req, res) => {
     try {
       const data = await storage.getAgingReport();
       res.json(data);
@@ -4565,7 +4565,7 @@ export async function registerRoutes(
   });
 
   // PAR Loans Detail Endpoints
-  app.get("/api/reports/par-loans/category/:categoryId", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
+  app.get("/api/reports/par-loans/category/:categoryId", isAuthenticated, requirePageAccess("reports"), async (req, res) => {
     try {
       const categoryId = parseInt(req.params.categoryId);
       const loans = await storage.getLoansByParCategory(categoryId);
@@ -4576,7 +4576,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/reports/par-loans/branch/:branchName", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
+  app.get("/api/reports/par-loans/branch/:branchName", isAuthenticated, requirePageAccess("reports"), async (req, res) => {
     try {
       const branchName = decodeURIComponent(req.params.branchName);
       const loans = await storage.getLoansByBranch(branchName);
@@ -4587,7 +4587,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/reports/par-loans/officer/:officerName", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
+  app.get("/api/reports/par-loans/officer/:officerName", isAuthenticated, requirePageAccess("reports"), async (req, res) => {
     try {
       const officerName = decodeURIComponent(req.params.officerName);
       const loans = await storage.getLoansByOfficer(officerName);
@@ -4598,7 +4598,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/reports/par-loans/product/:productName", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
+  app.get("/api/reports/par-loans/product/:productName", isAuthenticated, requirePageAccess("reports"), async (req, res) => {
     try {
       const productName = decodeURIComponent(req.params.productName);
       const loans = await storage.getLoansByProduct(productName);
@@ -5025,7 +5025,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/accounts", isAuthenticated, requireRole("manager", "admin"), async (req: any, res) => {
+  app.post("/api/accounts", isAuthenticated, requirePageAccess("accounting"), async (req: any, res) => {
     try {
       const account = await storage.createAccount(req.body);
       await logActivity(req, "create", "account", account.id, `Created account: ${account.accountCode} - ${account.accountName}`);
@@ -5036,7 +5036,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/accounts/:id", isAuthenticated, requireRole("manager", "admin"), async (req: any, res) => {
+  app.patch("/api/accounts/:id", isAuthenticated, requirePageAccess("accounting"), async (req: any, res) => {
     try {
       const account = await storage.updateAccount(req.params.id, req.body);
       await logActivity(req, "update", "account", account.id, `Updated account: ${account.accountCode} - ${account.accountName}`);
@@ -5100,7 +5100,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/fiscal-periods", isAuthenticated, requireRole("manager", "admin"), async (req: any, res) => {
+  app.post("/api/fiscal-periods", isAuthenticated, requirePageAccess("accounting"), async (req: any, res) => {
     try {
       const period = await storage.createFiscalPeriod(req.body);
       await logActivity(req, "create", "fiscal_period", period.id, `Created fiscal period: ${period.periodName}`);
@@ -5659,7 +5659,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/journal-entries/:id/post", isAuthenticated, requireRole("manager", "admin"), async (req: any, res) => {
+  app.post("/api/journal-entries/:id/post", isAuthenticated, requirePageAccess("journal-entries"), async (req: any, res) => {
     try {
       await storage.postJournalEntry(req.params.id, req.session.userId);
       await logActivity(req, "post", "journal_entry", req.params.id, "Posted journal entry");
@@ -5715,7 +5715,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/journal-entries/:id/reverse", isAuthenticated, requireRole("manager", "admin"), async (req: any, res) => {
+  app.post("/api/journal-entries/:id/reverse", isAuthenticated, requirePageAccess("journal-entries"), async (req: any, res) => {
     try {
       const reversalEntry = await storage.reverseJournalEntry(req.params.id, req.session.userId);
       await logActivity(req, "reverse", "journal_entry", req.params.id, `Reversed journal entry, created ${reversalEntry.entryNumber}`);
@@ -6038,7 +6038,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/reports/shareholder-report", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
+  app.get("/api/reports/shareholder-report", isAuthenticated, requirePageAccess("reports"), async (req, res) => {
     try {
       const { startDate, endDate } = req.query;
       if (!startDate || !endDate) {
@@ -8519,7 +8519,7 @@ export async function registerRoutes(
   });
 
   // Update loan fields and regenerate installments (data cleanup)
-  app.post("/api/loans/:loanId/update-and-regenerate", isAuthenticated, requireRole("manager", "admin"), async (req: any, res) => {
+  app.post("/api/loans/:loanId/update-and-regenerate", isAuthenticated, requirePageAccess("loans"), async (req: any, res) => {
     try {
       const { loanId } = req.params;
       const { requestAmount, principleAmount, marginRate, gracePeriod, financingDurationMonths, numberOfInstallments, disbursementDate } = req.body;
@@ -8679,7 +8679,7 @@ export async function registerRoutes(
   });
 
   // Update installment payment (paid amount, payment date, PAR calc)
-  app.patch("/api/installments/:id/payment", isAuthenticated, requireRole("manager", "admin"), async (req: any, res) => {
+  app.patch("/api/installments/:id/payment", isAuthenticated, requirePageAccess("payments"), async (req: any, res) => {
     try {
       const { id } = req.params;
       const { paidAmount, paymentDate, isPaid } = req.body;

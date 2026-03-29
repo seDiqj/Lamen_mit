@@ -38,10 +38,11 @@ export function usePagePermissions() {
 
   const DEFAULT_PAGES = ["dashboard", "loans", "payments"];
 
-  const isAdminOrManager = roleType === "admin" || roleType === "manager" || role === "admin" || role === "manager";
+  const isAdmin = roleType === "admin" || role === "admin";
+  const isAdminOrManager = isAdmin || roleType === "manager" || role === "manager";
 
   const hasAccess = (pageName: string): boolean => {
-    if (isAdminOrManager) {
+    if (isAdmin) {
       return true;
     }
     if (isLoading) {
@@ -60,6 +61,7 @@ export function usePagePermissions() {
     hasAccess,
     isLoading,
     isReady,
+    isAdmin,
     isAdminOrManager,
     role,
     roleType,

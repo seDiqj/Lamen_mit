@@ -145,7 +145,7 @@ export function AppSidebar() {
   const { user } = useAuth();
   const [location] = useLocation();
   const [openGroups, setOpenGroups] = useState<string[]>(["Dashboard", "Financing Operations", "Management"]);
-  const { hasAccess, isAdminOrManager } = usePagePermissions();
+  const { hasAccess, isAdmin } = usePagePermissions();
 
   const { data: roleData } = useQuery<UserRoleData>({
     queryKey: ["/api/user/role"],
@@ -154,7 +154,7 @@ export function AppSidebar() {
   const role = roleData?.role || "user";
 
   const filterMenuItems = (items: MenuItem[]): MenuItem[] => {
-    if (isAdminOrManager) return items;
+    if (isAdmin) return items;
     return items.filter(item => {
       const pageName = PAGE_URL_TO_NAME[item.url];
       if (!pageName) return true;

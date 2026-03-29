@@ -143,7 +143,7 @@ export function IconRailNav({ children }: IconRailNavProps) {
   const [location, setLocation] = useLocation();
   const [activeModule, setActiveModule] = useState<string | null>(null);
   const flyoutRef = useRef<HTMLDivElement>(null);
-  const { hasAccess, isAdminOrManager } = usePagePermissions();
+  const { hasAccess, isAdmin } = usePagePermissions();
 
   const { data: roleData } = useQuery<UserRoleData>({
     queryKey: ["/api/user/role"],
@@ -152,7 +152,7 @@ export function IconRailNav({ children }: IconRailNavProps) {
   const role = roleData?.role || "user";
 
   const filterMenuItems = (items: MenuItem[]): MenuItem[] => {
-    if (isAdminOrManager) return items;
+    if (isAdmin) return items;
     return items.filter(item => {
       const pageName = PAGE_URL_TO_NAME[item.url];
       if (!pageName) return true;
