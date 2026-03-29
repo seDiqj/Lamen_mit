@@ -731,16 +731,28 @@ export default function LoanDetailsPage() {
                   <FormField control={form.control} name="district" render={({ field }) => {
                     const selProv = provincesData.find(p => p.name === form.watch("province"));
                     const filtDist = districtsData.filter(d => d.provinceId === selProv?.id);
+                    const matchedDist = filtDist.find(d => d.name === field.value);
+                    const hasDropdownOptions = selProv && filtDist.length > 0;
                     return (
                       <FormItem>
                         <FormLabel>District</FormLabel>
-                        <Select onValueChange={(value) => {
-                          const dist = filtDist.find(d => d.id.toString() === value);
-                          field.onChange(dist?.name || "");
-                        }} value={filtDist.find(d => d.name === field.value)?.id.toString() || ""} disabled={!isEditing || !selProv}>
-                          <FormControl><SelectTrigger data-testid="select-customer-district"><SelectValue placeholder={selProv ? "Select district" : "Select province first"} /></SelectTrigger></FormControl>
-                          <SelectContent>{filtDist.map((d) => (<SelectItem key={d.id} value={d.id.toString()}>{d.name}</SelectItem>))}</SelectContent>
-                        </Select>
+                        {hasDropdownOptions ? (
+                          <Select onValueChange={(value) => {
+                            if (value === "__custom__") return;
+                            const dist = filtDist.find(d => d.id.toString() === value);
+                            field.onChange(dist?.name || "");
+                          }} value={matchedDist?.id.toString() || (field.value ? "__custom__" : "")} disabled={!isEditing}>
+                            <FormControl><SelectTrigger data-testid="select-customer-district"><SelectValue placeholder="Select district">{matchedDist ? matchedDist.name : field.value || "Select district"}</SelectValue></SelectTrigger></FormControl>
+                            <SelectContent>
+                              {field.value && !matchedDist && (
+                                <SelectItem value="__custom__" disabled>{field.value} (current)</SelectItem>
+                              )}
+                              {filtDist.map((d) => (<SelectItem key={d.id} value={d.id.toString()}>{d.name}</SelectItem>))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <FormControl><Input {...field} value={field.value ?? ""} disabled={!isEditing} placeholder="Enter district" data-testid="select-customer-district" /></FormControl>
+                        )}
                         <FormMessage />
                       </FormItem>
                     );

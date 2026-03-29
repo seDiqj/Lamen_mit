@@ -709,28 +709,37 @@ export default function LoanApplicationPage() {
                   <FormField control={form.control} name="district" render={({ field }) => {
                     const selectedProvince = provinces.find(p => p.name === form.watch("province"));
                     const customerDistricts = districts.filter(d => d.provinceId === selectedProvince?.id);
+                    const matchedDist = customerDistricts.find(d => d.name === field.value);
+                    const hasDropdownOptions = selectedProvince && customerDistricts.length > 0;
                     return (
                       <FormItem>
                         <FormLabel className="text-xs">District</FormLabel>
-                        <Select
-                          onValueChange={(value) => {
-                            const dist = customerDistricts.find(d => d.id.toString() === value);
-                            field.onChange(dist?.name || "");
-                          }}
-                          value={customerDistricts.find(d => d.name === field.value)?.id.toString() || ""}
-                          disabled={!selectedProvince}
-                        >
-                          <FormControl>
-                            <SelectTrigger className="h-9" data-testid="select-customer-district">
-                              <SelectValue placeholder={selectedProvince ? "Select district" : "Select province first"} />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {customerDistricts.map((dist) => (
-                              <SelectItem key={dist.id} value={dist.id.toString()}>{dist.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        {hasDropdownOptions ? (
+                          <Select
+                            onValueChange={(value) => {
+                              if (value === "__custom__") return;
+                              const dist = customerDistricts.find(d => d.id.toString() === value);
+                              field.onChange(dist?.name || "");
+                            }}
+                            value={matchedDist?.id.toString() || (field.value ? "__custom__" : "")}
+                          >
+                            <FormControl>
+                              <SelectTrigger className="h-9" data-testid="select-customer-district">
+                                <SelectValue placeholder="Select district">{matchedDist ? matchedDist.name : field.value || "Select district"}</SelectValue>
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {field.value && !matchedDist && (
+                                <SelectItem value="__custom__" disabled>{field.value} (current)</SelectItem>
+                              )}
+                              {customerDistricts.map((dist) => (
+                                <SelectItem key={dist.id} value={dist.id.toString()}>{dist.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <FormControl><Input {...field} value={field.value ?? ""} placeholder="Enter district" className="h-9" data-testid="select-customer-district" /></FormControl>
+                        )}
                         <FormMessage />
                       </FormItem>
                     );

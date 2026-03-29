@@ -344,28 +344,32 @@ export function NewCustomerDialog({ open, onOpenChange }: NewCustomerDialogProps
                 render={({ field }) => {
                   const selectedProvince = provincesData.find(p => p.name === form.watch("province"));
                   const filteredDistricts = districtsData.filter(d => d.provinceId === selectedProvince?.id);
+                  const hasDropdownOptions = selectedProvince && filteredDistricts.length > 0;
                   return (
                     <FormItem>
                       <FormLabel>District</FormLabel>
-                      <Select
-                        onValueChange={(value) => {
-                          const dist = filteredDistricts.find(d => d.id.toString() === value);
-                          field.onChange(dist?.name || "");
-                        }}
-                        value={filteredDistricts.find(d => d.name === field.value)?.id.toString() || ""}
-                        disabled={!selectedProvince}
-                      >
-                        <FormControl>
-                          <SelectTrigger data-testid="select-district">
-                            <SelectValue placeholder={selectedProvince ? "Select district" : "Select province first"} />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {filteredDistricts.map((dist) => (
-                            <SelectItem key={dist.id} value={dist.id.toString()}>{dist.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      {hasDropdownOptions ? (
+                        <Select
+                          onValueChange={(value) => {
+                            const dist = filteredDistricts.find(d => d.id.toString() === value);
+                            field.onChange(dist?.name || "");
+                          }}
+                          value={filteredDistricts.find(d => d.name === field.value)?.id.toString() || ""}
+                        >
+                          <FormControl>
+                            <SelectTrigger data-testid="select-district">
+                              <SelectValue placeholder="Select district" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {filteredDistricts.map((dist) => (
+                              <SelectItem key={dist.id} value={dist.id.toString()}>{dist.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <FormControl><Input {...field} value={field.value ?? ""} placeholder={selectedProvince ? "No districts available" : "Select province first"} disabled={!selectedProvince} data-testid="select-district" /></FormControl>
+                      )}
                       <FormMessage />
                     </FormItem>
                   );
