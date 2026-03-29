@@ -2269,6 +2269,24 @@ export async function registerRoutes(
         }
       }
       
+      // Helper: auto-generate customer_no based on branch code
+      const generateCustomerNo = async (branchId: string): Promise<string> => {
+        const branch = branchId ? await storage.getBranch(branchId) : null;
+        const branchCode = branch?.code || branch?.shortName || "000";
+        const result = await pool.query(
+          `SELECT customer_no FROM customers WHERE customer_no ~ $1 ORDER BY customer_no DESC LIMIT 1`,
+          [`^${branchCode}[0-9]{6}$`]
+        );
+        let nextSeq = 1;
+        if (result.rows.length > 0) {
+          const lastNo = result.rows[0].customer_no;
+          const numericPart = lastNo.substring(branchCode.length);
+          const parsed = parseInt(numericPart, 10);
+          if (!isNaN(parsed)) nextSeq = parsed + 1;
+        }
+        return `${branchCode}${String(nextSeq).padStart(6, "0")}`;
+      };
+
       // Create or find customer
       let customerId: string;
       if (data.existingCustomerId) {
@@ -2313,33 +2331,73 @@ export async function registerRoutes(
           customerId = customer.id;
         }
       } else {
-        const customer = await storage.createCustomer({
-          firstName: data.firstName,
-          lastName: data.lastName,
-          fatherName: data.fatherName,
-          fullNameDari: data.fullNameDari,
-          fatherNameDari: data.fatherNameDari,
-          gender: data.gender,
-          maritalStatus: data.maritalStatus,
-          nationalId: data.nationalId,
-          dateOfBirth: data.dateOfBirth,
-          placeOfBirth: data.placeOfBirth,
-          age: data.age,
-          homeAddress: data.homeAddress,
-          province: data.province,
-          district: data.district,
-          areaType: data.areaType || "Rural",
-          phoneNumber: data.phoneNumber,
-          secondPhoneNumber: data.secondPhoneNumber,
-          numberOfDependents: data.numberOfDependents,
-          directMaleDependent: data.directMaleDependent,
-          directFemaleDependent: data.directFemaleDependent,
-          indirectMaleDependent: data.indirectMaleDependent,
-          indirectFemaleDependent: data.indirectFemaleDependent,
-          nidExpiryDate: data.nidExpiryDate,
-          photoUrl: data.customerPhoto || undefined,
-        });
-        customerId = customer.id;
+        // Check if customer already exists by national ID to prevent duplicates
+        if (data.nationalId) {
+          const existingByNid = await storage.getCustomerByNationalId(data.nationalId);
+          if (existingByNid) {
+            customerId = existingByNid.id;
+          } else {
+            const customerNo = data.branchId ? await generateCustomerNo(data.branchId) : undefined;
+            const customer = await storage.createCustomer({
+              customerNo,
+              firstName: data.firstName,
+              lastName: data.lastName,
+              fatherName: data.fatherName,
+              fullNameDari: data.fullNameDari,
+              fatherNameDari: data.fatherNameDari,
+              gender: data.gender,
+              maritalStatus: data.maritalStatus,
+              nationalId: data.nationalId,
+              dateOfBirth: data.dateOfBirth,
+              placeOfBirth: data.placeOfBirth,
+              age: data.age,
+              homeAddress: data.homeAddress,
+              province: data.province,
+              district: data.district,
+              areaType: data.areaType || "Rural",
+              phoneNumber: data.phoneNumber,
+              secondPhoneNumber: data.secondPhoneNumber,
+              numberOfDependents: data.numberOfDependents,
+              directMaleDependent: data.directMaleDependent,
+              directFemaleDependent: data.directFemaleDependent,
+              indirectMaleDependent: data.indirectMaleDependent,
+              indirectFemaleDependent: data.indirectFemaleDependent,
+              nidExpiryDate: data.nidExpiryDate,
+              photoUrl: data.customerPhoto || undefined,
+            });
+            customerId = customer.id;
+          }
+        } else {
+          const customerNo = data.branchId ? await generateCustomerNo(data.branchId) : undefined;
+          const customer = await storage.createCustomer({
+            customerNo,
+            firstName: data.firstName,
+            lastName: data.lastName,
+            fatherName: data.fatherName,
+            fullNameDari: data.fullNameDari,
+            fatherNameDari: data.fatherNameDari,
+            gender: data.gender,
+            maritalStatus: data.maritalStatus,
+            nationalId: data.nationalId,
+            dateOfBirth: data.dateOfBirth,
+            placeOfBirth: data.placeOfBirth,
+            age: data.age,
+            homeAddress: data.homeAddress,
+            province: data.province,
+            district: data.district,
+            areaType: data.areaType || "Rural",
+            phoneNumber: data.phoneNumber,
+            secondPhoneNumber: data.secondPhoneNumber,
+            numberOfDependents: data.numberOfDependents,
+            directMaleDependent: data.directMaleDependent,
+            directFemaleDependent: data.directFemaleDependent,
+            indirectMaleDependent: data.indirectMaleDependent,
+            indirectFemaleDependent: data.indirectFemaleDependent,
+            nidExpiryDate: data.nidExpiryDate,
+            photoUrl: data.customerPhoto || undefined,
+          });
+          customerId = customer.id;
+        }
       }
 
       // Save customer documents if provided
