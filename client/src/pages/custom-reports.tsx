@@ -575,10 +575,10 @@ export default function CustomReportsPage() {
 
                 {reportData?.data?.length > 0 && (
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" className="flex-1" onClick={exportToExcel} data-testid="button-export-excel">
+                    <Button size="sm" className="flex-1 bg-green-600 hover:bg-green-700 text-white" onClick={exportToExcel} data-testid="button-export-excel">
                       <FileSpreadsheet className="h-3 w-3 mr-1" /> Excel
                     </Button>
-                    <Button variant="outline" size="sm" className="flex-1" onClick={exportToPDF} data-testid="button-export-pdf">
+                    <Button size="sm" className="flex-1 bg-red-600 hover:bg-red-700 text-white" onClick={exportToPDF} data-testid="button-export-pdf">
                       <FileText className="h-3 w-3 mr-1" /> PDF
                     </Button>
                   </div>
@@ -681,10 +681,10 @@ export default function CustomReportsPage() {
                     <Badge variant="outline">{reportData.total} records</Badge>
                   </CardTitle>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={exportToExcel} data-testid="button-export-excel-bottom">
+                    <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={exportToExcel} data-testid="button-export-excel-bottom">
                       <Download className="h-3 w-3 mr-1" /> Excel
                     </Button>
-                    <Button variant="outline" size="sm" onClick={exportToPDF} data-testid="button-export-pdf-bottom">
+                    <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white" onClick={exportToPDF} data-testid="button-export-pdf-bottom">
                       <Download className="h-3 w-3 mr-1" /> PDF
                     </Button>
                   </div>
@@ -704,7 +704,7 @@ export default function CustomReportsPage() {
                         <div className="overflow-x-auto border rounded-lg">
                           <Table>
                             <TableHeader>
-                              <TableRow>
+                              <TableRow className="bg-emerald-50 dark:bg-emerald-950/30">
                                 <TableHead className="text-xs w-10">#</TableHead>
                                 {displayColumns.map((col: string) => (
                                   <TableHead key={col} className="text-xs whitespace-nowrap">{getColumnLabel(col)}</TableHead>
@@ -713,7 +713,7 @@ export default function CustomReportsPage() {
                             </TableHeader>
                             <TableBody>
                               {group.rows.slice(0, 100).map((row: any, ri: number) => (
-                                <TableRow key={ri}>
+                                <TableRow key={ri} className={ri % 2 === 0 ? "bg-white dark:bg-gray-950" : "bg-slate-50 dark:bg-slate-900/50"}>
                                   <TableCell className="text-xs text-muted-foreground">{ri + 1}</TableCell>
                                   {displayColumns.map((col: string) => (
                                     <TableCell key={col} className="text-xs whitespace-nowrap">{formatCellValue(row[col])}</TableCell>
@@ -730,7 +730,7 @@ export default function CustomReportsPage() {
                   <div className="overflow-x-auto border rounded-lg">
                     <Table>
                       <TableHeader>
-                        <TableRow>
+                        <TableRow className="bg-emerald-50 dark:bg-emerald-950/30">
                           <TableHead className="text-xs w-10">#</TableHead>
                           {displayColumns.map((col: string) => (
                             <TableHead key={col} className="text-xs whitespace-nowrap">{getColumnLabel(col)}</TableHead>
@@ -746,7 +746,7 @@ export default function CustomReportsPage() {
                           </TableRow>
                         ) : (
                           reportData.data.slice(0, 500).map((row: any, ri: number) => (
-                            <TableRow key={ri}>
+                            <TableRow key={ri} className={ri % 2 === 0 ? "bg-white dark:bg-gray-950" : "bg-slate-50 dark:bg-slate-900/50"}>
                               <TableCell className="text-xs text-muted-foreground">{ri + 1}</TableCell>
                               {displayColumns.map((col: string) => (
                                 <TableCell key={col} className="text-xs whitespace-nowrap">{formatCellValue(row[col])}</TableCell>
