@@ -1500,3 +1500,22 @@ export type BenefitDependent = typeof benefitDependents.$inferSelect;
 
 export type InsertFinancingProduct = z.infer<typeof insertFinancingProductSchema>;
 export type FinancingProduct = typeof financingProducts.$inferSelect;
+
+// ============== SAVED REPORTS (Custom Report Builder) ==============
+
+export const savedReports = pgTable("saved_reports", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  dataSource: varchar("data_source", { length: 100 }).notNull(),
+  columns: text("columns").notNull(),
+  filters: text("filters").notNull().default("[]"),
+  groupBy: varchar("group_by", { length: 100 }),
+  sortBy: varchar("sort_by", { length: 100 }),
+  sortOrder: varchar("sort_order", { length: 10 }).default("asc"),
+  createdBy: varchar("created_by", { length: 255 }),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSavedReportSchema = createInsertSchema(savedReports).omit({ id: true, createdAt: true });
+export type InsertSavedReport = z.infer<typeof insertSavedReportSchema>;
+export type SavedReport = typeof savedReports.$inferSelect;

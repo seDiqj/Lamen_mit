@@ -132,8 +132,11 @@ import {
   type ParCategory,
   lookupRoles,
   rolePagePermissions,
+  savedReports,
   type InsertLookupRole,
   type LookupRole,
+  type InsertSavedReport,
+  type SavedReport,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -315,6 +318,11 @@ export interface IStorage {
   createFinancingProduct(data: any): Promise<any>;
   updateFinancingProduct(id: string, data: any): Promise<any>;
   deleteFinancingProduct(id: string): Promise<void>;
+
+  // Saved Reports (Custom Report Builder)
+  getSavedReports(): Promise<SavedReport[]>;
+  createSavedReport(data: InsertSavedReport): Promise<SavedReport>;
+  deleteSavedReport(id: number): Promise<void>;
 
   // Reports
   getReportData(period: string): Promise<any>;
@@ -7309,6 +7317,19 @@ export class DatabaseStorage implements IStorage {
 
   async deleteFinancingProduct(id: string): Promise<void> {
     await db.delete(financingProducts).where(eq(financingProducts.id, id));
+  }
+
+  async getSavedReports(): Promise<SavedReport[]> {
+    return db.select().from(savedReports).orderBy(desc(savedReports.createdAt));
+  }
+
+  async createSavedReport(data: InsertSavedReport): Promise<SavedReport> {
+    const [report] = await db.insert(savedReports).values(data).returning();
+    return report;
+  }
+
+  async deleteSavedReport(id: number): Promise<void> {
+    await db.delete(savedReports).where(eq(savedReports.id, id));
   }
 }
 

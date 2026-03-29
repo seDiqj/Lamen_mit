@@ -70,6 +70,7 @@ import InstallmentManagementPage from "@/pages/installment-management";
 import FinancingProductsPage from "@/pages/financing-products";
 import LoanTransfersPage from "@/pages/loan-transfers";
 import CollectionApprovalsPage from "@/pages/collection-approvals";
+import CustomReportsPage from "@/pages/custom-reports";
 import MobileLogin from "@/pages/mobile/mobile-login";
 import MobileCustomers from "@/pages/mobile/mobile-customers";
 import MobileFinancing from "@/pages/mobile/mobile-financing";
@@ -173,6 +174,7 @@ function AppRoutes() {
         <Route path="/citizen-balance-statement" component={CitizenBalanceStatementPage} />
         <Route path="/par-report" component={ParReportPage} />
         <Route path="/shareholder-report" component={ShareholderReportPage} />
+        <Route path="/custom-reports" component={CustomReportsPage} />
         <Route path="/branches" component={BranchesPage} />
         <Route path="/officers" component={OfficersPage} />
         <Route path="/funding-sources" component={FundingSourcesPage} />

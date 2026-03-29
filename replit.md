@@ -2,7 +2,7 @@
 
 ## Overview
 
-This is a full-stack loan management system for Lamen Microfinance Institution. The application provides comprehensive loan lifecycle management including customer registration, loan applications, approvals, disbursements, payment tracking, and reporting. It features role-based access control with three user levels (user, manager, admin) and integrates with Replit Auth for authentication.
+This is a full-stack loan management system for Lamen Microfinance Institution. The application provides comprehensive loan lifecycle management including customer registration, loan applications, approvals, disbursements, payment tracking, and reporting. It features role-based access control with three user levels (user, manager, admin) and integrates with Replit Auth for authentication. Includes a Custom Report Builder (`/custom-reports`) that lets users pick data sources (customers, loans, installments, collections, guarantors, disbursements), select columns, add filters, group/sort, preview results, and export to Excel/PDF. Report configurations can be saved as shared templates.
 
 ## User Preferences
 

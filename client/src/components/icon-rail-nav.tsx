@@ -48,6 +48,7 @@ import {
   PieChart,
   Package,
   ArrowRightLeft,
+  SlidersHorizontal,
 } from "lucide-react";
 import lamenLogo from "@assets/LamenLogo_1769936371528.jpeg";
 
@@ -85,6 +86,7 @@ const PAGE_URL_TO_NAME: Record<string, string> = {
   "/loan-disbursement-report": "reports",
   "/par-report": "reports",
   "/shareholder-report": "reports",
+  "/custom-reports": "reports",
   "/activity": "reports",
   "/settings": "settings",
   "/payments": "payments",
@@ -292,6 +294,7 @@ export function IconRailNav({ children }: IconRailNavProps) {
         { title: "LCTR Report", url: "/lctr-report", icon: Receipt, iconColor: "text-orange-500" },
         { title: "PAR Report", url: "/par-report", icon: AlertTriangle, iconColor: "text-red-500" },
         { title: "Shareholder Report", url: "/shareholder-report", icon: PieChart, iconColor: "text-indigo-500" },
+        { title: "Custom Reports", url: "/custom-reports", icon: SlidersHorizontal, iconColor: "text-cyan-500", page: "custom-reports" },
         { title: "Activity Log", url: "/activity", icon: Activity, iconColor: "text-lime-500" },
       ],
     },
