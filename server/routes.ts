@@ -735,7 +735,7 @@ export async function registerRoutes(
 
         const avgCostPerLoan = totalLoans > 0 ? operatingExpenses / totalLoans : 0;
         const avgIncomePerLoan = totalLoans > 0 ? totalMarginIncome / totalLoans : 0;
-        const costIncomeRatio = totalIncome > 0 ? (operatingExpenses / totalIncome) * 100 : 0;
+        const costIncomeRatio = totalMarginIncome > 0 ? (operatingExpenses / totalMarginIncome) * 100 : 0;
         const netIncomePerLoan = avgIncomePerLoan - avgCostPerLoan;
 
         return {
