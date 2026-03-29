@@ -1112,9 +1112,9 @@ export class DatabaseStorage implements IStorage {
       financeOfficerId ? eq(loans.financeOfficerId, financeOfficerId) : undefined,
       search
         ? or(
-            like(loans.applicationId, `%${search}%`),
-            like(customers.firstName, `%${search}%`),
-            like(customers.lastName, `%${search}%`)
+            ilike(loans.applicationId, `%${search}%`),
+            ilike(customers.firstName, `%${search}%`),
+            ilike(customers.lastName, `%${search}%`)
           )
         : undefined,
       userFilter
