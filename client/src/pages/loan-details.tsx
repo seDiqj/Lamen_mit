@@ -1179,7 +1179,7 @@ export default function LoanDetailsPage() {
                       <FormItem><FormLabel>Years of Exp</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="financialGuarantorInventory" render={({ field }) => (
-                      <FormItem><FormLabel>Inventory (AFN)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
+                      <FormItem><FormLabel>Asset (AFN)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="financialGuarantorMonthlyIncome" render={({ field }) => (
                       <FormItem><FormLabel>Monthly Income</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
@@ -1254,7 +1254,7 @@ export default function LoanDetailsPage() {
                       <FormItem><FormLabel>Years of Exp</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} data-testid="input-fin-guarantor2-experience" /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="financialGuarantor2Inventory" render={({ field }) => (
-                      <FormItem><FormLabel>Inventory (AFN)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} data-testid="input-fin-guarantor2-inventory" /></FormControl><FormMessage /></FormItem>
+                      <FormItem><FormLabel>Asset (AFN)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} data-testid="input-fin-guarantor2-inventory" /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="financialGuarantor2MonthlyIncome" render={({ field }) => (
                       <FormItem><FormLabel>Monthly Income</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} data-testid="input-fin-guarantor2-income" /></FormControl><FormMessage /></FormItem>

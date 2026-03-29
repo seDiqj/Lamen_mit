@@ -1262,7 +1262,7 @@ export default function FadReviewPage() {
                         <FormItem><FormLabel>Years of Experience</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} data-testid="input-finGuarantorExperience" /></FormControl><FormMessage /></FormItem>
                       )} />
                       <FormField control={form.control} name="financialGuarantorInventory" render={({ field }) => (
-                        <FormItem><FormLabel>Inventory (AFN)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} data-testid="input-finGuarantorInventory" /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Asset (AFN)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} data-testid="input-finGuarantorInventory" /></FormControl><FormMessage /></FormItem>
                       )} />
                       <FormField control={form.control} name="financialGuarantorMonthlyIncome" render={({ field }) => (
                         <FormItem><FormLabel>Monthly Income (AFN)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} data-testid="input-finGuarantorIncome" /></FormControl><FormMessage /></FormItem>
@@ -1348,7 +1348,7 @@ export default function FadReviewPage() {
                         <FormItem><FormLabel>Years of Experience</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} data-testid="input-finGuarantor2Experience" /></FormControl><FormMessage /></FormItem>
                       )} />
                       <FormField control={form.control} name="financialGuarantor2Inventory" render={({ field }) => (
-                        <FormItem><FormLabel>Inventory (AFN)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} data-testid="input-finGuarantor2Inventory" /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Asset (AFN)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} data-testid="input-finGuarantor2Inventory" /></FormControl><FormMessage /></FormItem>
                       )} />
                       <FormField control={form.control} name="financialGuarantor2MonthlyIncome" render={({ field }) => (
                         <FormItem><FormLabel>Monthly Income (AFN)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} data-testid="input-finGuarantor2Income" /></FormControl><FormMessage /></FormItem>

@@ -858,7 +858,7 @@ export default function MobileFinancing() {
                   </MobileField>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <MobileField label="Inventory (AFN)">
+                  <MobileField label="Asset (AFN)">
                     <Input type="number" placeholder="0" value={formData.financialGuarantorInventory} onChange={(e) => updateField("financialGuarantorInventory", e.target.value)} data-testid="input-fg1-inventory" />
                   </MobileField>
                   <MobileField label="Monthly Income (AFN)">
@@ -929,7 +929,7 @@ export default function MobileFinancing() {
                   </MobileField>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <MobileField label="Inventory (AFN)">
+                  <MobileField label="Asset (AFN)">
                     <Input type="number" placeholder="0" value={formData.financialGuarantor2Inventory} onChange={(e) => updateField("financialGuarantor2Inventory", e.target.value)} data-testid="input-fg2-inventory" />
                   </MobileField>
                   <MobileField label="Monthly Income (AFN)">

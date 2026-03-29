@@ -1606,7 +1606,7 @@ export default function LoanApplicationPage() {
                     )} />
                     <FormField control={form.control} name="financialGuarantorInventory" render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-xs">Inventory (AFN)</FormLabel>
+                        <FormLabel className="text-xs">Asset (AFN)</FormLabel>
                         <FormControl><Input type="number" placeholder="0" className="h-9" {...field} data-testid="input-fin-guarantor-inventory" /></FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1781,7 +1781,7 @@ export default function LoanApplicationPage() {
                     )} />
                     <FormField control={form.control} name="financialGuarantor2Inventory" render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-xs">Inventory (AFN)</FormLabel>
+                        <FormLabel className="text-xs">Asset (AFN)</FormLabel>
                         <FormControl><Input type="number" placeholder="0" className="h-9" {...field} data-testid="input-fin-guarantor2-inventory" /></FormControl>
                         <FormMessage />
                       </FormItem>
