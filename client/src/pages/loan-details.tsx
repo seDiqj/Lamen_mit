@@ -93,6 +93,7 @@ const loanDetailsSchema = z.object({
   collateralOwnerName: z.string().optional(),
   collateralOwnerNid: z.string().optional(),
   collateralOwnerNidExpiry: z.string().optional(),
+  collateralTitleDeedNo: z.string().optional(),
   collateralType: z.string().optional(),
   collateralProvince: z.string().optional(),
   collateralDistrict: z.string().optional(),
@@ -320,6 +321,7 @@ export default function LoanDetailsPage() {
         collateralOwnerName: d.collateral?.ownerName ?? "",
         collateralOwnerNid: d.collateral?.ownerNationalId ?? "",
         collateralOwnerNidExpiry: d.collateral?.ownerNidExpiryDate ?? "",
+        collateralTitleDeedNo: d.collateral?.titleDeedNumber ?? "",
         collateralType: d.collateral?.collateralType ?? "",
         collateralProvince: d.collateral?.province ?? "",
         collateralDistrict: d.collateral?.district ?? "",
@@ -1007,6 +1009,9 @@ export default function LoanDetailsPage() {
                   )} />
                   <FormField control={form.control} name="collateralOwnerNidExpiry" render={({ field }) => (
                     <FormItem><FormLabel>Owner NID Expiry Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-collateral-owner-nid-expiry" /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name="collateralTitleDeedNo" render={({ field }) => (
+                    <FormItem><FormLabel>Title Deed No</FormLabel><FormControl><Input placeholder="Title deed number" disabled={!isEditing} {...field} data-testid="input-collateral-title-deed-details" /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="collateralType" render={({ field }) => (
                     <FormItem>

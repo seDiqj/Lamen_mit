@@ -80,6 +80,7 @@ const loanApplicationSchema = z.object({
   collateralOwnerName: z.string().optional(),
   collateralOwnerNid: z.string().optional(),
   collateralOwnerNidExpiry: z.string().optional(),
+  collateralTitleDeedNo: z.string().optional(),
   collateralType: z.string().optional(),
   collateralProvince: z.string().optional(),
   collateralDistrict: z.string().optional(),
@@ -1317,6 +1318,13 @@ export default function LoanApplicationPage() {
                     <FormItem>
                       <FormLabel className="text-xs">Owner NID Expiry Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel>
                       <FormControl><Input type="date" className="h-9" {...field} data-testid="input-collateral-nid-expiry" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="collateralTitleDeedNo" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs">Title Deed No</FormLabel>
+                      <FormControl><Input placeholder="Title deed number" className="h-9" {...field} data-testid="input-collateral-title-deed" /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />

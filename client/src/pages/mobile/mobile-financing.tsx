@@ -105,6 +105,7 @@ const defaultFormData: Record<string, string> = {
   collateralOwnerName: "",
   collateralOwnerNid: "",
   collateralOwnerNidExpiry: "",
+  collateralTitleDeedNo: "",
   collateralType: "",
   collateralProvince: "",
   collateralAddress: "",
@@ -752,6 +753,11 @@ export default function MobileFinancing() {
                 <MobileField label="Owner NID Expiry">
                   <Input type="date" value={formData.collateralOwnerNidExpiry} onChange={(e) => updateField("collateralOwnerNidExpiry", e.target.value)} data-testid="input-col-nid-expiry" />
                 </MobileField>
+                <MobileField label="Title Deed No">
+                  <Input placeholder="Title deed number" value={formData.collateralTitleDeedNo} onChange={(e) => updateField("collateralTitleDeedNo", e.target.value)} data-testid="input-col-title-deed" />
+                </MobileField>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
                 <MobileField label="Type">
                   <Select value={formData.collateralType} onValueChange={(v) => updateField("collateralType", v)}>
                     <SelectTrigger data-testid="select-col-type"><SelectValue placeholder="Select type" /></SelectTrigger>
