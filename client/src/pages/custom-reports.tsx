@@ -377,7 +377,7 @@ export default function CustomReportsPage() {
                     </p>
                     <Button
                       size="sm"
-                      className="w-full mt-2 bg-gradient-to-r from-emerald-500 to-teal-500"
+                      className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white"
                       onClick={() => loadSavedReport(report)}
                       data-testid={`button-load-report-${report.id}`}
                     >
@@ -537,7 +537,7 @@ export default function CustomReportsPage() {
                 {dataSource && selectedColumns.length > 0 && (
                   <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
                     <DialogTrigger asChild>
-                      <Button variant="outline" size="sm" className="w-full" data-testid="button-save-template">
+                      <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700 text-white" data-testid="button-save-template">
                         <Save className="h-3 w-3 mr-2" /> Save as Template
                       </Button>
                     </DialogTrigger>
@@ -563,7 +563,7 @@ export default function CustomReportsPage() {
                         <Button
                           onClick={handleSave}
                           disabled={!reportName.trim() || saveMutation.isPending}
-                          className="w-full"
+                          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
                           data-testid="button-confirm-save"
                         >
                           {saveMutation.isPending ? "Saving..." : "Save Template"}
@@ -596,7 +596,7 @@ export default function CustomReportsPage() {
                     Filters
                     {filters.length > 0 && <Badge variant="secondary">{filters.length}</Badge>}
                   </CardTitle>
-                  <Button variant="outline" size="sm" onClick={addFilter} data-testid="button-add-filter">
+                  <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white" onClick={addFilter} data-testid="button-add-filter">
                     <Plus className="h-3 w-3 mr-1" /> Add Filter
                   </Button>
                 </div>
