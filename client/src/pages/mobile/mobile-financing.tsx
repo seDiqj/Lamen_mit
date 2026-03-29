@@ -531,36 +531,6 @@ export default function MobileFinancing() {
                 </MobileField>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <MobileField label="Sector">
-                  <Select value={formData.sectorId} onValueChange={(v) => {
-                    const sec = (sectors || []).find(s => s.id === v);
-                    updateField("sectorId", v);
-                    updateField("sector", sec?.name || "");
-                    updateField("businessDescription", "");
-                  }}>
-                    <SelectTrigger data-testid="select-sector"><SelectValue placeholder="Select sector" /></SelectTrigger>
-                    <SelectContent>
-                      {(sectors || []).map((s) => (
-                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </MobileField>
-                <MobileField label="Business">
-                  <Select value={formData.businessDescription} onValueChange={(v) => {
-                    const biz = sectorBusinesses.find(b => b.id === v);
-                    updateField("businessDescription", biz?.name || "");
-                  }} disabled={!formData.sectorId}>
-                    <SelectTrigger data-testid="select-business"><SelectValue placeholder={formData.sectorId ? "Select business" : "Select sector first"} /></SelectTrigger>
-                    <SelectContent>
-                      {sectorBusinesses.map((b) => (
-                        <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </MobileField>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
                 <MobileField label="Funding Source">
                   <Select value={formData.fundingSourceId} onValueChange={(v) => updateField("fundingSourceId", v)}>
                     <SelectTrigger data-testid="select-funding"><SelectValue placeholder="Select source" /></SelectTrigger>
@@ -639,6 +609,36 @@ export default function MobileFinancing() {
             </CardHeader>
             <CardContent className="px-3 pb-3 space-y-3">
               <h3 className="text-xs font-semibold text-muted-foreground">Business Details</h3>
+              <div className="grid grid-cols-2 gap-2">
+                <MobileField label="Sector">
+                  <Select value={formData.sectorId} onValueChange={(v) => {
+                    const sec = (sectors || []).find(s => s.id === v);
+                    updateField("sectorId", v);
+                    updateField("sector", sec?.name || "");
+                    updateField("businessDescription", "");
+                  }}>
+                    <SelectTrigger data-testid="select-sector"><SelectValue placeholder="Select sector" /></SelectTrigger>
+                    <SelectContent>
+                      {(sectors || []).map((s) => (
+                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </MobileField>
+                <MobileField label="Business">
+                  <Select value={formData.businessDescription} onValueChange={(v) => {
+                    const biz = sectorBusinesses.find(b => b.id === v);
+                    updateField("businessDescription", biz?.name || "");
+                  }} disabled={!formData.sectorId}>
+                    <SelectTrigger data-testid="select-business"><SelectValue placeholder={formData.sectorId ? "Select business" : "Select sector first"} /></SelectTrigger>
+                    <SelectContent>
+                      {sectorBusinesses.map((b) => (
+                        <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </MobileField>
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <MobileField label="Business Name">
                   <Input placeholder="Business name" value={formData.businessName} onChange={(e) => updateField("businessName", e.target.value)} data-testid="input-business-name" />
