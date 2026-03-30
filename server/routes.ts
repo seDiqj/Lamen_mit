@@ -2980,6 +2980,73 @@ export async function registerRoutes(
       const maturityDate = new Date(firstInstallmentDate);
       maturityDate.setMonth(maturityDate.getMonth() + duration - 1);
       
+      const branch = loan.branchId ? await storage.getBranch(loan.branchId) : null;
+      const branchAccountCode = branch?.accountCode;
+
+      if (!branchAccountCode) {
+        return res.status(400).json({
+          message: `Cannot disburse: Branch "${branch?.name || 'Unknown'}" does not have a linked account. Please configure the branch account code first.`,
+          insufficientFunds: true,
+          accountName: "Not configured",
+          accountCode: "N/A",
+          accountBalance: 0,
+          requiredAmount: parseFloat(loan.requestAmount || "0"),
+          branchName: branch?.name || "Unknown",
+        });
+      }
+
+      const branchAccount = await storage.getAccountByCode(branchAccountCode);
+      if (!branchAccount) {
+        return res.status(400).json({
+          message: `Cannot disburse: Branch account with code "${branchAccountCode}" was not found in the chart of accounts.`,
+          insufficientFunds: true,
+          accountName: "Account not found",
+          accountCode: branchAccountCode,
+          accountBalance: 0,
+          requiredAmount: parseFloat(loan.requestAmount || "0"),
+          branchName: branch?.name || "Unknown",
+        });
+      }
+
+      const accountBalance = parseFloat(branchAccount.currentBalance || "0");
+      const disbursementAmount = parseFloat(loan.requestAmount || "0");
+
+      if (!Number.isFinite(accountBalance) || !Number.isFinite(disbursementAmount)) {
+        return res.status(400).json({
+          message: `Cannot disburse: Invalid balance or amount values for branch account "${branchAccount.accountName}".`,
+          insufficientFunds: true,
+          accountName: branchAccount.accountName,
+          accountCode: branchAccountCode,
+          accountBalance: 0,
+          requiredAmount: disbursementAmount || 0,
+          branchName: branch?.name || "Unknown",
+        });
+      }
+
+      if (accountBalance <= 0) {
+        return res.status(400).json({
+          message: `Insufficient funds: The branch account "${branchAccount.accountName}" (${branchAccountCode}) has a balance of AFN ${accountBalance.toLocaleString()}. Disbursement cannot proceed with a negative or zero balance.`,
+          insufficientFunds: true,
+          accountName: branchAccount.accountName,
+          accountCode: branchAccountCode,
+          accountBalance: accountBalance,
+          requiredAmount: disbursementAmount,
+          branchName: branch?.name || "Unknown",
+        });
+      }
+
+      if (accountBalance < disbursementAmount) {
+        return res.status(400).json({
+          message: `Insufficient funds: The branch account "${branchAccount.accountName}" (${branchAccountCode}) has a balance of AFN ${accountBalance.toLocaleString()}, but the disbursement requires AFN ${disbursementAmount.toLocaleString()}.`,
+          insufficientFunds: true,
+          accountName: branchAccount.accountName,
+          accountCode: branchAccountCode,
+          accountBalance: accountBalance,
+          requiredAmount: disbursementAmount,
+          branchName: branch?.name || "Unknown",
+        });
+      }
+
       const result = await storage.disburseLoan(req.params.id, {
         disbursementDate: baseDate.toISOString().split("T")[0],
         firstInstallmentDate: firstInstallmentDate.toISOString().split("T")[0],
@@ -3331,6 +3398,31 @@ export async function registerRoutes(
         if (!normalizedDate) {
           results.push({ applicationId, success: false, error: `Invalid date format: ${disbursementDate}. Use YYYY-MM-DD, DD-Mon-YY, or MM/DD/YYYY` });
           continue;
+        }
+
+        const bulkLoan = await storage.getLoanByApplicationId(applicationId);
+        if (bulkLoan) {
+          const bulkBranch = bulkLoan.branchId ? await storage.getBranch(bulkLoan.branchId) : null;
+          const bulkBranchAccountCode = bulkBranch?.accountCode;
+          if (!bulkBranchAccountCode) {
+            results.push({ applicationId, success: false, error: `Branch "${bulkBranch?.name || 'Unknown'}" does not have a linked account. Configure branch account code first.` });
+            continue;
+          }
+          const bulkBranchAccount = await storage.getAccountByCode(bulkBranchAccountCode);
+          if (!bulkBranchAccount) {
+            results.push({ applicationId, success: false, error: `Branch account with code "${bulkBranchAccountCode}" not found in chart of accounts.` });
+            continue;
+          }
+          const bulkAcctBalance = parseFloat(bulkBranchAccount.currentBalance || "0");
+          const bulkDisbAmount = parseFloat(bulkLoan.requestAmount || "0");
+          if (!Number.isFinite(bulkAcctBalance) || !Number.isFinite(bulkDisbAmount)) {
+            results.push({ applicationId, success: false, error: `Invalid balance or amount values for branch account "${bulkBranchAccount.accountName}".` });
+            continue;
+          }
+          if (bulkAcctBalance <= 0 || bulkAcctBalance < bulkDisbAmount) {
+            results.push({ applicationId, success: false, error: `Insufficient funds: ${bulkBranchAccount.accountName} (${bulkBranchAccountCode}) balance AFN ${bulkAcctBalance.toLocaleString()}, required AFN ${bulkDisbAmount.toLocaleString()}` });
+            continue;
+          }
         }
 
         const result = await storage.bulkDisburseLoan(applicationId, normalizedDate, userId);

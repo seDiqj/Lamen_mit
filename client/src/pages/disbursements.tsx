@@ -209,6 +209,15 @@ export default function DisbursementsPage() {
   const [qrCustomerId, setQrCustomerId] = useState<string>("");
   const [qrLoanId, setQrLoanId] = useState<string>("");
   const [qrDialogTab, setQrDialogTab] = useState<string>("qr-code");
+  const [showInsufficientFundsDialog, setShowInsufficientFundsDialog] = useState(false);
+  const [insufficientFundsInfo, setInsufficientFundsInfo] = useState<{
+    accountName: string;
+    accountCode: string;
+    accountBalance: number;
+    requiredAmount: number;
+    branchName: string;
+    message: string;
+  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const queryClient = useQueryClient();
@@ -238,7 +247,19 @@ export default function DisbursementsPage() {
       if (canPickDate && customDisbursementDate) {
         body.disbursementDate = customDisbursementDate;
       }
-      const res = await apiRequest("POST", `/api/loans/${loanId}/disburse`, body);
+      const res = await fetch(`/api/loans/${loanId}/disburse`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        const err = new Error(errorData.message || "Failed to disburse loan");
+        (err as any).insufficientFunds = errorData.insufficientFunds;
+        (err as any).fundDetails = errorData;
+        throw err;
+      }
       return res.json();
     },
     onSuccess: async (data) => {
@@ -275,12 +296,25 @@ export default function DisbursementsPage() {
       setSelectedLoan(null);
       setCustomDisbursementDate("");
     },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to disburse loan. Please try again.",
-        variant: "destructive",
-      });
+    onError: (error: any) => {
+      if (error.insufficientFunds && error.fundDetails) {
+        setInsufficientFundsInfo({
+          accountName: error.fundDetails.accountName || "",
+          accountCode: error.fundDetails.accountCode || "",
+          accountBalance: error.fundDetails.accountBalance || 0,
+          requiredAmount: error.fundDetails.requiredAmount || 0,
+          branchName: error.fundDetails.branchName || "",
+          message: error.message,
+        });
+        setShowDisburseDialog(false);
+        setShowInsufficientFundsDialog(true);
+      } else {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to disburse loan. Please try again.",
+          variant: "destructive",
+        });
+      }
     },
   });
 
@@ -982,6 +1016,75 @@ export default function DisbursementsPage() {
               data-testid="button-confirm-disburse"
             >
               {disburseMutation.isPending ? "Processing..." : "Confirm Disbursement"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showInsufficientFundsDialog} onOpenChange={setShowInsufficientFundsDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-5 w-5" />
+              Insufficient Funds
+            </DialogTitle>
+            <DialogDescription>
+              Disbursement cannot proceed due to insufficient balance in the branch account.
+            </DialogDescription>
+          </DialogHeader>
+          {insufficientFundsInfo && (
+            <div className="space-y-4 py-2">
+              <div className="p-4 rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/30 dark:border-red-800">
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Branch:</span>
+                    <span className="font-medium">{insufficientFundsInfo.branchName}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Account:</span>
+                    <span className="font-medium text-sm">{insufficientFundsInfo.accountName}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Account Code:</span>
+                    <span className="font-mono text-sm">{insufficientFundsInfo.accountCode}</span>
+                  </div>
+                  <hr className="border-red-200 dark:border-red-800" />
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Available Balance:</span>
+                    <span className="font-bold text-red-600">
+                      AFN {insufficientFundsInfo.accountBalance.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Required Amount:</span>
+                    <span className="font-bold">
+                      AFN {insufficientFundsInfo.requiredAmount.toLocaleString()}
+                    </span>
+                  </div>
+                  <hr className="border-red-200 dark:border-red-800" />
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Shortfall:</span>
+                    <span className="font-bold text-red-600">
+                      AFN {(insufficientFundsInfo.requiredAmount - insufficientFundsInfo.accountBalance).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Please ensure sufficient funds are available in the branch account before attempting disbursement.
+              </p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowInsufficientFundsDialog(false);
+                setInsufficientFundsInfo(null);
+              }}
+              data-testid="button-close-insufficient-funds"
+            >
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>
