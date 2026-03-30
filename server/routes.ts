@@ -9555,124 +9555,330 @@ export async function registerRoutes(
     }
   });
 
+  const customReportFieldDefs: Record<string, { key: string; label: string; type: string; source: string }[]> = {
+    customers: [
+      { key: "c_customer_no", label: "Customer No", type: "text", source: "customers" },
+      { key: "c_first_name", label: "First Name", type: "text", source: "customers" },
+      { key: "c_last_name", label: "Last Name", type: "text", source: "customers" },
+      { key: "c_father_name", label: "Father's Name", type: "text", source: "customers" },
+      { key: "c_full_name_dari", label: "Full Name (Dari)", type: "text", source: "customers" },
+      { key: "c_gender", label: "Gender", type: "text", source: "customers" },
+      { key: "c_marital_status", label: "Marital Status", type: "text", source: "customers" },
+      { key: "c_national_id", label: "National ID", type: "text", source: "customers" },
+      { key: "c_date_of_birth", label: "Date of Birth", type: "date", source: "customers" },
+      { key: "c_place_of_birth", label: "Place of Birth", type: "text", source: "customers" },
+      { key: "c_home_address", label: "Home Address", type: "text", source: "customers" },
+      { key: "c_province", label: "Province", type: "text", source: "customers" },
+      { key: "c_district", label: "District", type: "text", source: "customers" },
+      { key: "c_area_type", label: "Urban/Rural", type: "text", source: "customers" },
+      { key: "c_phone_number", label: "Phone Number", type: "text", source: "customers" },
+      { key: "c_second_phone_number", label: "2nd Phone", type: "text", source: "customers" },
+      { key: "c_number_of_dependents", label: "Dependents", type: "number", source: "customers" },
+      { key: "c_nid_expiry_date", label: "NID Expiry Date", type: "date", source: "customers" },
+      { key: "c_created_at", label: "Customer Created Date", type: "date", source: "customers" },
+    ],
+    loans: [
+      { key: "l_application_id", label: "Application ID", type: "text", source: "loans" },
+      { key: "l_product_name", label: "Product", type: "text", source: "loans" },
+      { key: "l_product_code", label: "Product Code", type: "text", source: "loans" },
+      { key: "l_status", label: "Loan Status", type: "text", source: "loans" },
+      { key: "l_request_amount", label: "Request Amount", type: "number", source: "loans" },
+      { key: "l_principle_amount", label: "Principal Amount", type: "number", source: "loans" },
+      { key: "l_margin_rate", label: "Margin Rate", type: "number", source: "loans" },
+      { key: "l_financing_duration_months", label: "Duration (Months)", type: "number", source: "loans" },
+      { key: "l_grace_period", label: "Grace Period", type: "number", source: "loans" },
+      { key: "l_number_of_installments", label: "No. of Installments", type: "number", source: "loans" },
+      { key: "l_request_date", label: "Request Date", type: "date", source: "loans" },
+      { key: "l_sector", label: "Sector", type: "text", source: "loans" },
+      { key: "l_business_description", label: "Business", type: "text", source: "loans" },
+      { key: "l_financing_purpose", label: "Financing Purpose", type: "text", source: "loans" },
+      { key: "l_client_occupation", label: "Occupation", type: "text", source: "loans" },
+      { key: "l_branch_name", label: "Branch", type: "text", source: "loans" },
+      { key: "l_officer_name", label: "Finance Officer", type: "text", source: "loans" },
+      { key: "l_funding_source", label: "Funding Source", type: "text", source: "loans" },
+    ],
+    installments: [
+      { key: "i_installment_number", label: "Installment #", type: "number", source: "installments" },
+      { key: "i_due_date", label: "Due Date", type: "date", source: "installments" },
+      { key: "i_principle_amount", label: "Installment Principal", type: "number", source: "installments" },
+      { key: "i_margin_amount", label: "Installment Margin", type: "number", source: "installments" },
+      { key: "i_total_amount", label: "Installment Total", type: "number", source: "installments" },
+      { key: "i_paid_amount", label: "Paid Amount", type: "number", source: "installments" },
+      { key: "i_payment_date", label: "Payment Date", type: "date", source: "installments" },
+      { key: "i_is_paid", label: "Is Paid", type: "text", source: "installments" },
+      { key: "i_late_days", label: "Days Overdue", type: "number", source: "installments" },
+    ],
+    collections: [
+      { key: "cr_amount", label: "Collection Amount", type: "number", source: "collections" },
+      { key: "cr_collection_date", label: "Collection Date", type: "date", source: "collections" },
+      { key: "cr_collection_status", label: "Collection Status", type: "text", source: "collections" },
+      { key: "cr_reviewed_by", label: "Reviewed By", type: "text", source: "collections" },
+      { key: "cr_reviewed_at", label: "Reviewed At", type: "date", source: "collections" },
+      { key: "cr_rejection_reason", label: "Rejection Reason", type: "text", source: "collections" },
+      { key: "cr_created_at", label: "Collection Created At", type: "date", source: "collections" },
+    ],
+    guarantors: [
+      { key: "g_guarantor_type", label: "Guarantor Type", type: "text", source: "guarantors" },
+      { key: "g_full_name", label: "Guarantor Name", type: "text", source: "guarantors" },
+      { key: "g_father_name", label: "Guarantor Father's Name", type: "text", source: "guarantors" },
+      { key: "g_national_id", label: "Guarantor NID", type: "text", source: "guarantors" },
+      { key: "g_phone_number", label: "Guarantor Phone", type: "text", source: "guarantors" },
+      { key: "g_home_address", label: "Guarantor Address", type: "text", source: "guarantors" },
+      { key: "g_province", label: "Guarantor Province", type: "text", source: "guarantors" },
+      { key: "g_district", label: "Guarantor District", type: "text", source: "guarantors" },
+      { key: "g_relationship_with_customer", label: "Relationship", type: "text", source: "guarantors" },
+      { key: "g_monthly_income", label: "Guarantor Monthly Income", type: "number", source: "guarantors" },
+      { key: "g_inventory", label: "Guarantor Asset", type: "number", source: "guarantors" },
+    ],
+    disbursements: [
+      { key: "d_disbursement_date", label: "Disbursement Date", type: "date", source: "disbursements" },
+      { key: "d_disbursed_by_id", label: "Disbursed By", type: "text", source: "disbursements" },
+    ],
+  };
+
+  function buildMultiSourceQuery(dataSources: string[]): { queryStr: string; allFields: string[] } {
+    const sources = new Set(dataSources);
+    const selectParts: string[] = [];
+    const allFields: string[] = [];
+
+    if (sources.has("customers")) {
+      selectParts.push(`c.customer_no AS c_customer_no, c.first_name AS c_first_name, c.last_name AS c_last_name,
+        c.father_name AS c_father_name, c.full_name_dari AS c_full_name_dari, c.gender AS c_gender,
+        c.marital_status AS c_marital_status, c.national_id AS c_national_id, c.date_of_birth AS c_date_of_birth,
+        c.place_of_birth AS c_place_of_birth, c.home_address AS c_home_address, c.province AS c_province,
+        c.district AS c_district, c.area_type AS c_area_type, c.phone_number AS c_phone_number,
+        c.second_phone_number AS c_second_phone_number, c.number_of_dependents AS c_number_of_dependents,
+        c.nid_expiry_date AS c_nid_expiry_date, c.created_at AS c_created_at`);
+      allFields.push(...(customReportFieldDefs.customers || []).map(f => f.key));
+    }
+
+    if (sources.has("loans")) {
+      selectParts.push(`l.application_id AS l_application_id, l.product_name AS l_product_name,
+        l.product_code AS l_product_code, l.status AS l_status, l.request_amount AS l_request_amount,
+        l.principle_amount AS l_principle_amount, l.margin_rate AS l_margin_rate,
+        l.financing_duration_months AS l_financing_duration_months, l.grace_period AS l_grace_period,
+        l.number_of_installments AS l_number_of_installments, l.request_date AS l_request_date,
+        l.sector AS l_sector, l.business_description AS l_business_description,
+        l.financing_purpose AS l_financing_purpose, l.client_occupation AS l_client_occupation,
+        b.name AS l_branch_name, fo.name AS l_officer_name, fs.name AS l_funding_source`);
+      allFields.push(...(customReportFieldDefs.loans || []).map(f => f.key));
+    }
+
+    if (sources.has("installments")) {
+      selectParts.push(`i.installment_number AS i_installment_number, i.due_date AS i_due_date,
+        i.principle_amount AS i_principle_amount, i.margin_amount AS i_margin_amount,
+        i.total_amount AS i_total_amount, i.paid_amount AS i_paid_amount,
+        i.payment_date AS i_payment_date, i.is_paid AS i_is_paid, i.late_days AS i_late_days`);
+      allFields.push(...(customReportFieldDefs.installments || []).map(f => f.key));
+    }
+
+    if (sources.has("collections")) {
+      selectParts.push(`cr.amount AS cr_amount, cr.payment_date AS cr_collection_date,
+        cr.status AS cr_collection_status, cr.reviewed_by AS cr_reviewed_by,
+        cr.reviewed_at AS cr_reviewed_at, cr.rejection_reason AS cr_rejection_reason,
+        cr.created_at AS cr_created_at`);
+      allFields.push(...(customReportFieldDefs.collections || []).map(f => f.key));
+    }
+
+    if (sources.has("guarantors")) {
+      selectParts.push(`g.guarantor_type AS g_guarantor_type, g.full_name AS g_full_name,
+        g.father_name AS g_father_name, g.national_id AS g_national_id,
+        g.phone_number AS g_phone_number, g.home_address AS g_home_address,
+        g.province AS g_province, g.district AS g_district,
+        g.relationship_with_customer AS g_relationship_with_customer,
+        g.monthly_income AS g_monthly_income, g.inventory AS g_inventory`);
+      allFields.push(...(customReportFieldDefs.guarantors || []).map(f => f.key));
+    }
+
+    if (sources.has("disbursements")) {
+      selectParts.push(`d.disbursement_date AS d_disbursement_date,
+        d.disbursed_by_id AS d_disbursed_by_id`);
+      allFields.push(...(customReportFieldDefs.disbursements || []).map(f => f.key));
+    }
+
+    const selectClause = `SELECT ${selectParts.join(", ")}`;
+
+    let fromClause = "";
+    const needsLoans = sources.has("loans") || sources.has("installments") || sources.has("collections") || sources.has("guarantors") || sources.has("disbursements");
+    const needsInstallments = sources.has("installments") || sources.has("collections");
+
+    if (sources.has("customers") && !needsLoans) {
+      fromClause = " FROM customers c";
+    } else if (sources.has("customers") && needsLoans) {
+      fromClause = " FROM customers c LEFT JOIN loans l ON l.customer_id = c.id";
+    } else if (needsLoans) {
+      fromClause = " FROM loans l LEFT JOIN customers c ON l.customer_id = c.id";
+    }
+
+    if (needsLoans && !fromClause.includes("loans l")) {
+      fromClause = " FROM loans l LEFT JOIN customers c ON l.customer_id = c.id";
+    }
+
+    if (sources.has("loans") || needsLoans) {
+      if (!fromClause.includes("branches b")) {
+        fromClause += " LEFT JOIN branches b ON l.branch_id = b.id";
+      }
+      if (!fromClause.includes("finance_officers fo")) {
+        fromClause += " LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id";
+      }
+      if (sources.has("loans") && !fromClause.includes("funding_sources fs")) {
+        fromClause += " LEFT JOIN funding_sources fs ON l.funding_source_id = fs.id";
+      }
+    }
+
+    if (needsInstallments && !fromClause.includes("installments i")) {
+      fromClause += " LEFT JOIN installments i ON i.loan_id = l.id";
+    }
+
+    if (sources.has("collections") && !fromClause.includes("collection_records cr")) {
+      if (needsInstallments) {
+        fromClause += " LEFT JOIN collection_records cr ON cr.installment_id = i.id";
+      } else {
+        fromClause += " LEFT JOIN installments i ON i.loan_id = l.id LEFT JOIN collection_records cr ON cr.installment_id = i.id";
+      }
+    }
+
+    if (sources.has("guarantors") && !fromClause.includes("guarantors g")) {
+      fromClause += " LEFT JOIN guarantors g ON g.loan_id = l.id";
+    }
+
+    if (sources.has("disbursements") && !fromClause.includes("disbursements d")) {
+      fromClause += " LEFT JOIN disbursements d ON d.loan_id = l.id";
+    }
+
+    if (sources.has("loans") && !fromClause.includes("funding_sources fs")) {
+      fromClause += " LEFT JOIN funding_sources fs ON l.funding_source_id = fs.id";
+    }
+
+    return { queryStr: selectClause + fromClause, allFields };
+  }
+
+  const singleSourceQueries: Record<string, string> = {
+    customers: `
+      SELECT c.customer_no AS c_customer_no, c.first_name AS c_first_name, c.last_name AS c_last_name,
+        c.father_name AS c_father_name, c.full_name_dari AS c_full_name_dari, c.gender AS c_gender,
+        c.marital_status AS c_marital_status, c.national_id AS c_national_id, c.date_of_birth AS c_date_of_birth,
+        c.place_of_birth AS c_place_of_birth, c.home_address AS c_home_address, c.province AS c_province,
+        c.district AS c_district, c.area_type AS c_area_type, c.phone_number AS c_phone_number,
+        c.second_phone_number AS c_second_phone_number, c.number_of_dependents AS c_number_of_dependents,
+        c.nid_expiry_date AS c_nid_expiry_date, c.created_at AS c_created_at
+      FROM customers c
+    `,
+    loans: `
+      SELECT l.application_id AS l_application_id, l.product_name AS l_product_name,
+        l.product_code AS l_product_code, l.status AS l_status, l.request_amount AS l_request_amount,
+        l.principle_amount AS l_principle_amount, l.margin_rate AS l_margin_rate,
+        l.financing_duration_months AS l_financing_duration_months, l.grace_period AS l_grace_period,
+        l.number_of_installments AS l_number_of_installments, l.request_date AS l_request_date,
+        l.sector AS l_sector, l.business_description AS l_business_description,
+        l.financing_purpose AS l_financing_purpose, l.client_occupation AS l_client_occupation,
+        b.name AS l_branch_name, fo.name AS l_officer_name, fs.name AS l_funding_source,
+        COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, '') AS c_customer_name,
+        c.customer_no AS c_customer_no, c.national_id AS c_national_id
+      FROM loans l
+      LEFT JOIN customers c ON l.customer_id = c.id
+      LEFT JOIN branches b ON l.branch_id = b.id
+      LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
+      LEFT JOIN funding_sources fs ON l.funding_source_id = fs.id
+    `,
+    installments: `
+      SELECT i.installment_number AS i_installment_number, i.due_date AS i_due_date,
+        i.principle_amount AS i_principle_amount, i.margin_amount AS i_margin_amount,
+        i.total_amount AS i_total_amount, i.paid_amount AS i_paid_amount,
+        i.payment_date AS i_payment_date, i.is_paid AS i_is_paid, i.late_days AS i_late_days,
+        l.application_id AS l_application_id, l.product_name AS l_product_name, l.status AS l_status,
+        COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, '') AS c_customer_name,
+        c.customer_no AS c_customer_no,
+        b.name AS l_branch_name, fo.name AS l_officer_name
+      FROM installments i
+      LEFT JOIN loans l ON i.loan_id = l.id
+      LEFT JOIN customers c ON l.customer_id = c.id
+      LEFT JOIN branches b ON l.branch_id = b.id
+      LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
+    `,
+    collections: `
+      SELECT cr.amount AS cr_amount, cr.payment_date AS cr_collection_date,
+        cr.status AS cr_collection_status, cr.reviewed_by AS cr_reviewed_by,
+        cr.reviewed_at AS cr_reviewed_at, cr.rejection_reason AS cr_rejection_reason,
+        cr.created_at AS cr_created_at,
+        i.installment_number AS i_installment_number, i.due_date AS i_due_date,
+        i.total_amount AS i_total_amount,
+        l.application_id AS l_application_id, l.product_name AS l_product_name,
+        COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, '') AS c_customer_name,
+        c.customer_no AS c_customer_no,
+        b.name AS l_branch_name, fo.name AS l_officer_name
+      FROM collection_records cr
+      LEFT JOIN installments i ON cr.installment_id = i.id
+      LEFT JOIN loans l ON i.loan_id = l.id
+      LEFT JOIN customers c ON l.customer_id = c.id
+      LEFT JOIN branches b ON l.branch_id = b.id
+      LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
+    `,
+    guarantors: `
+      SELECT g.guarantor_type AS g_guarantor_type, g.full_name AS g_full_name,
+        g.father_name AS g_father_name, g.national_id AS g_national_id,
+        g.phone_number AS g_phone_number, g.home_address AS g_home_address,
+        g.province AS g_province, g.district AS g_district,
+        g.relationship_with_customer AS g_relationship_with_customer,
+        g.monthly_income AS g_monthly_income, g.inventory AS g_inventory,
+        l.application_id AS l_application_id, l.product_name AS l_product_name,
+        COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, '') AS c_customer_name,
+        c.customer_no AS c_customer_no,
+        b.name AS l_branch_name
+      FROM guarantors g
+      LEFT JOIN loans l ON g.loan_id = l.id
+      LEFT JOIN customers c ON l.customer_id = c.id
+      LEFT JOIN branches b ON l.branch_id = b.id
+    `,
+    disbursements: `
+      SELECT d.disbursement_date AS d_disbursement_date, d.disbursed_by_id AS d_disbursed_by_id,
+        l.application_id AS l_application_id, l.product_name AS l_product_name,
+        l.request_amount AS l_request_amount, l.principle_amount AS l_principle_amount,
+        l.margin_rate AS l_margin_rate, l.status AS l_status,
+        COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, '') AS c_customer_name,
+        c.customer_no AS c_customer_no, c.national_id AS c_national_id,
+        b.name AS l_branch_name, fo.name AS l_officer_name, fs.name AS l_funding_source
+      FROM disbursements d
+      LEFT JOIN loans l ON d.loan_id = l.id
+      LEFT JOIN customers c ON l.customer_id = c.id
+      LEFT JOIN branches b ON l.branch_id = b.id
+      LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
+      LEFT JOIN funding_sources fs ON l.funding_source_id = fs.id
+    `,
+  };
+
   app.post("/api/custom-reports/generate", isAuthenticated, requirePageAccess("custom-reports"), async (req: any, res) => {
     try {
-      const { dataSource, columns, filters, groupBy, sortBy, sortOrder } = req.body;
+      const { dataSource, dataSources, columns, filters, groupBy, sortBy, sortOrder } = req.body;
 
-      const dataSourceQueries: Record<string, string> = {
-        customers: `
-          SELECT c.id, c.customer_no, c.first_name, c.last_name, c.father_name,
-            c.full_name_dari, c.gender, c.marital_status, c.national_id,
-            c.date_of_birth, c.place_of_birth, c.home_address, c.province, c.district,
-            c.area_type, c.phone_number, c.second_phone_number,
-            c.number_of_dependents, c.direct_male_dependent, c.direct_female_dependent,
-            c.indirect_male_dependent, c.indirect_female_dependent,
-            c.nid_expiry_date, c.created_at
-          FROM customers c
-        `,
-        loans: `
-          SELECT l.id, l.application_id, l.product_name, l.product_code, l.status,
-            l.request_amount, l.principle_amount, l.margin_rate,
-            l.financing_duration_months, l.grace_period, l.number_of_installments,
-            l.request_date, l.sector, l.business_description, l.financing_purpose,
-            l.client_occupation,
-            COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, '') AS customer_name,
-            c.customer_no, c.national_id AS customer_nid, c.gender AS customer_gender,
-            c.province AS customer_province, c.district AS customer_district,
-            b.name AS branch_name,
-            fo.name AS officer_name,
-            fs.name AS funding_source,
-            d.disbursement_date,
-            l.principle_amount AS disbursed_amount
-          FROM loans l
-          LEFT JOIN customers c ON l.customer_id = c.id
-          LEFT JOIN branches b ON l.branch_id = b.id
-          LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
-          LEFT JOIN funding_sources fs ON l.funding_source_id = fs.id
-          LEFT JOIN disbursements d ON l.id = d.loan_id
-        `,
-        installments: `
-          SELECT i.id, i.installment_number, i.due_date, i.principle_amount, i.margin_amount,
-            i.total_amount, i.paid_amount, i.payment_date, i.is_paid, i.late_days,
-            l.application_id, l.product_name, l.status AS loan_status,
-            COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, '') AS customer_name,
-            c.customer_no, c.national_id AS customer_nid,
-            b.name AS branch_name,
-            fo.name AS officer_name
-          FROM installments i
-          LEFT JOIN loans l ON i.loan_id = l.id
-          LEFT JOIN customers c ON l.customer_id = c.id
-          LEFT JOIN branches b ON l.branch_id = b.id
-          LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
-        `,
-        collections: `
-          SELECT cr.id, cr.installment_id, cr.amount, cr.payment_date AS collection_date,
-            cr.status AS collection_status, cr.reviewed_by, cr.reviewed_at,
-            cr.rejection_reason, cr.created_at,
-            i.installment_number, i.due_date, i.total_amount AS installment_amount,
-            l.application_id, l.product_name,
-            COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, '') AS customer_name,
-            c.customer_no,
-            b.name AS branch_name,
-            fo.name AS officer_name
-          FROM collection_records cr
-          LEFT JOIN installments i ON cr.installment_id = i.id
-          LEFT JOIN loans l ON i.loan_id = l.id
-          LEFT JOIN customers c ON l.customer_id = c.id
-          LEFT JOIN branches b ON l.branch_id = b.id
-          LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
-        `,
-        guarantors: `
-          SELECT g.id, g.guarantor_type, g.full_name, g.father_name, g.national_id,
-            g.phone_number, g.home_address, g.province, g.district,
-            g.relationship_with_customer, g.monthly_income, g.inventory,
-            l.application_id, l.product_name,
-            COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, '') AS customer_name,
-            c.customer_no,
-            b.name AS branch_name
-          FROM guarantors g
-          LEFT JOIN loans l ON g.loan_id = l.id
-          LEFT JOIN customers c ON l.customer_id = c.id
-          LEFT JOIN branches b ON l.branch_id = b.id
-        `,
-        disbursements: `
-          SELECT d.id, d.disbursement_date, d.disbursed_by_id,
-            l.application_id, l.product_name, l.request_amount, l.principle_amount,
-            l.margin_rate, l.status AS loan_status,
-            l.principle_amount AS disbursed_amount,
-            COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, '') AS customer_name,
-            c.customer_no, c.national_id AS customer_nid,
-            c.gender AS customer_gender, c.province AS customer_province,
-            b.name AS branch_name,
-            fo.name AS officer_name,
-            fs.name AS funding_source
-          FROM disbursements d
-          LEFT JOIN loans l ON d.loan_id = l.id
-          LEFT JOIN customers c ON l.customer_id = c.id
-          LEFT JOIN branches b ON l.branch_id = b.id
-          LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
-          LEFT JOIN funding_sources fs ON l.funding_source_id = fs.id
-        `,
-      };
+      const sources: string[] = dataSources && Array.isArray(dataSources) && dataSources.length > 0
+        ? dataSources
+        : (dataSource ? [dataSource] : []);
 
-      const baseQuery = dataSourceQueries[dataSource];
-      if (!baseQuery) {
-        return res.status(400).json({ message: "Invalid data source" });
+      const validSources = ["customers","loans","installments","collections","guarantors","disbursements"];
+      const filteredSources = sources.filter(s => validSources.includes(s));
+      if (filteredSources.length === 0) {
+        return res.status(400).json({ message: "Select at least one data source" });
       }
 
-      const validFieldsPerSource: Record<string, string[]> = {
-        customers: ["customer_no","first_name","last_name","father_name","full_name_dari","gender","marital_status","national_id","date_of_birth","place_of_birth","home_address","province","district","area_type","phone_number","second_phone_number","number_of_dependents","direct_male_dependent","direct_female_dependent","indirect_male_dependent","indirect_female_dependent","nid_expiry_date","created_at"],
-        loans: ["application_id","customer_name","customer_no","customer_nid","customer_gender","customer_province","customer_district","branch_name","officer_name","product_name","product_code","status","request_amount","principle_amount","margin_rate","financing_duration_months","grace_period","number_of_installments","request_date","sector","business_description","financing_purpose","client_occupation","funding_source","disbursement_date","disbursed_amount"],
-        installments: ["application_id","customer_name","customer_no","customer_nid","branch_name","officer_name","product_name","loan_status","installment_number","due_date","principle_amount","margin_amount","total_amount","paid_amount","payment_date","is_paid","late_days"],
-        collections: ["application_id","customer_name","customer_no","branch_name","officer_name","product_name","installment_number","due_date","installment_amount","amount","collection_date","collection_status","reviewed_by","reviewed_at","rejection_reason","created_at"],
-        guarantors: ["application_id","customer_name","customer_no","branch_name","guarantor_type","full_name","father_name","national_id","phone_number","home_address","province","district","relationship_with_customer","monthly_income","inventory"],
-        disbursements: ["application_id","customer_name","customer_no","customer_nid","customer_gender","customer_province","branch_name","officer_name","product_name","funding_source","loan_status","request_amount","principle_amount","margin_rate","disbursement_date","disbursed_amount","disbursed_by_id"],
-      };
+      let baseQuery: string;
+      let allValidFields: string[];
 
-      const allowedFields = new Set(validFieldsPerSource[dataSource] || []);
+      if (filteredSources.length === 1) {
+        const src = filteredSources[0];
+        baseQuery = singleSourceQueries[src];
+        const srcFields = customReportFieldDefs[src]?.map(f => f.key) || [];
+        const extraFields = Object.keys((await db.execute(sql`${sql.raw(baseQuery)} LIMIT 0`)).rows?.[0] || {});
+        allValidFields = [...new Set([...srcFields, ...extraFields])];
+      } else {
+        const result = buildMultiSourceQuery(filteredSources);
+        baseQuery = result.queryStr;
+        allValidFields = result.allFields;
+      }
+
+      const allowedFields = new Set(allValidFields);
       const validOperators = new Set(["equals","not_equals","contains","starts_with","greater_than","less_than","between","is_null","is_not_null"]);
 
-      const sqlParts: any[] = [sql.raw(baseQuery)];
       const whereFragments: any[] = [];
 
       if (filters && Array.isArray(filters)) {
@@ -9754,135 +9960,56 @@ export async function registerRoutes(
   });
 
   app.get("/api/custom-reports/fields/:dataSource", isAuthenticated, async (req, res) => {
-    const fieldDefinitions: Record<string, { key: string; label: string; type: string }[]> = {
-      customers: [
-        { key: "customer_no", label: "Customer No", type: "text" },
-        { key: "first_name", label: "First Name", type: "text" },
-        { key: "last_name", label: "Last Name", type: "text" },
-        { key: "father_name", label: "Father's Name", type: "text" },
-        { key: "full_name_dari", label: "Full Name (Dari)", type: "text" },
-        { key: "gender", label: "Gender", type: "text" },
-        { key: "marital_status", label: "Marital Status", type: "text" },
-        { key: "national_id", label: "National ID", type: "text" },
-        { key: "date_of_birth", label: "Date of Birth", type: "date" },
-        { key: "place_of_birth", label: "Place of Birth", type: "text" },
-        { key: "home_address", label: "Home Address", type: "text" },
-        { key: "province", label: "Province", type: "text" },
-        { key: "district", label: "District", type: "text" },
-        { key: "area_type", label: "Urban/Rural", type: "text" },
-        { key: "phone_number", label: "Phone Number", type: "text" },
-        { key: "second_phone_number", label: "2nd Phone", type: "text" },
-        { key: "number_of_dependents", label: "Dependents", type: "number" },
-        { key: "nid_expiry_date", label: "NID Expiry Date", type: "date" },
-        { key: "created_at", label: "Created Date", type: "date" },
-      ],
-      loans: [
-        { key: "application_id", label: "Application ID", type: "text" },
-        { key: "customer_name", label: "Customer Name", type: "text" },
-        { key: "customer_no", label: "Customer No", type: "text" },
-        { key: "customer_nid", label: "Customer NID", type: "text" },
-        { key: "customer_gender", label: "Customer Gender", type: "text" },
-        { key: "customer_province", label: "Customer Province", type: "text" },
-        { key: "customer_district", label: "Customer District", type: "text" },
-        { key: "branch_name", label: "Branch", type: "text" },
-        { key: "officer_name", label: "Finance Officer", type: "text" },
-        { key: "product_name", label: "Product", type: "text" },
-        { key: "product_code", label: "Product Code", type: "text" },
-        { key: "status", label: "Loan Status", type: "text" },
-        { key: "request_amount", label: "Request Amount", type: "number" },
-        { key: "principle_amount", label: "Principal Amount", type: "number" },
-        { key: "margin_rate", label: "Margin Rate", type: "number" },
-        { key: "financing_duration_months", label: "Duration (Months)", type: "number" },
-        { key: "grace_period", label: "Grace Period", type: "number" },
-        { key: "number_of_installments", label: "No. of Installments", type: "number" },
-        { key: "request_date", label: "Request Date", type: "date" },
-        { key: "sector", label: "Sector", type: "text" },
-        { key: "business_description", label: "Business", type: "text" },
-        { key: "financing_purpose", label: "Financing Purpose", type: "text" },
-        { key: "client_occupation", label: "Occupation", type: "text" },
-        { key: "funding_source", label: "Funding Source", type: "text" },
-        { key: "disbursement_date", label: "Disbursement Date", type: "date" },
-        { key: "disbursed_amount", label: "Disbursed Amount", type: "number" },
-      ],
-      installments: [
-        { key: "application_id", label: "Loan App ID", type: "text" },
-        { key: "customer_name", label: "Customer Name", type: "text" },
-        { key: "customer_no", label: "Customer No", type: "text" },
-        { key: "customer_nid", label: "Customer NID", type: "text" },
-        { key: "branch_name", label: "Branch", type: "text" },
-        { key: "officer_name", label: "Finance Officer", type: "text" },
-        { key: "product_name", label: "Product", type: "text" },
-        { key: "loan_status", label: "Loan Status", type: "text" },
-        { key: "installment_number", label: "Installment #", type: "number" },
-        { key: "due_date", label: "Due Date", type: "date" },
-        { key: "principle_amount", label: "Principal Amount", type: "number" },
-        { key: "margin_amount", label: "Margin Amount", type: "number" },
-        { key: "total_amount", label: "Total Amount", type: "number" },
-        { key: "paid_amount", label: "Paid Amount", type: "number" },
-        { key: "payment_date", label: "Payment Date", type: "date" },
-        { key: "is_paid", label: "Is Paid", type: "text" },
-        { key: "late_days", label: "Days Overdue", type: "number" },
-      ],
-      collections: [
-        { key: "application_id", label: "Loan App ID", type: "text" },
-        { key: "customer_name", label: "Customer Name", type: "text" },
-        { key: "customer_no", label: "Customer No", type: "text" },
-        { key: "branch_name", label: "Branch", type: "text" },
-        { key: "officer_name", label: "Finance Officer", type: "text" },
-        { key: "product_name", label: "Product", type: "text" },
-        { key: "installment_number", label: "Installment #", type: "number" },
-        { key: "due_date", label: "Due Date", type: "date" },
-        { key: "installment_amount", label: "Installment Amount", type: "number" },
-        { key: "amount", label: "Collection Amount", type: "number" },
-        { key: "collection_date", label: "Collection Date", type: "date" },
-        { key: "collection_status", label: "Status", type: "text" },
-        { key: "reviewed_by", label: "Reviewed By", type: "text" },
-        { key: "reviewed_at", label: "Reviewed At", type: "date" },
-        { key: "rejection_reason", label: "Rejection Reason", type: "text" },
-        { key: "created_at", label: "Created At", type: "date" },
-      ],
-      guarantors: [
-        { key: "application_id", label: "Loan App ID", type: "text" },
-        { key: "customer_name", label: "Customer Name", type: "text" },
-        { key: "customer_no", label: "Customer No", type: "text" },
-        { key: "branch_name", label: "Branch", type: "text" },
-        { key: "guarantor_type", label: "Guarantor Type", type: "text" },
-        { key: "full_name", label: "Guarantor Name", type: "text" },
-        { key: "father_name", label: "Father's Name", type: "text" },
-        { key: "national_id", label: "National ID", type: "text" },
-        { key: "phone_number", label: "Phone Number", type: "text" },
-        { key: "home_address", label: "Home Address", type: "text" },
-        { key: "province", label: "Province", type: "text" },
-        { key: "district", label: "District", type: "text" },
-        { key: "relationship_with_customer", label: "Relationship", type: "text" },
-        { key: "monthly_income", label: "Monthly Income", type: "number" },
-        { key: "inventory", label: "Asset", type: "number" },
-      ],
-      disbursements: [
-        { key: "application_id", label: "Loan App ID", type: "text" },
-        { key: "customer_name", label: "Customer Name", type: "text" },
-        { key: "customer_no", label: "Customer No", type: "text" },
-        { key: "customer_nid", label: "Customer NID", type: "text" },
-        { key: "customer_gender", label: "Customer Gender", type: "text" },
-        { key: "customer_province", label: "Customer Province", type: "text" },
-        { key: "branch_name", label: "Branch", type: "text" },
-        { key: "officer_name", label: "Finance Officer", type: "text" },
-        { key: "product_name", label: "Product", type: "text" },
-        { key: "funding_source", label: "Funding Source", type: "text" },
-        { key: "loan_status", label: "Loan Status", type: "text" },
-        { key: "request_amount", label: "Request Amount", type: "number" },
-        { key: "principle_amount", label: "Principal Amount", type: "number" },
-        { key: "margin_rate", label: "Margin Rate", type: "number" },
-        { key: "disbursement_date", label: "Disbursement Date", type: "date" },
-        { key: "disbursed_amount", label: "Disbursed Amount", type: "number" },
-      ],
-    };
+    const source = req.params.dataSource;
+    const sources = source.includes(",") ? source.split(",").filter(Boolean) : [source];
+    const validSources = ["customers","loans","installments","collections","guarantors","disbursements"];
+    const filteredSources = sources.filter(s => validSources.includes(s));
 
-    const fields = fieldDefinitions[req.params.dataSource];
-    if (!fields) {
-      return res.status(400).json({ message: `Invalid data source: ${req.params.dataSource}` });
+    if (filteredSources.length === 0) {
+      return res.status(400).json({ message: "Invalid data source" });
     }
-    res.json(fields);
+
+    const combinedFields: { key: string; label: string; type: string; source: string }[] = [];
+    const seenKeys = new Set<string>();
+
+    for (const src of filteredSources) {
+      const srcFields = customReportFieldDefs[src] || [];
+      for (const field of srcFields) {
+        if (!seenKeys.has(field.key)) {
+          seenKeys.add(field.key);
+          combinedFields.push(field);
+        }
+      }
+    }
+
+    if (filteredSources.length === 1) {
+      const singleQuery = singleSourceQueries[filteredSources[0]];
+      if (singleQuery) {
+        const colMatch = singleQuery.match(/AS\s+(\w+)/gi);
+        if (colMatch) {
+          for (const m of colMatch) {
+            const alias = m.replace(/^AS\s+/i, "");
+            if (!seenKeys.has(alias) && alias !== "c_customer_name") {
+              seenKeys.add(alias);
+              combinedFields.push({
+                key: alias,
+                label: alias.replace(/^[a-z]_/, "").replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
+                type: "text",
+                source: filteredSources[0],
+              });
+            }
+          }
+          if (!seenKeys.has("c_customer_name")) {
+            const hasCustomerName = singleQuery.includes("c_customer_name");
+            if (hasCustomerName) {
+              combinedFields.unshift({ key: "c_customer_name", label: "Customer Name", type: "text", source: filteredSources[0] });
+            }
+          }
+        }
+      }
+    }
+
+    res.json(combinedFields);
   });
 
   // Seed data on startup

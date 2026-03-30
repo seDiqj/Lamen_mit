@@ -51,7 +51,7 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-type FieldDef = { key: string; label: string; type: string };
+type FieldDef = { key: string; label: string; type: string; source?: string };
 type FilterItem = { field: string; operator: string; value: string; value2?: string };
 type SavedReport = {
   id: number;
@@ -91,7 +91,7 @@ export default function CustomReportsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const [dataSource, setDataSource] = useState("");
+  const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
   const [filters, setFilters] = useState<FilterItem[]>([]);
   const [groupBy, setGroupBy] = useState("");
@@ -102,9 +102,11 @@ export default function CustomReportsPage() {
   const [reportName, setReportName] = useState("");
   const [activeTab, setActiveTab] = useState<"builder" | "saved">("builder");
 
+  const sourcesKey = selectedSources.sort().join(",");
+
   const { data: fields = [] } = useQuery<FieldDef[]>({
-    queryKey: ["/api/custom-reports/fields", dataSource],
-    enabled: !!dataSource,
+    queryKey: ["/api/custom-reports/fields", sourcesKey],
+    enabled: selectedSources.length > 0,
   });
 
   const { data: savedReports = [] } = useQuery<SavedReport[]>({
@@ -147,13 +149,18 @@ export default function CustomReportsPage() {
     },
   });
 
-  const handleDataSourceChange = (value: string) => {
-    setDataSource(value);
-    setSelectedColumns([]);
-    setFilters([]);
-    setGroupBy("");
-    setSortBy("");
-    setReportData(null);
+  const toggleSource = (source: string) => {
+    setSelectedSources(prev => {
+      const next = prev.includes(source) ? prev.filter(s => s !== source) : [...prev, source];
+      if (!prev.includes(source) || next.length === 0) {
+        setSelectedColumns([]);
+        setFilters([]);
+        setGroupBy("");
+        setSortBy("");
+        setReportData(null);
+      }
+      return next;
+    });
   };
 
   const toggleColumn = (key: string) => {
@@ -185,8 +192,8 @@ export default function CustomReportsPage() {
   };
 
   const handleGenerate = () => {
-    if (!dataSource) {
-      toast({ title: "Select a data source", variant: "destructive" });
+    if (selectedSources.length === 0) {
+      toast({ title: "Select at least one data source", variant: "destructive" });
       return;
     }
     if (selectedColumns.length === 0) {
@@ -194,7 +201,7 @@ export default function CustomReportsPage() {
       return;
     }
     generateMutation.mutate({
-      dataSource,
+      dataSources: selectedSources,
       columns: selectedColumns,
       filters: filters.filter((f) => f.field && (f.operator === "is_null" || f.operator === "is_not_null" || f.value)),
       groupBy: groupBy && groupBy !== "none" ? groupBy : undefined,
@@ -207,7 +214,7 @@ export default function CustomReportsPage() {
     if (!reportName.trim()) return;
     saveMutation.mutate({
       name: reportName.trim(),
-      dataSource,
+      dataSource: selectedSources.join(","),
       columns: JSON.stringify(selectedColumns),
       filters: JSON.stringify(filters),
       groupBy: groupBy && groupBy !== "none" ? groupBy : null,
@@ -217,7 +224,8 @@ export default function CustomReportsPage() {
   };
 
   const loadSavedReport = (report: SavedReport) => {
-    setDataSource(report.dataSource);
+    const sources = report.dataSource.includes(",") ? report.dataSource.split(",") : [report.dataSource];
+    setSelectedSources(sources);
     try {
       setSelectedColumns(JSON.parse(report.columns));
       setFilters(JSON.parse(report.filters));
@@ -234,7 +242,9 @@ export default function CustomReportsPage() {
   };
 
   const getColumnLabel = (key: string) => {
-    return fields.find((f) => f.key === key)?.label || key.replace(/_/g, " ");
+    const found = fields.find((f) => f.key === key);
+    if (found) return found.label;
+    return key.replace(/^[a-z]_/, "").replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
   };
 
   const formatCellValue = (value: any) => {
@@ -244,6 +254,14 @@ export default function CustomReportsPage() {
       return new Date(value).toLocaleDateString();
     }
     return String(value);
+  };
+
+  const getSourceLabel = () => {
+    if (selectedSources.length === 0) return "";
+    if (selectedSources.length === 1) {
+      return DATA_SOURCES.find(s => s.value === selectedSources[0])?.label || selectedSources[0];
+    }
+    return selectedSources.map(s => DATA_SOURCES.find(d => d.value === s)?.label || s).join(" + ");
   };
 
   const exportToExcel = () => {
@@ -259,14 +277,13 @@ export default function CustomReportsPage() {
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Report");
-    const sourceName = DATA_SOURCES.find((s) => s.value === dataSource)?.label || dataSource;
-    XLSX.writeFile(wb, `Custom_Report_${sourceName}_${new Date().toISOString().split("T")[0]}.xlsx`);
+    XLSX.writeFile(wb, `Custom_Report_${new Date().toISOString().split("T")[0]}.xlsx`);
   };
 
   const exportToPDF = () => {
     if (!reportData?.data?.length) return;
     const doc = new jsPDF({ orientation: "landscape" });
-    const sourceName = DATA_SOURCES.find((s) => s.value === dataSource)?.label || dataSource;
+    const sourceName = getSourceLabel();
 
     doc.setFontSize(16);
     doc.text(`Custom Report — ${sourceName}`, 14, 15);
@@ -288,12 +305,27 @@ export default function CustomReportsPage() {
       alternateRowStyles: { fillColor: [245, 245, 245] },
     });
 
-    doc.save(`Custom_Report_${sourceName}_${new Date().toISOString().split("T")[0]}.pdf`);
+    doc.save(`Custom_Report_${new Date().toISOString().split("T")[0]}.pdf`);
   };
 
   const displayColumns = selectedColumns.length > 0
     ? selectedColumns
     : reportData?.data?.[0] ? Object.keys(reportData.data[0]) : [];
+
+  const sourceColors: Record<string, string> = {
+    customers: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+    loans: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
+    installments: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+    collections: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+    guarantors: "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300",
+    disbursements: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300",
+  };
+
+  const groupedFields = selectedSources.map(src => ({
+    source: src,
+    label: DATA_SOURCES.find(d => d.value === src)?.label || src,
+    fields: fields.filter(f => f.source === src),
+  }));
 
   return (
     <div className="space-y-6 p-4 max-w-[1400px] mx-auto">
@@ -303,7 +335,7 @@ export default function CustomReportsPage() {
             Custom Report Builder
           </h1>
           <p className="text-sm text-muted-foreground">
-            Build custom reports from any data source with filters, grouping, and export
+            Build custom reports from one or multiple data sources with filters, grouping, and export
           </p>
         </div>
       </div>
@@ -364,9 +396,13 @@ export default function CustomReportsPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    <Badge variant="outline" className="bg-emerald-500/10 text-emerald-700 border-emerald-500/30">
-                      {DATA_SOURCES.find((s) => s.value === report.dataSource)?.label || report.dataSource}
-                    </Badge>
+                    <div className="flex flex-wrap gap-1">
+                      {(report.dataSource.includes(",") ? report.dataSource.split(",") : [report.dataSource]).map(src => (
+                        <Badge key={src} variant="outline" className="bg-emerald-500/10 text-emerald-700 border-emerald-500/30 text-xs">
+                          {DATA_SOURCES.find((s) => s.value === src)?.label || src}
+                        </Badge>
+                      ))}
+                    </div>
                     <p className="text-xs text-muted-foreground">
                       {(() => { try { return JSON.parse(report.columns).length; } catch { return 0; } })()} columns
                       {(() => { try { const f = JSON.parse(report.filters); return f.length > 0 ? ` • ${f.length} filters` : ""; } catch { return ""; } })()}
@@ -398,22 +434,39 @@ export default function CustomReportsPage() {
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm flex items-center gap-2">
                   <Database className="h-4 w-4 text-emerald-500" />
-                  1. Data Source
+                  1. Data Sources
+                  {selectedSources.length > 0 && (
+                    <Badge variant="secondary" className="ml-auto">{selectedSources.length}</Badge>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <Select value={dataSource} onValueChange={handleDataSourceChange}>
-                  <SelectTrigger data-testid="select-data-source">
-                    <SelectValue placeholder="Select data source" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {DATA_SOURCES.map((source) => (
-                      <SelectItem key={source.value} value={source.value}>
-                        <span className="mr-2">{source.icon}</span> {source.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <p className="text-xs text-muted-foreground mb-2">Select one or more sources to combine</p>
+                <div className="space-y-1.5">
+                  {DATA_SOURCES.map((source) => (
+                    <label
+                      key={source.value}
+                      className={`flex items-center gap-2 text-xs py-1.5 px-2 cursor-pointer rounded transition-colors ${
+                        selectedSources.includes(source.value)
+                          ? sourceColors[source.value]
+                          : "hover:bg-muted/50"
+                      }`}
+                      data-testid={`checkbox-source-${source.value}`}
+                    >
+                      <Checkbox
+                        checked={selectedSources.includes(source.value)}
+                        onCheckedChange={() => toggleSource(source.value)}
+                      />
+                      <span className="mr-1">{source.icon}</span>
+                      {source.label}
+                    </label>
+                  ))}
+                </div>
+                {selectedSources.length > 1 && (
+                  <p className="text-xs text-emerald-600 mt-2 font-medium">
+                    Combined: {getSourceLabel()}
+                  </p>
+                )}
               </CardContent>
             </Card>
 
@@ -428,8 +481,8 @@ export default function CustomReportsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {!dataSource ? (
-                  <p className="text-xs text-muted-foreground">Select a data source first</p>
+                {selectedSources.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Select data source(s) first</p>
                 ) : (
                   <div className="space-y-1 max-h-64 overflow-y-auto">
                     <button
@@ -439,16 +492,36 @@ export default function CustomReportsPage() {
                     >
                       {selectedColumns.length === fields.length ? "Deselect All" : "Select All"}
                     </button>
-                    {fields.map((field) => (
-                      <label key={field.key} className="flex items-center gap-2 text-xs py-0.5 cursor-pointer hover:bg-muted/50 rounded px-1">
-                        <Checkbox
-                          checked={selectedColumns.includes(field.key)}
-                          onCheckedChange={() => toggleColumn(field.key)}
-                          data-testid={`checkbox-column-${field.key}`}
-                        />
-                        {field.label}
-                      </label>
-                    ))}
+                    {groupedFields.length > 1 ? (
+                      groupedFields.map(group => (
+                        <div key={group.source}>
+                          <p className={`text-xs font-semibold mt-2 mb-1 px-1 py-0.5 rounded ${sourceColors[group.source] || ""}`}>
+                            {group.label}
+                          </p>
+                          {group.fields.map((field) => (
+                            <label key={field.key} className="flex items-center gap-2 text-xs py-0.5 cursor-pointer hover:bg-muted/50 rounded px-1">
+                              <Checkbox
+                                checked={selectedColumns.includes(field.key)}
+                                onCheckedChange={() => toggleColumn(field.key)}
+                                data-testid={`checkbox-column-${field.key}`}
+                              />
+                              {field.label}
+                            </label>
+                          ))}
+                        </div>
+                      ))
+                    ) : (
+                      fields.map((field) => (
+                        <label key={field.key} className="flex items-center gap-2 text-xs py-0.5 cursor-pointer hover:bg-muted/50 rounded px-1">
+                          <Checkbox
+                            checked={selectedColumns.includes(field.key)}
+                            onCheckedChange={() => toggleColumn(field.key)}
+                            data-testid={`checkbox-column-${field.key}`}
+                          />
+                          {field.label}
+                        </label>
+                      ))
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -462,8 +535,8 @@ export default function CustomReportsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {!dataSource ? (
-                  <p className="text-xs text-muted-foreground">Select a data source first</p>
+                {selectedSources.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Select data source(s) first</p>
                 ) : (
                   <>
                     <div>
@@ -523,7 +596,7 @@ export default function CustomReportsPage() {
               <CardContent className="space-y-2">
                 <Button
                   onClick={handleGenerate}
-                  disabled={!dataSource || selectedColumns.length === 0 || generateMutation.isPending}
+                  disabled={selectedSources.length === 0 || selectedColumns.length === 0 || generateMutation.isPending}
                   className="w-full bg-gradient-to-r from-emerald-500 to-teal-500"
                   data-testid="button-generate-report"
                 >
@@ -534,7 +607,7 @@ export default function CustomReportsPage() {
                   )}
                 </Button>
 
-                {dataSource && selectedColumns.length > 0 && (
+                {selectedSources.length > 0 && selectedColumns.length > 0 && (
                   <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
                     <DialogTrigger asChild>
                       <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700 text-white" data-testid="button-save-template">
@@ -556,7 +629,7 @@ export default function CustomReportsPage() {
                           />
                         </div>
                         <div className="text-sm text-muted-foreground space-y-1">
-                          <p>Source: {DATA_SOURCES.find((s) => s.value === dataSource)?.label}</p>
+                          <p>Sources: {getSourceLabel()}</p>
                           <p>Columns: {selectedColumns.length} selected</p>
                           <p>Filters: {filters.filter((f) => f.value || f.operator === "is_null" || f.operator === "is_not_null").length} active</p>
                         </div>
@@ -587,7 +660,7 @@ export default function CustomReportsPage() {
             </Card>
           </div>
 
-          {dataSource && (
+          {selectedSources.length > 0 && (
             <Card>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
@@ -610,8 +683,8 @@ export default function CustomReportsPage() {
                           value={filter.field}
                           onValueChange={(v) => updateFilter(index, { field: v })}
                         >
-                          <SelectTrigger className="h-8 text-xs w-40" data-testid={`select-filter-field-${index}`}>
-                            <SelectValue placeholder="Field" />
+                          <SelectTrigger className="h-8 text-xs w-48" data-testid={`select-filter-field-${index}`}>
+                            <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
                             {fields.map((f) => (
@@ -624,7 +697,7 @@ export default function CustomReportsPage() {
                           value={filter.operator}
                           onValueChange={(v) => updateFilter(index, { operator: v })}
                         >
-                          <SelectTrigger className="h-8 text-xs w-36" data-testid={`select-filter-op-${index}`}>
+                          <SelectTrigger className="h-8 text-xs w-36" data-testid={`select-filter-operator-${index}`}>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -638,8 +711,8 @@ export default function CustomReportsPage() {
                           <Input
                             value={filter.value}
                             onChange={(e) => updateFilter(index, { value: e.target.value })}
-                            placeholder="Value"
-                            className="h-8 text-xs w-36"
+                            className="h-8 text-xs w-40"
+                            placeholder="Value..."
                             data-testid={`input-filter-value-${index}`}
                           />
                         )}
@@ -648,8 +721,8 @@ export default function CustomReportsPage() {
                           <Input
                             value={filter.value2 || ""}
                             onChange={(e) => updateFilter(index, { value2: e.target.value })}
-                            placeholder="To value"
-                            className="h-8 text-xs w-36"
+                            className="h-8 text-xs w-40"
+                            placeholder="End value..."
                             data-testid={`input-filter-value2-${index}`}
                           />
                         )}
@@ -676,7 +749,7 @@ export default function CustomReportsPage() {
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm flex items-center gap-2">
-                    <LayoutList className="h-4 w-4 text-blue-500" />
+                    <LayoutList className="h-4 w-4 text-emerald-500" />
                     Results
                     <Badge variant="outline">{reportData.total} records</Badge>
                   </CardTitle>
@@ -692,11 +765,11 @@ export default function CustomReportsPage() {
               </CardHeader>
               <CardContent>
                 {reportData.grouped ? (
-                  <div className="space-y-6">
+                  <div className="space-y-4">
                     {reportData.grouped.map((group: any, gi: number) => (
                       <div key={gi}>
-                        <div className="flex items-center gap-2 mb-2 bg-muted/50 px-3 py-2 rounded-lg">
-                          <Badge variant="outline" className="bg-emerald-500/10 text-emerald-700 border-emerald-500/30">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge className="bg-emerald-500/20 text-emerald-700 border-emerald-500/30">
                             {group.group}
                           </Badge>
                           <span className="text-xs text-muted-foreground">{group.count} records</span>
@@ -757,9 +830,9 @@ export default function CustomReportsPage() {
                       </TableBody>
                     </Table>
                     {reportData.data.length > 500 && (
-                      <div className="text-center py-3 text-xs text-muted-foreground border-t">
-                        Showing 500 of {reportData.total} records. Export to see all.
-                      </div>
+                      <p className="text-xs text-center text-muted-foreground py-2">
+                        Showing first 500 of {reportData.total} records. Export for full data.
+                      </p>
                     )}
                   </div>
                 )}
