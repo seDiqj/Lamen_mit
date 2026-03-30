@@ -977,7 +977,7 @@ export default function UsersPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
-                          {(user.role === "user" || !user.role) && (
+                          {getRoleTypeForUser(user) !== "admin" && (
                             <Button
                               variant="ghost"
                               size="icon"
