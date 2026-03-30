@@ -17,7 +17,7 @@ import {
   User, FileText, Building2, Shield, Users, UserCheck, FolderUp,
   ChevronLeft, ChevronRight, Save, ArrowLeft, Loader2, Check, Eye, Edit2,
   XCircle, AlertTriangle, CheckCircle2, Clock, Camera, ExternalLink,
-  Upload, X, File, Trash2, QrCode, Download
+  Upload, X, File, Trash2, QrCode, Download, History
 } from "lucide-react";
 import type { Branch, FinanceOfficer, FundingSource, Province, District, CollateralType } from "@shared/schema";
 import { Textarea } from "@/components/ui/textarea";
@@ -195,6 +195,16 @@ export default function LoanDetailsPage() {
     queryFn: async () => {
       const res = await fetch(`/api/loan-applications/${loanId}`);
       if (!res.ok) throw new Error("Failed to fetch loan");
+      return res.json();
+    },
+    enabled: !!loanId,
+  });
+
+  const { data: changeHistory = [] } = useQuery<any[]>({
+    queryKey: ["/api/loans", loanId, "change-history"],
+    queryFn: async () => {
+      const res = await fetch(`/api/loans/${loanId}/change-history`, { credentials: "include" });
+      if (!res.ok) return [];
       return res.json();
     },
     enabled: !!loanId,
@@ -385,6 +395,7 @@ export default function LoanDetailsPage() {
     onSuccess: () => {
       toast({ title: "Success", description: "Financing application updated successfully" });
       queryClient.invalidateQueries({ queryKey: ["/api/loan-applications", loanId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/loans", loanId, "change-history"] });
       queryClient.invalidateQueries({ queryKey: ["/api/loans"] });
       setIsEditing(false);
     },
@@ -1440,6 +1451,66 @@ export default function LoanDetailsPage() {
           </div>
         </form>
       </Form>
+
+      {changeHistory.length > 0 && (
+        <Card className="border-0 shadow-lg overflow-hidden mt-6" data-testid="card-change-history">
+          <div className="h-1 bg-gradient-to-r from-amber-500 to-orange-500" />
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg">
+                <History className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Change History</CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {changeHistory.length} update{changeHistory.length !== 1 ? "s" : ""} recorded for {loanData?.loan?.applicationId}
+                </p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4 max-h-[500px] overflow-y-auto">
+            {changeHistory.map((log: any, logIdx: number) => {
+              const groupedChanges: Record<string, any[]> = {};
+              (log.changes || []).forEach((c: any) => {
+                const section = c.section || "Other";
+                if (!groupedChanges[section]) groupedChanges[section] = [];
+                groupedChanges[section].push(c);
+              });
+
+              return (
+                <div key={log.id || logIdx} className="border rounded-lg overflow-hidden" data-testid={`change-log-${logIdx}`}>
+                  <div className="px-4 py-2.5 bg-muted/50 flex items-center justify-between border-b">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-sm font-medium">{log.userName}</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {log.createdAt ? new Date(log.createdAt).toLocaleString() : ""}
+                    </span>
+                  </div>
+                  <div className="px-4 py-3 space-y-3">
+                    {Object.entries(groupedChanges).map(([section, changes]) => (
+                      <div key={section}>
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">{section}</p>
+                        <div className="space-y-1.5">
+                          {(changes as any[]).map((change: any, cIdx: number) => (
+                            <div key={cIdx} className="flex items-start gap-2 text-sm">
+                              <span className="text-muted-foreground min-w-[140px] shrink-0">{change.label}:</span>
+                              <span className="line-through text-red-500 dark:text-red-400">{change.oldValue}</span>
+                              <span className="text-muted-foreground">→</span>
+                              <span className="font-medium text-green-600 dark:text-green-400">{change.newValue}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
 
       <Dialog open={showQRDialog} onOpenChange={setShowQRDialog}>
         <DialogContent className="max-w-xl">

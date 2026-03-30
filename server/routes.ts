@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { customers, loans, disbursements, branches, financeOfficers, installments, fundingSources as fundingSourcesTable, collaterals, customerBusinesses, businessLicenses, loanApprovals, guarantors, userRoles, fadReviews, riskComplianceReviews, accounts, journalEntries, journalLines, clientOccupations, productCycleLimits, loanTransfers, collectionRecords } from "@shared/schema";
+import { customers, loans, disbursements, branches, financeOfficers, installments, fundingSources as fundingSourcesTable, collaterals, customerBusinesses, businessLicenses, loanApprovals, guarantors, userRoles, fadReviews, riskComplianceReviews, accounts, journalEntries, journalLines, clientOccupations, productCycleLimits, loanTransfers, collectionRecords, activityLogs } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { eq, and, or, inArray, sql, gte, lte, desc } from "drizzle-orm";
 import { z } from "zod";
@@ -2661,6 +2661,14 @@ export async function registerRoutes(
       const num = (v: any) => (v !== undefined && v !== null && v !== "") ? Number(v) : null;
       const dec = (v: any) => (v !== undefined && v !== null && v !== "" && v !== 0) ? v.toString() : (v === 0 ? "0" : null);
 
+      const oldCustomer = loan.customerId ? await storage.getCustomer(loan.customerId) : null;
+      const oldBusiness = loan.customerId ? await storage.getCustomerBusinessByCustomerId(loan.customerId) : null;
+      const oldLicense = oldBusiness ? await storage.getBusinessLicenseByBusinessId(oldBusiness.id) : null;
+      const oldCollateral = await storage.getCollateralByLoanId(loan.id);
+      const oldGuarantors = await storage.getGuarantorsByLoanId(loan.id);
+      const oldFinancialGuarantors = oldGuarantors.filter(g => g.guarantorType === "financial");
+      const oldFamilyGuarantor = oldGuarantors.find(g => g.guarantorType === "family");
+
       // Update customer
       if (loan.customerId) {
         await storage.updateCustomer(loan.customerId, {
@@ -2881,7 +2889,173 @@ export async function registerRoutes(
         await logActivity(req, "resubmit_loan", "loan", loan.id, `Resubmitted returned loan application: ${loan.applicationId}`);
       }
 
-      await logActivity(req, "update_loan_application", "loan", loan.id, `Updated loan application: ${loan.applicationId}`);
+      const fieldLabels: Record<string, string> = {
+        firstName: "Name", lastName: "Last Name", fatherName: "Father Name",
+        fullNameDari: "Full Name (Dari)", fatherNameDari: "Father Name (Dari)",
+        gender: "Gender", maritalStatus: "Marital Status", nationalId: "National ID",
+        nidExpiryDate: "NID Expiry Date", dateOfBirth: "Date of Birth", placeOfBirth: "Place of Birth",
+        homeAddress: "Home Address", province: "Province", district: "District",
+        areaType: "Area Type", phoneNumber: "Phone", secondPhoneNumber: "Second Phone",
+        numberOfDependents: "Dependents", customerNo: "Customer No",
+        branchId: "Branch", financeOfficerId: "Finance Officer",
+        productName: "Product", productCode: "Product Code", sector: "Sector",
+        businessDescription: "Business Description", businessDetailedDescription: "Business Detailed Description",
+        clientOccupation: "Occupation", financingPurpose: "Financing Purpose",
+        financingPurposeDetails: "Purpose Details", fundingSourceId: "Funding Source",
+        requestDate: "Request Date", requestAmount: "Request Amount",
+        financingDurationMonths: "Duration (Months)", gracePeriod: "Grace Period",
+        numberOfInstallments: "Installments", principleAmount: "Principal Amount",
+        marginRate: "Margin Rate",
+        businessName: "Business Name", businessProvince: "Business Province",
+        businessDistrict: "Business District", businessVillage: "Business Village",
+        detailedAddress: "Business Address", yearsOfExperience: "Years of Experience",
+        monthlyIncomeAmount: "Monthly Income",
+        licenseType: "License Type", president: "License President",
+        licenseNumber: "License Number", registerDate: "License Register Date",
+        expiryDate: "License Expiry Date",
+        ownerName: "Collateral Owner", ownerNationalId: "Collateral Owner NID",
+        titleDeedNumber: "Title Deed No", collateralType: "Collateral Type",
+        collateralProvince: "Collateral Province", collateralDistrict: "Collateral District",
+        address: "Collateral Address", description: "Collateral Description",
+        purchasedPrice: "Purchased Price", marketPrice: "Market Price",
+        fullName: "Guarantor Name", guarantorFatherName: "Guarantor Father Name",
+        guarantorNationalId: "Guarantor NID", guarantorPhone: "Guarantor Phone",
+        guarantorHomeAddress: "Guarantor Address", business: "Guarantor Business",
+        businessAddress: "Guarantor Business Address", relationshipWithCustomer: "Relationship",
+        inventory: "Guarantor Inventory", monthlyIncome: "Guarantor Monthly Income",
+      };
+
+      const normalize = (v: any): string => {
+        if (v === null || v === undefined || v === "") return "";
+        return String(v).trim();
+      };
+
+      const skipKeys = new Set(["id", "createdAt", "updatedAt", "customerId", "loanId", "customerBusinessId", "guarantorType", "photoUrl", "age", "status", "applicationId", "financingCycle", "sourceOfFund", "profit", "approvedAmount", "approvedDate"]);
+      const detectChanges = (oldObj: any, newObj: any, section: string, labels: Record<string, string>): Array<{field: string; label: string; section: string; oldValue: string; newValue: string}> => {
+        const changes: Array<{field: string; label: string; section: string; oldValue: string; newValue: string}> = [];
+        if (!newObj) return changes;
+        for (const key of Object.keys(newObj)) {
+          if (skipKeys.has(key)) continue;
+          const oldVal = normalize(oldObj?.[key]);
+          const newVal = normalize(newObj[key]);
+          if (oldVal !== newVal) {
+            changes.push({ field: key, label: labels[key] || key, section, oldValue: oldVal || "(empty)", newValue: newVal || "(empty)" });
+          }
+        }
+        return changes;
+      };
+
+      const allChanges: Array<{field: string; label: string; section: string; oldValue: string; newValue: string}> = [];
+
+      {
+        const newCustData = {
+          customerNo: str(data.customerNo), firstName: str(data.firstName), lastName: str(data.lastName),
+          fatherName: str(data.fatherName), fullNameDari: str(data.fullNameDari), fatherNameDari: str(data.fatherNameDari),
+          gender: str(data.gender), maritalStatus: str(data.maritalStatus), nationalId: str(data.nationalId),
+          dateOfBirth: str(data.dateOfBirth), placeOfBirth: str(data.placeOfBirth),
+          homeAddress: str(data.homeAddress), province: str(data.province), district: str(data.district),
+          areaType: str(data.areaType) || "Rural", phoneNumber: str(data.phoneNumber),
+          secondPhoneNumber: str(data.secondPhoneNumber), numberOfDependents: num(data.numberOfDependents),
+          directMaleDependent: num(data.directMaleDependent), directFemaleDependent: num(data.directFemaleDependent),
+          indirectMaleDependent: num(data.indirectMaleDependent), indirectFemaleDependent: num(data.indirectFemaleDependent),
+          nidExpiryDate: str(data.nidExpiryDate),
+        };
+        allChanges.push(...detectChanges(oldCustomer || {}, newCustData, "Customer", fieldLabels));
+      }
+
+      const newLoanData = {
+        branchId: str(data.branchId), financeOfficerId: str(data.financeOfficerId),
+        productName: str(data.productName), productCode: str(data.productCode), sector: str(data.sector),
+        businessDescription: str(data.businessDescription), businessDetailedDescription: str(data.businessDetailedDescription),
+        clientOccupation: str(data.clientOccupation), financingPurpose: str(data.financingPurpose),
+        financingPurposeDetails: str(data.financingPurposeDetails), fundingSourceId: str(data.fundingSourceId),
+        requestDate: str(data.requestDate), requestAmount: dec(data.requestAmount),
+        financingDurationMonths: num(data.financingDurationMonths), gracePeriod: num(data.gracePeriod),
+        numberOfInstallments: num(data.numberOfInstallments), principleAmount: dec(data.principleAmount),
+        marginRate: dec(data.marginRate),
+      };
+      allChanges.push(...detectChanges(loan, newLoanData, "Financing", fieldLabels));
+
+      {
+        const newBizData = {
+          businessName: str(data.businessName), province: str(data.businessProvince),
+          district: str(data.businessDistrict), village: str(data.businessVillage),
+          detailedAddress: str(data.businessDetailedAddress), yearsOfExperience: num(data.businessYearsOfExperience),
+          monthlyIncomeAmount: data.businessMonthlyIncomeAmount ? String(data.businessMonthlyIncomeAmount) : null,
+        };
+        allChanges.push(...detectChanges(oldBusiness || {}, newBizData, "Business", fieldLabels));
+      }
+
+      {
+        const newLicData = {
+          licenseType: str(data.licenseType), president: str(data.licensePresident),
+          licenseNumber: str(data.licenseNumber), registerDate: str(data.licenseRegisterDate),
+          expiryDate: str(data.licenseExpiryDate),
+        };
+        allChanges.push(...detectChanges(oldLicense || {}, newLicData, "License", fieldLabels));
+      }
+
+      {
+        const newCollData = {
+          ownerName: str(data.collateralOwnerName), ownerNationalId: str(data.collateralOwnerNid),
+          ownerNidExpiryDate: str(data.collateralOwnerNidExpiry),
+          titleDeedNumber: str(data.collateralTitleDeedNo), collateralType: str(data.collateralType),
+          province: str(data.collateralProvince), district: str(data.collateralDistrict),
+          address: str(data.collateralAddress), description: str(data.collateralDescription),
+          purchasedPrice: dec(data.collateralPurchasedPrice), marketPrice: dec(data.collateralMarketPrice),
+        };
+        allChanges.push(...detectChanges(oldCollateral || {}, newCollData, "Collateral", fieldLabels));
+      }
+
+      {
+        const newFG1 = {
+          fullName: str(data.financialGuarantorFullName), fatherName: str(data.financialGuarantorFatherName),
+          dateOfBirth: str(data.financialGuarantorDateOfBirth),
+          nationalId: str(data.financialGuarantorNid), nidExpiryDate: str(data.financialGuarantorNidExpiry),
+          phoneNumber: str(data.financialGuarantorPhone),
+          homeAddress: str(data.financialGuarantorHomeAddress), province: str(data.financialGuarantorProvince),
+          district: str(data.financialGuarantorDistrict), business: str(data.financialGuarantorBusiness),
+          businessAddress: str(data.financialGuarantorBusinessAddress),
+          relationshipWithCustomer: str(data.financialGuarantorRelationship),
+          yearsOfExperience: num(data.financialGuarantorYearsOfExperience),
+          inventory: dec(data.financialGuarantorInventory), monthlyIncome: dec(data.financialGuarantorMonthlyIncome),
+        };
+        allChanges.push(...detectChanges(oldFinancialGuarantors[0] || {}, newFG1, "Financial Guarantor 1", fieldLabels));
+      }
+
+      {
+        const newFamG = {
+          fullName: str(data.familyGuarantorFullName), fatherName: str(data.familyGuarantorFatherName),
+          dateOfBirth: str(data.familyGuarantorDateOfBirth),
+          nationalId: str(data.familyGuarantorNid), nidExpiryDate: str(data.familyGuarantorNidExpiry),
+          phoneNumber: str(data.familyGuarantorPhone),
+          homeAddress: str(data.familyGuarantorHomeAddress), province: str(data.familyGuarantorProvince),
+          district: str(data.familyGuarantorDistrict), relationshipWithCustomer: str(data.familyGuarantorRelationship),
+        };
+        allChanges.push(...detectChanges(oldFamilyGuarantor || {}, newFamG, "Family Guarantor", fieldLabels));
+      }
+
+      {
+        const newFG2 = {
+          fullName: str(data.financialGuarantor2FullName), fatherName: str(data.financialGuarantor2FatherName),
+          dateOfBirth: str(data.financialGuarantor2DateOfBirth),
+          nationalId: str(data.financialGuarantor2Nid), nidExpiryDate: str(data.financialGuarantor2NidExpiry),
+          phoneNumber: str(data.financialGuarantor2Phone),
+          homeAddress: str(data.financialGuarantor2HomeAddress), province: str(data.financialGuarantor2Province),
+          district: str(data.financialGuarantor2District), business: str(data.financialGuarantor2Business),
+          businessAddress: str(data.financialGuarantor2BusinessAddress),
+          relationshipWithCustomer: str(data.financialGuarantor2Relationship),
+          yearsOfExperience: num(data.financialGuarantor2YearsOfExperience),
+          inventory: dec(data.financialGuarantor2Inventory), monthlyIncome: dec(data.financialGuarantor2MonthlyIncome),
+        };
+        allChanges.push(...detectChanges(oldFinancialGuarantors[1] || {}, newFG2, "Financial Guarantor 2", fieldLabels));
+      }
+
+      const changeDetails = allChanges.length > 0
+        ? JSON.stringify({ applicationId: loan.applicationId, changes: allChanges, changedAt: new Date().toISOString() })
+        : `Updated loan application: ${loan.applicationId} (no field changes detected)`;
+
+      await logActivity(req, "update_loan_application", "loan", loan.id, changeDetails);
       res.json({ message: "Loan application updated successfully" });
     } catch (error) {
       console.error("Error updating loan application:", error);
@@ -4032,6 +4206,57 @@ export async function registerRoutes(
   });
 
   // ===== ACTIVITY LOGS =====
+  app.get("/api/loans/:id/change-history", isAuthenticated, async (req: any, res) => {
+    try {
+      const loanId = req.params.id;
+      const results = await db
+        .select({
+          id: activityLogs.id,
+          userId: activityLogs.userId,
+          details: activityLogs.details,
+          createdAt: activityLogs.createdAt,
+          userName: sql<string>`CONCAT(${users.firstName}, ' ', ${users.lastName})`,
+        })
+        .from(activityLogs)
+        .leftJoin(users, eq(activityLogs.userId, users.id))
+        .where(
+          and(
+            eq(activityLogs.entityId, loanId),
+            eq(activityLogs.action, "update_loan_application"),
+            eq(activityLogs.entityType, "loan")
+          )
+        )
+        .orderBy(desc(activityLogs.createdAt))
+        .limit(50);
+
+      const changeLogs = results
+        .map((log: any) => {
+          let changes: any[] = [];
+          let applicationId = "";
+          try {
+            const parsed = JSON.parse(log.details);
+            changes = parsed.changes || [];
+            applicationId = parsed.applicationId || "";
+          } catch {
+            // old format - not JSON
+          }
+          return {
+            id: log.id,
+            userId: log.userId,
+            userName: log.userName || log.userId,
+            changes,
+            applicationId,
+            createdAt: log.createdAt,
+          };
+        })
+        .filter((log: any) => log.changes.length > 0);
+      res.json(changeLogs);
+    } catch (error) {
+      console.error("Error fetching change history:", error);
+      res.status(500).json({ message: "Failed to fetch change history" });
+    }
+  });
+
   app.get("/api/activity", isAuthenticated, requireRole("admin"), async (req, res) => {
     try {
       const { search, action, page, limit } = req.query;
