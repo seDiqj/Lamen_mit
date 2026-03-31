@@ -1890,10 +1890,10 @@ export async function registerRoutes(
         profitTotalCalc = (principalAmount * rateCalc / 12) * durationMonths;
       }
       const marginPerInstCalc = numInstallments > 0 ? profitTotalCalc / numInstallments : 0;
-      const roundedMarginCalc = Math.round(marginPerInstCalc * 100) / 100;
-      const marginRemainderCalc = Math.round((profitTotalCalc - (roundedMarginCalc * numInstallments)) * 100) / 100;
-      const roundedPrincipalCalc = Math.round(principalPerInstallment * 100) / 100;
-      const principalRemainderCalc = Math.round((principalAmount - (roundedPrincipalCalc * principalInstCount)) * 100) / 100;
+      const roundedMarginCalc = Math.floor(marginPerInstCalc);
+      const marginRemainderCalc = profitTotalCalc - (roundedMarginCalc * numInstallments);
+      const roundedPrincipalCalc = Math.floor(principalPerInstallment);
+      const principalRemainderCalc = principalAmount - (roundedPrincipalCalc * principalInstCount);
 
       for (let i = 1; i <= numInstallments; i++) {
         const isGrace = i <= gracePeriod;
@@ -1902,10 +1902,10 @@ export async function registerRoutes(
         let instPrincipal: number, instMargin: number;
         if (isGrace) {
           instPrincipal = 0;
-          instMargin = (i === 1) ? roundedMarginCalc + marginRemainderCalc : roundedMarginCalc;
+          instMargin = (i === 1) ? roundedMarginCalc + Math.round(marginRemainderCalc) : roundedMarginCalc;
         } else if (isFirstPrincipal) {
-          instPrincipal = roundedPrincipalCalc + principalRemainderCalc;
-          instMargin = (gracePeriod === 0 && i === 1) ? roundedMarginCalc + marginRemainderCalc : roundedMarginCalc;
+          instPrincipal = roundedPrincipalCalc + Math.round(principalRemainderCalc);
+          instMargin = (gracePeriod === 0 && i === 1) ? roundedMarginCalc + Math.round(marginRemainderCalc) : roundedMarginCalc;
         } else {
           instPrincipal = roundedPrincipalCalc;
           instMargin = roundedMarginCalc;
@@ -1914,9 +1914,9 @@ export async function registerRoutes(
 
         calculatedSchedule.push({
           installmentNumber: i,
-          calculatedPrincipal: Math.round(instPrincipal * 100) / 100,
-          calculatedMargin: Math.round(instMargin * 100) / 100,
-          calculatedTotal: Math.round(instTotal * 100) / 100,
+          calculatedPrincipal: instPrincipal,
+          calculatedMargin: instMargin,
+          calculatedTotal: instTotal,
         });
       }
 
@@ -2116,10 +2116,10 @@ export async function registerRoutes(
         const principalPerInst = principalInstallments > 0 ? principalAmount / principalInstallments : 0;
         const marginPerInst = numInstallments > 0 ? profitTotal / numInstallments : 0;
 
-        const roundedPrincipalPerInst = Math.round(principalPerInst * 100) / 100;
-        const roundedMarginPerInst = Math.round(marginPerInst * 100) / 100;
-        const principalRemainder = Math.round((principalAmount - (roundedPrincipalPerInst * principalInstallments)) * 100) / 100;
-        const marginRemainder = Math.round((profitTotal - (roundedMarginPerInst * numInstallments)) * 100) / 100;
+        const roundedPrincipalPerInst = Math.floor(principalPerInst);
+        const roundedMarginPerInst = Math.floor(marginPerInst);
+        const principalRemainder = principalAmount - (roundedPrincipalPerInst * principalInstallments);
+        const marginRemainder = profitTotal - (roundedMarginPerInst * numInstallments);
 
         let createdForLoan = 0;
         let updatedForLoan = 0;
@@ -2132,14 +2132,11 @@ export async function registerRoutes(
           let instPrincipal: number, instMargin: number, instTotal: number;
           if (isGracePeriod) {
             instPrincipal = 0;
-            instMargin = (i === 1) ? roundedMarginPerInst + marginRemainder : roundedMarginPerInst;
+            instMargin = (i === 1) ? roundedMarginPerInst + Math.round(marginRemainder) : roundedMarginPerInst;
             instTotal = instMargin;
           } else if (isFirstPrincipalInst) {
-            instPrincipal = roundedPrincipalPerInst + principalRemainder;
-            instMargin = (i === 1 || gracePeriod > 0) ? roundedMarginPerInst + (gracePeriod === 0 ? marginRemainder : 0) : roundedMarginPerInst;
-            if (gracePeriod === 0 && i === 1) {
-              instMargin = roundedMarginPerInst + marginRemainder;
-            }
+            instPrincipal = roundedPrincipalPerInst + Math.round(principalRemainder);
+            instMargin = (gracePeriod === 0 && i === 1) ? roundedMarginPerInst + Math.round(marginRemainder) : roundedMarginPerInst;
             instTotal = instPrincipal + instMargin;
           } else {
             instPrincipal = roundedPrincipalPerInst;
@@ -8906,10 +8903,10 @@ export async function registerRoutes(
         marginPerInst = marginPayingInstCount > 0 ? profitTotal / marginPayingInstCount : 0;
       }
 
-      const roundedPrincipalPerInst = Math.round(principalPerInst * 100) / 100;
-      const roundedMarginPerInst = Math.round(marginPerInst * 100) / 100;
-      const principalRemainder = Math.round((updatedPrincipal - (roundedPrincipalPerInst * principalInstallments)) * 100) / 100;
-      const marginRemainder = Math.round((profitTotal - (roundedMarginPerInst * marginPayingInstCount)) * 100) / 100;
+      const roundedPrincipalPerInst = Math.floor(principalPerInst);
+      const roundedMarginPerInst = Math.floor(marginPerInst);
+      const principalRemainder = updatedPrincipal - (roundedPrincipalPerInst * principalInstallments);
+      const marginRemainder = profitTotal - (roundedMarginPerInst * marginPayingInstCount);
 
       let created = 0;
 
@@ -8924,14 +8921,14 @@ export async function registerRoutes(
           instTotal = 0;
         } else if (isGrace && useNewFormula) {
           instPrincipal = 0;
-          instMargin = (i === 1) ? roundedMarginPerInst + marginRemainder : roundedMarginPerInst;
+          instMargin = (i === 1) ? roundedMarginPerInst + Math.round(marginRemainder) : roundedMarginPerInst;
           instTotal = instMargin;
         } else if (isFirstPrincipal) {
-          instPrincipal = roundedPrincipalPerInst + principalRemainder;
+          instPrincipal = roundedPrincipalPerInst + Math.round(principalRemainder);
           if (useNewFormula) {
             instMargin = roundedMarginPerInst;
           } else {
-            instMargin = roundedMarginPerInst + marginRemainder;
+            instMargin = roundedMarginPerInst + Math.round(marginRemainder);
           }
           instTotal = instPrincipal + instMargin;
         } else {

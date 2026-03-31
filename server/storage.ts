@@ -1300,10 +1300,10 @@ export class DatabaseStorage implements IStorage {
       const principalPerInst = principalInstallments > 0 ? principalTotal / principalInstallments : 0;
       const marginPerInst = numInstallments > 0 ? profitTotal / numInstallments : 0;
 
-      const roundedPrincipalPerInst = Math.round(principalPerInst * 100) / 100;
-      const roundedMarginPerInst = Math.round(marginPerInst * 100) / 100;
-      const principalRemainder = Math.round((principalTotal - (roundedPrincipalPerInst * principalInstallments)) * 100) / 100;
-      const marginRemainder = Math.round((profitTotal - (roundedMarginPerInst * numInstallments)) * 100) / 100;
+      const roundedPrincipalPerInst = Math.floor(principalPerInst);
+      const roundedMarginPerInst = Math.floor(marginPerInst);
+      const principalRemainder = principalTotal - (roundedPrincipalPerInst * principalInstallments);
+      const marginRemainder = profitTotal - (roundedMarginPerInst * numInstallments);
 
       const startDate = new Date(disbursementData.firstInstallmentDate || new Date());
 
@@ -1317,11 +1317,11 @@ export class DatabaseStorage implements IStorage {
         let instPrincipal: number, instMargin: number, instTotal: number;
         if (isGracePeriod) {
           instPrincipal = 0;
-          instMargin = (i === 1) ? roundedMarginPerInst + marginRemainder : roundedMarginPerInst;
+          instMargin = (i === 1) ? roundedMarginPerInst + Math.round(marginRemainder) : roundedMarginPerInst;
           instTotal = instMargin;
         } else if (isFirstPrincipalInst) {
-          instPrincipal = roundedPrincipalPerInst + principalRemainder;
-          instMargin = (gracePeriod === 0 && i === 1) ? roundedMarginPerInst + marginRemainder : roundedMarginPerInst;
+          instPrincipal = roundedPrincipalPerInst + Math.round(principalRemainder);
+          instMargin = (gracePeriod === 0 && i === 1) ? roundedMarginPerInst + Math.round(marginRemainder) : roundedMarginPerInst;
           instTotal = instPrincipal + instMargin;
         } else {
           instPrincipal = roundedPrincipalPerInst;
@@ -1405,10 +1405,10 @@ export class DatabaseStorage implements IStorage {
         const principalPerInst = principalInstallments > 0 ? principalTotal / principalInstallments : 0;
         const marginPerInst = numInstallments > 0 ? profitTotal / numInstallments : 0;
 
-        const roundedPrincipalPerInst = Math.round(principalPerInst * 100) / 100;
-        const roundedMarginPerInst = Math.round(marginPerInst * 100) / 100;
-        const principalRemainder = Math.round((principalTotal - (roundedPrincipalPerInst * principalInstallments)) * 100) / 100;
-        const marginRemainder = Math.round((profitTotal - (roundedMarginPerInst * numInstallments)) * 100) / 100;
+        const roundedPrincipalPerInst = Math.floor(principalPerInst);
+        const roundedMarginPerInst = Math.floor(marginPerInst);
+        const principalRemainder = principalTotal - (roundedPrincipalPerInst * principalInstallments);
+        const marginRemainder = profitTotal - (roundedMarginPerInst * numInstallments);
 
         for (let i = 1; i <= numInstallments; i++) {
           const dueDate = new Date(firstInstDate);
@@ -1420,11 +1420,11 @@ export class DatabaseStorage implements IStorage {
           let instPrincipal: number, instMargin: number, instTotal: number;
           if (isGracePeriod) {
             instPrincipal = 0;
-            instMargin = (i === 1) ? roundedMarginPerInst + marginRemainder : roundedMarginPerInst;
+            instMargin = (i === 1) ? roundedMarginPerInst + Math.round(marginRemainder) : roundedMarginPerInst;
             instTotal = instMargin;
           } else if (isFirstPrincipalInst) {
-            instPrincipal = roundedPrincipalPerInst + principalRemainder;
-            instMargin = (gracePeriod === 0 && i === 1) ? roundedMarginPerInst + marginRemainder : roundedMarginPerInst;
+            instPrincipal = roundedPrincipalPerInst + Math.round(principalRemainder);
+            instMargin = (gracePeriod === 0 && i === 1) ? roundedMarginPerInst + Math.round(marginRemainder) : roundedMarginPerInst;
             instTotal = instPrincipal + instMargin;
           } else {
             instPrincipal = roundedPrincipalPerInst;
