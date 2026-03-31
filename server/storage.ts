@@ -1763,12 +1763,14 @@ export class DatabaseStorage implements IStorage {
 
     const conditions: any[] = [];
 
+    conditions.push(sql`COALESCE(${installments.totalAmount}::numeric, 0) > 0`);
+
     if (filter === "upcoming") {
       conditions.push(sql`${installments.isPaid} = false AND ${installments.dueDate}::date > ${today}::date AND ${installments.dueDate}::date <= ${threeDaysLater}::date`);
     } else if (filter === "due_soon") {
       conditions.push(sql`${installments.isPaid} = false AND ${installments.dueDate}::date <= ${threeDaysLater}::date`);
     } else if (filter === "overdue") {
-      conditions.push(sql`${installments.isPaid} = false AND ${installments.dueDate}::date <= ${today}::date AND COALESCE(${installments.principleAmount}::numeric, 0) > 0`);
+      conditions.push(sql`${installments.isPaid} = false AND ${installments.dueDate}::date <= ${today}::date`);
     } else if (filter === "partial") {
       conditions.push(sql`${installments.isPaid} = false AND COALESCE(${installments.paidAmount}, 0) > 0`);
     } else if (filter === "all_unpaid") {
