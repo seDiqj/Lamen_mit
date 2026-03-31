@@ -1658,6 +1658,16 @@ export default function CitizenBalanceStatementPage() {
                       />
                     </div>
                   </div>
+                  <div className="flex justify-end mt-3">
+                    <Button
+                      onClick={() => handleGenerate(loanId)}
+                      disabled={regenerateMutation.isPending}
+                      className="bg-green-600 hover:bg-green-700 text-white"
+                      data-testid="button-regenerate-installments"
+                    >
+                      {regenerateMutation.isPending ? "Generating..." : "Generate Installments"}
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             );
