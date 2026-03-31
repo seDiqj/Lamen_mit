@@ -327,7 +327,6 @@ export async function registerRoutes(
     };
   };
 
-  // Middleware for page permission check
   const requirePageAccess = (pageName: string) => {
     return async (req: Request, res: Response, next: NextFunction) => {
       const userId = req.session.userId;
@@ -335,18 +334,22 @@ export async function registerRoutes(
         return res.status(401).json({ message: "Unauthorized" });
       }
       
-      // Only admins have full access
       if (await hasRole(userId, ["admin"])) {
         return next();
       }
       
-      // Check page-specific permissions
       const permissions = await storage.getPagePermissions(userId);
-      const hasAccess = permissions.some(p => p.pageName === pageName && p.canAccess);
       
-      if (hasAccess) {
+      if (permissions.length > 0) {
+        const hasAccess = permissions.some(p => p.pageName === pageName && p.canAccess);
+        if (hasAccess) return next();
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      if (await hasRole(userId, ["manager"])) {
         return next();
       }
+      
       return res.status(403).json({ message: "Forbidden" });
     };
   };
@@ -5277,9 +5280,10 @@ export async function registerRoutes(
       const userRole = await storage.getUserRole(req.session.userId);
       const roleValue = userRole?.role || "user";
       
-      // Check if admin or manager via role or roleType
-      const isAdminOrManager = await hasRole(req.session.userId, ["admin", "manager"]);
-      if (isAdminOrManager) {
+      const isAdminRole = await hasRole(req.session.userId, ["admin"]);
+      const isManagerRole = !isAdminRole && await hasRole(req.session.userId, ["manager"]);
+      
+      if (isAdminRole) {
         const allPages = storage.getAllPages();
         const fullAccess = allPages.reduce((acc, page) => {
           acc[page] = true;
@@ -5288,7 +5292,23 @@ export async function registerRoutes(
         return res.json({ role: roleValue, permissions: fullAccess });
       }
       
-      // Regular users need explicit permissions
+      if (isManagerRole && permissions.length > 0) {
+        const permissionMap: Record<string, boolean> = {};
+        permissions.forEach(p => {
+          permissionMap[p.pageName] = p.canAccess;
+        });
+        return res.json({ role: roleValue, permissions: permissionMap });
+      }
+      
+      if (isManagerRole) {
+        const allPages = storage.getAllPages();
+        const fullAccess = allPages.reduce((acc, page) => {
+          acc[page] = true;
+          return acc;
+        }, {} as Record<string, boolean>);
+        return res.json({ role: roleValue, permissions: fullAccess });
+      }
+      
       const permissionMap: Record<string, boolean> = {};
       permissions.forEach(p => {
         permissionMap[p.pageName] = p.canAccess;
