@@ -50,7 +50,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Switch } from "@/components/ui/switch";
-import { Search, Plus, Pencil, Trash2, Users, Shield, UserCheck, UserX, Crown, Lock, Unlock, LayoutDashboard, FileText, BarChart3, AlertTriangle, Activity, Settings, CreditCard, ClipboardList, PiggyBank, ChevronDown, ChevronRight, Building2, UserPlus, Briefcase, Gavel, FileCheck, Banknote, BookOpen, FolderOpen, Layers, Receipt, Scale, FileSpreadsheet, UserCog, Network, Calendar, Clock, Plane, CalendarOff, GitBranch, Check, ChevronsUpDown } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, Users, Shield, UserCheck, UserX, Crown, Lock, Unlock, LayoutDashboard, FileText, BarChart3, AlertTriangle, Activity, Settings, CreditCard, ClipboardList, PiggyBank, ChevronDown, ChevronRight, Building2, UserPlus, Briefcase, Gavel, FileCheck, Banknote, BookOpen, FolderOpen, Layers, Receipt, Scale, FileSpreadsheet, UserCog, Network, Calendar, Clock, Plane, CalendarOff, GitBranch, Check, ChevronsUpDown, Package, ArrowLeftRight, CheckSquare, TrendingUp, DollarSign, Target, ListChecks, Wallet, PieChart, Landmark, GraduationCap, Award, Heart, LineChart } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { format } from "date-fns";
@@ -76,6 +76,7 @@ const PAGE_CATEGORIES: PageCategory[] = [
     color: "from-blue-500 to-indigo-500",
     pages: [
       { id: "dashboard", label: "Overview Dashboard", icon: LayoutDashboard },
+      { id: "admin-dashboard", label: "Admin Dashboard", icon: TrendingUp },
     ],
   },
   {
@@ -96,12 +97,18 @@ const PAGE_CATEGORIES: PageCategory[] = [
     pages: [
       { id: "loans", label: "Financing List", icon: FileText },
       { id: "loan-application", label: "New Financing Application", icon: ClipboardList },
+      { id: "financing-products", label: "Financing Products", icon: Package },
       { id: "fad-review", label: "FAD Review", icon: FileCheck },
       { id: "risk-compliance", label: "Risk Compliance", icon: Shield },
       { id: "committee-voting", label: "Committee Voting", icon: Gavel },
       { id: "approvals", label: "Financing Approvals", icon: ClipboardList },
       { id: "disbursements", label: "Disbursements", icon: Banknote },
       { id: "payments", label: "Payments", icon: CreditCard },
+      { id: "collections", label: "Collections", icon: Wallet },
+      { id: "collection-approvals", label: "Collection Approvals", icon: CheckSquare },
+      { id: "installment-management", label: "Installment Management", icon: ListChecks },
+      { id: "loan-transfers", label: "Loan Transfers", icon: ArrowLeftRight },
+      { id: "loan-classification", label: "Loan Classification", icon: Target },
     ],
   },
   {
@@ -112,6 +119,9 @@ const PAGE_CATEGORIES: PageCategory[] = [
     pages: [
       { id: "reports", label: "General Reports", icon: BarChart3 },
       { id: "par-report", label: "PAR Report", icon: AlertTriangle },
+      { id: "dab-report", label: "DAB Regulatory Report", icon: Landmark },
+      { id: "accounting-dashboard", label: "Accounting Dashboard", icon: PieChart },
+      { id: "profitability-analysis", label: "Profitability Analysis", icon: LineChart },
     ],
   },
   {
@@ -123,7 +133,9 @@ const PAGE_CATEGORIES: PageCategory[] = [
       { id: "branches", label: "Branches", icon: Building2 },
       { id: "officers", label: "Finance Officers", icon: Briefcase },
       { id: "funding-sources", label: "Funding Sources", icon: PiggyBank },
-      { id: "lookup", label: "Lookup", icon: Layers },
+      { id: "lookup", label: "Lookup Tables", icon: Layers },
+      { id: "par-categories", label: "PAR Categories", icon: Target },
+      { id: "disbursement-targets", label: "Disbursement Targets", icon: DollarSign },
     ],
   },
   {
@@ -141,6 +153,11 @@ const PAGE_CATEGORIES: PageCategory[] = [
       { id: "hr-leave-types", label: "Leave Types", icon: CalendarOff },
       { id: "hr-leave-requests", label: "Leave Requests", icon: Plane },
       { id: "hr-holidays", label: "Holidays", icon: Calendar },
+      { id: "hr-payroll", label: "Payroll", icon: DollarSign },
+      { id: "hr-recruitment", label: "Recruitment", icon: UserPlus },
+      { id: "hr-performance", label: "Performance", icon: Award },
+      { id: "hr-training", label: "Training", icon: GraduationCap },
+      { id: "hr-benefits", label: "Benefits", icon: Heart },
     ],
   },
   {
@@ -155,6 +172,7 @@ const PAGE_CATEGORIES: PageCategory[] = [
       { id: "trial-balance", label: "Trial Balance", icon: Scale },
       { id: "income-statement", label: "Income Statement", icon: BarChart3 },
       { id: "balance-sheet", label: "Balance Sheet", icon: FileSpreadsheet },
+      { id: "cash-flow-statement", label: "Cash Flow Statement", icon: TrendingUp },
     ],
   },
   {
@@ -173,24 +191,36 @@ const PAGE_CATEGORIES: PageCategory[] = [
 
 const PAGE_ICONS: Record<string, any> = {
   dashboard: LayoutDashboard,
+  "admin-dashboard": TrendingUp,
   customers: Users,
   "customer-registration": UserPlus,
   loans: FileText,
   "loan-application": ClipboardList,
+  "financing-products": Package,
   "fad-review": FileCheck,
   "risk-compliance": Shield,
   "committee-voting": Gavel,
   reports: BarChart3,
   "par-report": AlertTriangle,
+  "dab-report": Landmark,
+  "accounting-dashboard": PieChart,
+  "profitability-analysis": LineChart,
   "activity-logs": Activity,
   settings: Settings,
   payments: CreditCard,
+  collections: Wallet,
+  "collection-approvals": CheckSquare,
+  "installment-management": ListChecks,
+  "loan-transfers": ArrowLeftRight,
+  "loan-classification": Target,
   approvals: ClipboardList,
   disbursements: Banknote,
   branches: Building2,
   officers: Briefcase,
   "funding-sources": PiggyBank,
   lookup: Layers,
+  "par-categories": Target,
+  "disbursement-targets": DollarSign,
   users: Users,
   "page-permissions": Shield,
   "chart-of-accounts": BookOpen,
@@ -199,6 +229,7 @@ const PAGE_ICONS: Record<string, any> = {
   "trial-balance": Scale,
   "income-statement": BarChart3,
   "balance-sheet": FileSpreadsheet,
+  "cash-flow-statement": TrendingUp,
   "hr-dashboard": LayoutDashboard,
   "hr-employees": Users,
   "hr-departments": Building2,
@@ -208,28 +239,45 @@ const PAGE_ICONS: Record<string, any> = {
   "hr-leave-types": CalendarOff,
   "hr-leave-requests": Plane,
   "hr-holidays": Calendar,
+  "hr-payroll": DollarSign,
+  "hr-recruitment": UserPlus,
+  "hr-performance": Award,
+  "hr-training": GraduationCap,
+  "hr-benefits": Heart,
 };
 
 const PAGE_LABELS: Record<string, string> = {
   dashboard: "Dashboard",
+  "admin-dashboard": "Admin Dashboard",
   customers: "Customers",
   "customer-registration": "Customer Registration",
   loans: "Financings",
   "loan-application": "Financing Application",
+  "financing-products": "Financing Products",
   "fad-review": "FAD Review",
   "risk-compliance": "Risk Compliance",
   "committee-voting": "Committee Voting",
   reports: "Reports",
   "par-report": "PAR Report",
+  "dab-report": "DAB Regulatory Report",
+  "accounting-dashboard": "Accounting Dashboard",
+  "profitability-analysis": "Profitability Analysis",
   "activity-logs": "Activity Logs",
   settings: "Settings",
   payments: "Payments",
+  collections: "Collections",
+  "collection-approvals": "Collection Approvals",
+  "installment-management": "Installment Management",
+  "loan-transfers": "Loan Transfers",
+  "loan-classification": "Loan Classification",
   approvals: "Approvals",
   disbursements: "Disbursements",
   branches: "Branches",
   officers: "Finance Officers",
   "funding-sources": "Funding Sources",
-  lookup: "Lookup",
+  lookup: "Lookup Tables",
+  "par-categories": "PAR Categories",
+  "disbursement-targets": "Disbursement Targets",
   users: "User Management",
   "page-permissions": "Page Permissions",
   "chart-of-accounts": "Chart of Accounts",
@@ -238,6 +286,7 @@ const PAGE_LABELS: Record<string, string> = {
   "trial-balance": "Trial Balance",
   "income-statement": "Income Statement",
   "balance-sheet": "Balance Sheet",
+  "cash-flow-statement": "Cash Flow Statement",
   "hr-dashboard": "HR Dashboard",
   "hr-employees": "Employees",
   "hr-departments": "Departments",
@@ -247,6 +296,11 @@ const PAGE_LABELS: Record<string, string> = {
   "hr-leave-types": "Leave Types",
   "hr-leave-requests": "Leave Requests",
   "hr-holidays": "Holidays",
+  "hr-payroll": "Payroll",
+  "hr-recruitment": "Recruitment",
+  "hr-performance": "Performance",
+  "hr-training": "Training",
+  "hr-benefits": "Benefits",
 };
 
 interface User {
