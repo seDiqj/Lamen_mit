@@ -4024,12 +4024,14 @@ export async function registerRoutes(
   // ===== COLLECTIONS =====
   app.get("/api/collections", isAuthenticated, async (req, res) => {
     try {
-      const { filter, branch, officer, search, page, limit } = req.query;
+      const { filter, branch, officer, search, page, limit, startDate, endDate } = req.query;
       const result = await storage.getCollectionInstallments({
         filter: (filter as string) || "upcoming",
         branch: branch as string | undefined,
         officer: officer as string | undefined,
         search: search as string | undefined,
+        startDate: startDate as string | undefined,
+        endDate: endDate as string | undefined,
         page: page ? parseInt(page as string) : 1,
         limit: limit ? parseInt(limit as string) : 20,
       });

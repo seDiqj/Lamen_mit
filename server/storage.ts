@@ -278,7 +278,7 @@ export interface IStorage {
   // Installments
   getInstallments(filters: { search?: string; page?: number; limit?: number; currentMonthOnly?: boolean; paidOnly?: boolean; customerName?: string; applicationId?: string; branchId?: string; startDate?: string; endDate?: string }): Promise<{ installments: any[]; total: number }>;
   markInstallmentPaid(id: string): Promise<Installment>;
-  getCollectionInstallments(filters: { filter?: string; branch?: string; officer?: string; search?: string; page?: number; limit?: number }): Promise<{ installments: any[]; total: number; summary: any }>;
+  getCollectionInstallments(filters: { filter?: string; branch?: string; officer?: string; search?: string; startDate?: string; endDate?: string; page?: number; limit?: number }): Promise<{ installments: any[]; total: number; summary: any }>;
   recordPartialPayment(id: string, amount: number, paymentDateStr?: string): Promise<Installment>;
   recordPaymentWithOverflow(id: string, amount: number, paymentDateStr?: string): Promise<{ paidInstallments: Installment[]; totalApplied: number; overflow: number }>;
 
@@ -1755,8 +1755,8 @@ export class DatabaseStorage implements IStorage {
     return installment;
   }
 
-  async getCollectionInstallments(filters: { filter?: string; branch?: string; officer?: string; search?: string; page?: number; limit?: number }): Promise<{ installments: any[]; total: number; summary: any }> {
-    const { filter = "upcoming", branch, officer, search, page = 1, limit = 20 } = filters;
+  async getCollectionInstallments(filters: { filter?: string; branch?: string; officer?: string; search?: string; startDate?: string; endDate?: string; page?: number; limit?: number }): Promise<{ installments: any[]; total: number; summary: any }> {
+    const { filter = "upcoming", branch, officer, search, startDate, endDate, page = 1, limit = 20 } = filters;
     const offset = (page - 1) * limit;
     const today = new Date().toISOString().split("T")[0];
     const threeDaysLater = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
@@ -1792,6 +1792,13 @@ export class DatabaseStorage implements IStorage {
         CONCAT(${customers.firstName}, ' ', ${customers.lastName}) ILIKE ${'%' + search + '%'}
         OR ${loans.applicationId} ILIKE ${'%' + search + '%'}
       )`);
+    }
+
+    if (startDate) {
+      conditions.push(sql`${installments.dueDate}::date >= ${startDate}::date`);
+    }
+    if (endDate) {
+      conditions.push(sql`${installments.dueDate}::date <= ${endDate}::date`);
     }
 
     const whereClause = conditions.length > 0

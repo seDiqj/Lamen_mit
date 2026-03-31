@@ -145,6 +145,8 @@ export default function CollectionsPage() {
   const [branch, setBranch] = useState("all");
   const [officer, setOfficer] = useState("all");
   const [page, setPage] = useState(1);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [selectedInstallment, setSelectedInstallment] = useState<CollectionInstallment | null>(null);
   const [showPayDialog, setShowPayDialog] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
@@ -162,13 +164,15 @@ export default function CollectionsPage() {
     totalPages: number;
     summary: CollectionSummary;
   }>({
-    queryKey: ["/api/collections", filter, branch, officer, search, page, limit],
+    queryKey: ["/api/collections", filter, branch, officer, search, page, limit, startDate, endDate],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.set("filter", filter);
       if (branch !== "all") params.set("branch", branch);
       if (officer !== "all") params.set("officer", officer);
       if (search) params.set("search", search);
+      if (startDate) params.set("startDate", startDate);
+      if (endDate) params.set("endDate", endDate);
       params.set("page", String(page));
       params.set("limit", String(limit));
       const res = await fetch(`/api/collections?${params.toString()}`, { credentials: "include" });
@@ -523,6 +527,32 @@ export default function CollectionsPage() {
                 ))}
               </SelectContent>
             </Select>
+            <div className="flex items-center gap-2">
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
+                className="w-[150px]"
+                placeholder="Start Date"
+                title="Due Date From"
+                data-testid="input-start-date"
+              />
+              <span className="text-sm text-muted-foreground">to</span>
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
+                className="w-[150px]"
+                placeholder="End Date"
+                title="Due Date To"
+                data-testid="input-end-date"
+              />
+              {(startDate || endDate) && (
+                <Button variant="ghost" size="sm" onClick={() => { setStartDate(""); setEndDate(""); setPage(1); }} data-testid="button-clear-dates">
+                  Clear
+                </Button>
+              )}
+            </div>
           </div>
 
           {isLoading ? (
