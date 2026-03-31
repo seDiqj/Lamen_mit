@@ -69,6 +69,7 @@ type CollectionInstallment = {
   loanApplicationId: string;
   customerName: string;
   customerPhone: string | null;
+  customerAddress: string | null;
   branchName: string;
   financeOfficerName: string | null;
 };
@@ -326,6 +327,7 @@ export default function CollectionsPage() {
           "Financing ID": inst.loanApplicationId,
           "Customer": inst.customerName,
           "Mobile": inst.customerPhone || "-",
+          "Address": inst.customerAddress || "-",
           "Branch": inst.branchName,
           "Officer": inst.financeOfficerName || "-",
           "Inst. #": inst.installmentNumber,
@@ -365,6 +367,7 @@ export default function CollectionsPage() {
           inst.loanApplicationId,
           inst.customerName,
           inst.customerPhone || "-",
+          inst.customerAddress || "-",
           inst.branchName || "-",
           inst.financeOfficerName || "-",
           `#${inst.installmentNumber}`,
@@ -378,7 +381,7 @@ export default function CollectionsPage() {
       });
 
       autoTable(doc, {
-        head: [["Financing", "Customer", "Mobile", "Branch", "Officer", "Inst.", "Due Date", "Total", "Paid", "Remaining", "Status", "PAR"]],
+        head: [["Financing", "Customer", "Mobile", "Address", "Branch", "Officer", "Inst.", "Due Date", "Total", "Paid", "Remaining", "Status", "PAR"]],
         body: rows,
         startY: 28,
         styles: { fontSize: 7 },
@@ -576,6 +579,7 @@ export default function CollectionsPage() {
                     <TableHead>Financing</TableHead>
                     <TableHead>Customer</TableHead>
                     <TableHead>Mobile</TableHead>
+                    <TableHead>Address</TableHead>
                     <TableHead>Branch</TableHead>
                     <TableHead>Officer</TableHead>
                     <TableHead className="text-center">Inst. #</TableHead>
@@ -614,6 +618,7 @@ export default function CollectionsPage() {
                           </div>
                         </TableCell>
                         <TableCell className="text-sm" data-testid={`text-phone-${inst.id}`}>{inst.customerPhone || "-"}</TableCell>
+                        <TableCell className="text-sm" data-testid={`text-address-${inst.id}`}>{inst.customerAddress || "-"}</TableCell>
                         <TableCell className="text-sm">{inst.branchName || "-"}</TableCell>
                         <TableCell className="text-sm">{inst.financeOfficerName || "-"}</TableCell>
                         <TableCell className="text-center">

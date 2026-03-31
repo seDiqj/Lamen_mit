@@ -1833,6 +1833,7 @@ export class DatabaseStorage implements IStorage {
         loanApplicationId: loans.applicationId,
         customerName: sql<string>`CONCAT(${customers.firstName}, ' ', ${customers.lastName})`,
         customerPhone: customers.phoneNumber,
+        customerAddress: customers.homeAddress,
         branchName: branches.name,
         financeOfficerName: financeOfficers.name,
       })
