@@ -68,6 +68,7 @@ type CollectionInstallment = {
   isPaid: boolean;
   loanApplicationId: string;
   customerName: string;
+  customerPhone: string | null;
   branchName: string;
   financeOfficerName: string | null;
 };
@@ -324,6 +325,7 @@ export default function CollectionsPage() {
         return {
           "Financing ID": inst.loanApplicationId,
           "Customer": inst.customerName,
+          "Mobile": inst.customerPhone || "-",
           "Branch": inst.branchName,
           "Officer": inst.financeOfficerName || "-",
           "Inst. #": inst.installmentNumber,
@@ -362,6 +364,7 @@ export default function CollectionsPage() {
         return [
           inst.loanApplicationId,
           inst.customerName,
+          inst.customerPhone || "-",
           inst.branchName || "-",
           inst.financeOfficerName || "-",
           `#${inst.installmentNumber}`,
@@ -375,7 +378,7 @@ export default function CollectionsPage() {
       });
 
       autoTable(doc, {
-        head: [["Financing", "Customer", "Branch", "Officer", "Inst.", "Due Date", "Total", "Paid", "Remaining", "Status", "PAR"]],
+        head: [["Financing", "Customer", "Mobile", "Branch", "Officer", "Inst.", "Due Date", "Total", "Paid", "Remaining", "Status", "PAR"]],
         body: rows,
         startY: 28,
         styles: { fontSize: 7 },
@@ -572,6 +575,7 @@ export default function CollectionsPage() {
                   <TableRow>
                     <TableHead>Financing</TableHead>
                     <TableHead>Customer</TableHead>
+                    <TableHead>Mobile</TableHead>
                     <TableHead>Branch</TableHead>
                     <TableHead>Officer</TableHead>
                     <TableHead className="text-center">Inst. #</TableHead>
@@ -609,6 +613,7 @@ export default function CollectionsPage() {
                             <span className="text-sm" data-testid={`text-customer-${inst.id}`}>{inst.customerName}</span>
                           </div>
                         </TableCell>
+                        <TableCell className="text-sm" data-testid={`text-phone-${inst.id}`}>{inst.customerPhone || "-"}</TableCell>
                         <TableCell className="text-sm">{inst.branchName || "-"}</TableCell>
                         <TableCell className="text-sm">{inst.financeOfficerName || "-"}</TableCell>
                         <TableCell className="text-center">
