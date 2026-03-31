@@ -309,9 +309,9 @@ export default function EmployeeForm() {
         employmentStatus: existingEmployee.employmentStatus as any,
         educationLevel: existingEmployee.educationLevel as any,
         educationDetails: existingEmployee.educationDetails || "",
-        totalExperienceYears: existingEmployee.totalExperienceYears || 0,
-        jobRelatedExperienceYears: existingEmployee.jobRelatedExperienceYears || 0,
-        otherExperienceYears: existingEmployee.otherExperienceYears || 0,
+        totalExperienceYears: Number.isFinite(Number(existingEmployee.totalExperienceYears)) ? Number(existingEmployee.totalExperienceYears) : 0,
+        jobRelatedExperienceYears: Number.isFinite(Number(existingEmployee.jobRelatedExperienceYears)) ? Number(existingEmployee.jobRelatedExperienceYears) : 0,
+        otherExperienceYears: Number.isFinite(Number(existingEmployee.otherExperienceYears)) ? Number(existingEmployee.otherExperienceYears) : 0,
       });
       if (existingEmployee.photoUrl) {
         setPhotoUrl(existingEmployee.photoUrl);
@@ -877,10 +877,9 @@ export default function EmployeeForm() {
                   <FormLabel>Total Experience (Years)</FormLabel>
                   <FormControl>
                     <Input 
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      value={field.value?.toString() || ""}
+                      type="number"
+                      min="0"
+                      value={Number.isFinite(Number(field.value)) ? Number(field.value) : 0}
                       onChange={(e) => {
                         const val = e.target.value.replace(/\D/g, '');
                         field.onChange(val ? parseInt(val) : 0);
@@ -901,10 +900,9 @@ export default function EmployeeForm() {
                   <FormLabel>Job Related Experience (Years)</FormLabel>
                   <FormControl>
                     <Input 
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      value={field.value?.toString() || ""}
+                      type="number"
+                      min="0"
+                      value={Number.isFinite(Number(field.value)) ? Number(field.value) : 0}
                       onChange={(e) => {
                         const val = e.target.value.replace(/\D/g, '');
                         field.onChange(val ? parseInt(val) : 0);
@@ -925,10 +923,9 @@ export default function EmployeeForm() {
                   <FormLabel>Other Experience (Years)</FormLabel>
                   <FormControl>
                     <Input 
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      value={field.value?.toString() || ""}
+                      type="number"
+                      min="0"
+                      value={Number.isFinite(Number(field.value)) ? Number(field.value) : 0}
                       onChange={(e) => {
                         const val = e.target.value.replace(/\D/g, '');
                         field.onChange(val ? parseInt(val) : 0);
@@ -1259,7 +1256,9 @@ export default function EmployeeForm() {
               </div>
             </CardHeader>
             <CardContent className="px-4 pb-4 pt-0">
-              {renderStepContent()}
+              <div key={`step-${currentStep}`}>
+                {renderStepContent()}
+              </div>
               
               <div className="flex justify-between pt-4 mt-4 border-t">
                 <Button
