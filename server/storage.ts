@@ -5429,6 +5429,7 @@ export class DatabaseStorage implements IStorage {
           .groupBy(journalLines.accountId)
       : [];
 
+    const r2 = (n: number) => Math.round(n * 100) / 100;
     const balanceMap = new Map<string, number>();
     for (const row of balanceRows) {
       const debit = Number(row.totalDebit || 0);
@@ -5436,9 +5437,9 @@ export class DatabaseStorage implements IStorage {
       const acc = allAccounts.find(a => a.id === row.accountId);
       if (!acc) continue;
       if (acc.accountType === 'asset') {
-        balanceMap.set(row.accountId, debit - credit);
+        balanceMap.set(row.accountId, r2(debit - credit));
       } else {
-        balanceMap.set(row.accountId, credit - debit);
+        balanceMap.set(row.accountId, r2(credit - debit));
       }
     }
 
@@ -5476,7 +5477,7 @@ export class DatabaseStorage implements IStorage {
         const ownBalance = balanceMap.get(acc.id) || 0;
         const amount = isLeaf
           ? ownBalance
-          : childNodes.reduce((sum, c) => sum + c.amount, 0) + ownBalance;
+          : r2(childNodes.reduce((sum, c) => sum + c.amount, 0) + ownBalance);
         return {
           id: acc.id,
           accountCode: acc.accountCode,
@@ -5505,6 +5506,8 @@ export class DatabaseStorage implements IStorage {
 
     const plAccountIds = [...incomeAccounts, ...expenseAccounts].map(a => a.id);
 
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+
     const computePL = async (fromDate: string | null, toDate: string) => {
       if (plAccountIds.length === 0) return 0;
       const conditions = [
@@ -5529,28 +5532,28 @@ export class DatabaseStorage implements IStorage {
       let totalInc = 0;
       let totalExp = 0;
       for (const row of rows) {
-        const credit = Number(row.totalCredit || 0);
-        const debit = Number(row.totalDebit || 0);
+        const credit = round2(Number(row.totalCredit || 0));
+        const debit = round2(Number(row.totalDebit || 0));
         const acc = [...incomeAccounts, ...expenseAccounts].find(a => a.id === row.accountId);
         if (!acc) continue;
         if (acc.accountType === 'income') {
-          totalInc += (credit - debit);
+          totalInc = round2(totalInc + (credit - debit));
         } else {
-          totalExp += (debit - credit);
+          totalExp = round2(totalExp + (debit - credit));
         }
       }
-      return totalInc - totalExp;
+      return round2(totalInc - totalExp);
     };
 
     const retainedEarnings = await computePL(null, priorYearEnd);
     const currentPeriodNetIncome = await computePL(currentYearStart, asOfDate);
-    const netIncome = retainedEarnings + currentPeriodNetIncome;
+    const netIncome = round2(retainedEarnings + currentPeriodNetIncome);
 
-    const sumTree = (nodes: TreeNode[]): number => nodes.reduce((s, n) => s + n.amount, 0);
+    const sumTree = (nodes: TreeNode[]): number => round2(nodes.reduce((s, n) => s + round2(n.amount), 0));
     const totalAssets = sumTree(assetsTree);
     const totalLiabilities = sumTree(liabilitiesTree);
     const totalEquityFromAccounts = sumTree(equityTree);
-    const totalEquity = totalEquityFromAccounts + netIncome;
+    const totalEquity = round2(totalEquityFromAccounts + netIncome);
 
     return {
       assetsTree,
