@@ -4984,6 +4984,13 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Username already exists" });
       }
 
+      if (email) {
+        const existingEmail = await storage.getUserByEmail(email);
+        if (existingEmail) {
+          return res.status(400).json({ message: `Email "${email}" is already used by another user` });
+        }
+      }
+
       const hashedPassword = await bcrypt.hash(password, 10);
       const user = await storage.createUser({
         username,
@@ -5016,8 +5023,11 @@ export async function registerRoutes(
         email: user.email,
         role: role || "user",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating user:", error);
+      if (error?.code === '23505' && error?.constraint?.includes('email')) {
+        return res.status(400).json({ message: `Email is already used by another user` });
+      }
       res.status(500).json({ message: "Failed to create user" });
     }
   });
