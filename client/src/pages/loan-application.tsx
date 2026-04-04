@@ -1099,7 +1099,7 @@ export default function LoanApplicationPage() {
                       const sectorBusinesses = businesses.filter(b => b.sectorId === selectedSector?.id);
                       return (
                         <FormItem>
-                          <FormLabel className="text-xs">Business</FormLabel>
+                          <FormLabel className="text-xs">Business Type</FormLabel>
                           <Select 
                             onValueChange={(value) => {
                               const business = sectorBusinesses.find(b => b.id === value);
