@@ -693,7 +693,7 @@ export default function FadReviewPage() {
                       <FormItem><FormLabel>Customer No</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-customerNo" /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="firstName" render={({ field }) => (
-                      <FormItem><FormLabel>Name</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-firstName" /></FormControl><FormMessage /></FormItem>
+                      <FormItem><FormLabel>Full Name *</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-firstName" /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="fatherName" render={({ field }) => (
                       <FormItem><FormLabel>Father's Name</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-fatherName" /></FormControl><FormMessage /></FormItem>
@@ -724,7 +724,7 @@ export default function FadReviewPage() {
                         </Select><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="nationalId" render={({ field }) => (
-                      <FormItem><FormLabel>National ID</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-nationalId" /></FormControl><FormMessage /></FormItem>
+                      <FormItem><FormLabel>National ID (NID)</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-nationalId" /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="nidExpiryDate" render={({ field }) => (
                       <FormItem><FormLabel>NID Expiry Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-nidExpiryDate" /></FormControl><FormMessage /></FormItem>
@@ -794,10 +794,22 @@ export default function FadReviewPage() {
                       <FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-phoneNumber" /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="secondPhoneNumber" render={({ field }) => (
-                      <FormItem><FormLabel>Second Phone</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-secondPhone" /></FormControl><FormMessage /></FormItem>
+                      <FormItem><FormLabel>2nd Phone Number</FormLabel><FormControl><Input disabled={!isEditing} {...field} data-testid="input-secondPhone" /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="numberOfDependents" render={({ field }) => (
-                      <FormItem><FormLabel>Dependents</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} data-testid="input-dependents" /></FormControl><FormMessage /></FormItem>
+                      <FormItem><FormLabel>No. of Dependents</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} data-testid="input-dependents" /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="directMaleDependent" render={({ field }) => (
+                      <FormItem><FormLabel>Direct Male Employee</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} data-testid="input-directMaleDependent" /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="directFemaleDependent" render={({ field }) => (
+                      <FormItem><FormLabel>Direct Female Employee</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} data-testid="input-directFemaleDependent" /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="indirectMaleDependent" render={({ field }) => (
+                      <FormItem><FormLabel>Indirect Male Employee</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} data-testid="input-indirectMaleDependent" /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="indirectFemaleDependent" render={({ field }) => (
+                      <FormItem><FormLabel>Indirect Female Employee</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} data-testid="input-indirectFemaleDependent" /></FormControl><FormMessage /></FormItem>
                     )} />
                   </div>
 
@@ -890,7 +902,7 @@ export default function FadReviewPage() {
                       const selectedSector = sectors.find((s: any) => s.name === form.watch("sector"));
                       const sectorBusinesses = businesses.filter((b: any) => b.sectorId === selectedSector?.id);
                       return (
-                        <FormItem><FormLabel>Business</FormLabel>
+                        <FormItem><FormLabel>Business Type</FormLabel>
                           <Select disabled={!isEditing || !selectedSector} onValueChange={(value) => {
                             const business = sectorBusinesses.find((b: any) => b.id === value);
                             field.onChange(business?.name || "");
@@ -926,7 +938,7 @@ export default function FadReviewPage() {
                       <FormItem><FormLabel>Grace Period</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} data-testid="input-grace" /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="numberOfInstallments" render={({ field }) => (
-                      <FormItem><FormLabel>Installments</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} data-testid="input-installments" /></FormControl><FormMessage /></FormItem>
+                      <FormItem><FormLabel>No. of Installments</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} data-testid="input-installments" /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="principleAmount" render={({ field }) => (
                       <FormItem><FormLabel>Principle (AFN)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} data-testid="input-principleAmount" /></FormControl><FormMessage /></FormItem>

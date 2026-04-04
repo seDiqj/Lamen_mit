@@ -669,7 +669,7 @@ export default function LoanDetailsPage() {
                     <FormItem><FormLabel>Customer No</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="firstName" render={({ field }) => (
-                    <FormItem><FormLabel>Name</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Full Name *</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="fatherName" render={({ field }) => (
                     <FormItem><FormLabel>Father's Name</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
@@ -700,7 +700,7 @@ export default function LoanDetailsPage() {
                       </Select><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="nationalId" render={({ field }) => (
-                    <FormItem><FormLabel>National ID</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>National ID (NID)</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="nidExpiryDate" render={({ field }) => (
                     <FormItem><FormLabel>NID Expiry Date {field.value && <span className="text-blue-500 text-xs font-normal ml-1">({toPersianDate(field.value)})</span>}</FormLabel><FormControl><Input type="date" disabled={!isEditing} {...field} data-testid="input-nid-expiry" /></FormControl><FormMessage /></FormItem>
@@ -788,22 +788,22 @@ export default function LoanDetailsPage() {
                     <FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="secondPhoneNumber" render={({ field }) => (
-                    <FormItem><FormLabel>2nd Phone</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>2nd Phone Number</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="numberOfDependents" render={({ field }) => (
-                    <FormItem><FormLabel>Dependents</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>No. of Dependents</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="directMaleDependent" render={({ field }) => (
-                    <FormItem><FormLabel>Direct Male Dep.</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Direct Male Employee</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="directFemaleDependent" render={({ field }) => (
-                    <FormItem><FormLabel>Direct Female Dep.</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Direct Female Employee</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="indirectMaleDependent" render={({ field }) => (
-                    <FormItem><FormLabel>Indirect Male Dep.</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Indirect Male Employee</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="indirectFemaleDependent" render={({ field }) => (
-                    <FormItem><FormLabel>Indirect Female Dep.</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Indirect Female Employee</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
                   )} />
                 </div>
 
@@ -884,7 +884,7 @@ export default function LoanDetailsPage() {
                     <FormItem><FormLabel>Sector</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="businessDescription" render={({ field }) => (
-                    <FormItem><FormLabel>Business</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Business Type</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="financingPurpose" render={({ field }) => (
                     <FormItem><FormLabel>Financing Purpose</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
@@ -909,7 +909,7 @@ export default function LoanDetailsPage() {
                     <FormItem><FormLabel>Duration (Months)</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="numberOfInstallments" render={({ field }) => (
-                    <FormItem><FormLabel>Installments</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>No. of Installments</FormLabel><FormControl><Input type="number" disabled={!isEditing} {...field} value={field.value ?? ""} /></FormControl><FormMessage /></FormItem>
                   )} />
                 </div>
 
@@ -994,7 +994,7 @@ export default function LoanDetailsPage() {
                   <h3 className="text-sm font-semibold text-muted-foreground mb-3">License Details</h3>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     <FormField control={form.control} name="licenseType" render={({ field }) => (
-                      <FormItem><FormLabel>License Type</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
+                      <FormItem><FormLabel>Type of License</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="licensePresident" render={({ field }) => (
                       <FormItem><FormLabel>President</FormLabel><FormControl><Input disabled={!isEditing} {...field} /></FormControl><FormMessage /></FormItem>

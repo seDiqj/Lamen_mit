@@ -393,30 +393,29 @@ export default function CommitteeVotingPage() {
                 </h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {renderViewField("Customer No", loanDetails?.customer?.customerNo)}
-                  {renderViewField("First Name", loanDetails?.customer?.firstName)}
-                  {renderViewField("Last Name", loanDetails?.customer?.lastName)}
+                  {renderViewField("Full Name *", loanDetails?.customer?.firstName)}
                   {renderViewField("Father's Name", loanDetails?.customer?.fatherName)}
                   {renderViewField("Full Name (Dari)", loanDetails?.customer?.fullNameDari)}
                   {renderViewField("Father's Name (Dari)", loanDetails?.customer?.fatherNameDari)}
                   {renderViewField("Gender", loanDetails?.customer?.gender)}
                   {renderViewField("Marital Status", loanDetails?.customer?.maritalStatus)}
-                  {renderViewField("National ID", loanDetails?.customer?.nationalId)}
+                  {renderViewField("National ID (NID)", loanDetails?.customer?.nationalId)}
                   {renderDateViewField("NID Expiry Date", loanDetails?.customer?.nidExpiryDate)}
                   {renderDobViewField("Date of Birth", loanDetails?.customer?.dateOfBirth)}
                   {renderViewField("Place of Birth", loanDetails?.customer?.placeOfBirth)}
-                  {renderViewField("Phone Number", loanDetails?.customer?.phoneNumber)}
-                  {renderViewField("Second Phone", loanDetails?.customer?.secondPhoneNumber)}
                   {renderViewField("Home Address", loanDetails?.customer?.homeAddress)}
                   {renderViewField("Province", loanDetails?.customer?.province)}
                   {renderViewField("District", loanDetails?.customer?.district)}
                   {renderViewField("Urban / Rural", loanDetails?.customer?.areaType || "Rural")}
+                  {renderViewField("Phone Number", loanDetails?.customer?.phoneNumber)}
+                  {renderViewField("2nd Phone Number", loanDetails?.customer?.secondPhoneNumber)}
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                  {renderViewField("Total Dependents", loanDetails?.customer?.numberOfDependents)}
-                  {renderViewField("Direct Male", loanDetails?.customer?.directMaleDependent)}
-                  {renderViewField("Direct Female", loanDetails?.customer?.directFemaleDependent)}
-                  {renderViewField("Indirect Male", loanDetails?.customer?.indirectMaleDependent)}
-                  {renderViewField("Indirect Female", loanDetails?.customer?.indirectFemaleDependent)}
+                  {renderViewField("No. of Dependents", loanDetails?.customer?.numberOfDependents)}
+                  {renderViewField("Direct Male Employee", loanDetails?.customer?.directMaleDependent)}
+                  {renderViewField("Direct Female Employee", loanDetails?.customer?.directFemaleDependent)}
+                  {renderViewField("Indirect Male Employee", loanDetails?.customer?.indirectMaleDependent)}
+                  {renderViewField("Indirect Female Employee", loanDetails?.customer?.indirectFemaleDependent)}
                 </div>
 
                 {/* Customer Photo Section */}
@@ -439,7 +438,7 @@ export default function CommitteeVotingPage() {
               <div className="space-y-6">
                 <h3 className="text-lg font-semibold flex items-center gap-2">
                   <FileText className="h-5 w-5 text-blue-500" />
-                  Loan Details
+                  Financing Details
                 </h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {renderViewField("Branch", loanDetails?.loan?.branchName)}
@@ -447,14 +446,14 @@ export default function CommitteeVotingPage() {
                   {renderViewField("Product Name", loanDetails?.loan?.productName)}
                   {renderViewField("Product Code", loanDetails?.loan?.productCode)}
                   {renderViewField("Sector", loanDetails?.loan?.sector)}
-                  {renderViewField("Business Description", loanDetails?.loan?.businessDescription)}
+                  {renderViewField("Business Type", loanDetails?.loan?.businessDescription)}
                   {renderViewField("Financing Purpose", loanDetails?.loan?.financingPurpose)}
                   {renderDateViewField("Request Date", loanDetails?.loan?.requestDate)}
                   {renderViewField("Request Amount", formatCurrency(parseFloat(loanDetails?.loan?.requestAmount || "0")))}
                   {renderViewField("Principal Amount", formatCurrency(parseFloat(loanDetails?.loan?.principleAmount || "0")))}
                   {renderViewField("Duration (Months)", loanDetails?.loan?.financingDurationMonths)}
                   {renderViewField("Grace Period", loanDetails?.loan?.gracePeriod)}
-                  {renderViewField("Installments", loanDetails?.loan?.numberOfInstallments)}
+                  {renderViewField("No. of Installments", loanDetails?.loan?.numberOfInstallments)}
                   {renderViewField("Margin Rate %", loanDetails?.loan?.marginRate)}
                   {renderViewField("Funding Source", loanDetails?.fundingSource?.name || "N/A")}
                 </div>
@@ -524,7 +523,7 @@ export default function CommitteeVotingPage() {
                   <>
                     <h4 className="text-md font-semibold mt-6">Business License</h4>
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                      {renderViewField("License Type", loanDetails?.license?.licenseType)}
+                      {renderViewField("Type of License", loanDetails?.license?.licenseType)}
                       {renderViewField("License Number", loanDetails?.license?.licenseNumber)}
                       {renderViewField("President", loanDetails?.license?.president)}
                       {renderDateViewField("Register Date", loanDetails?.license?.registerDate)}
