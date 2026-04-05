@@ -5376,9 +5376,15 @@ export async function registerRoutes(
       const account = await storage.createAccount(req.body);
       await logActivity(req, "create", "account", account.id, `Created account: ${account.accountCode} - ${account.accountName}`);
       res.status(201).json(account);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating account:", error);
-      res.status(500).json({ message: "Failed to create account" });
+      if (error?.code === "23505") {
+        return res.status(400).json({ message: `Account code "${req.body.accountCode}" already exists` });
+      }
+      if (error?.code === "23503") {
+        return res.status(400).json({ message: "Invalid parent account selected" });
+      }
+      res.status(500).json({ message: error?.message || "Failed to create account" });
     }
   });
 

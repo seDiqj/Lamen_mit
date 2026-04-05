@@ -86,7 +86,14 @@ export default function ChartOfAccounts() {
       resetForm();
       setDialogOpen(false);
     },
-    onError: () => toast({ title: "Error", description: "Failed to create account", variant: "destructive" }),
+    onError: (error: any) => {
+      let msg = "Failed to create account";
+      try {
+        const parsed = JSON.parse(error?.message?.split(": ").slice(1).join(": ") || "{}");
+        if (parsed.message) msg = parsed.message;
+      } catch { /* use default */ }
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    },
   });
 
   const updateMutation = useMutation({
