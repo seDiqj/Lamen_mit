@@ -5371,7 +5371,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/accounts", isAuthenticated, requirePageAccess("accounting"), async (req: any, res) => {
+  app.post("/api/accounts", isAuthenticated, async (req: any, res) => {
     try {
       const account = await storage.createAccount(req.body);
       await logActivity(req, "create", "account", account.id, `Created account: ${account.accountCode} - ${account.accountName}`);
@@ -5388,7 +5388,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/accounts/:id", isAuthenticated, requirePageAccess("accounting"), async (req: any, res) => {
+  app.patch("/api/accounts/:id", isAuthenticated, async (req: any, res) => {
     try {
       const account = await storage.updateAccount(req.params.id, req.body);
       await logActivity(req, "update", "account", account.id, `Updated account: ${account.accountCode} - ${account.accountName}`);
