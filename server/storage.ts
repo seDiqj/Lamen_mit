@@ -2584,12 +2584,39 @@ export class DatabaseStorage implements IStorage {
       };
     };
 
+    const computeParRange = (startDay: number, endDay: number) => {
+      const parRows = parAgingRows.filter(r => {
+        const days = parseInt(r.max_days_overdue);
+        return days >= startDay && (endDay === 999999 ? true : days <= endDay);
+      });
+      const parOlb = parRows.reduce((sum, r) => sum + parseFloat(r.olb || 0), 0);
+      return {
+        count: parRows.length,
+        amount: parOlb,
+        percentage: totalActiveOLB > 0 ? parseFloat(((parOlb / totalActiveOLB) * 100).toFixed(1)) : 0,
+      };
+    };
+
+    const parCategoryRows = await db.select().from(parCategories).orderBy(asc(parCategories.startDay));
+
+    let parAgingCategories: any[] = [];
+    if (parCategoryRows.length > 0) {
+      parAgingCategories = parCategoryRows.map(cat => ({
+        label: cat.category,
+        startDay: cat.startDay,
+        endDay: cat.endDay,
+        provisionPercent: parseFloat(String(cat.provisionPercent)),
+        ...computeParRange(cat.startDay, cat.endDay),
+      }));
+    }
+
     const parAging = {
       par1: computePar(1),
       par7: computePar(7),
       par30: computePar(30),
       par60: computePar(60),
       par90: computePar(90),
+      categories: parAgingCategories,
       totalOverdueAmount: parAgingRows.filter(r => parseInt(r.max_days_overdue) > 0).reduce((sum, r) => sum + parseFloat(r.olb || 0), 0),
       overdueLoansCount: parAgingRows.filter(r => parseInt(r.max_days_overdue) > 0).length,
       totalActiveOLB,

@@ -924,15 +924,19 @@ export default function Dashboard() {
               </p>
             </div>
           </div>
-          {stats?.parAging && (
-            <Badge variant="outline" className={`${
-              stats.parAging.par30.percentage > 5 ? 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30' :
-              stats.parAging.par30.percentage > 2 ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30' :
-              'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30'
-            }`}>
-              PAR30: {stats.parAging.par30.percentage}%
-            </Badge>
-          )}
+          {stats?.parAging && (() => {
+            const par30Cat = stats.parAging.categories?.find((c: any) => c.startDay <= 30 && c.endDay >= 30) || stats.parAging.par30;
+            const par30Pct = par30Cat?.percentage || stats.parAging.par30?.percentage || 0;
+            return (
+              <Badge variant="outline" className={`${
+                par30Pct > 5 ? 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30' :
+                par30Pct > 2 ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30' :
+                'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30'
+              }`}>
+                PAR30: {par30Pct}%
+              </Badge>
+            );
+          })()}
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -941,37 +945,62 @@ export default function Dashboard() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-4">
-                {[
-                  { label: "PAR > 1 Day", data: stats?.parAging?.par1, barColor: "#fbbf24", iconColor: "#fbbf24" },
-                  { label: "PAR > 7 Days", data: stats?.parAging?.par7, barColor: "#f59e0b", iconColor: "#f59e0b" },
-                  { label: "PAR > 30 Days", data: stats?.parAging?.par30, barColor: "#f97316", iconColor: "#f97316" },
-                  { label: "PAR > 60 Days", data: stats?.parAging?.par60, barColor: "#f87171", iconColor: "#f87171" },
-                  { label: "PAR > 90 Days", data: stats?.parAging?.par90, barColor: "#dc2626", iconColor: "#dc2626" },
-                ].map((item, idx) => {
-                  const pct = item.data?.percentage || 0;
-                  const borderColor = pct > 5 ? 'border-red-500/50' : pct > 2 ? 'border-amber-500/50' : 'border-border/50';
-                  return (
-                    <div key={idx} className={`relative p-4 rounded-xl bg-muted/30 border ${borderColor} overflow-hidden`} data-testid={`par-aging-${idx}`}>
-                      <div className="absolute top-0 left-0 h-1" style={{ width: `${Math.min(pct * 5, 100)}%`, backgroundColor: item.barColor }} />
-                      <div className="flex items-center gap-2 mb-2">
-                        <Shield className="h-4 w-4" style={{ color: item.iconColor }} />
-                        <span className="text-xs font-semibold text-muted-foreground">{item.label}</span>
-                      </div>
-                      <p className={`text-2xl font-bold ${pct > 5 ? 'text-red-500' : pct > 2 ? 'text-amber-600' : ''}`}>
-                        {pct}%
-                      </p>
-                      <div className="mt-1.5 space-y-0.5">
-                        <p className="text-xs text-muted-foreground">
-                          {item.data?.count || 0} loans
+              <div className={`grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4`} style={{ gridTemplateColumns: `repeat(auto-fit, minmax(180px, 1fr))` }}>
+                {(() => {
+                  const defaultColors = ["#fbbf24", "#f59e0b", "#f97316", "#f87171", "#dc2626", "#b91c1c", "#991b1b"];
+                  const categories = stats?.parAging?.categories;
+                  if (categories && categories.length > 0) {
+                    return categories.map((cat: any, idx: number) => {
+                      const pct = cat.percentage || 0;
+                      const color = defaultColors[Math.min(idx, defaultColors.length - 1)];
+                      const borderColor = pct > 5 ? 'border-red-500/50' : pct > 2 ? 'border-amber-500/50' : 'border-border/50';
+                      return (
+                        <div key={idx} className={`relative p-4 rounded-xl bg-muted/30 border ${borderColor} overflow-hidden`} data-testid={`par-aging-${idx}`}>
+                          <div className="absolute top-0 left-0 h-1" style={{ width: `${Math.min(pct * 5, 100)}%`, backgroundColor: color }} />
+                          <div className="flex items-center gap-2 mb-2">
+                            <Shield className="h-4 w-4" style={{ color }} />
+                            <span className="text-xs font-semibold text-muted-foreground">{cat.label}</span>
+                          </div>
+                          <p className={`text-2xl font-bold ${pct > 5 ? 'text-red-500' : pct > 2 ? 'text-amber-600' : ''}`}>
+                            {pct}%
+                          </p>
+                          <div className="mt-1.5 space-y-0.5">
+                            <p className="text-xs text-muted-foreground">{cat.count || 0} loans</p>
+                            <p className="text-xs font-medium">{formatCurrency(cat.amount || 0)}</p>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground mt-1">Provision: {cat.provisionPercent}%</p>
+                        </div>
+                      );
+                    });
+                  }
+                  return [
+                    { label: "PAR > 1 Day", data: stats?.parAging?.par1 },
+                    { label: "PAR > 7 Days", data: stats?.parAging?.par7 },
+                    { label: "PAR > 30 Days", data: stats?.parAging?.par30 },
+                    { label: "PAR > 60 Days", data: stats?.parAging?.par60 },
+                    { label: "PAR > 90 Days", data: stats?.parAging?.par90 },
+                  ].map((item, idx) => {
+                    const pct = item.data?.percentage || 0;
+                    const color = defaultColors[Math.min(idx, defaultColors.length - 1)];
+                    const borderColor = pct > 5 ? 'border-red-500/50' : pct > 2 ? 'border-amber-500/50' : 'border-border/50';
+                    return (
+                      <div key={idx} className={`relative p-4 rounded-xl bg-muted/30 border ${borderColor} overflow-hidden`} data-testid={`par-aging-${idx}`}>
+                        <div className="absolute top-0 left-0 h-1" style={{ width: `${Math.min(pct * 5, 100)}%`, backgroundColor: color }} />
+                        <div className="flex items-center gap-2 mb-2">
+                          <Shield className="h-4 w-4" style={{ color }} />
+                          <span className="text-xs font-semibold text-muted-foreground">{item.label}</span>
+                        </div>
+                        <p className={`text-2xl font-bold ${pct > 5 ? 'text-red-500' : pct > 2 ? 'text-amber-600' : ''}`}>
+                          {pct}%
                         </p>
-                        <p className="text-xs font-medium">
-                          {formatCurrency(item.data?.amount || 0)}
-                        </p>
+                        <div className="mt-1.5 space-y-0.5">
+                          <p className="text-xs text-muted-foreground">{item.data?.count || 0} loans</p>
+                          <p className="text-xs font-medium">{formatCurrency(item.data?.amount || 0)}</p>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  });
+                })()}
               </div>
               <div className="flex items-center gap-6 pt-3 border-t border-border/50 text-sm">
                 <div className="flex items-center gap-2">
