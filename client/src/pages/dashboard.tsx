@@ -769,6 +769,10 @@ export default function Dashboard() {
           loading={isLoading}
           gradient="bg-gradient-to-r from-amber-500 to-orange-500"
           iconBg="bg-gradient-to-br from-amber-500 to-orange-600"
+          breakdown={stats?.avgLoanByFunding?.map((item: any) => ({
+            label: `${item.fundingSource} (${item.loanCount})`,
+            value: formatCurrency(item.avgLoanSize),
+          })) || []}
         />
       </div>
 

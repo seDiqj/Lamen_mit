@@ -2641,6 +2641,25 @@ export class DatabaseStorage implements IStorage {
       percentage: totalSectorAmount > 0 ? parseFloat(((parseFloat(r.total_amount || 0) / totalSectorAmount) * 100).toFixed(1)) : 0,
     }));
 
+    const avgLoanByFundingResult = await db.execute(sql`
+      SELECT 
+        COALESCE(fs.name, 'Unassigned') as funding_source,
+        COUNT(*) as loan_count,
+        COALESCE(AVG(COALESCE(l.principle_amount, l.request_amount)::numeric), 0) as avg_loan_size,
+        COALESCE(SUM(COALESCE(l.principle_amount, l.request_amount)::numeric), 0) as total_amount
+      FROM loans l
+      LEFT JOIN funding_sources fs ON l.funding_source_id = fs.id
+      WHERE l.status IN ('disbursed', 'active', 'completed') ${branchFilterRoot}
+      GROUP BY COALESCE(fs.name, 'Unassigned')
+      ORDER BY total_amount DESC
+    `);
+    const avgLoanByFunding = (avgLoanByFundingResult.rows as any[]).map(r => ({
+      fundingSource: r.funding_source,
+      loanCount: Number(r.loan_count),
+      avgLoanSize: Math.round(parseFloat(r.avg_loan_size || 0)),
+      totalAmount: parseFloat(r.total_amount || 0),
+    }));
+
     return {
       totalLoans: Number(loanCounts.total),
       disbursedLoanCount: Number(loanCounts.disbursed_count || 0),
@@ -2665,6 +2684,7 @@ export class DatabaseStorage implements IStorage {
       repaymentRate,
       portfolioAtRisk,
       sectorDistribution,
+      avgLoanByFunding,
       parAging,
       dailyOps: {
         applicationsToday: Number(dailyOps.apps_today || 0),
