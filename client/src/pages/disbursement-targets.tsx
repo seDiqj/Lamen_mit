@@ -523,7 +523,7 @@ export default function DisbursementTargetsPage() {
                   <Badge variant="outline" className="font-semibold">{formatAmount(splitTarget?.targetDisbursementAmount || "0")}</Badge>
                   <Badge variant="outline" className="font-semibold">{splitTarget?.targetNoOfCustomer} Customers</Badge>
                 </div>
-                <Button type="button" variant="outline" size="sm" onClick={handleDistributeEvenly} data-testid="button-distribute-evenly">
+                <Button type="button" size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={handleDistributeEvenly} data-testid="button-distribute-evenly">
                   Distribute Evenly
                 </Button>
               </div>
