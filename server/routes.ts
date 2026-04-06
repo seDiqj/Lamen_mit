@@ -875,6 +875,38 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/disbursement-targets/:id/officer-splits", isAuthenticated, requirePageAccess("disbursement-targets"), async (req: any, res) => {
+    try {
+      const target = await storage.getDisbursementTarget(parseInt(req.params.id));
+      if (!target) return res.status(404).json({ message: "Target not found" });
+      const splits = await storage.getOfficerTargets(target.branchId, target.targetMonthYear);
+      res.json(splits);
+    } catch (error) {
+      console.error("Error fetching officer splits:", error);
+      res.status(500).json({ message: "Failed to fetch officer splits" });
+    }
+  });
+
+  app.post("/api/disbursement-targets/:id/officer-splits", isAuthenticated, requirePageAccess("disbursement-targets"), async (req: any, res) => {
+    try {
+      const target = await storage.getDisbursementTarget(parseInt(req.params.id));
+      if (!target) return res.status(404).json({ message: "Target not found" });
+      const { splits } = req.body;
+      const validSplits = (splits || []).filter((s: any) => s.financeOfficerId && (parseFloat(s.targetDisbursementAmount) > 0 || Number(s.targetNoOfCustomer) > 0));
+      const cleanSplits = validSplits.map((s: any) => ({
+        financeOfficerId: String(s.financeOfficerId),
+        targetDisbursementAmount: String(Math.max(0, parseFloat(s.targetDisbursementAmount) || 0)),
+        targetNoOfCustomer: Math.max(0, Math.floor(Number(s.targetNoOfCustomer) || 0)),
+      }));
+      await storage.saveOfficerTargets(target.branchId, target.targetMonthYear, cleanSplits);
+      await logActivity(req, "split_disbursement_target", "disbursement_target", req.params.id, `Split target into ${cleanSplits.length} officer targets`);
+      res.json({ message: "Officer splits saved successfully" });
+    } catch (error) {
+      console.error("Error saving officer splits:", error);
+      res.status(500).json({ message: "Failed to save officer splits" });
+    }
+  });
+
   app.delete("/api/disbursement-targets/:id", isAuthenticated, requirePageAccess("disbursement-targets"), async (req: any, res) => {
     try {
       await storage.deleteDisbursementTarget(parseInt(req.params.id));

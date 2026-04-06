@@ -1,6 +1,6 @@
 import { db } from "./db";
 import bcrypt from "bcrypt";
-import { eq, and, like, ilike, or, desc, asc, sql, count, gt, gte, lte, isNull, inArray } from "drizzle-orm";
+import { eq, and, like, ilike, or, desc, asc, sql, count, gt, gte, lte, isNull, isNotNull, inArray } from "drizzle-orm";
 import {
   users,
   userRoles,
@@ -344,6 +344,8 @@ export interface IStorage {
   updateDisbursementTarget(id: number, data: any): Promise<any>;
   deleteDisbursementTarget(id: number): Promise<void>;
   getDisbursementTargetProgress(): Promise<any[]>;
+  getOfficerTargets(branchId: string, monthYear: string): Promise<any[]>;
+  saveOfficerTargets(branchId: string, monthYear: string, splits: { financeOfficerId: string; targetDisbursementAmount: string; targetNoOfCustomer: number }[]): Promise<void>;
   
   // Admin Users
   getUsers(search?: string): Promise<any[]>;
@@ -4007,8 +4009,52 @@ export class DatabaseStorage implements IStorage {
       })
       .from(disbursementTargets)
       .leftJoin(branches, eq(disbursementTargets.branchId, branches.id))
+      .where(isNull(disbursementTargets.financeOfficerId))
       .orderBy(desc(disbursementTargets.targetMonthYear));
     return results;
+  }
+
+  async getOfficerTargets(branchId: string, monthYear: string): Promise<any[]> {
+    const results = await db
+      .select({
+        id: disbursementTargets.id,
+        branchId: disbursementTargets.branchId,
+        financeOfficerId: disbursementTargets.financeOfficerId,
+        officerName: financeOfficers.name,
+        targetMonthYear: disbursementTargets.targetMonthYear,
+        targetDisbursementAmount: disbursementTargets.targetDisbursementAmount,
+        targetNoOfCustomer: disbursementTargets.targetNoOfCustomer,
+      })
+      .from(disbursementTargets)
+      .leftJoin(financeOfficers, eq(disbursementTargets.financeOfficerId, financeOfficers.id))
+      .where(and(
+        eq(disbursementTargets.branchId, branchId),
+        eq(disbursementTargets.targetMonthYear, monthYear),
+        isNotNull(disbursementTargets.financeOfficerId),
+      ))
+      .orderBy(asc(financeOfficers.name));
+    return results;
+  }
+
+  async saveOfficerTargets(branchId: string, monthYear: string, splits: { financeOfficerId: string; targetDisbursementAmount: string; targetNoOfCustomer: number }[]): Promise<void> {
+    await db.transaction(async (tx) => {
+      await tx.delete(disbursementTargets).where(and(
+        eq(disbursementTargets.branchId, branchId),
+        eq(disbursementTargets.targetMonthYear, monthYear),
+        isNotNull(disbursementTargets.financeOfficerId),
+      ));
+      if (splits.length > 0) {
+        await tx.insert(disbursementTargets).values(
+          splits.map(s => ({
+            branchId,
+            financeOfficerId: s.financeOfficerId,
+            targetMonthYear: monthYear,
+            targetDisbursementAmount: s.targetDisbursementAmount,
+            targetNoOfCustomer: s.targetNoOfCustomer,
+          }))
+        );
+      }
+    });
   }
 
   async getDisbursementTarget(id: number): Promise<any | undefined> {
@@ -4078,6 +4124,7 @@ export class DatabaseStorage implements IStorage {
       FROM disbursement_targets dt
       LEFT JOIN branches b ON dt.branch_id = b.id
       LEFT JOIN actual_data a ON a.branch_id = dt.branch_id AND a.month_year = dt.target_month_year
+      WHERE dt.finance_officer_id IS NULL
       ORDER BY dt.target_month_year DESC, b.name
     `);
     return result.rows as any[];

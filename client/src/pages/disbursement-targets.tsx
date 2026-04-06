@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -39,7 +39,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Pencil, Trash2, Target } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Pencil, Trash2, Target, Split, Loader2 } from "lucide-react";
 import type { Branch } from "@shared/schema";
 
 interface DisbursementTarget {
@@ -50,6 +51,20 @@ interface DisbursementTarget {
   targetDisbursementAmount: string;
   targetNoOfCustomer: number;
   createdAt: string | null;
+}
+
+interface FinanceOfficer {
+  id: string;
+  name: string;
+  branchId: string | null;
+  isActive: boolean;
+}
+
+interface OfficerSplit {
+  financeOfficerId: string;
+  officerName: string;
+  targetDisbursementAmount: string;
+  targetNoOfCustomer: number;
 }
 
 export default function DisbursementTargetsPage() {
@@ -63,6 +78,10 @@ export default function DisbursementTargetsPage() {
   const [targetMonthYear, setTargetMonthYear] = useState("");
   const [targetDisbursementAmount, setTargetDisbursementAmount] = useState("");
   const [targetNoOfCustomer, setTargetNoOfCustomer] = useState("");
+
+  const [showSplitDialog, setShowSplitDialog] = useState(false);
+  const [splitTarget, setSplitTarget] = useState<DisbursementTarget | null>(null);
+  const [officerSplits, setOfficerSplits] = useState<OfficerSplit[]>([]);
 
   const { toast } = useToast();
 
@@ -83,6 +102,49 @@ export default function DisbursementTargetsPage() {
       return res.json();
     },
   });
+
+  const { data: allOfficers } = useQuery<FinanceOfficer[]>({
+    queryKey: ["/api/officers"],
+    queryFn: async () => {
+      const res = await fetch("/api/officers", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch officers");
+      return res.json();
+    },
+  });
+
+  const { data: existingSplits, isLoading: loadingSplits } = useQuery<any[]>({
+    queryKey: ["/api/disbursement-targets", splitTarget?.id, "officer-splits"],
+    queryFn: async () => {
+      const res = await fetch(`/api/disbursement-targets/${splitTarget!.id}/officer-splits`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch splits");
+      return res.json();
+    },
+    enabled: !!splitTarget,
+  });
+
+  useEffect(() => {
+    if (!splitTarget || !allOfficers) return;
+    const branchOfficers = allOfficers.filter(o => o.branchId === splitTarget.branchId && o.isActive);
+    if (existingSplits && existingSplits.length > 0) {
+      const splits: OfficerSplit[] = branchOfficers.map(officer => {
+        const existing = existingSplits.find((s: any) => s.financeOfficerId === officer.id);
+        return {
+          financeOfficerId: officer.id,
+          officerName: officer.name,
+          targetDisbursementAmount: existing ? String(existing.targetDisbursementAmount) : "0",
+          targetNoOfCustomer: existing ? Number(existing.targetNoOfCustomer) : 0,
+        };
+      });
+      setOfficerSplits(splits);
+    } else {
+      setOfficerSplits(branchOfficers.map(o => ({
+        financeOfficerId: o.id,
+        officerName: o.name,
+        targetDisbursementAmount: "0",
+        targetNoOfCustomer: 0,
+      })));
+    }
+  }, [splitTarget, allOfficers, existingSplits]);
 
   const createMutation = useMutation({
     mutationFn: async (data: { branchId: string; targetMonthYear: string; targetDisbursementAmount: string; targetNoOfCustomer: number }) =>
@@ -126,6 +188,18 @@ export default function DisbursementTargetsPage() {
     onError: () => toast({ title: "Error", description: "Failed to delete disbursement target.", variant: "destructive" }),
   });
 
+  const splitMutation = useMutation({
+    mutationFn: async (data: { targetId: number; splits: { financeOfficerId: string; targetDisbursementAmount: string; targetNoOfCustomer: number }[] }) =>
+      apiRequest("POST", `/api/disbursement-targets/${data.targetId}/officer-splits`, { splits: data.splits }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/disbursement-targets"] });
+      toast({ title: "Splits Saved", description: "Officer target splits have been saved successfully." });
+      setShowSplitDialog(false);
+      setSplitTarget(null);
+    },
+    onError: () => toast({ title: "Error", description: "Failed to save officer splits.", variant: "destructive" }),
+  });
+
   const resetForm = () => {
     setBranchId("");
     setTargetMonthYear("");
@@ -155,6 +229,11 @@ export default function DisbursementTargetsPage() {
     setShowDeleteDialog(true);
   };
 
+  const handleOpenSplitDialog = (target: DisbursementTarget) => {
+    setSplitTarget(target);
+    setShowSplitDialog(true);
+  };
+
   const handleSubmit = () => {
     if (!branchId || !targetMonthYear || !targetDisbursementAmount || !targetNoOfCustomer) {
       toast({ title: "Validation Error", description: "All fields are required.", variant: "destructive" });
@@ -181,10 +260,45 @@ export default function DisbursementTargetsPage() {
     }
   };
 
+  const handleSaveSplits = () => {
+    if (!splitTarget) return;
+    const validSplits = officerSplits.filter(s => parseFloat(s.targetDisbursementAmount) > 0 || s.targetNoOfCustomer > 0);
+    splitMutation.mutate({
+      targetId: splitTarget.id,
+      splits: validSplits.map(s => ({
+        financeOfficerId: s.financeOfficerId,
+        targetDisbursementAmount: s.targetDisbursementAmount,
+        targetNoOfCustomer: s.targetNoOfCustomer,
+      })),
+    });
+  };
+
+  const handleDistributeEvenly = () => {
+    if (!splitTarget || officerSplits.length === 0) return;
+    const totalAmount = parseFloat(splitTarget.targetDisbursementAmount);
+    const totalCustomers = splitTarget.targetNoOfCustomer;
+    const count = officerSplits.length;
+    const amountPerOfficer = Math.floor(totalAmount / count);
+    const customersPerOfficer = Math.floor(totalCustomers / count);
+    const amountRemainder = totalAmount - amountPerOfficer * count;
+    const customerRemainder = totalCustomers - customersPerOfficer * count;
+
+    setOfficerSplits(prev => prev.map((s, idx) => ({
+      ...s,
+      targetDisbursementAmount: String(amountPerOfficer + (idx === 0 ? amountRemainder : 0)),
+      targetNoOfCustomer: customersPerOfficer + (idx === 0 ? customerRemainder : 0),
+    })));
+  };
+
   const formatAmount = (amount: string | number) => {
     const num = typeof amount === "string" ? parseFloat(amount) : amount;
     return `AFN ${num.toLocaleString()}`;
   };
+
+  const splitTotalAmount = officerSplits.reduce((sum, s) => sum + parseFloat(s.targetDisbursementAmount || "0"), 0);
+  const splitTotalCustomers = officerSplits.reduce((sum, s) => sum + (s.targetNoOfCustomer || 0), 0);
+  const branchAmount = splitTarget ? parseFloat(splitTarget.targetDisbursementAmount) : 0;
+  const branchCustomers = splitTarget ? splitTarget.targetNoOfCustomer : 0;
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -245,7 +359,17 @@ export default function DisbursementTargetsPage() {
                       {target.targetNoOfCustomer.toLocaleString()}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          type="button"
+                          onClick={() => handleOpenSplitDialog(target)}
+                          title="Split to Officers"
+                          data-testid={`button-split-target-${target.id}`}
+                        >
+                          <Split className="h-4 w-4 text-blue-500" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -365,6 +489,124 @@ export default function DisbursementTargetsPage() {
                 : isEditMode
                 ? "Update"
                 : "Create"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showSplitDialog} onOpenChange={(open) => { setShowSplitDialog(open); if (!open) setSplitTarget(null); }}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle data-testid="text-split-dialog-title">
+              Split Target to Financing Officers
+            </DialogTitle>
+            {splitTarget && (
+              <p className="text-sm text-muted-foreground">
+                {splitTarget.branchName} — {splitTarget.targetMonthYear}
+              </p>
+            )}
+          </DialogHeader>
+
+          {loadingSplits ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : officerSplits.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">No financing officers found for this branch.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4 text-sm">
+                  <span className="text-muted-foreground">Branch Target:</span>
+                  <Badge variant="outline" className="font-semibold">{formatAmount(splitTarget?.targetDisbursementAmount || "0")}</Badge>
+                  <Badge variant="outline" className="font-semibold">{splitTarget?.targetNoOfCustomer} Customers</Badge>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={handleDistributeEvenly} data-testid="button-distribute-evenly">
+                  Distribute Evenly
+                </Button>
+              </div>
+
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Financing Officer</TableHead>
+                    <TableHead className="text-right">Disbursement Amount</TableHead>
+                    <TableHead className="text-right">No. of Customers</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {officerSplits.map((split, idx) => (
+                    <TableRow key={split.financeOfficerId}>
+                      <TableCell className="font-medium">{split.officerName}</TableCell>
+                      <TableCell className="text-right">
+                        <Input
+                          type="number"
+                          className="w-40 ml-auto text-right"
+                          value={split.targetDisbursementAmount}
+                          onChange={(e) => {
+                            const updated = [...officerSplits];
+                            updated[idx] = { ...updated[idx], targetDisbursementAmount: e.target.value };
+                            setOfficerSplits(updated);
+                          }}
+                          data-testid={`input-split-amount-${idx}`}
+                        />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Input
+                          type="number"
+                          className="w-32 ml-auto text-right"
+                          value={split.targetNoOfCustomer}
+                          onChange={(e) => {
+                            const updated = [...officerSplits];
+                            updated[idx] = { ...updated[idx], targetNoOfCustomer: Number(e.target.value) || 0 };
+                            setOfficerSplits(updated);
+                          }}
+                          data-testid={`input-split-customers-${idx}`}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  <TableRow className="bg-muted/50 font-semibold">
+                    <TableCell>Total</TableCell>
+                    <TableCell className="text-right">
+                      <span className={splitTotalAmount !== branchAmount ? "text-red-500" : "text-emerald-600"}>
+                        {formatAmount(splitTotalAmount)}
+                      </span>
+                      {splitTotalAmount !== branchAmount && (
+                        <span className="text-xs text-muted-foreground ml-1">
+                          ({splitTotalAmount > branchAmount ? "+" : ""}{formatAmount(splitTotalAmount - branchAmount)})
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <span className={splitTotalCustomers !== branchCustomers ? "text-red-500" : "text-emerald-600"}>
+                        {splitTotalCustomers}
+                      </span>
+                      {splitTotalCustomers !== branchCustomers && (
+                        <span className="text-xs text-muted-foreground ml-1">
+                          ({splitTotalCustomers > branchCustomers ? "+" : ""}{splitTotalCustomers - branchCustomers})
+                        </span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => { setShowSplitDialog(false); setSplitTarget(null); }} data-testid="button-cancel-split">
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSaveSplits}
+              disabled={splitMutation.isPending || officerSplits.length === 0}
+              data-testid="button-save-splits"
+            >
+              {splitMutation.isPending ? "Saving..." : "Save Splits"}
             </Button>
           </DialogFooter>
         </DialogContent>
