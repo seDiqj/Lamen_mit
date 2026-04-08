@@ -157,6 +157,7 @@ export default function ContractDataReport() {
   const [endDate, setEndDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [branchId, setBranchId] = useState("all");
   const [fundingSourceId, setFundingSourceId] = useState("all");
+  const [amountFilter, setAmountFilter] = useState("all");
   const [data, setData] = useState<ContractDataRow[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -174,6 +175,7 @@ export default function ContractDataReport() {
       const params = new URLSearchParams({ startDate, endDate });
       if (branchId !== "all") params.append("branchId", branchId);
       if (fundingSourceId !== "all") params.append("fundingSourceId", fundingSourceId);
+      if (amountFilter !== "all") params.append("amountFilter", amountFilter);
       const res = await fetch(`/api/reports/contract-data?${params}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch");
       const result = await res.json();
@@ -308,6 +310,19 @@ export default function ContractDataReport() {
                   {fundingSourcesData?.map((fs) => (
                     <SelectItem key={fs.id} value={fs.id}>{fs.name}</SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Loan Amount</Label>
+              <Select value={amountFilter} onValueChange={setAmountFilter}>
+                <SelectTrigger className="w-[200px]" data-testid="select-amount-filter">
+                  <SelectValue placeholder="Select Amount" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Amounts</SelectItem>
+                  <SelectItem value="below500k">&lt; 500K</SelectItem>
+                  <SelectItem value="above500k">&gt;= 500K</SelectItem>
                 </SelectContent>
               </Select>
             </div>

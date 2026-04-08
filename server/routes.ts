@@ -6814,7 +6814,7 @@ export async function registerRoutes(
   // Collateral Report
   app.get("/api/reports/collateral", isAuthenticated, async (req, res) => {
     try {
-      const { startDate, endDate, branchId, fundingSourceId } = req.query;
+      const { startDate, endDate, branchId, fundingSourceId, amountFilter } = req.query;
       if (!startDate || !endDate) {
         return res.status(400).json({ message: "startDate and endDate are required" });
       }
@@ -6828,6 +6828,11 @@ export async function registerRoutes(
       }
       if (fundingSourceId && fundingSourceId !== "all") {
         conditions.push(eq(loans.fundingSourceId, fundingSourceId as string));
+      }
+      if (amountFilter === "below500k") {
+        conditions.push(sql`${loans.principleAmount}::numeric < 500000`);
+      } else if (amountFilter === "above500k") {
+        conditions.push(sql`${loans.principleAmount}::numeric >= 500000`);
       }
 
       const results = await db
@@ -6873,7 +6878,7 @@ export async function registerRoutes(
   // Individual Report (DAB)
   app.get("/api/reports/individual", isAuthenticated, async (req, res) => {
     try {
-      const { startDate, endDate, branchId, fundingSourceId } = req.query;
+      const { startDate, endDate, branchId, fundingSourceId, amountFilter } = req.query;
       if (!startDate || !endDate) {
         return res.status(400).json({ message: "startDate and endDate are required" });
       }
@@ -6887,6 +6892,11 @@ export async function registerRoutes(
       }
       if (fundingSourceId && fundingSourceId !== "all") {
         conditions.push(eq(loans.fundingSourceId, fundingSourceId as string));
+      }
+      if (amountFilter === "below500k") {
+        conditions.push(sql`${loans.principleAmount}::numeric < 500000`);
+      } else if (amountFilter === "above500k") {
+        conditions.push(sql`${loans.principleAmount}::numeric >= 500000`);
       }
 
       const results = await db
@@ -7069,7 +7079,7 @@ export async function registerRoutes(
   // Subject Role Report (DAB)
   app.get("/api/reports/subject-role", isAuthenticated, async (req, res) => {
     try {
-      const { startDate, endDate, branchId, fundingSourceId } = req.query;
+      const { startDate, endDate, branchId, fundingSourceId, amountFilter } = req.query;
       if (!startDate || !endDate) {
         return res.status(400).json({ message: "startDate and endDate are required" });
       }
@@ -7083,6 +7093,11 @@ export async function registerRoutes(
       }
       if (fundingSourceId && fundingSourceId !== "all") {
         conditions.push(eq(loans.fundingSourceId, fundingSourceId as string));
+      }
+      if (amountFilter === "below500k") {
+        conditions.push(sql`${loans.principleAmount}::numeric < 500000`);
+      } else if (amountFilter === "above500k") {
+        conditions.push(sql`${loans.principleAmount}::numeric >= 500000`);
       }
 
       const results = await db
@@ -7157,7 +7172,7 @@ export async function registerRoutes(
   // Contract Data Report
   app.get("/api/reports/contract-data", isAuthenticated, async (req, res) => {
     try {
-      const { startDate, endDate, branchId, fundingSourceId } = req.query;
+      const { startDate, endDate, branchId, fundingSourceId, amountFilter } = req.query;
       if (!startDate || !endDate) {
         return res.status(400).json({ message: "startDate and endDate are required" });
       }
@@ -7171,6 +7186,11 @@ export async function registerRoutes(
       }
       if (fundingSourceId && fundingSourceId !== "all") {
         conditions.push(eq(loans.fundingSourceId, fundingSourceId as string));
+      }
+      if (amountFilter === "below500k") {
+        conditions.push(sql`${loans.principleAmount}::numeric < 500000`);
+      } else if (amountFilter === "above500k") {
+        conditions.push(sql`${loans.principleAmount}::numeric >= 500000`);
       }
 
       const results = await db
