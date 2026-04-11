@@ -2375,9 +2375,9 @@ export class DatabaseStorage implements IStorage {
     const loanCounts = loanCountsResult.rows[0] as any;
 
     const customerCountResult = await db.execute(sql`
-      SELECT COUNT(DISTINCT ${filters?.branchId ? sql`l.customer_id` : sql`c.id`}) as count
-      ${filters?.branchId
-        ? sql`FROM loans l WHERE l.branch_id = ${filters.branchId}`
+      SELECT COUNT(DISTINCT ${filters?.branchId || (filters?.startDate && filters?.endDate) ? sql`l.customer_id` : sql`c.id`}) as count
+      ${filters?.branchId || (filters?.startDate && filters?.endDate)
+        ? sql`FROM loans l WHERE 1=1 ${branchFilterRoot} ${dateFilterLoan}`
         : sql`FROM customers c`}
     `);
     const customerCount = { count: Number((customerCountResult.rows[0] as any)?.count || 0) };
@@ -2630,7 +2630,7 @@ export class DatabaseStorage implements IStorage {
         COUNT(*) as loan_count,
         COALESCE(SUM(l.principle_amount::numeric), 0) as total_amount
       FROM loans l
-      WHERE l.status IN ('disbursed', 'active') ${branchFilterRoot}
+      WHERE l.status IN ('disbursed', 'active') ${branchFilterRoot} ${dateFilterLoan}
       GROUP BY COALESCE(l.sector, 'Other')
       ORDER BY total_amount DESC
     `);
@@ -2651,7 +2651,7 @@ export class DatabaseStorage implements IStorage {
         COALESCE(SUM(COALESCE(l.principle_amount, l.request_amount)::numeric), 0) as total_amount
       FROM loans l
       LEFT JOIN funding_sources fs ON l.funding_source_id = fs.id
-      WHERE l.status IN ('disbursed', 'active', 'completed') ${branchFilterRoot}
+      WHERE l.status IN ('disbursed', 'active', 'completed') ${branchFilterRoot} ${dateFilterLoan}
       GROUP BY COALESCE(fs.name, 'Unassigned')
       ORDER BY total_amount DESC
     `);

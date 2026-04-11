@@ -441,10 +441,14 @@ export default function Dashboard() {
     rows: { month: string; monthKey: string; dueAmount: number; collectedAmount: number; balance: number }[];
     totals: { dueAmount: number; collectedAmount: number; balance: number };
   }>({
-    queryKey: ["/api/dashboard/collection-rate-details", filterBranch],
+    queryKey: ["/api/dashboard/collection-rate-details", filterBranch, filterStartDate, filterEndDate],
     queryFn: async () => {
-      const params = filterBranch ? `?branchId=${filterBranch}` : "";
-      const response = await fetch(`/api/dashboard/collection-rate-details${params}`);
+      const params = new URLSearchParams();
+      if (filterBranch) params.set("branchId", filterBranch);
+      if (filterStartDate) params.set("startDate", filterStartDate);
+      if (filterEndDate) params.set("endDate", filterEndDate);
+      const qs = params.toString();
+      const response = await fetch(`/api/dashboard/collection-rate-details${qs ? `?${qs}` : ""}`);
       if (!response.ok) throw new Error("Failed to fetch");
       return response.json();
     },
@@ -476,10 +480,12 @@ export default function Dashboard() {
     month: string;
     items: MonthDetailItem[];
   }>({
-    queryKey: ["/api/dashboard/collection-rate-month-details", expandedMonth, filterBranch],
+    queryKey: ["/api/dashboard/collection-rate-month-details", expandedMonth, filterBranch, filterStartDate, filterEndDate],
     queryFn: async () => {
       const params = new URLSearchParams({ month: expandedMonth! });
       if (filterBranch) params.set("branchId", filterBranch);
+      if (filterStartDate) params.set("startDate", filterStartDate);
+      if (filterEndDate) params.set("endDate", filterEndDate);
       const response = await fetch(`/api/dashboard/collection-rate-month-details?${params}`);
       if (!response.ok) throw new Error("Failed to fetch");
       return response.json();
@@ -490,10 +496,14 @@ export default function Dashboard() {
   const { data: customersByStatusData, isLoading: customersByStatusLoading } = useQuery<
     { status: string; customerCount: number; loanCount: number; totalAmount: number }[]
   >({
-    queryKey: ["/api/dashboard/customers-by-status", filterBranch],
+    queryKey: ["/api/dashboard/customers-by-status", filterBranch, filterStartDate, filterEndDate],
     queryFn: async () => {
-      const params = filterBranch ? `?branchId=${filterBranch}` : "";
-      const response = await fetch(`/api/dashboard/customers-by-status${params}`);
+      const params = new URLSearchParams();
+      if (filterBranch) params.set("branchId", filterBranch);
+      if (filterStartDate) params.set("startDate", filterStartDate);
+      if (filterEndDate) params.set("endDate", filterEndDate);
+      const qs = params.toString();
+      const response = await fetch(`/api/dashboard/customers-by-status${qs ? `?${qs}` : ""}`);
       if (!response.ok) throw new Error("Failed to fetch");
       return response.json();
     },
@@ -504,10 +514,14 @@ export default function Dashboard() {
     sector: string;
     items: { id: string; applicationId: string; customerName: string; phoneNumber: string; principleAmount: number; totalReceivable: number; totalPaid: number; outstanding: number; status: string; productName: string; branchName: string; officerName: string }[];
   }>({
-    queryKey: ["/api/dashboard/sector-customers", selectedSector, filterBranch],
+    queryKey: ["/api/dashboard/sector-customers", selectedSector, filterBranch, filterStartDate, filterEndDate],
     queryFn: async () => {
-      const params = filterBranch ? `?branchId=${filterBranch}` : "";
-      const response = await fetch(`/api/dashboard/sector-customers/${encodeURIComponent(selectedSector!)}${params}`);
+      const params = new URLSearchParams();
+      if (filterBranch) params.set("branchId", filterBranch);
+      if (filterStartDate) params.set("startDate", filterStartDate);
+      if (filterEndDate) params.set("endDate", filterEndDate);
+      const qs = params.toString();
+      const response = await fetch(`/api/dashboard/sector-customers/${encodeURIComponent(selectedSector!)}${qs ? `?${qs}` : ""}`);
       if (!response.ok) throw new Error("Failed to fetch");
       return response.json();
     },

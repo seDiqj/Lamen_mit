@@ -36,7 +36,6 @@ import {
   FileSpreadsheet,
   FileText,
   Loader2,
-  X,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { formatDate } from "@/lib/date-utils";
@@ -477,7 +476,8 @@ export default function MonthlyDueSummaryPage() {
                       {group.rows.map((row, idx) => (
                         <TableRow
                           key={row.monthYear}
-                          className={`${idx % 2 === 0 ? "bg-muted/30" : ""} hover:bg-muted/60`}
+                          className={`cursor-pointer ${idx % 2 === 0 ? "bg-muted/30" : ""} hover:bg-muted/60`}
+                          onClick={() => openDetailDialog(row.monthYear)}
                           data-testid={`row-month-${row.monthYear}`}
                         >
                           <TableCell className="font-semibold">{formatMonthLabel(row.monthYear)}</TableCell>
@@ -503,15 +503,7 @@ export default function MonthlyDueSummaryPage() {
                             </div>
                           </TableCell>
                           <TableCell className="text-center">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              onClick={() => openDetailDialog(row.monthYear)}
-                              data-testid={`button-view-detail-${row.monthYear}`}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
+                            <Eye className="h-4 w-4 mx-auto text-muted-foreground" />
                           </TableCell>
                         </TableRow>
                       ))}

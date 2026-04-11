@@ -470,8 +470,10 @@ export async function registerRoutes(
 
   app.get("/api/dashboard/collection-rate-details", isAuthenticated, async (req, res) => {
     try {
-      const { branchId } = req.query;
+      const { branchId, startDate, endDate } = req.query;
       const branchFilter = branchId ? sql`AND l.branch_id = ${branchId}` : sql``;
+      const dateFilter = startDate && endDate
+        ? sql`AND i.due_date >= ${startDate as string}::date AND i.due_date <= ${endDate as string}::date` : sql``;
       const result = await db.execute(sql`
         SELECT 
           TO_CHAR(i.due_date, 'YYYY-MM') as month,
@@ -484,6 +486,7 @@ export async function registerRoutes(
           AND i.due_date <= CURRENT_DATE
           AND l.status IN ('disbursed', 'active', 'completed')
           ${branchFilter}
+          ${dateFilter}
         GROUP BY TO_CHAR(i.due_date, 'YYYY-MM'), TO_CHAR(i.due_date, 'Mon YYYY')
         ORDER BY TO_CHAR(i.due_date, 'YYYY-MM')
       `);
@@ -508,11 +511,13 @@ export async function registerRoutes(
 
   app.get("/api/dashboard/collection-rate-month-details", isAuthenticated, async (req, res) => {
     try {
-      const { month, branchId } = req.query;
+      const { month, branchId, startDate, endDate } = req.query;
       if (!month) {
         return res.status(400).json({ message: "month parameter is required (YYYY-MM)" });
       }
       const branchFilter = branchId ? sql`AND l.branch_id = ${branchId}` : sql``;
+      const dateFilter = startDate && endDate
+        ? sql`AND i.due_date >= ${startDate as string}::date AND i.due_date <= ${endDate as string}::date` : sql``;
       const result = await db.execute(sql`
         SELECT 
           i.id as installment_id,
@@ -540,6 +545,7 @@ export async function registerRoutes(
           AND i.due_date <= CURRENT_DATE
           AND l.status IN ('disbursed', 'active', 'completed')
           ${branchFilter}
+          ${dateFilter}
         ORDER BY i.due_date, l.application_id
       `);
       const items = (result.rows as any[]).map(r => {
@@ -576,8 +582,10 @@ export async function registerRoutes(
   app.get("/api/dashboard/sector-customers/:sector", isAuthenticated, async (req, res) => {
     try {
       const sectorName = req.params.sector;
-      const { branchId } = req.query;
+      const { branchId, startDate, endDate } = req.query;
       const branchFilter = branchId ? sql`AND l.branch_id = ${branchId}` : sql``;
+      const dateFilter = startDate && endDate
+        ? sql`AND l.created_at >= ${startDate as string}::date AND l.created_at <= ${endDate as string}::date + INTERVAL '1 day'` : sql``;
       const sectorFilter = sectorName === 'Other' 
         ? sql`AND (l.sector IS NULL OR l.sector = '' OR l.sector = 'Other')`
         : sql`AND l.sector = ${sectorName}`;
@@ -601,6 +609,7 @@ export async function registerRoutes(
         WHERE l.status IN ('disbursed', 'active')
           ${sectorFilter}
           ${branchFilter}
+          ${dateFilter}
         ORDER BY l.application_id
       `);
       res.json({
@@ -628,8 +637,10 @@ export async function registerRoutes(
 
   app.get("/api/dashboard/customers-by-status", isAuthenticated, async (req, res) => {
     try {
-      const { branchId } = req.query;
+      const { branchId, startDate, endDate } = req.query;
       const branchFilter = branchId ? sql`AND l.branch_id = ${branchId}` : sql``;
+      const dateFilter = startDate && endDate
+        ? sql`AND l.created_at >= ${startDate as string}::date AND l.created_at <= ${endDate as string}::date + INTERVAL '1 day'` : sql``;
       const result = await db.execute(sql`
         SELECT 
           l.status,
@@ -637,7 +648,7 @@ export async function registerRoutes(
           COUNT(*) as loan_count,
           COALESCE(SUM(COALESCE(l.principle_amount, l.request_amount)::numeric), 0) as total_amount
         FROM loans l
-        WHERE 1=1 ${branchFilter}
+        WHERE 1=1 ${branchFilter} ${dateFilter}
         GROUP BY l.status
         ORDER BY loan_count DESC
       `);
