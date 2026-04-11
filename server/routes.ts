@@ -6842,7 +6842,7 @@ export async function registerRoutes(
           ${branchFilter}
           ${fundingFilter}
         GROUP BY TO_CHAR(i.due_date::date, 'YYYY-MM')
-        ORDER BY month_year DESC
+        ORDER BY month_year ASC
       `));
 
       const totalsResult = await db.execute(sql.raw(`
