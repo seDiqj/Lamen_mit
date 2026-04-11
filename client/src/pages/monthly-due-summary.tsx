@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, Fragment, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -136,6 +136,45 @@ export default function MonthlyDueSummaryPage() {
   };
 
   const selectedSummary = summary.find(s => s.monthYear === selectedMonth);
+
+  type YearSubtotal = {
+    year: string;
+    totalCustomers: number;
+    totalPrincipal: number;
+    totalMargin: number;
+    totalAmount: number;
+    totalPaid: number;
+    totalInstallments: number;
+    paidInstallments: number;
+    unpaidInstallments: number;
+    overdueInstallments: number;
+  };
+
+  const yearGroups = useMemo(() => {
+    const groups: { year: string; rows: MonthlySummaryRow[]; subtotal: YearSubtotal }[] = [];
+    const map = new Map<string, MonthlySummaryRow[]>();
+    for (const row of summary) {
+      const year = row.monthYear.split("-")[0];
+      if (!map.has(year)) map.set(year, []);
+      map.get(year)!.push(row);
+    }
+    for (const [year, rows] of map) {
+      const subtotal: YearSubtotal = {
+        year,
+        totalCustomers: rows.reduce((s, r) => s + r.totalCustomers, 0),
+        totalPrincipal: rows.reduce((s, r) => s + r.totalPrincipal, 0),
+        totalMargin: rows.reduce((s, r) => s + r.totalMargin, 0),
+        totalAmount: rows.reduce((s, r) => s + r.totalAmount, 0),
+        totalPaid: rows.reduce((s, r) => s + r.totalPaid, 0),
+        totalInstallments: rows.reduce((s, r) => s + r.totalInstallments, 0),
+        paidInstallments: rows.reduce((s, r) => s + r.paidInstallments, 0),
+        unpaidInstallments: rows.reduce((s, r) => s + r.unpaidInstallments, 0),
+        overdueInstallments: rows.reduce((s, r) => s + r.overdueInstallments, 0),
+      };
+      groups.push({ year, rows, subtotal });
+    }
+    return groups;
+  }, [summary]);
 
   const formatMonthLabel = (my: string) => {
     const [y, m] = my.split("-");
@@ -433,46 +472,67 @@ export default function MonthlyDueSummaryPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {summary.map((row, idx) => (
-                    <TableRow
-                      key={row.monthYear}
-                      className={`${idx % 2 === 0 ? "bg-muted/30" : ""} hover:bg-muted/60`}
-                      data-testid={`row-month-${row.monthYear}`}
-                    >
-                      <TableCell className="font-semibold">{formatMonthLabel(row.monthYear)}</TableCell>
-                      <TableCell className="text-right">{row.totalCustomers.toLocaleString()}</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency(row.totalPrincipal.toString())}</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency(row.totalMargin.toString())}</TableCell>
-                      <TableCell className="text-right font-mono font-semibold">{formatCurrency(row.totalAmount.toString())}</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency(row.totalPaid.toString())}</TableCell>
-                      <TableCell className="text-center">
-                        <span className="text-xs">{row.paidInstallments}/{row.totalInstallments}</span>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <div className="flex gap-1 justify-center flex-wrap">
-                          {row.overdueInstallments > 0 && (
-                            <Badge variant="destructive" className="text-xs">{row.overdueInstallments} overdue</Badge>
-                          )}
-                          {row.unpaidInstallments > 0 && row.overdueInstallments === 0 && (
-                            <Badge variant="outline" className="text-xs">{row.unpaidInstallments} pending</Badge>
-                          )}
-                          {row.unpaidInstallments === 0 && (
-                            <Badge className="text-xs bg-emerald-500">All paid</Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0"
-                          onClick={() => openDetailDialog(row.monthYear)}
-                          data-testid={`button-view-detail-${row.monthYear}`}
+                  {yearGroups.map((group) => (
+                    <Fragment key={group.year}>
+                      {group.rows.map((row, idx) => (
+                        <TableRow
+                          key={row.monthYear}
+                          className={`${idx % 2 === 0 ? "bg-muted/30" : ""} hover:bg-muted/60`}
+                          data-testid={`row-month-${row.monthYear}`}
                         >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
+                          <TableCell className="font-semibold">{formatMonthLabel(row.monthYear)}</TableCell>
+                          <TableCell className="text-right">{row.totalCustomers.toLocaleString()}</TableCell>
+                          <TableCell className="text-right font-mono">{formatCurrency(row.totalPrincipal.toString())}</TableCell>
+                          <TableCell className="text-right font-mono">{formatCurrency(row.totalMargin.toString())}</TableCell>
+                          <TableCell className="text-right font-mono font-semibold">{formatCurrency(row.totalAmount.toString())}</TableCell>
+                          <TableCell className="text-right font-mono">{formatCurrency(row.totalPaid.toString())}</TableCell>
+                          <TableCell className="text-center">
+                            <span className="text-xs">{row.paidInstallments}/{row.totalInstallments}</span>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex gap-1 justify-center flex-wrap">
+                              {row.overdueInstallments > 0 && (
+                                <Badge variant="destructive" className="text-xs">{row.overdueInstallments} overdue</Badge>
+                              )}
+                              {row.unpaidInstallments > 0 && row.overdueInstallments === 0 && (
+                                <Badge variant="outline" className="text-xs">{row.unpaidInstallments} pending</Badge>
+                              )}
+                              {row.unpaidInstallments === 0 && (
+                                <Badge className="text-xs bg-emerald-500">All paid</Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={() => openDetailDialog(row.monthYear)}
+                              data-testid={`button-view-detail-${row.monthYear}`}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      <TableRow className="bg-amber-50 dark:bg-amber-950/40 border-t-2 border-b-2 border-amber-300 dark:border-amber-700" data-testid={`row-subtotal-${group.year}`}>
+                        <TableCell className="font-bold text-amber-800 dark:text-amber-300">Subtotal {group.year}</TableCell>
+                        <TableCell className="text-right font-bold text-amber-800 dark:text-amber-300">{group.subtotal.totalCustomers.toLocaleString()}</TableCell>
+                        <TableCell className="text-right font-mono font-bold text-amber-800 dark:text-amber-300">{formatCurrency(group.subtotal.totalPrincipal.toString())}</TableCell>
+                        <TableCell className="text-right font-mono font-bold text-amber-800 dark:text-amber-300">{formatCurrency(group.subtotal.totalMargin.toString())}</TableCell>
+                        <TableCell className="text-right font-mono font-bold text-amber-800 dark:text-amber-300">{formatCurrency(group.subtotal.totalAmount.toString())}</TableCell>
+                        <TableCell className="text-right font-mono font-bold text-amber-800 dark:text-amber-300">{formatCurrency(group.subtotal.totalPaid.toString())}</TableCell>
+                        <TableCell className="text-center font-bold text-amber-800 dark:text-amber-300">
+                          <span className="text-xs">{group.subtotal.paidInstallments}/{group.subtotal.totalInstallments}</span>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {group.subtotal.overdueInstallments > 0 && (
+                            <Badge variant="destructive" className="text-xs">{group.subtotal.overdueInstallments} overdue</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell></TableCell>
+                      </TableRow>
+                    </Fragment>
                   ))}
                 </TableBody>
               </Table>
