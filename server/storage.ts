@@ -2545,6 +2545,7 @@ export class DatabaseStorage implements IStorage {
       SELECT COUNT(DISTINCT l.id) as par_loans
       FROM loans l
       WHERE l.status IN ('disbursed', 'active') ${branchFilterRoot}
+        AND LOWER(COALESCE(l.product_name, '')) NOT LIKE '%mudaraba%'
         AND EXISTS (
           SELECT 1 FROM installments i
           WHERE i.loan_id = l.id AND i.is_paid = false
@@ -2572,6 +2573,7 @@ export class DatabaseStorage implements IStorage {
         ), 0) as max_days_overdue
       FROM loans l
       WHERE l.status IN ('disbursed', 'active') ${branchFilterRoot}
+        AND LOWER(COALESCE(l.product_name, '')) NOT LIKE '%mudaraba%'
     `);
     const parAgingRows = parAgingResult.rows as any[];
     const totalActiveOLB = parAgingRows.reduce((sum, r) => sum + parseFloat(r.olb || 0), 0);
@@ -3467,6 +3469,7 @@ export class DatabaseStorage implements IStorage {
       LEFT JOIN branches b ON l.branch_id = b.id
       LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
       WHERE l.status IN ('disbursed', 'active')
+        AND LOWER(COALESCE(l.product_name, '')) NOT LIKE '%mudaraba%'
         AND i.is_paid = false
         AND i.due_date IS NOT NULL
         AND i.due_date::date < CURRENT_DATE
@@ -3488,6 +3491,7 @@ export class DatabaseStorage implements IStorage {
         ), 0) as total_portfolio
       FROM loans l
       WHERE l.status IN ('disbursed', 'active')
+        AND LOWER(COALESCE(l.product_name, '')) NOT LIKE '%mudaraba%'
     `);
     
     const parResults = categories.map(cat => ({
@@ -3568,10 +3572,12 @@ export class DatabaseStorage implements IStorage {
              ), 0) as amount
       FROM loans l
       WHERE l.status IN ('disbursed', 'active')
+        AND LOWER(COALESCE(l.product_name, '')) NOT LIKE '%mudaraba%'
         AND l.id NOT IN (
           SELECT DISTINCT i2.loan_id FROM installments i2 
           INNER JOIN loans l2 ON i2.loan_id = l2.id
           WHERE l2.status IN ('disbursed', 'active')
+            AND LOWER(COALESCE(l2.product_name, '')) NOT LIKE '%mudaraba%'
             AND i2.is_paid = false 
             AND i2.due_date IS NOT NULL
             AND i2.due_date::date < CURRENT_DATE
@@ -3644,6 +3650,7 @@ export class DatabaseStorage implements IStorage {
           INNER JOIN loans l2 ON i2.loan_id = l2.id
           WHERE l2.branch_id = b.id
             AND l2.status IN ('disbursed', 'active')
+            AND LOWER(COALESCE(l2.product_name, '')) NOT LIKE '%mudaraba%'
             AND i2.is_paid = false 
             AND i2.due_date IS NOT NULL
             AND i2.due_date::date < CURRENT_DATE
@@ -3655,6 +3662,7 @@ export class DatabaseStorage implements IStorage {
           INNER JOIN loans l3 ON i3.loan_id = l3.id
           WHERE l3.branch_id = b.id
             AND l3.status IN ('disbursed', 'active')
+            AND LOWER(COALESCE(l3.product_name, '')) NOT LIKE '%mudaraba%'
             AND i3.is_paid = false 
             AND i3.due_date IS NOT NULL
             AND i3.due_date::date < CURRENT_DATE
@@ -3664,6 +3672,7 @@ export class DatabaseStorage implements IStorage {
       FROM loans l
       LEFT JOIN branches b ON l.branch_id = b.id
       WHERE l.status IN ('disbursed', 'active')
+        AND LOWER(COALESCE(l.product_name, '')) NOT LIKE '%mudaraba%'
       GROUP BY b.id, b.name
       ORDER BY total_portfolio DESC
     `);
@@ -3701,6 +3710,7 @@ export class DatabaseStorage implements IStorage {
           INNER JOIN loans l2 ON i2.loan_id = l2.id
           WHERE l2.finance_officer_id = fo.id
             AND l2.status IN ('disbursed', 'active')
+            AND LOWER(COALESCE(l2.product_name, '')) NOT LIKE '%mudaraba%'
             AND i2.is_paid = false 
             AND i2.due_date IS NOT NULL
             AND i2.due_date::date < CURRENT_DATE
@@ -3711,6 +3721,7 @@ export class DatabaseStorage implements IStorage {
       LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
       LEFT JOIN branches b ON l.branch_id = b.id
       WHERE l.status IN ('disbursed', 'active')
+        AND LOWER(COALESCE(l.product_name, '')) NOT LIKE '%mudaraba%'
       GROUP BY fo.id, fo.name, b.name
       ORDER BY total_portfolio DESC
     `);
@@ -3747,6 +3758,7 @@ export class DatabaseStorage implements IStorage {
           INNER JOIN loans l2 ON i2.loan_id = l2.id
           WHERE COALESCE(l2.product_name, 'Unknown') = COALESCE(l.product_name, 'Unknown')
             AND l2.status IN ('disbursed', 'active')
+            AND LOWER(COALESCE(l2.product_name, '')) NOT LIKE '%mudaraba%'
             AND i2.is_paid = false 
             AND i2.due_date IS NOT NULL
             AND i2.due_date::date < CURRENT_DATE
@@ -3755,6 +3767,7 @@ export class DatabaseStorage implements IStorage {
         ), 0) as par_amount
       FROM loans l
       WHERE l.status IN ('disbursed', 'active')
+        AND LOWER(COALESCE(l.product_name, '')) NOT LIKE '%mudaraba%'
       GROUP BY l.product_name
       ORDER BY total_portfolio DESC
     `);
@@ -3797,6 +3810,7 @@ export class DatabaseStorage implements IStorage {
       LEFT JOIN branches b ON l.branch_id = b.id
       LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
       WHERE l.status IN ('disbursed', 'active')
+        AND LOWER(COALESCE(l.product_name, '')) NOT LIKE '%mudaraba%'
         AND i.is_paid = false
         AND i.due_date IS NOT NULL
         AND i.due_date::date < CURRENT_DATE
@@ -3877,6 +3891,7 @@ export class DatabaseStorage implements IStorage {
       LEFT JOIN branches b ON l.branch_id = b.id
       LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
       WHERE l.status IN ('disbursed', 'active')
+        AND LOWER(COALESCE(l.product_name, '')) NOT LIKE '%mudaraba%'
         AND i.is_paid = false
         AND i.due_date IS NOT NULL
         AND i.due_date::date < CURRENT_DATE
@@ -3925,6 +3940,7 @@ export class DatabaseStorage implements IStorage {
       LEFT JOIN branches b ON l.branch_id = b.id
       LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
       WHERE l.status IN ('disbursed', 'active')
+        AND LOWER(COALESCE(l.product_name, '')) NOT LIKE '%mudaraba%'
         AND b.name = ${branchName}
         AND i.is_paid = false
         AND i.due_date IS NOT NULL
@@ -3972,6 +3988,7 @@ export class DatabaseStorage implements IStorage {
       LEFT JOIN branches b ON l.branch_id = b.id
       LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
       WHERE l.status IN ('disbursed', 'active')
+        AND LOWER(COALESCE(l.product_name, '')) NOT LIKE '%mudaraba%'
         AND fo.name = ${officerName}
         AND i.is_paid = false
         AND i.due_date IS NOT NULL
@@ -4019,6 +4036,7 @@ export class DatabaseStorage implements IStorage {
       LEFT JOIN branches b ON l.branch_id = b.id
       LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
       WHERE l.status IN ('disbursed', 'active')
+        AND LOWER(COALESCE(l.product_name, '')) NOT LIKE '%mudaraba%'
         AND l.product_name = ${productName}
         AND i.is_paid = false
         AND i.due_date IS NOT NULL
