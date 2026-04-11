@@ -1,4 +1,4 @@
-import { useState, Fragment } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   CalendarClock,
@@ -26,11 +32,11 @@ import {
   Banknote,
   AlertTriangle,
   TrendingUp,
-  ChevronRight,
-  ChevronDown,
+  Eye,
   FileSpreadsheet,
   FileText,
   Loader2,
+  X,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { formatDate } from "@/lib/date-utils";
@@ -85,7 +91,8 @@ type FundingSource = { id: string; name: string };
 export default function MonthlyDueSummaryPage() {
   const [branchId, setBranchId] = useState("all");
   const [fundingSourceId, setFundingSourceId] = useState("all");
-  const [expandedMonth, setExpandedMonth] = useState<string | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const { data: branchesData } = useQuery<Branch[]>({ queryKey: ["/api/branches"] });
   const { data: fundingSourcesData } = useQuery<FundingSource[]>({ queryKey: ["/api/funding-sources"] });
@@ -108,14 +115,14 @@ export default function MonthlyDueSummaryPage() {
   });
 
   const { data: detailData, isLoading: loadingDetail } = useQuery<DetailRow[]>({
-    queryKey: ["/api/reports/monthly-due-detail", expandedMonth, branchId, fundingSourceId],
+    queryKey: ["/api/reports/monthly-due-detail", selectedMonth, branchId, fundingSourceId],
     queryFn: async () => {
       const qs = buildParams();
-      const res = await fetch(`/api/reports/monthly-due-detail/${expandedMonth}${qs ? `?${qs}` : ""}`, { credentials: "include" });
+      const res = await fetch(`/api/reports/monthly-due-detail/${selectedMonth}${qs ? `?${qs}` : ""}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
     },
-    enabled: !!expandedMonth,
+    enabled: !!selectedMonth && dialogOpen,
   });
 
   const totals = reportData?.totals;
@@ -123,9 +130,12 @@ export default function MonthlyDueSummaryPage() {
   const collectionRate = totals && totals.totalDue > 0 ? ((totals.totalCollected / totals.totalDue) * 100).toFixed(1) : "0";
   const currentMonthRate = totals && totals.currentMonthDue > 0 ? ((totals.currentMonthCollected / totals.currentMonthDue) * 100).toFixed(1) : "0";
 
-  const toggleMonth = (monthYear: string) => {
-    setExpandedMonth(prev => prev === monthYear ? null : monthYear);
+  const openDetailDialog = (monthYear: string) => {
+    setSelectedMonth(monthYear);
+    setDialogOpen(true);
   };
+
+  const selectedSummary = summary.find(s => s.monthYear === selectedMonth);
 
   const formatMonthLabel = (my: string) => {
     const [y, m] = my.split("-");
@@ -196,6 +206,75 @@ export default function MonthlyDueSummaryPage() {
       doc.text("Lamen Microfinance Institution - Confidential", 14, 200);
     }
     doc.save(`Monthly_Due_Summary_${new Date().toISOString().split("T")[0]}.pdf`);
+  };
+
+  const handleExportDetailExcel = () => {
+    if (!detailData?.length || !selectedMonth) return;
+    const rows = detailData.map(d => ({
+      "Customer": d.customerName,
+      "Customer No": d.customerNo,
+      "Loan ID": d.applicationId,
+      "Product": d.productName,
+      "Branch": d.branchName,
+      "#": d.installmentNumber,
+      "Due Date": d.dueDate ? formatDate(d.dueDate) : "",
+      "Principal": d.principleAmount,
+      "Margin": d.marginAmount,
+      "Total": d.totalAmount,
+      "Paid": d.paidAmount,
+      "Status": d.isPaid ? "Paid" : d.lateDays > 0 ? `${d.lateDays}d late` : "Pending",
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws["!cols"] = [{ wch: 22 }, { wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 5 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 12 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Detail");
+    XLSX.writeFile(wb, `Monthly_Due_Detail_${selectedMonth}_${new Date().toISOString().split("T")[0]}.xlsx`);
+  };
+
+  const handleExportDetailPDF = () => {
+    if (!detailData?.length || !selectedMonth) return;
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Monthly Due Detail - ${formatMonthLabel(selectedMonth)}`, 148, 15, { align: "center" });
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text(`${detailData.length} installments | Generated: ${new Date().toLocaleDateString()}`, 148, 21, { align: "center" });
+
+    const tableData = detailData.map(d => [
+      d.customerName,
+      d.customerNo,
+      d.applicationId,
+      d.productName,
+      d.branchName,
+      d.installmentNumber.toString(),
+      d.dueDate ? formatDate(d.dueDate) : "",
+      d.principleAmount.toLocaleString(),
+      d.marginAmount.toLocaleString(),
+      d.totalAmount.toLocaleString(),
+      d.paidAmount.toLocaleString(),
+      d.isPaid ? "Paid" : d.lateDays > 0 ? `${d.lateDays}d late` : "Pending",
+    ]);
+
+    autoTable(doc, {
+      startY: 26,
+      head: [["Customer", "Customer No", "Loan ID", "Product", "Branch", "#", "Due Date", "Principal", "Margin", "Total", "Paid", "Status"]],
+      body: tableData,
+      theme: "grid",
+      headStyles: { fillColor: [34, 87, 122], textColor: [255, 255, 255], fontStyle: "bold", halign: "center", fontSize: 6 },
+      styles: { fontSize: 6, cellPadding: 1 },
+      columnStyles: { 5: { halign: "center" }, 7: { halign: "right" }, 8: { halign: "right" }, 9: { halign: "right" }, 10: { halign: "right" }, 11: { halign: "center" } },
+    });
+
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(128, 128, 128);
+      doc.text(`Page ${i} of ${pageCount}`, 148, 200, { align: "center" });
+      doc.text("Lamen Microfinance Institution - Confidential", 14, 200);
+    }
+    doc.save(`Monthly_Due_Detail_${selectedMonth}_${new Date().toISOString().split("T")[0]}.pdf`);
   };
 
   return (
@@ -342,7 +421,6 @@ export default function MonthlyDueSummaryPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]">
-                    <TableHead className="text-primary-foreground font-semibold w-8"></TableHead>
                     <TableHead className="text-primary-foreground font-semibold">Month</TableHead>
                     <TableHead className="text-primary-foreground font-semibold text-right">Customers</TableHead>
                     <TableHead className="text-primary-foreground font-semibold text-right">Principal Amount</TableHead>
@@ -351,116 +429,154 @@ export default function MonthlyDueSummaryPage() {
                     <TableHead className="text-primary-foreground font-semibold text-right">Total Paid</TableHead>
                     <TableHead className="text-primary-foreground font-semibold text-center">Installments</TableHead>
                     <TableHead className="text-primary-foreground font-semibold text-center">Status</TableHead>
+                    <TableHead className="text-primary-foreground font-semibold text-center w-20">Details</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {summary.map((row, idx) => {
-                    const isExpanded = expandedMonth === row.monthYear;
-                    return (
-                      <Fragment key={row.monthYear}>
-                        <TableRow
-                          className={`cursor-pointer hover:bg-muted/60 ${idx % 2 === 0 ? "bg-muted/30" : ""} ${isExpanded ? "bg-blue-50 dark:bg-blue-950/30" : ""}`}
-                          onClick={() => toggleMonth(row.monthYear)}
-                          data-testid={`row-month-${row.monthYear}`}
+                  {summary.map((row, idx) => (
+                    <TableRow
+                      key={row.monthYear}
+                      className={`${idx % 2 === 0 ? "bg-muted/30" : ""} hover:bg-muted/60`}
+                      data-testid={`row-month-${row.monthYear}`}
+                    >
+                      <TableCell className="font-semibold">{formatMonthLabel(row.monthYear)}</TableCell>
+                      <TableCell className="text-right">{row.totalCustomers.toLocaleString()}</TableCell>
+                      <TableCell className="text-right font-mono">{formatCurrency(row.totalPrincipal.toString())}</TableCell>
+                      <TableCell className="text-right font-mono">{formatCurrency(row.totalMargin.toString())}</TableCell>
+                      <TableCell className="text-right font-mono font-semibold">{formatCurrency(row.totalAmount.toString())}</TableCell>
+                      <TableCell className="text-right font-mono">{formatCurrency(row.totalPaid.toString())}</TableCell>
+                      <TableCell className="text-center">
+                        <span className="text-xs">{row.paidInstallments}/{row.totalInstallments}</span>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex gap-1 justify-center flex-wrap">
+                          {row.overdueInstallments > 0 && (
+                            <Badge variant="destructive" className="text-xs">{row.overdueInstallments} overdue</Badge>
+                          )}
+                          {row.unpaidInstallments > 0 && row.overdueInstallments === 0 && (
+                            <Badge variant="outline" className="text-xs">{row.unpaidInstallments} pending</Badge>
+                          )}
+                          {row.unpaidInstallments === 0 && (
+                            <Badge className="text-xs bg-emerald-500">All paid</Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={() => openDetailDialog(row.monthYear)}
+                          data-testid={`button-view-detail-${row.monthYear}`}
                         >
-                          <TableCell className="w-8 px-2">
-                            {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                          </TableCell>
-                          <TableCell className="font-semibold">{formatMonthLabel(row.monthYear)}</TableCell>
-                          <TableCell className="text-right">{row.totalCustomers.toLocaleString()}</TableCell>
-                          <TableCell className="text-right font-mono">{formatCurrency(row.totalPrincipal.toString())}</TableCell>
-                          <TableCell className="text-right font-mono">{formatCurrency(row.totalMargin.toString())}</TableCell>
-                          <TableCell className="text-right font-mono font-semibold">{formatCurrency(row.totalAmount.toString())}</TableCell>
-                          <TableCell className="text-right font-mono">{formatCurrency(row.totalPaid.toString())}</TableCell>
-                          <TableCell className="text-center">
-                            <span className="text-xs">{row.paidInstallments}/{row.totalInstallments}</span>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <div className="flex gap-1 justify-center flex-wrap">
-                              {row.overdueInstallments > 0 && (
-                                <Badge variant="destructive" className="text-xs">{row.overdueInstallments} overdue</Badge>
-                              )}
-                              {row.unpaidInstallments > 0 && row.overdueInstallments === 0 && (
-                                <Badge variant="outline" className="text-xs">{row.unpaidInstallments} pending</Badge>
-                              )}
-                              {row.unpaidInstallments === 0 && (
-                                <Badge className="text-xs bg-emerald-500">All paid</Badge>
-                              )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                        {isExpanded && (
-                          <TableRow>
-                            <TableCell colSpan={9} className="p-0">
-                              <div className="bg-muted/20 border-y px-6 py-4">
-                                {loadingDetail ? (
-                                  <div className="flex items-center justify-center py-4 gap-2">
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                    <span className="text-sm text-muted-foreground">Loading details...</span>
-                                  </div>
-                                ) : detailData && detailData.length > 0 ? (
-                                  <div className="overflow-x-auto">
-                                    <Table>
-                                      <TableHeader>
-                                        <TableRow>
-                                          <TableHead className="text-xs font-semibold">Customer</TableHead>
-                                          <TableHead className="text-xs font-semibold">Customer No</TableHead>
-                                          <TableHead className="text-xs font-semibold">Loan ID</TableHead>
-                                          <TableHead className="text-xs font-semibold">Product</TableHead>
-                                          <TableHead className="text-xs font-semibold">Branch</TableHead>
-                                          <TableHead className="text-xs font-semibold text-center">#</TableHead>
-                                          <TableHead className="text-xs font-semibold">Due Date</TableHead>
-                                          <TableHead className="text-xs font-semibold text-right">Principal</TableHead>
-                                          <TableHead className="text-xs font-semibold text-right">Margin</TableHead>
-                                          <TableHead className="text-xs font-semibold text-right">Total</TableHead>
-                                          <TableHead className="text-xs font-semibold text-right">Paid</TableHead>
-                                          <TableHead className="text-xs font-semibold text-center">Status</TableHead>
-                                        </TableRow>
-                                      </TableHeader>
-                                      <TableBody>
-                                        {detailData.map((d, dIdx) => (
-                                          <TableRow key={d.installmentId} className={dIdx % 2 === 0 ? "bg-background" : ""} data-testid={`row-detail-${d.installmentId}`}>
-                                            <TableCell className="text-xs">{d.customerName}</TableCell>
-                                            <TableCell className="text-xs font-mono">{d.customerNo}</TableCell>
-                                            <TableCell className="text-xs font-mono">{d.applicationId}</TableCell>
-                                            <TableCell className="text-xs">{d.productName}</TableCell>
-                                            <TableCell className="text-xs">{d.branchName}</TableCell>
-                                            <TableCell className="text-xs text-center">{d.installmentNumber}</TableCell>
-                                            <TableCell className="text-xs">{d.dueDate ? formatDate(d.dueDate) : ""}</TableCell>
-                                            <TableCell className="text-xs text-right font-mono">{formatCurrency(d.principleAmount.toString())}</TableCell>
-                                            <TableCell className="text-xs text-right font-mono">{formatCurrency(d.marginAmount.toString())}</TableCell>
-                                            <TableCell className="text-xs text-right font-mono font-semibold">{formatCurrency(d.totalAmount.toString())}</TableCell>
-                                            <TableCell className="text-xs text-right font-mono">{formatCurrency(d.paidAmount.toString())}</TableCell>
-                                            <TableCell className="text-xs text-center">
-                                              {d.isPaid ? (
-                                                <Badge className="text-xs bg-emerald-500">Paid</Badge>
-                                              ) : d.lateDays > 0 ? (
-                                                <Badge variant="destructive" className="text-xs">{d.lateDays}d late</Badge>
-                                              ) : (
-                                                <Badge variant="outline" className="text-xs">Pending</Badge>
-                                              )}
-                                            </TableCell>
-                                          </TableRow>
-                                        ))}
-                                      </TableBody>
-                                    </Table>
-                                  </div>
-                                ) : (
-                                  <p className="text-center text-sm text-muted-foreground py-4">No installment details found for this month.</p>
-                                )}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </Fragment>
-                    );
-                  })}
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             </div>
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-[95vw] w-[95vw] max-h-[90vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0">
+            <div className="flex items-center justify-between pr-6">
+              <div>
+                <DialogTitle className="text-xl">
+                  {selectedMonth ? formatMonthLabel(selectedMonth) : ""} - Installment Details
+                </DialogTitle>
+                {selectedSummary && (
+                  <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                    <span>{selectedSummary.totalCustomers} customers</span>
+                    <span>{selectedSummary.totalInstallments} installments</span>
+                    <span>Due: {formatCurrency(selectedSummary.totalAmount.toString())}</span>
+                    <span>Paid: {formatCurrency(selectedSummary.totalPaid.toString())}</span>
+                    {selectedSummary.overdueInstallments > 0 && (
+                      <Badge variant="destructive" className="text-xs">{selectedSummary.overdueInstallments} overdue</Badge>
+                    )}
+                  </div>
+                )}
+              </div>
+              {detailData && detailData.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <Button onClick={handleExportDetailExcel} size="sm" className="gap-1 bg-green-600 text-white" data-testid="button-detail-export-excel">
+                    <FileSpreadsheet className="h-3.5 w-3.5" /> Excel
+                  </Button>
+                  <Button onClick={handleExportDetailPDF} size="sm" className="gap-1 bg-red-600 text-white" data-testid="button-detail-export-pdf">
+                    <FileText className="h-3.5 w-3.5" /> PDF
+                  </Button>
+                </div>
+              )}
+            </div>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto mt-2">
+            {loadingDetail ? (
+              <div className="flex items-center justify-center py-12 gap-2">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span className="text-muted-foreground">Loading installment details...</span>
+              </div>
+            ) : detailData && detailData.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50 sticky top-0">
+                    <TableHead className="text-xs font-semibold">#</TableHead>
+                    <TableHead className="text-xs font-semibold">Customer</TableHead>
+                    <TableHead className="text-xs font-semibold">Customer No</TableHead>
+                    <TableHead className="text-xs font-semibold">Loan ID</TableHead>
+                    <TableHead className="text-xs font-semibold">Product</TableHead>
+                    <TableHead className="text-xs font-semibold">Branch</TableHead>
+                    <TableHead className="text-xs font-semibold text-center">Inst #</TableHead>
+                    <TableHead className="text-xs font-semibold">Due Date</TableHead>
+                    <TableHead className="text-xs font-semibold text-right">Principal</TableHead>
+                    <TableHead className="text-xs font-semibold text-right">Margin</TableHead>
+                    <TableHead className="text-xs font-semibold text-right">Total</TableHead>
+                    <TableHead className="text-xs font-semibold text-right">Paid</TableHead>
+                    <TableHead className="text-xs font-semibold text-center">Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {detailData.map((d, dIdx) => (
+                    <TableRow key={d.installmentId} className={dIdx % 2 === 0 ? "bg-background" : "bg-muted/20"} data-testid={`row-detail-${d.installmentId}`}>
+                      <TableCell className="text-xs text-muted-foreground">{dIdx + 1}</TableCell>
+                      <TableCell className="text-xs">{d.customerName}</TableCell>
+                      <TableCell className="text-xs font-mono">{d.customerNo}</TableCell>
+                      <TableCell className="text-xs font-mono">{d.applicationId}</TableCell>
+                      <TableCell className="text-xs">{d.productName}</TableCell>
+                      <TableCell className="text-xs">{d.branchName}</TableCell>
+                      <TableCell className="text-xs text-center">{d.installmentNumber}</TableCell>
+                      <TableCell className="text-xs">{d.dueDate ? formatDate(d.dueDate) : ""}</TableCell>
+                      <TableCell className="text-xs text-right font-mono">{formatCurrency(d.principleAmount.toString())}</TableCell>
+                      <TableCell className="text-xs text-right font-mono">{formatCurrency(d.marginAmount.toString())}</TableCell>
+                      <TableCell className="text-xs text-right font-mono font-semibold">{formatCurrency(d.totalAmount.toString())}</TableCell>
+                      <TableCell className="text-xs text-right font-mono">{formatCurrency(d.paidAmount.toString())}</TableCell>
+                      <TableCell className="text-xs text-center">
+                        {d.isPaid ? (
+                          <Badge className="text-xs bg-emerald-500">Paid</Badge>
+                        ) : d.lateDays > 0 ? (
+                          <Badge variant="destructive" className="text-xs">{d.lateDays}d late</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-xs">Pending</Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <p className="text-center text-muted-foreground py-12">No installment details found for this month.</p>
+            )}
+          </div>
+          {detailData && detailData.length > 0 && (
+            <div className="flex-shrink-0 border-t pt-3 mt-2 text-sm text-muted-foreground">
+              Showing {detailData.length} installment{detailData.length !== 1 ? "s" : ""}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
