@@ -3454,7 +3454,10 @@ export class DatabaseStorage implements IStorage {
         (COALESCE(i.total_amount::numeric, 0) - COALESCE(i.paid_amount::numeric, 0)) as unpaid_amount,
         l.application_id,
         l.product_name,
-        COALESCE(l.principle_amount, l.request_amount) as loan_amount,
+        CASE WHEN LOWER(COALESCE(l.product_name, '')) LIKE '%murabaha%'
+          THEN COALESCE(l.total_receivable::numeric, COALESCE(l.principle_amount, l.request_amount)::numeric, 0)
+          ELSE COALESCE(l.principle_amount::numeric, l.request_amount::numeric, 0)
+        END as loan_amount,
         c.first_name || ' ' || COALESCE(c.last_name, '') as customer_name,
         b.name as branch_name,
         fo.name as officer_name
@@ -3477,7 +3480,12 @@ export class DatabaseStorage implements IStorage {
     const totalPortfolioResult = await db.execute(sql`
       SELECT 
         COUNT(l.id) as total_loans,
-        COALESCE(SUM(COALESCE(l.principle_amount::numeric, l.request_amount::numeric, 0)), 0) as total_portfolio
+        COALESCE(SUM(
+          CASE WHEN LOWER(COALESCE(l.product_name, '')) LIKE '%murabaha%'
+            THEN COALESCE(l.total_receivable::numeric, COALESCE(l.principle_amount, l.request_amount)::numeric, 0)
+            ELSE COALESCE(l.principle_amount::numeric, l.request_amount::numeric, 0)
+          END
+        ), 0) as total_portfolio
       FROM loans l
       WHERE l.status IN ('disbursed', 'active')
     `);
@@ -3552,7 +3560,12 @@ export class DatabaseStorage implements IStorage {
 
     const currentLoansResult = await db.execute(sql`
       SELECT COUNT(l.id) as count, 
-             COALESCE(SUM(COALESCE(l.principle_amount::numeric, l.request_amount::numeric, 0)), 0) as amount
+             COALESCE(SUM(
+               CASE WHEN LOWER(COALESCE(l.product_name, '')) LIKE '%murabaha%'
+                 THEN COALESCE(l.total_receivable::numeric, COALESCE(l.principle_amount, l.request_amount)::numeric, 0)
+                 ELSE COALESCE(l.principle_amount::numeric, l.request_amount::numeric, 0)
+               END
+             ), 0) as amount
       FROM loans l
       WHERE l.status IN ('disbursed', 'active')
         AND l.id NOT IN (
@@ -3574,7 +3587,12 @@ export class DatabaseStorage implements IStorage {
         const loanIdsArr = Array.from(cat.loanIds);
         try {
           const loanAmtResult = await db.execute(sql`
-            SELECT COALESCE(SUM(COALESCE(l.principle_amount::numeric, l.request_amount::numeric, 0)), 0) as amount
+            SELECT COALESCE(SUM(
+              CASE WHEN LOWER(COALESCE(l.product_name, '')) LIKE '%murabaha%'
+                THEN COALESCE(l.total_receivable::numeric, COALESCE(l.principle_amount, l.request_amount)::numeric, 0)
+                ELSE COALESCE(l.principle_amount::numeric, l.request_amount::numeric, 0)
+              END
+            ), 0) as amount
             FROM loans l WHERE l.id = ANY(${sql`ARRAY[${sql.join(loanIdsArr.map(id => sql`${id}`), sql`, `)}]`})
           `);
           cat.totalAmount = parseFloat((loanAmtResult.rows[0] as any)?.amount) || 0;
@@ -3614,7 +3632,12 @@ export class DatabaseStorage implements IStorage {
       SELECT 
         COALESCE(b.name, 'Unassigned') as branch_name,
         COUNT(l.id) as loan_count,
-        COALESCE(SUM(COALESCE(l.principle_amount::numeric, l.request_amount::numeric, 0)), 0) as total_portfolio,
+        COALESCE(SUM(
+          CASE WHEN LOWER(COALESCE(l.product_name, '')) LIKE '%murabaha%'
+            THEN COALESCE(l.total_receivable::numeric, COALESCE(l.principle_amount, l.request_amount)::numeric, 0)
+            ELSE COALESCE(l.principle_amount::numeric, l.request_amount::numeric, 0)
+          END
+        ), 0) as total_portfolio,
         COALESCE((
           SELECT SUM(COALESCE(i2.total_amount::numeric, 0) - COALESCE(i2.paid_amount::numeric, 0))
           FROM installments i2
@@ -3666,7 +3689,12 @@ export class DatabaseStorage implements IStorage {
         COALESCE(fo.name, 'Unassigned') as officer_name,
         COALESCE(b.name, 'N/A') as branch_name,
         COUNT(l.id) as loan_count,
-        COALESCE(SUM(COALESCE(l.principle_amount::numeric, l.request_amount::numeric, 0)), 0) as total_portfolio,
+        COALESCE(SUM(
+          CASE WHEN LOWER(COALESCE(l.product_name, '')) LIKE '%murabaha%'
+            THEN COALESCE(l.total_receivable::numeric, COALESCE(l.principle_amount, l.request_amount)::numeric, 0)
+            ELSE COALESCE(l.principle_amount::numeric, l.request_amount::numeric, 0)
+          END
+        ), 0) as total_portfolio,
         COALESCE((
           SELECT SUM(COALESCE(i2.total_amount::numeric, 0) - COALESCE(i2.paid_amount::numeric, 0))
           FROM installments i2
@@ -3707,7 +3735,12 @@ export class DatabaseStorage implements IStorage {
       SELECT 
         COALESCE(l.product_name, 'Unknown') as product_name,
         COUNT(l.id) as loan_count,
-        COALESCE(SUM(COALESCE(l.principle_amount::numeric, l.request_amount::numeric, 0)), 0) as total_portfolio,
+        COALESCE(SUM(
+          CASE WHEN LOWER(COALESCE(l.product_name, '')) LIKE '%murabaha%'
+            THEN COALESCE(l.total_receivable::numeric, COALESCE(l.principle_amount, l.request_amount)::numeric, 0)
+            ELSE COALESCE(l.principle_amount::numeric, l.request_amount::numeric, 0)
+          END
+        ), 0) as total_portfolio,
         COALESCE((
           SELECT SUM(COALESCE(i2.total_amount::numeric, 0) - COALESCE(i2.paid_amount::numeric, 0))
           FROM installments i2
@@ -3748,7 +3781,10 @@ export class DatabaseStorage implements IStorage {
         b.name as branch_name,
         fo.name as officer_name,
         l.product_name,
-        COALESCE(l.principle_amount, l.request_amount) as loan_amount,
+        CASE WHEN LOWER(COALESCE(l.product_name, '')) LIKE '%murabaha%'
+          THEN COALESCE(l.total_receivable::numeric, COALESCE(l.principle_amount, l.request_amount)::numeric, 0)
+          ELSE COALESCE(l.principle_amount::numeric, l.request_amount::numeric, 0)
+        END as loan_amount,
         i.installment_number,
         i.due_date,
         i.total_amount as installment_amount,
@@ -3827,7 +3863,10 @@ export class DatabaseStorage implements IStorage {
         b.name as branch_name,
         fo.name as officer_name,
         l.product_name,
-        COALESCE(l.principle_amount, l.request_amount) as loan_amount,
+        CASE WHEN LOWER(COALESCE(l.product_name, '')) LIKE '%murabaha%'
+          THEN COALESCE(l.total_receivable::numeric, COALESCE(l.principle_amount, l.request_amount)::numeric, 0)
+          ELSE COALESCE(l.principle_amount::numeric, l.request_amount::numeric, 0)
+        END as loan_amount,
         i.installment_number,
         i.due_date,
         (COALESCE(i.total_amount::numeric, 0) - COALESCE(i.paid_amount::numeric, 0)) as unpaid_amount,
@@ -3872,7 +3911,10 @@ export class DatabaseStorage implements IStorage {
         b.name as branch_name,
         fo.name as officer_name,
         l.product_name,
-        COALESCE(l.principle_amount, l.request_amount) as loan_amount,
+        CASE WHEN LOWER(COALESCE(l.product_name, '')) LIKE '%murabaha%'
+          THEN COALESCE(l.total_receivable::numeric, COALESCE(l.principle_amount, l.request_amount)::numeric, 0)
+          ELSE COALESCE(l.principle_amount::numeric, l.request_amount::numeric, 0)
+        END as loan_amount,
         i.installment_number,
         i.due_date,
         (COALESCE(i.total_amount::numeric, 0) - COALESCE(i.paid_amount::numeric, 0)) as unpaid_amount,
@@ -3916,7 +3958,10 @@ export class DatabaseStorage implements IStorage {
         b.name as branch_name,
         fo.name as officer_name,
         l.product_name,
-        COALESCE(l.principle_amount, l.request_amount) as loan_amount,
+        CASE WHEN LOWER(COALESCE(l.product_name, '')) LIKE '%murabaha%'
+          THEN COALESCE(l.total_receivable::numeric, COALESCE(l.principle_amount, l.request_amount)::numeric, 0)
+          ELSE COALESCE(l.principle_amount::numeric, l.request_amount::numeric, 0)
+        END as loan_amount,
         i.installment_number,
         i.due_date,
         (COALESCE(i.total_amount::numeric, 0) - COALESCE(i.paid_amount::numeric, 0)) as unpaid_amount,
@@ -3960,7 +4005,10 @@ export class DatabaseStorage implements IStorage {
         b.name as branch_name,
         fo.name as officer_name,
         l.product_name,
-        COALESCE(l.principle_amount, l.request_amount) as loan_amount,
+        CASE WHEN LOWER(COALESCE(l.product_name, '')) LIKE '%murabaha%'
+          THEN COALESCE(l.total_receivable::numeric, COALESCE(l.principle_amount, l.request_amount)::numeric, 0)
+          ELSE COALESCE(l.principle_amount::numeric, l.request_amount::numeric, 0)
+        END as loan_amount,
         i.installment_number,
         i.due_date,
         (COALESCE(i.total_amount::numeric, 0) - COALESCE(i.paid_amount::numeric, 0)) as unpaid_amount,
