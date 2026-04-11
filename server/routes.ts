@@ -6811,6 +6811,154 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/reports/monthly-due-summary", isAuthenticated, requirePageAccess("monthly-due-summary"), async (req, res) => {
+    try {
+      const { branchId, fundingSourceId } = req.query;
+
+      let branchFilter = "";
+      if (branchId && branchId !== "all") {
+        branchFilter = ` AND l.branch_id = '${(branchId as string).replace(/'/g, "''")}'`;
+      }
+      let fundingFilter = "";
+      if (fundingSourceId && fundingSourceId !== "all") {
+        fundingFilter = ` AND l.funding_source_id = '${(fundingSourceId as string).replace(/'/g, "''")}'`;
+      }
+
+      const summaryResult = await db.execute(sql.raw(`
+        SELECT
+          TO_CHAR(i.due_date::date, 'YYYY-MM') AS month_year,
+          COUNT(DISTINCT l.customer_id) AS total_customers,
+          COALESCE(SUM(i.principle_amount::numeric), 0) AS total_principal,
+          COALESCE(SUM(i.margin_amount::numeric), 0) AS total_margin,
+          COALESCE(SUM(i.total_amount::numeric), 0) AS total_amount,
+          COALESCE(SUM(i.paid_amount::numeric), 0) AS total_paid,
+          COUNT(*) AS total_installments,
+          COUNT(CASE WHEN i.is_paid = true THEN 1 END) AS paid_installments,
+          COUNT(CASE WHEN i.is_paid = false THEN 1 END) AS unpaid_installments,
+          COUNT(CASE WHEN i.is_paid = false AND i.due_date < CURRENT_DATE THEN 1 END) AS overdue_installments
+        FROM installments i
+        INNER JOIN loans l ON i.loan_id = l.id
+        WHERE i.due_date IS NOT NULL
+          ${branchFilter}
+          ${fundingFilter}
+        GROUP BY TO_CHAR(i.due_date::date, 'YYYY-MM')
+        ORDER BY month_year DESC
+      `));
+
+      const totalsResult = await db.execute(sql.raw(`
+        SELECT
+          COUNT(DISTINCT l.customer_id) AS total_customers,
+          COALESCE(SUM(i.total_amount::numeric), 0) AS total_due,
+          COALESCE(SUM(i.paid_amount::numeric), 0) AS total_collected,
+          COALESCE(SUM(CASE WHEN i.is_paid = false AND i.due_date < CURRENT_DATE THEN i.total_amount::numeric ELSE 0 END), 0) AS total_overdue,
+          COUNT(CASE WHEN i.is_paid = false AND i.due_date < CURRENT_DATE THEN 1 END) AS overdue_installment_count,
+          COALESCE(SUM(CASE WHEN TO_CHAR(i.due_date::date, 'YYYY-MM') = TO_CHAR(CURRENT_DATE, 'YYYY-MM') THEN i.total_amount::numeric ELSE 0 END), 0) AS current_month_due,
+          COALESCE(SUM(CASE WHEN TO_CHAR(i.due_date::date, 'YYYY-MM') = TO_CHAR(CURRENT_DATE, 'YYYY-MM') AND i.is_paid = true THEN i.paid_amount::numeric ELSE 0 END), 0) AS current_month_collected
+        FROM installments i
+        INNER JOIN loans l ON i.loan_id = l.id
+        WHERE i.due_date IS NOT NULL
+          ${branchFilter}
+          ${fundingFilter}
+      `));
+
+      const totals = (totalsResult as any).rows?.[0] || {};
+
+      res.json({
+        summary: ((summaryResult as any).rows || []).map((r: any) => ({
+          monthYear: r.month_year,
+          totalCustomers: Number(r.total_customers || 0),
+          totalPrincipal: Number(r.total_principal || 0),
+          totalMargin: Number(r.total_margin || 0),
+          totalAmount: Number(r.total_amount || 0),
+          totalPaid: Number(r.total_paid || 0),
+          totalInstallments: Number(r.total_installments || 0),
+          paidInstallments: Number(r.paid_installments || 0),
+          unpaidInstallments: Number(r.unpaid_installments || 0),
+          overdueInstallments: Number(r.overdue_installments || 0),
+        })),
+        totals: {
+          totalCustomers: Number(totals.total_customers || 0),
+          totalDue: Number(totals.total_due || 0),
+          totalCollected: Number(totals.total_collected || 0),
+          totalOverdue: Number(totals.total_overdue || 0),
+          overdueInstallmentCount: Number(totals.overdue_installment_count || 0),
+          currentMonthDue: Number(totals.current_month_due || 0),
+          currentMonthCollected: Number(totals.current_month_collected || 0),
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching monthly due summary:", error);
+      res.status(500).json({ message: "Failed to fetch monthly due summary" });
+    }
+  });
+
+  app.get("/api/reports/monthly-due-detail/:monthYear", isAuthenticated, requirePageAccess("monthly-due-summary"), async (req, res) => {
+    try {
+      const { monthYear } = req.params;
+      const { branchId, fundingSourceId } = req.query;
+
+      let branchFilter = "";
+      if (branchId && branchId !== "all") {
+        branchFilter = ` AND l.branch_id = '${(branchId as string).replace(/'/g, "''")}'`;
+      }
+      let fundingFilter = "";
+      if (fundingSourceId && fundingSourceId !== "all") {
+        fundingFilter = ` AND l.funding_source_id = '${(fundingSourceId as string).replace(/'/g, "''")}'`;
+      }
+
+      const result = await db.execute(sql.raw(`
+        SELECT
+          i.id AS installment_id,
+          i.installment_number,
+          i.due_date,
+          i.principle_amount::numeric AS principle_amount,
+          i.margin_amount::numeric AS margin_amount,
+          i.total_amount::numeric AS total_amount,
+          i.paid_amount::numeric AS paid_amount,
+          i.payment_date,
+          i.is_paid,
+          i.late_days,
+          l.application_id,
+          l.product_name,
+          c.first_name,
+          c.last_name,
+          c.customer_no,
+          b.name AS branch_name
+        FROM installments i
+        INNER JOIN loans l ON i.loan_id = l.id
+        INNER JOIN customers c ON l.customer_id = c.id
+        LEFT JOIN branches b ON l.branch_id = b.id
+        WHERE TO_CHAR(i.due_date::date, 'YYYY-MM') = '${monthYear.replace(/'/g, "''")}'
+          ${branchFilter}
+          ${fundingFilter}
+        ORDER BY b.name, c.first_name, i.due_date
+      `));
+
+      const rows = ((result as any).rows || []).map((r: any) => ({
+        installmentId: r.installment_id,
+        installmentNumber: Number(r.installment_number || 0),
+        dueDate: r.due_date,
+        principleAmount: Number(r.principle_amount || 0),
+        marginAmount: Number(r.margin_amount || 0),
+        totalAmount: Number(r.total_amount || 0),
+        paidAmount: Number(r.paid_amount || 0),
+        paymentDate: r.payment_date,
+        isPaid: r.is_paid,
+        lateDays: Number(r.late_days || 0),
+        applicationId: r.application_id || "",
+        productName: r.product_name || "",
+        customerName: `${r.first_name || ""} ${r.last_name || ""}`.trim(),
+        customerNo: r.customer_no || "",
+        branchName: r.branch_name || "",
+      }));
+
+      res.json(rows);
+    } catch (error) {
+      console.error("Error fetching monthly due detail:", error);
+      res.status(500).json({ message: "Failed to fetch monthly due detail" });
+    }
+  });
+
   // Collateral Report
   app.get("/api/reports/collateral", isAuthenticated, async (req, res) => {
     try {
