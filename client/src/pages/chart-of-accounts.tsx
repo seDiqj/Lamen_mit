@@ -30,8 +30,10 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Plus, Edit2, Trash2, ChevronRight, ChevronDown, BookOpen, Search, Filter, PlusCircle, GripVertical, FolderTree, TableProperties, MoveUp, MoveDown, ArrowRight } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Plus, Edit2, Trash2, ChevronRight, ChevronDown, BookOpen, Search, Filter, PlusCircle, GripVertical, FolderTree, TableProperties, MoveUp, MoveDown, ArrowRight, Check, ChevronsUpDown } from "lucide-react";
+import { cn, formatCurrency } from "@/lib/utils";
 
 type Account = {
   id: string;
@@ -71,6 +73,7 @@ export default function ChartOfAccounts() {
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState("table");
 
+  const [parentPopoverOpen, setParentPopoverOpen] = useState(false);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const [dropPosition, setDropPosition] = useState<"inside" | "above" | "below" | null>(null);
@@ -572,19 +575,60 @@ export default function ChartOfAccounts() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="parentId">Parent Account</Label>
-                <Select value={formData.parentId || "none"} onValueChange={(val) => setFormData(prev => ({ ...prev, parentId: val === "none" ? "" : val }))}>
-                  <SelectTrigger data-testid="select-parent-account">
-                    <SelectValue placeholder="Select parent account" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No Parent (Top Level)</SelectItem>
-                    {allAccounts
-                      .filter(a => a.id !== editingAccount?.id && a.accountType === formData.accountType)
-                      .map(a => (
-                        <SelectItem key={a.id} value={a.id}>{a.accountCode} - {a.accountName}</SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={parentPopoverOpen} onOpenChange={setParentPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={parentPopoverOpen}
+                      className="w-full justify-between font-normal"
+                      data-testid="select-parent-account"
+                    >
+                      {formData.parentId
+                        ? (() => {
+                            const selected = allAccounts.find(a => a.id === formData.parentId);
+                            return selected ? `${selected.accountCode} - ${selected.accountName}` : "Select parent account";
+                          })()
+                        : "No Parent (Top Level)"}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[380px] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search by code or name..." data-testid="input-parent-search" />
+                      <CommandList>
+                        <CommandEmpty>No account found.</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem
+                            value="no-parent-top-level"
+                            onSelect={() => {
+                              setFormData(prev => ({ ...prev, parentId: "" }));
+                              setParentPopoverOpen(false);
+                            }}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", !formData.parentId ? "opacity-100" : "opacity-0")} />
+                            No Parent (Top Level)
+                          </CommandItem>
+                          {allAccounts
+                            .filter(a => a.id !== editingAccount?.id && a.accountType === formData.accountType)
+                            .map(a => (
+                              <CommandItem
+                                key={a.id}
+                                value={`${a.accountCode} ${a.accountName}`}
+                                onSelect={() => {
+                                  setFormData(prev => ({ ...prev, parentId: a.id }));
+                                  setParentPopoverOpen(false);
+                                }}
+                              >
+                                <Check className={cn("mr-2 h-4 w-4", formData.parentId === a.id ? "opacity-100" : "opacity-0")} />
+                                {a.accountCode} - {a.accountName}
+                              </CommandItem>
+                            ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
                 <p className="text-xs text-muted-foreground">Only showing {formData.accountType} accounts</p>
               </div>
               <div className="space-y-2">
