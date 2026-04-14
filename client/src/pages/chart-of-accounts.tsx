@@ -323,6 +323,10 @@ export default function ChartOfAccounts() {
     if (!draggedId || draggedId === accountId) return;
     if (isDescendantOf(accountId, draggedId, hierarchy)) return;
 
+    const draggedAccount = findAccountById(draggedId, hierarchy);
+    const targetAccount = findAccountById(accountId, hierarchy);
+    if (draggedAccount && targetAccount && draggedAccount.accountType !== targetAccount.accountType) return;
+
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const y = e.clientY - rect.top;
     const height = rect.height;
@@ -358,7 +362,13 @@ export default function ChartOfAccounts() {
       return;
     }
 
+    const draggedAccount = findAccountById(draggedId, hierarchy);
     const target = findAccountById(targetId, hierarchy);
+    if (draggedAccount && target && draggedAccount.accountType !== target.accountType) {
+      toast({ title: "Cannot move", description: "Accounts can only be moved within the same type", variant: "destructive" });
+      resetDrag();
+      return;
+    }
     if (!target) { resetDrag(); return; }
 
     if (dropPosition === "inside") {
@@ -568,11 +578,14 @@ export default function ChartOfAccounts() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">No Parent (Top Level)</SelectItem>
-                    {allAccounts.filter(a => a.id !== editingAccount?.id).map(a => (
-                      <SelectItem key={a.id} value={a.id}>{a.accountCode} - {a.accountName}</SelectItem>
-                    ))}
+                    {allAccounts
+                      .filter(a => a.id !== editingAccount?.id && a.accountType === formData.accountType)
+                      .map(a => (
+                        <SelectItem key={a.id} value={a.id}>{a.accountCode} - {a.accountName}</SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground">Only showing {formData.accountType} accounts</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="openingBalance">Opening Balance</Label>

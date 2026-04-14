@@ -5441,7 +5441,14 @@ export async function registerRoutes(
         }
 
         if (req.body.parentId) {
-          const allAccounts = await db.select({ id: accounts.id, parentId: accounts.parentId }).from(accounts);
+          const allAccounts = await db.select({ id: accounts.id, parentId: accounts.parentId, accountType: accounts.accountType }).from(accounts);
+
+          const currentAccount = allAccounts.find(a => a.id === accountId);
+          const parentAccount = allAccounts.find(a => a.id === req.body.parentId);
+          if (currentAccount && parentAccount && currentAccount.accountType !== parentAccount.accountType) {
+            return res.status(400).json({ message: "Accounts can only be moved within the same type" });
+          }
+
           const descendants = new Set<string>();
           const collectDescendants = (id: string) => {
             for (const a of allAccounts) {
