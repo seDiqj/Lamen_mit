@@ -9804,6 +9804,94 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/collection-receipt/:installmentId", isAuthenticated, async (req: any, res) => {
+    try {
+      const { installmentId } = req.params;
+      const result = await db.execute(sql`
+        SELECT 
+          i.id as installment_id,
+          i.installment_number,
+          i.due_date,
+          i.total_amount,
+          i.paid_amount,
+          i.principle_amount,
+          i.margin_amount,
+          i.is_paid,
+          i.payment_date,
+          l.application_id,
+          l.product_name,
+          l.principle_amount as loan_amount,
+          l.total_receivable as loan_total_receivable,
+          l.duration,
+          c.first_name,
+          c.last_name,
+          c.father_name,
+          c.customer_no,
+          b.name as branch_name,
+          fo.name as officer_name
+        FROM installments i
+        INNER JOIN loans l ON i.loan_id = l.id
+        LEFT JOIN customers c ON l.customer_id = c.id
+        LEFT JOIN branches b ON l.branch_id = b.id
+        LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
+        WHERE i.id = ${installmentId}
+      `);
+      if (result.rows.length === 0) return res.status(404).json({ message: "Installment not found" });
+
+      const row: any = result.rows[0];
+
+      const collectionResult = await db.execute(sql`
+        SELECT id, amount, payment_date, status, submitted_at, notes, debit_account_code
+        FROM collection_records 
+        WHERE installment_id = ${installmentId}
+        ORDER BY submitted_at DESC
+        LIMIT 1
+      `);
+
+      const collection = collectionResult.rows.length > 0 ? collectionResult.rows[0] as any : null;
+
+      const totalInstResult = await db.execute(sql`
+        SELECT COUNT(*) as total_installments,
+          COALESCE(SUM(COALESCE(paid_amount::numeric, 0)), 0) as total_paid_all
+        FROM installments WHERE loan_id = (SELECT loan_id FROM installments WHERE id = ${installmentId})
+      `);
+      const totalInfo: any = totalInstResult.rows[0];
+
+      res.json({
+        customerName: `${row.first_name || ''} ${row.last_name || ''}`.trim(),
+        fatherName: row.father_name || '',
+        customerNo: row.customer_no || '',
+        applicationId: row.application_id,
+        productName: row.product_name || '',
+        loanAmount: row.loan_amount || row.loan_total_receivable || '0',
+        duration: row.duration || '',
+        branchName: row.branch_name || '',
+        officerName: row.officer_name || '',
+        installmentNumber: row.installment_number,
+        totalInstallments: parseInt(totalInfo.total_installments) || 0,
+        dueDate: row.due_date,
+        installmentAmount: row.total_amount || '0',
+        principleAmount: row.principle_amount || '0',
+        marginAmount: row.margin_amount || '0',
+        paidAmount: row.paid_amount || '0',
+        isPaid: row.is_paid,
+        paymentDate: row.payment_date,
+        totalPaidAllInstallments: totalInfo.total_paid_all || '0',
+        collection: collection ? {
+          id: collection.id,
+          amount: collection.amount,
+          paymentDate: collection.payment_date,
+          status: collection.status,
+          submittedAt: collection.submitted_at,
+          notes: collection.notes,
+        } : null,
+      });
+    } catch (error: any) {
+      console.error("Error fetching collection receipt:", error);
+      res.status(500).json({ message: error.message || "Failed to fetch receipt" });
+    }
+  });
+
   app.get("/api/collection-records", isAuthenticated, requirePageAccess("collection-approvals"), async (req, res) => {
     try {
       const status = req.query.status as string || "pending";
