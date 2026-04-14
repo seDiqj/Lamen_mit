@@ -5433,7 +5433,32 @@ export async function registerRoutes(
 
   app.patch("/api/accounts/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const account = await storage.updateAccount(req.params.id, req.body);
+      const accountId = req.params.id;
+
+      if (req.body.parentId !== undefined) {
+        if (req.body.parentId === accountId) {
+          return res.status(400).json({ message: "An account cannot be its own parent" });
+        }
+
+        if (req.body.parentId) {
+          const allAccounts = await db.select({ id: accounts.id, parentId: accounts.parentId }).from(accounts);
+          const descendants = new Set<string>();
+          const collectDescendants = (id: string) => {
+            for (const a of allAccounts) {
+              if (a.parentId === id && !descendants.has(a.id)) {
+                descendants.add(a.id);
+                collectDescendants(a.id);
+              }
+            }
+          };
+          collectDescendants(accountId);
+          if (descendants.has(req.body.parentId)) {
+            return res.status(400).json({ message: "Cannot move an account under its own child or descendant" });
+          }
+        }
+      }
+
+      const account = await storage.updateAccount(accountId, req.body);
       await logActivity(req, "update", "account", account.id, `Updated account: ${account.accountCode} - ${account.accountName}`);
       res.json(account);
     } catch (error) {
