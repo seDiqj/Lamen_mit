@@ -224,17 +224,38 @@ export default function MobileCollections() {
 
     const qrImg = qrDataUrl ? `<div style="text-align:center;margin:3mm 0 1mm;"><img src="${qrDataUrl}" style="width:25mm;height:25mm;" /></div>` : "";
 
-    const printWindow = window.open("", "_blank", "width=250,height=600");
-    if (!printWindow) return;
-    printWindow.document.write(`<html><head><title>Receipt</title>
+    const htmlContent = `<html><head><title>Receipt</title>
 <style>
 @page { size: 55mm auto; margin: 0; }
+@media print { html, body { width: 55mm; } }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { width: 55mm; font-family: 'Courier New', monospace; font-size: 9px; line-height: 1.4; padding: 2mm; color: #000; }
 pre { white-space: pre-wrap; word-break: break-word; font-family: inherit; font-size: inherit; }
-</style></head><body><pre>${lines.join("\n")}</pre>${qrImg}</body></html>`);
-    printWindow.document.close();
-    setTimeout(() => { printWindow.print(); printWindow.close(); }, 300);
+</style></head><body><pre>${lines.join("\n")}</pre>${qrImg}</body></html>`;
+
+    const existingFrame = document.getElementById("receipt-print-frame");
+    if (existingFrame) existingFrame.remove();
+
+    const iframe = document.createElement("iframe");
+    iframe.id = "receipt-print-frame";
+    iframe.style.cssText = "position:fixed;top:-9999px;left:-9999px;width:55mm;height:0;border:none;";
+    document.body.appendChild(iframe);
+
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!iframeDoc) return;
+    iframeDoc.open();
+    iframeDoc.write(htmlContent);
+    iframeDoc.close();
+
+    setTimeout(() => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch (e) {
+        window.print();
+      }
+      setTimeout(() => iframe.remove(), 2000);
+    }, 500);
   };
 
   const { data: pendingRecords = [] } = useQuery<any[]>({
