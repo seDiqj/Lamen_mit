@@ -27,7 +27,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useRef } from "react";
 
 type FinanceOfficer = {
   id: string;
@@ -101,7 +100,6 @@ export default function MobileCollections() {
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split("T")[0]);
   const [paymentNotes, setPaymentNotes] = useState("");
   const [receiptInstallmentId, setReceiptInstallmentId] = useState<string | null>(null);
-  const receiptRef = useRef<HTMLDivElement>(null);
 
   const { data: roleData, isLoading: roleLoading } = useQuery<{ role: string; roleType: string }>({
     queryKey: ["/api/user/role"],
@@ -148,36 +146,66 @@ export default function MobileCollections() {
   });
 
   const handlePrintReceipt = () => {
-    if (!receiptRef.current) return;
-    const printContent = receiptRef.current.innerHTML;
-    const printWindow = window.open("", "_blank", "width=400,height=600");
+    if (!receiptData) return;
+    const r = receiptData;
+    const collAmt = r.collection ? formatCurrency(r.collection.amount) : (r.isPaid ? formatCurrency(r.paidAmount) : "0");
+    const payDate = r.collection?.paymentDate
+      ? new Date(r.collection.paymentDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+      : (r.paymentDate ? new Date(r.paymentDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "");
+    const dueDate = r.dueDate ? new Date(r.dueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "";
+    const receiptNo = r.collection?.id?.substring(0, 8).toUpperCase() || "N/A";
+    const status = r.collection?.status === "approved" ? "APPROVED" : r.collection?.status === "pending" ? "PENDING" : (r.isPaid ? "PAID" : "");
+    const now = new Date();
+    const printTime = now.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) + " " + now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+
+    const line = "================================";
+    const dash = "--------------------------------";
+
+    const lines = [
+      "  LAMEN MICRO FINANCE",
+      "     INSTITUTION",
+      "   License No: 97950",
+      `   ${r.branchName || ""} Branch`,
+      line,
+      "    COLLECTION RECEIPT",
+      line,
+      `Cust : ${r.customerName}`,
+      ...(r.fatherName ? [`F/N  : ${r.fatherName}`] : []),
+      `C.No : ${r.customerNo || "N/A"}`,
+      dash,
+      `Fin ID  : ${r.applicationId}`,
+      `Product : ${r.productName}`,
+      `Amount  : AFN ${formatCurrency(r.loanAmount)}`,
+      `Officer : ${r.officerName || "N/A"}`,
+      dash,
+      `Inst #${r.installmentNumber} of ${r.totalInstallments}`,
+      `Due Date : ${dueDate}`,
+      `Inst Amt : AFN ${formatCurrency(r.installmentAmount)}`,
+      ...(parseFloat(r.principleAmount) > 0 ? [`Principal: AFN ${formatCurrency(r.principleAmount)}`] : []),
+      ...(parseFloat(r.marginAmount) > 0 ? [`Margin   : AFN ${formatCurrency(r.marginAmount)}`] : []),
+      line,
+      `COLLECTED: AFN ${collAmt}`,
+      ...(payDate ? [`Pay Date : ${payDate}`] : []),
+      ...(receiptNo !== "N/A" ? [`Receipt# : ${receiptNo}`] : []),
+      line,
+      ...(status ? [`     *** ${status} ***`] : []),
+      ...(r.collection?.notes ? [`Note: ${r.collection.notes}`] : []),
+      dash,
+      `Printed: ${printTime}`,
+      "",
+      "  Thank you for your payment",
+      "",
+    ];
+
+    const printWindow = window.open("", "_blank", "width=250,height=500");
     if (!printWindow) return;
-    printWindow.document.write(`
-      <html><head><title>Collection Receipt</title>
-      <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; padding: 8px; font-size: 11px; color: #000; }
-        .receipt-container { max-width: 350px; margin: 0 auto; }
-        .receipt-header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 8px; }
-        .receipt-header h1 { font-size: 14px; font-weight: bold; margin-bottom: 2px; }
-        .receipt-header p { font-size: 10px; color: #333; }
-        .receipt-title { text-align: center; font-size: 13px; font-weight: bold; margin: 8px 0; padding: 4px; background: #f0f0f0; border: 1px solid #ccc; }
-        .receipt-row { display: flex; justify-content: space-between; padding: 2px 0; border-bottom: 1px dotted #ddd; }
-        .receipt-row .label { color: #555; font-size: 10px; }
-        .receipt-row .value { font-weight: 600; font-size: 11px; text-align: right; }
-        .receipt-section { margin: 8px 0; }
-        .receipt-section-title { font-size: 11px; font-weight: bold; border-bottom: 1px solid #000; padding-bottom: 2px; margin-bottom: 4px; }
-        .receipt-total { display: flex; justify-content: space-between; padding: 6px 4px; background: #f5f5f5; border: 1px solid #000; font-weight: bold; font-size: 13px; margin: 8px 0; }
-        .receipt-footer { text-align: center; margin-top: 12px; padding-top: 8px; border-top: 1px dashed #999; font-size: 9px; color: #666; }
-        .receipt-status { text-align: center; padding: 3px; font-weight: bold; font-size: 11px; border: 1px solid; margin: 6px 0; }
-        .status-pending { color: #b45309; border-color: #b45309; background: #fef3c7; }
-        .status-approved { color: #15803d; border-color: #15803d; background: #dcfce7; }
-        .status-paid { color: #15803d; border-color: #15803d; background: #dcfce7; }
-        .dashed-line { border-top: 1px dashed #999; margin: 6px 0; }
-        @media print { body { padding: 0; } }
-      </style></head>
-      <body>${printContent}</body></html>
-    `);
+    printWindow.document.write(`<html><head><title>Receipt</title>
+<style>
+@page { size: 55mm auto; margin: 0; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { width: 55mm; font-family: 'Courier New', monospace; font-size: 9px; line-height: 1.4; padding: 2mm; color: #000; }
+pre { white-space: pre-wrap; word-break: break-word; font-family: inherit; font-size: inherit; }
+</style></head><body><pre>${lines.join("\n")}</pre></body></html>`);
     printWindow.document.close();
     setTimeout(() => { printWindow.print(); printWindow.close(); }, 300);
   };
@@ -557,10 +585,10 @@ export default function MobileCollections() {
       </Dialog>
 
       <Dialog open={!!receiptInstallmentId} onOpenChange={(open) => { if (!open) setReceiptInstallmentId(null); }}>
-        <DialogContent className="max-w-sm mx-auto max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-base flex items-center gap-2">
-              <Printer className="h-4 w-4" /> Collection Receipt
+        <DialogContent className="max-w-[280px] mx-auto max-h-[90vh] overflow-y-auto p-3">
+          <DialogHeader className="pb-0">
+            <DialogTitle className="text-sm flex items-center gap-1.5">
+              <Printer className="h-3.5 w-3.5" /> Receipt Preview
             </DialogTitle>
           </DialogHeader>
           {receiptLoading ? (
@@ -569,147 +597,57 @@ export default function MobileCollections() {
             </div>
           ) : receiptData ? (
             <>
-              <div ref={receiptRef}>
-                <div className="receipt-container">
-                  <div className="receipt-header" style={{ textAlign: "center", borderBottom: "2px solid #000", paddingBottom: "8px", marginBottom: "8px" }}>
-                    <h1 style={{ fontSize: "14px", fontWeight: "bold", margin: "0 0 2px" }}>Lamen Micro Finance Institution</h1>
-                    <p style={{ fontSize: "10px", color: "#333", margin: 0 }}>License No: 97950</p>
-                    <p style={{ fontSize: "10px", color: "#333", margin: 0 }}>{receiptData.branchName} Branch</p>
-                  </div>
-
-                  <div className="receipt-title" style={{ textAlign: "center", fontSize: "13px", fontWeight: "bold", margin: "8px 0", padding: "4px", background: "#f0f0f0", border: "1px solid #ccc" }}>
-                    COLLECTION RECEIPT
-                  </div>
-
-                  <div className="receipt-section" style={{ margin: "8px 0" }}>
-                    <div className="receipt-section-title" style={{ fontSize: "11px", fontWeight: "bold", borderBottom: "1px solid #000", paddingBottom: "2px", marginBottom: "4px" }}>Customer Details</div>
-                    <div className="receipt-row" style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", borderBottom: "1px dotted #ddd" }}>
-                      <span className="label" style={{ color: "#555", fontSize: "10px" }}>Customer</span>
-                      <span className="value" style={{ fontWeight: 600, fontSize: "11px" }}>{receiptData.customerName}</span>
-                    </div>
-                    {receiptData.fatherName && (
-                      <div className="receipt-row" style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", borderBottom: "1px dotted #ddd" }}>
-                        <span className="label" style={{ color: "#555", fontSize: "10px" }}>Father Name</span>
-                        <span className="value" style={{ fontWeight: 600, fontSize: "11px" }}>{receiptData.fatherName}</span>
-                      </div>
-                    )}
-                    <div className="receipt-row" style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", borderBottom: "1px dotted #ddd" }}>
-                      <span className="label" style={{ color: "#555", fontSize: "10px" }}>Customer No</span>
-                      <span className="value" style={{ fontWeight: 600, fontSize: "11px" }}>{receiptData.customerNo || "N/A"}</span>
-                    </div>
-                  </div>
-
-                  <div className="receipt-section" style={{ margin: "8px 0" }}>
-                    <div className="receipt-section-title" style={{ fontSize: "11px", fontWeight: "bold", borderBottom: "1px solid #000", paddingBottom: "2px", marginBottom: "4px" }}>Financing Details</div>
-                    <div className="receipt-row" style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", borderBottom: "1px dotted #ddd" }}>
-                      <span className="label" style={{ color: "#555", fontSize: "10px" }}>Financing ID</span>
-                      <span className="value" style={{ fontWeight: 600, fontSize: "11px" }}>{receiptData.applicationId}</span>
-                    </div>
-                    <div className="receipt-row" style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", borderBottom: "1px dotted #ddd" }}>
-                      <span className="label" style={{ color: "#555", fontSize: "10px" }}>Product</span>
-                      <span className="value" style={{ fontWeight: 600, fontSize: "11px" }}>{receiptData.productName}</span>
-                    </div>
-                    <div className="receipt-row" style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", borderBottom: "1px dotted #ddd" }}>
-                      <span className="label" style={{ color: "#555", fontSize: "10px" }}>Financing Amount</span>
-                      <span className="value" style={{ fontWeight: 600, fontSize: "11px" }}>AFN {formatCurrency(receiptData.loanAmount)}</span>
-                    </div>
-                    <div className="receipt-row" style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", borderBottom: "1px dotted #ddd" }}>
-                      <span className="label" style={{ color: "#555", fontSize: "10px" }}>Officer</span>
-                      <span className="value" style={{ fontWeight: 600, fontSize: "11px" }}>{receiptData.officerName || "N/A"}</span>
-                    </div>
-                  </div>
-
-                  <div className="receipt-section" style={{ margin: "8px 0" }}>
-                    <div className="receipt-section-title" style={{ fontSize: "11px", fontWeight: "bold", borderBottom: "1px solid #000", paddingBottom: "2px", marginBottom: "4px" }}>Installment Details</div>
-                    <div className="receipt-row" style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", borderBottom: "1px dotted #ddd" }}>
-                      <span className="label" style={{ color: "#555", fontSize: "10px" }}>Installment</span>
-                      <span className="value" style={{ fontWeight: 600, fontSize: "11px" }}>#{receiptData.installmentNumber} of {receiptData.totalInstallments}</span>
-                    </div>
-                    <div className="receipt-row" style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", borderBottom: "1px dotted #ddd" }}>
-                      <span className="label" style={{ color: "#555", fontSize: "10px" }}>Due Date</span>
-                      <span className="value" style={{ fontWeight: 600, fontSize: "11px" }}>
-                        {receiptData.dueDate ? new Date(receiptData.dueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "N/A"}
-                      </span>
-                    </div>
-                    <div className="receipt-row" style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", borderBottom: "1px dotted #ddd" }}>
-                      <span className="label" style={{ color: "#555", fontSize: "10px" }}>Installment Amount</span>
-                      <span className="value" style={{ fontWeight: 600, fontSize: "11px" }}>AFN {formatCurrency(receiptData.installmentAmount)}</span>
-                    </div>
-                    {parseFloat(receiptData.principleAmount) > 0 && (
-                      <div className="receipt-row" style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", borderBottom: "1px dotted #ddd" }}>
-                        <span className="label" style={{ color: "#555", fontSize: "10px" }}>Principal</span>
-                        <span className="value" style={{ fontWeight: 600, fontSize: "11px" }}>AFN {formatCurrency(receiptData.principleAmount)}</span>
-                      </div>
-                    )}
-                    {parseFloat(receiptData.marginAmount) > 0 && (
-                      <div className="receipt-row" style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", borderBottom: "1px dotted #ddd" }}>
-                        <span className="label" style={{ color: "#555", fontSize: "10px" }}>Margin/Profit</span>
-                        <span className="value" style={{ fontWeight: 600, fontSize: "11px" }}>AFN {formatCurrency(receiptData.marginAmount)}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {receiptData.collection ? (
-                    <div className="receipt-total" style={{ display: "flex", justifyContent: "space-between", padding: "6px 4px", background: "#f5f5f5", border: "1px solid #000", fontWeight: "bold", fontSize: "13px", margin: "8px 0" }}>
-                      <span>Amount Collected</span>
-                      <span>AFN {formatCurrency(receiptData.collection.amount)}</span>
-                    </div>
-                  ) : receiptData.isPaid ? (
-                    <div className="receipt-total" style={{ display: "flex", justifyContent: "space-between", padding: "6px 4px", background: "#f5f5f5", border: "1px solid #000", fontWeight: "bold", fontSize: "13px", margin: "8px 0" }}>
-                      <span>Amount Paid</span>
-                      <span>AFN {formatCurrency(receiptData.paidAmount)}</span>
-                    </div>
-                  ) : null}
-
-                  {receiptData.collection && (
-                    <div className="receipt-section" style={{ margin: "8px 0" }}>
-                      <div className="receipt-row" style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", borderBottom: "1px dotted #ddd" }}>
-                        <span className="label" style={{ color: "#555", fontSize: "10px" }}>Payment Date</span>
-                        <span className="value" style={{ fontWeight: 600, fontSize: "11px" }}>
-                          {new Date(receiptData.collection.paymentDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
-                        </span>
-                      </div>
-                      <div className="receipt-row" style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", borderBottom: "1px dotted #ddd" }}>
-                        <span className="label" style={{ color: "#555", fontSize: "10px" }}>Receipt No</span>
-                        <span className="value" style={{ fontWeight: 600, fontSize: "11px" }}>{receiptData.collection.id?.substring(0, 8).toUpperCase()}</span>
-                      </div>
-                      <div className={`receipt-status ${receiptData.collection.status === "approved" ? "status-approved" : "status-pending"}`}
-                        style={{
-                          textAlign: "center", padding: "3px", fontWeight: "bold", fontSize: "11px", border: "1px solid", margin: "6px 0",
-                          color: receiptData.collection.status === "approved" ? "#15803d" : "#b45309",
-                          borderColor: receiptData.collection.status === "approved" ? "#15803d" : "#b45309",
-                          background: receiptData.collection.status === "approved" ? "#dcfce7" : "#fef3c7",
-                        }}>
-                        {receiptData.collection.status === "approved" ? "✓ APPROVED" : receiptData.collection.status === "pending" ? "⏳ PENDING APPROVAL" : receiptData.collection.status?.toUpperCase()}
-                      </div>
-                      {receiptData.collection.notes && (
-                        <div className="receipt-row" style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", borderBottom: "1px dotted #ddd" }}>
-                          <span className="label" style={{ color: "#555", fontSize: "10px" }}>Notes</span>
-                          <span className="value" style={{ fontWeight: 600, fontSize: "11px", maxWidth: "60%", textAlign: "right" }}>{receiptData.collection.notes}</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {receiptData.isPaid && !receiptData.collection && (
-                    <div className="receipt-status status-paid" style={{ textAlign: "center", padding: "3px", fontWeight: "bold", fontSize: "11px", border: "1px solid #15803d", margin: "6px 0", color: "#15803d", background: "#dcfce7" }}>
-                      ✓ FULLY PAID
-                    </div>
-                  )}
-
-                  <div className="receipt-footer" style={{ textAlign: "center", marginTop: "12px", paddingTop: "8px", borderTop: "1px dashed #999", fontSize: "9px", color: "#666" }}>
-                    <p>Printed: {new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })} {new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</p>
-                    <p style={{ marginTop: "2px" }}>Lamen Micro Finance Institution</p>
-                    <p>Thank you for your payment</p>
-                  </div>
+              <div className="bg-white text-black rounded border p-2 font-mono text-[9px] leading-[1.4] whitespace-pre-wrap" data-testid="receipt-preview">
+                <div className="text-center">
+                  <p className="font-bold text-[10px]">LAMEN MICRO FINANCE</p>
+                  <p className="font-bold text-[10px]">INSTITUTION</p>
+                  <p>License No: 97950</p>
+                  <p>{receiptData.branchName} Branch</p>
+                  <p>================================</p>
+                  <p className="font-bold text-[10px]">COLLECTION RECEIPT</p>
+                  <p>================================</p>
+                </div>
+                <p>Cust : {receiptData.customerName}</p>
+                {receiptData.fatherName && <p>F/N  : {receiptData.fatherName}</p>}
+                <p>C.No : {receiptData.customerNo || "N/A"}</p>
+                <p>--------------------------------</p>
+                <p>Fin ID  : {receiptData.applicationId}</p>
+                <p>Product : {receiptData.productName}</p>
+                <p>Amount  : AFN {formatCurrency(receiptData.loanAmount)}</p>
+                <p>Officer : {receiptData.officerName || "N/A"}</p>
+                <p>--------------------------------</p>
+                <p>Inst #{receiptData.installmentNumber} of {receiptData.totalInstallments}</p>
+                <p>Due Date : {receiptData.dueDate ? new Date(receiptData.dueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "N/A"}</p>
+                <p>Inst Amt : AFN {formatCurrency(receiptData.installmentAmount)}</p>
+                {parseFloat(receiptData.principleAmount) > 0 && <p>Principal: AFN {formatCurrency(receiptData.principleAmount)}</p>}
+                {parseFloat(receiptData.marginAmount) > 0 && <p>Margin   : AFN {formatCurrency(receiptData.marginAmount)}</p>}
+                <p>================================</p>
+                <p className="font-bold text-[11px]">COLLECTED: AFN {receiptData.collection ? formatCurrency(receiptData.collection.amount) : (receiptData.isPaid ? formatCurrency(receiptData.paidAmount) : "0")}</p>
+                {(receiptData.collection?.paymentDate || receiptData.paymentDate) && (
+                  <p>Pay Date : {new Date(receiptData.collection?.paymentDate || receiptData.paymentDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</p>
+                )}
+                {receiptData.collection?.id && <p>Receipt# : {receiptData.collection.id.substring(0, 8).toUpperCase()}</p>}
+                <p>================================</p>
+                {receiptData.collection?.status && (
+                  <p className="text-center font-bold">*** {receiptData.collection.status === "approved" ? "APPROVED" : receiptData.collection.status === "pending" ? "PENDING" : receiptData.collection.status.toUpperCase()} ***</p>
+                )}
+                {!receiptData.collection && receiptData.isPaid && (
+                  <p className="text-center font-bold">*** PAID ***</p>
+                )}
+                {receiptData.collection?.notes && <p>Note: {receiptData.collection.notes}</p>}
+                <p>--------------------------------</p>
+                <div className="text-center">
+                  <p>Printed: {new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })} {new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</p>
+                  <p></p>
+                  <p>Thank you for your payment</p>
                 </div>
               </div>
-              <DialogFooter className="flex-row gap-2">
-                <Button variant="outline" onClick={() => setReceiptInstallmentId(null)} className="flex-1" data-testid="button-close-receipt">Close</Button>
-                <Button onClick={handlePrintReceipt} className="flex-1" data-testid="button-print-receipt">
-                  <Printer className="h-4 w-4 mr-1" /> Print
+              <div className="flex gap-2 mt-1">
+                <Button variant="outline" size="sm" onClick={() => setReceiptInstallmentId(null)} className="flex-1 h-8 text-xs" data-testid="button-close-receipt">Close</Button>
+                <Button size="sm" onClick={handlePrintReceipt} className="flex-1 h-8 text-xs" data-testid="button-print-receipt">
+                  <Printer className="h-3.5 w-3.5 mr-1" /> Print
                 </Button>
-              </DialogFooter>
+              </div>
             </>
           ) : (
             <p className="text-center text-muted-foreground py-4 text-sm">Receipt data not available</p>
