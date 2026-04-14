@@ -9840,10 +9840,13 @@ export async function registerRoutes(
       const row: any = result.rows[0];
 
       const collectionResult = await db.execute(sql`
-        SELECT id, amount, payment_date, status, submitted_at, notes, debit_account_code
-        FROM collection_records 
-        WHERE installment_id = ${installmentId}
-        ORDER BY submitted_at DESC
+        SELECT cr.id, cr.amount, cr.payment_date, cr.status, cr.submitted_at, cr.notes, cr.debit_account_code,
+          cr.submitted_by,
+          u.username as submitted_by_name
+        FROM collection_records cr
+        LEFT JOIN users u ON cr.submitted_by = u.id
+        WHERE cr.installment_id = ${installmentId}
+        ORDER BY cr.submitted_at DESC
         LIMIT 1
       `);
 
@@ -9882,6 +9885,7 @@ export async function registerRoutes(
           status: collection.status,
           submittedAt: collection.submitted_at,
           notes: collection.notes,
+          collectedBy: collection.submitted_by_name || 'N/A',
         } : null,
       });
     } catch (error: any) {

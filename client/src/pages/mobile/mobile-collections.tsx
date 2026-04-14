@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import QRCode from "qrcode";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -100,6 +101,7 @@ export default function MobileCollections() {
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split("T")[0]);
   const [paymentNotes, setPaymentNotes] = useState("");
   const [receiptInstallmentId, setReceiptInstallmentId] = useState<string | null>(null);
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
 
   const { data: roleData, isLoading: roleLoading } = useQuery<{ role: string; roleType: string }>({
     queryKey: ["/api/user/role"],
@@ -145,6 +147,26 @@ export default function MobileCollections() {
     enabled: !!receiptInstallmentId,
   });
 
+  useEffect(() => {
+    setQrDataUrl("");
+    if (!receiptData) return;
+    let cancelled = false;
+    const collAmt = receiptData.collection ? receiptData.collection.amount : (receiptData.isPaid ? receiptData.paidAmount : "0");
+    const payDt = receiptData.collection?.paymentDate || receiptData.paymentDate || "";
+    const collBy = receiptData.collection?.collectedBy || "N/A";
+    const qrText = [
+      `CID:${receiptData.customerNo || "N/A"}`,
+      `Inst:${receiptData.installmentNumber}`,
+      `Amt:${collAmt}`,
+      `Date:${payDt}`,
+      `By:${collBy}`,
+    ].join("|");
+    QRCode.toDataURL(qrText, { width: 120, margin: 1 })
+      .then((url: string) => { if (!cancelled) setQrDataUrl(url); })
+      .catch(() => { if (!cancelled) setQrDataUrl(""); });
+    return () => { cancelled = true; };
+  }, [receiptData]);
+
   const handlePrintReceipt = () => {
     if (!receiptData) return;
     const r = receiptData;
@@ -160,6 +182,8 @@ export default function MobileCollections() {
 
     const line = "================================";
     const dash = "--------------------------------";
+
+    const collectedBy = r.collection?.collectedBy || "N/A";
 
     const lines = [
       "  LAMEN MICRO FINANCE",
@@ -187,6 +211,7 @@ export default function MobileCollections() {
       `COLLECTED: AFN ${collAmt}`,
       ...(payDate ? [`Pay Date : ${payDate}`] : []),
       ...(receiptNo !== "N/A" ? [`Receipt# : ${receiptNo}`] : []),
+      `By      : ${collectedBy}`,
       line,
       ...(status ? [`     *** ${status} ***`] : []),
       ...(r.collection?.notes ? [`Note: ${r.collection.notes}`] : []),
@@ -197,7 +222,9 @@ export default function MobileCollections() {
       "",
     ];
 
-    const printWindow = window.open("", "_blank", "width=250,height=500");
+    const qrImg = qrDataUrl ? `<div style="text-align:center;margin:3mm 0 1mm;"><img src="${qrDataUrl}" style="width:25mm;height:25mm;" /></div>` : "";
+
+    const printWindow = window.open("", "_blank", "width=250,height=600");
     if (!printWindow) return;
     printWindow.document.write(`<html><head><title>Receipt</title>
 <style>
@@ -205,7 +232,7 @@ export default function MobileCollections() {
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { width: 55mm; font-family: 'Courier New', monospace; font-size: 9px; line-height: 1.4; padding: 2mm; color: #000; }
 pre { white-space: pre-wrap; word-break: break-word; font-family: inherit; font-size: inherit; }
-</style></head><body><pre>${lines.join("\n")}</pre></body></html>`);
+</style></head><body><pre>${lines.join("\n")}</pre>${qrImg}</body></html>`);
     printWindow.document.close();
     setTimeout(() => { printWindow.print(); printWindow.close(); }, 300);
   };
@@ -634,6 +661,7 @@ pre { white-space: pre-wrap; word-break: break-word; font-family: inherit; font-
                 {!receiptData.collection && receiptData.isPaid && (
                   <p className="text-center font-bold">*** PAID ***</p>
                 )}
+                {receiptData.collection?.collectedBy && <p>By      : {receiptData.collection.collectedBy}</p>}
                 {receiptData.collection?.notes && <p>Note: {receiptData.collection.notes}</p>}
                 <p>--------------------------------</p>
                 <div className="text-center">
@@ -641,10 +669,15 @@ pre { white-space: pre-wrap; word-break: break-word; font-family: inherit; font-
                   <p></p>
                   <p>Thank you for your payment</p>
                 </div>
+                {qrDataUrl && (
+                  <div className="text-center" style={{ marginTop: "6px" }}>
+                    <img src={qrDataUrl} alt="QR Code" style={{ width: "80px", height: "80px", margin: "0 auto" }} />
+                  </div>
+                )}
               </div>
               <div className="flex gap-2 mt-1">
                 <Button variant="outline" size="sm" onClick={() => setReceiptInstallmentId(null)} className="flex-1 h-8 text-xs" data-testid="button-close-receipt">Close</Button>
-                <Button size="sm" onClick={handlePrintReceipt} className="flex-1 h-8 text-xs" data-testid="button-print-receipt">
+                <Button size="sm" onClick={handlePrintReceipt} disabled={!qrDataUrl} className="flex-1 h-8 text-xs" data-testid="button-print-receipt">
                   <Printer className="h-3.5 w-3.5 mr-1" /> Print
                 </Button>
               </div>
