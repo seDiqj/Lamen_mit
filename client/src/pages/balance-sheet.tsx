@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { FileText, FileSpreadsheet, ChevronDown, ChevronRight } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { formatDate } from "@/lib/date-utils";
@@ -47,20 +48,39 @@ function formatAmountNum(amount: number): string {
   return amount < 0 ? `-${abs}` : abs;
 }
 
+function filterZeroNodes(nodes: TreeNode[]): TreeNode[] {
+  return nodes
+    .map(node => {
+      if (node.children.length > 0) {
+        const filtered = filterZeroNodes(node.children);
+        const total = node.amount;
+        if (filtered.length === 0 && total === 0) return null;
+        return { ...node, children: filtered };
+      }
+      return node.amount === 0 ? null : node;
+    })
+    .filter((n): n is TreeNode => n !== null);
+}
+
 function AccountTreeRow({
   node,
   depth,
   expanded,
   onToggle,
+  showZeroBalances,
 }: {
   node: TreeNode;
   depth: number;
   expanded: Record<string, boolean>;
   onToggle: (id: string) => void;
+  showZeroBalances: boolean;
 }) {
   const isExpanded = expanded[node.id] !== false;
-  const hasChildren = node.children.length > 0;
+  const displayChildren = showZeroBalances ? node.children : filterZeroNodes(node.children);
+  const hasChildren = displayChildren.length > 0;
   const indent = depth * 24;
+
+  if (!showZeroBalances && node.amount === 0 && (node.isLeaf || displayChildren.length === 0)) return null;
 
   return (
     <>
@@ -99,13 +119,14 @@ function AccountTreeRow({
       </tr>
       {hasChildren && isExpanded && (
         <>
-          {node.children.map((child) => (
+          {displayChildren.map((child) => (
             <AccountTreeRow
               key={child.id}
               node={child}
               depth={depth + 1}
               expanded={expanded}
               onToggle={onToggle}
+              showZeroBalances={showZeroBalances}
             />
           ))}
           <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/20">
@@ -127,6 +148,7 @@ export default function BalanceSheet() {
   const [data, setData] = useState<BalanceSheetData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [showZeroBalances, setShowZeroBalances] = useState(false);
   const { toast } = useToast();
 
   const onToggle = useCallback((id: string) => {
@@ -378,6 +400,13 @@ export default function BalanceSheet() {
       </Card>
 
       {data && (
+        <div className="flex items-center gap-2 justify-end">
+          <Label htmlFor="show-zero-bs" className="text-sm cursor-pointer">Show Zero Balances</Label>
+          <Switch id="show-zero-bs" checked={showZeroBalances} onCheckedChange={setShowZeroBalances} data-testid="switch-show-zero-balances" />
+        </div>
+      )}
+
+      {data && (
         <Card className="print:shadow-none">
           <CardContent className="p-0">
             <div className="text-center py-4 border-b">
@@ -438,7 +467,7 @@ export default function BalanceSheet() {
                             {expanded["sub-current-assets"] !== false && (
                               <>
                                 {currentAssets.map((node) => (
-                                  <AccountTreeRow key={node.id} node={node} depth={2} expanded={expanded} onToggle={onToggle} />
+                                  <AccountTreeRow key={node.id} node={node} depth={2} expanded={expanded} onToggle={onToggle} showZeroBalances={showZeroBalances} />
                                 ))}
                                 <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/20">
                                   <td className="py-1.5 pl-16 pr-2 font-semibold text-sm">Total for Current Assets</td>
@@ -465,7 +494,7 @@ export default function BalanceSheet() {
                                 {expanded["sub-longterm-assets"] !== false && (
                                   <>
                                     {longTermAssets.map((node) => (
-                                      <AccountTreeRow key={node.id} node={node} depth={2} expanded={expanded} onToggle={onToggle} />
+                                      <AccountTreeRow key={node.id} node={node} depth={2} expanded={expanded} onToggle={onToggle} showZeroBalances={showZeroBalances} />
                                     ))}
                                     <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/20">
                                       <td className="py-1.5 pl-16 pr-2 font-semibold text-sm">Total for Long-term assets</td>
@@ -517,7 +546,7 @@ export default function BalanceSheet() {
                                 {expanded["sub-current-liab"] !== false && (
                                   <>
                                     {currentLiab.map((node) => (
-                                      <AccountTreeRow key={node.id} node={node} depth={2} expanded={expanded} onToggle={onToggle} />
+                                      <AccountTreeRow key={node.id} node={node} depth={2} expanded={expanded} onToggle={onToggle} showZeroBalances={showZeroBalances} />
                                     ))}
                                     <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/20">
                                       <td className="py-1.5 pl-16 pr-2 font-semibold text-sm">Total for Current Liabilities</td>
@@ -545,7 +574,7 @@ export default function BalanceSheet() {
                                 {expanded["sub-noncurrent-liab"] !== false && (
                                   <>
                                     {nonCurrentLiab.map((node) => (
-                                      <AccountTreeRow key={node.id} node={node} depth={2} expanded={expanded} onToggle={onToggle} />
+                                      <AccountTreeRow key={node.id} node={node} depth={2} expanded={expanded} onToggle={onToggle} showZeroBalances={showZeroBalances} />
                                     ))}
                                     <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/20">
                                       <td className="py-1.5 pl-16 pr-2 font-semibold text-sm">Total for Non-current Liabilities</td>
@@ -572,9 +601,9 @@ export default function BalanceSheet() {
                             {expanded["sub-equity"] !== false && (
                               <>
                                 {data.equityTree.map((node) => (
-                                  <AccountTreeRow key={node.id} node={node} depth={2} expanded={expanded} onToggle={onToggle} />
+                                  <AccountTreeRow key={node.id} node={node} depth={2} expanded={expanded} onToggle={onToggle} showZeroBalances={showZeroBalances} />
                                 ))}
-                                {data.retainedEarnings !== 0 && (
+                                {(showZeroBalances || data.retainedEarnings !== 0) && (
                                   <tr className="border-b border-gray-100 dark:border-gray-800">
                                     <td className="py-1.5 text-sm" style={{ paddingLeft: `${2 * 24 + 8 + 20}px` }}>
                                       Retained Earnings
@@ -584,7 +613,7 @@ export default function BalanceSheet() {
                                     </td>
                                   </tr>
                                 )}
-                                {data.currentPeriodNetIncome !== 0 && (
+                                {(showZeroBalances || data.currentPeriodNetIncome !== 0) && (
                                   <tr className="border-b border-gray-100 dark:border-gray-800">
                                     <td className="py-1.5 text-sm" style={{ paddingLeft: `${2 * 24 + 8 + 20}px` }}>
                                       Net Income

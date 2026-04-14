@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { ChevronDown, ChevronRight, FileSpreadsheet, FileText, TrendingUp } from "lucide-react";
 import { formatDate } from "@/lib/date-utils";
 import * as XLSX from "xlsx";
@@ -54,6 +55,7 @@ function CollapsibleSection({
   totalAmount, 
   defaultOpen = true,
   level = 0,
+  showZeroBalances = false,
 }: { 
   title: string; 
   groups: AccountGroup[]; 
@@ -61,6 +63,7 @@ function CollapsibleSection({
   totalAmount: number; 
   defaultOpen?: boolean;
   level?: number;
+  showZeroBalances?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(groups.map(g => g.accountCode)));
@@ -76,6 +79,19 @@ function CollapsibleSection({
 
   const paddingLeft = level * 16;
 
+  const filteredGroups = showZeroBalances
+    ? groups
+    : groups
+        .map(group => {
+          if (group.children.length > 0) {
+            const filteredChildren = group.children.filter(c => c.amount !== 0);
+            if (filteredChildren.length === 0 && group.total === 0) return null;
+            return { ...group, children: filteredChildren };
+          }
+          return group.total === 0 ? null : group;
+        })
+        .filter((g): g is AccountGroup => g !== null);
+
   return (
     <div className="border-b border-border/50 last:border-b-0">
       <button
@@ -90,7 +106,7 @@ function CollapsibleSection({
       </button>
       {isOpen && (
         <div>
-          {groups.map((group) => {
+          {filteredGroups.map((group) => {
             const hasChildren = group.children.length > 0;
             const isGroupOpen = expandedGroups.has(group.accountCode);
 
@@ -167,6 +183,7 @@ export default function IncomeStatement() {
   const [endDate, setEndDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [data, setData] = useState<IncomeStatementData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showZeroBalances, setShowZeroBalances] = useState(false);
 
   const fetchReport = async () => {
     setIsLoading(true);
@@ -378,6 +395,12 @@ export default function IncomeStatement() {
       </Card>
 
       {data && (
+        <>
+        <div className="flex items-center gap-2 justify-end">
+          <Label htmlFor="show-zero-is" className="text-sm cursor-pointer">Show Zero Balances</Label>
+          <Switch id="show-zero-is" checked={showZeroBalances} onCheckedChange={setShowZeroBalances} data-testid="switch-show-zero-balances" />
+        </div>
+
         <Card className="print:shadow-none">
           <CardHeader className="border-b text-center pb-3">
             <CardTitle className="text-xl font-bold">Profit and Loss</CardTitle>
@@ -395,6 +418,7 @@ export default function IncomeStatement() {
               groups={data.incomeGroups}
               totalLabel="Total for Income"
               totalAmount={data.totalIncome}
+              showZeroBalances={showZeroBalances}
             />
 
             <CollapsibleSection
@@ -402,6 +426,7 @@ export default function IncomeStatement() {
               groups={data.costOfSalesGroups}
               totalLabel="Total for Cost of Sales"
               totalAmount={data.totalCostOfSales}
+              showZeroBalances={showZeroBalances}
             />
 
             <div className="flex items-center justify-between px-4 py-2 font-bold text-sm bg-muted/60 border-b border-border/50" data-testid="row-gross-profit">
@@ -414,6 +439,7 @@ export default function IncomeStatement() {
               groups={data.otherIncomeGroups}
               totalLabel="Total for Other Income"
               totalAmount={data.totalOtherIncome}
+              showZeroBalances={showZeroBalances}
             />
 
             <CollapsibleSection
@@ -421,6 +447,7 @@ export default function IncomeStatement() {
               groups={data.expenseGroups}
               totalLabel="Total for Expenses"
               totalAmount={data.totalExpenses}
+              showZeroBalances={showZeroBalances}
             />
 
             <div className={`flex items-center justify-between px-4 py-3 font-bold text-base border-t-2 ${data.netIncome >= 0 ? 'bg-green-50 dark:bg-green-950/30 border-green-300 dark:border-green-800' : 'bg-red-50 dark:bg-red-950/30 border-red-300 dark:border-red-800'}`} data-testid="row-net-income">
@@ -431,6 +458,7 @@ export default function IncomeStatement() {
             </div>
           </CardContent>
         </Card>
+        </>
       )}
     </div>
   );
