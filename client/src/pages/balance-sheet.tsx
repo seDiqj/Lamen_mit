@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { FileText, FileSpreadsheet, ChevronDown, ChevronRight } from "lucide-react";
+import { FileText, FileSpreadsheet, ChevronDown, ChevronRight, Eye, EyeOff } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { formatDate } from "@/lib/date-utils";
 import { apiRequest } from "@/lib/queryClient";
@@ -400,8 +400,30 @@ export default function BalanceSheet() {
       </Card>
 
       {data && (
-        <div className="flex items-center gap-2 justify-end">
-          <Label htmlFor="show-zero-bs" className="text-sm cursor-pointer">Show Zero Balances</Label>
+        <div
+          className={`flex items-center gap-3 px-4 py-2.5 rounded-lg border transition-all duration-200 cursor-pointer select-none ${
+            showZeroBalances
+              ? "bg-primary/5 border-primary/30 dark:bg-primary/10 dark:border-primary/40 shadow-sm"
+              : "bg-muted/40 border-border hover:bg-muted/60 dark:bg-muted/20 dark:hover:bg-muted/30"
+          }`}
+          onClick={() => setShowZeroBalances(!showZeroBalances)}
+          data-testid="toggle-show-zero-balances"
+        >
+          <div className={`flex items-center justify-center w-8 h-8 rounded-full transition-colors duration-200 ${
+            showZeroBalances
+              ? "bg-primary/10 text-primary dark:bg-primary/20"
+              : "bg-muted text-muted-foreground dark:bg-muted/40"
+          }`}>
+            {showZeroBalances ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+          </div>
+          <div className="flex-1">
+            <Label htmlFor="show-zero-bs" className="text-sm font-medium cursor-pointer leading-none">
+              {showZeroBalances ? "Showing All Accounts" : "Hiding Zero Balances"}
+            </Label>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {showZeroBalances ? "All accounts are visible including zero balances" : "Accounts with zero balances are hidden"}
+            </p>
+          </div>
           <Switch id="show-zero-bs" checked={showZeroBalances} onCheckedChange={setShowZeroBalances} data-testid="switch-show-zero-balances" />
         </div>
       )}
