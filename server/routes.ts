@@ -4166,7 +4166,15 @@ export async function registerRoutes(
         const loanAppId = loan?.applicationId || "N/A";
 
         const debitCode = parsed.debitAccountCode || "10206";
-        const creditCode = "11000";
+
+        let creditCode = "11000";
+        if (loan?.productName) {
+          const allProducts = await storage.getFinancingProducts();
+          const matchedProduct = allProducts.find((p: any) => p.name === loan.productName);
+          if (matchedProduct?.receivableAccountCode) {
+            creditCode = matchedProduct.receivableAccountCode;
+          }
+        }
 
         const debitAccount = await storage.getAccountByCode(debitCode);
         const creditAccount = await storage.getAccountByCode(creditCode);
@@ -10036,7 +10044,7 @@ export async function registerRoutes(
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
       const recordResult = await db.execute(sql`
-        SELECT cr.*, l.funding_source_id
+        SELECT cr.*, l.funding_source_id, l.product_name
         FROM collection_records cr
         LEFT JOIN loans l ON cr.loan_id = l.id
         WHERE cr.id = ${req.params.id}
@@ -10049,7 +10057,16 @@ export async function registerRoutes(
       const amount = parseFloat(record.amount);
 
       const debitCode = record.debit_account_code || "10206";
-      const creditCode = "11000";
+
+      let creditCode = "11000";
+      if (record.product_name) {
+        const allProducts = await storage.getFinancingProducts();
+        const matchedProduct = allProducts.find((p: any) => p.name === record.product_name);
+        if (matchedProduct?.receivableAccountCode) {
+          creditCode = matchedProduct.receivableAccountCode;
+        }
+      }
+
       const debitAccount = await storage.getAccountByCode(debitCode);
       const creditAccount = await storage.getAccountByCode(creditCode);
 
