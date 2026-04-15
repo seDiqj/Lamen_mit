@@ -38,6 +38,7 @@ import {
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { useBranch } from "@/contexts/branch-context";
 import type { Customer } from "@shared/schema";
 
 type CustomerWithLoans = Customer & {
@@ -46,6 +47,7 @@ type CustomerWithLoans = Customer & {
 };
 
 export default function CustomersPage() {
+  const { selectedBranchId } = useBranch();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const limit = 10;
@@ -57,12 +59,13 @@ export default function CustomersPage() {
     page: number;
     totalPages: number;
   }>({
-    queryKey: ["/api/customers", search, page, limit],
+    queryKey: ["/api/customers", search, page, limit, selectedBranchId],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
       params.set("page", String(page));
       params.set("limit", String(limit));
+      if (selectedBranchId) params.set("branchId", selectedBranchId);
       const res = await fetch(`/api/customers?${params.toString()}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch customers");
       return res.json();
@@ -91,6 +94,7 @@ export default function CustomersPage() {
     if (search) params.set("search", search);
     params.set("page", "1");
     params.set("limit", "10000");
+    if (selectedBranchId) params.set("branchId", selectedBranchId);
     const res = await fetch(`/api/customers?${params.toString()}`, { credentials: "include" });
     if (!res.ok) throw new Error("Failed to fetch customers for export");
     const result = await res.json();

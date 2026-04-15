@@ -1,5 +1,6 @@
 import { useState, useRef, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useBranch } from "@/contexts/branch-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -65,6 +66,7 @@ function formatAFN(value: number | null | undefined): string {
 }
 
 export default function InstallmentManagementPage() {
+  const { selectedBranchId } = useBranch();
   const { toast } = useToast();
   const [selectedLoanId, setSelectedLoanId] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -75,7 +77,15 @@ export default function InstallmentManagementPage() {
   const [applyCalculated, setApplyCalculated] = useState(false);
 
   const { data: disbursedLoans, isLoading: loansLoading } = useQuery<any[]>({
-    queryKey: ["/api/loans/disbursed"],
+    queryKey: ["/api/loans/disbursed", selectedBranchId],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (selectedBranchId) params.set("branchId", selectedBranchId);
+      const url = params.toString() ? `/api/loans/disbursed?${params.toString()}` : "/api/loans/disbursed";
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch disbursed loans");
+      return res.json();
+    },
   });
 
   const { data: scheduleData, isLoading: scheduleLoading, refetch: refetchSchedule } = useQuery<ScheduleData>({

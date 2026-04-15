@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useBranch } from "@/contexts/branch-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -142,10 +143,19 @@ function getParColor(bucket: string): string {
 }
 
 export default function CollectionsPage() {
+  const { selectedBranchId, isLocked } = useBranch();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("due_soon");
   const [branch, setBranch] = useState("all");
   const [officer, setOfficer] = useState("all");
+
+  useEffect(() => {
+    if (selectedBranchId) {
+      setBranch(selectedBranchId);
+    } else {
+      setBranch("all");
+    }
+  }, [selectedBranchId]);
   const [page, setPage] = useState(1);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -511,7 +521,7 @@ export default function CollectionsPage() {
                 <SelectItem value="paid">Paid (Collected)</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={branch} onValueChange={(v) => { setBranch(v); setPage(1); }}>
+            <Select value={branch} onValueChange={(v) => { setBranch(v); setPage(1); }} disabled={isLocked}>
               <SelectTrigger className="w-[180px]" data-testid="select-branch">
                 <SelectValue placeholder="Branch" />
               </SelectTrigger>

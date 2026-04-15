@@ -354,6 +354,25 @@ export async function registerRoutes(
     };
   };
 
+  const getEffectiveBranchId = async (req: Request): Promise<string | null> => {
+    const userId = req.session.userId;
+    if (!userId) return null;
+    const user = await storage.getUserById(userId);
+    if (!user) return null;
+
+    let userBranch: string | null = null;
+    try {
+      const allOfficers = await storage.getFinanceOfficers();
+      const matchedOfficer = allOfficers.find((o: any) => o.userId === user.id);
+      if (matchedOfficer?.branchId) userBranch = matchedOfficer.branchId;
+    } catch (e) {}
+    if (!userBranch && user.branchId) userBranch = user.branchId;
+
+    if (userBranch) return userBranch;
+    const clientBranch = req.query.branchId as string | undefined;
+    return clientBranch || null;
+  };
+
   // Get user role
   app.get("/api/user/role", isAuthenticated, async (req: Request, res) => {
     try {
@@ -1623,10 +1642,12 @@ export async function registerRoutes(
   app.get("/api/customers", isAuthenticated, requirePageAccess("customers"), async (req, res) => {
     try {
       const { search, page, limit } = req.query;
+      const effectiveBranch = await getEffectiveBranchId(req);
       const result = await storage.getCustomers(
         search as string | undefined,
         page ? parseInt(page as string) : 1,
-        limit ? parseInt(limit as string) : 10
+        limit ? parseInt(limit as string) : 10,
+        effectiveBranch || undefined
       );
 
       const customerIds = result.customers.map(c => c.id);
@@ -1854,6 +1875,7 @@ export async function registerRoutes(
       const userId = req.session.userId;
       const userRole = await storage.getUserRole(userId);
       const role = userRole?.role || "user";
+      const effectiveBranch = await getEffectiveBranchId(req);
       const result = await storage.getLoans({
         search: search as string | undefined,
         status: status as string | undefined,
@@ -1861,6 +1883,7 @@ export async function registerRoutes(
         page: page ? parseInt(page as string) : 1,
         limit: limit ? parseInt(limit as string) : 10,
         userId: role === "user" ? userId : undefined,
+        branchId: effectiveBranch || undefined,
       });
       res.json({
         ...result,
@@ -1876,7 +1899,8 @@ export async function registerRoutes(
   app.get("/api/loans/pending", isAuthenticated, requirePageAccess("loans"), async (req, res) => {
     try {
       const search = req.query.search as string | undefined;
-      const loans = await storage.getPendingLoans(search);
+      const effectiveBranch = await getEffectiveBranchId(req);
+      const loans = await storage.getPendingLoans(search, effectiveBranch || undefined);
       res.json(loans);
     } catch (error) {
       console.error("Error fetching pending loans:", error);
@@ -1887,7 +1911,8 @@ export async function registerRoutes(
   app.get("/api/loans/approved", isAuthenticated, requirePageAccess("loans"), async (req, res) => {
     try {
       const search = req.query.search as string | undefined;
-      const loans = await storage.getApprovedLoans(search);
+      const effectiveBranch = await getEffectiveBranchId(req);
+      const loans = await storage.getApprovedLoans(search, effectiveBranch || undefined);
       res.json(loans);
     } catch (error) {
       console.error("Error fetching approved loans:", error);
@@ -1899,8 +1924,8 @@ export async function registerRoutes(
   app.get("/api/loans/disbursed", isAuthenticated, async (req, res) => {
     try {
       const search = req.query.search as string | undefined;
-      const branchId = req.query.branchId as string | undefined;
-      const results = await storage.getDisbursedLoans({ search, branchId });
+      const effectiveBranch = await getEffectiveBranchId(req);
+      const results = await storage.getDisbursedLoans({ search, branchId: effectiveBranch || undefined });
       res.json(results);
     } catch (error: any) {
       res.status(500).json({ message: "Failed to fetch disbursed loans", error: error.message });
@@ -4067,10 +4092,12 @@ export async function registerRoutes(
   // ===== COLLECTIONS =====
   app.get("/api/collections", isAuthenticated, async (req, res) => {
     try {
-      const { filter, branch, officer, search, page, limit, startDate, endDate } = req.query;
+      const { filter, officer, search, page, limit, startDate, endDate } = req.query;
+      const effectiveBranch = await getEffectiveBranchId(req);
+      const branchFilter = effectiveBranch || (req.query.branch as string | undefined);
       const result = await storage.getCollectionInstallments({
         filter: (filter as string) || "upcoming",
-        branch: branch as string | undefined,
+        branch: branchFilter && branchFilter !== "all" ? branchFilter : undefined,
         officer: officer as string | undefined,
         search: search as string | undefined,
         startDate: startDate as string | undefined,
@@ -6481,17 +6508,18 @@ export async function registerRoutes(
 
   app.get("/api/reports/loan-disbursement", isAuthenticated, async (req, res) => {
     try {
-      const { startDate, endDate, branchId, fundingSourceId } = req.query;
+      const { startDate, endDate, fundingSourceId } = req.query;
       if (!startDate || !endDate) {
         return res.status(400).json({ message: "startDate and endDate are required" });
       }
 
+      const effectiveBranch = await getEffectiveBranchId(req);
       const conditions: any[] = [
         gte(disbursements.disbursementDate, startDate as string),
         lte(disbursements.disbursementDate, endDate as string),
       ];
-      if (branchId && branchId !== "all") {
-        conditions.push(eq(loans.branchId, branchId as string));
+      if (effectiveBranch && effectiveBranch !== "all") {
+        conditions.push(eq(loans.branchId, effectiveBranch));
       }
       if (fundingSourceId && fundingSourceId !== "all") {
         conditions.push(eq(loans.fundingSourceId, fundingSourceId as string));
@@ -6736,18 +6764,19 @@ export async function registerRoutes(
   // Active Customer Outstanding Summary Report
   app.get("/api/reports/active-customer-outstanding", isAuthenticated, async (req, res) => {
     try {
-      const { startDate, endDate, branchId, fundingSourceId } = req.query;
+      const { startDate, endDate, fundingSourceId } = req.query;
       if (!startDate || !endDate) {
         return res.status(400).json({ message: "startDate and endDate are required" });
       }
 
+      const effectiveBranch = await getEffectiveBranchId(req);
       const conditions: any[] = [
         gte(disbursements.disbursementDate, startDate as string),
         lte(disbursements.disbursementDate, endDate as string),
         inArray(loans.status, ["disbursed", "active", "completed"]),
       ];
-      if (branchId && branchId !== "all") {
-        conditions.push(eq(loans.branchId, branchId as string));
+      if (effectiveBranch && effectiveBranch !== "all") {
+        conditions.push(eq(loans.branchId, effectiveBranch));
       }
       if (fundingSourceId && fundingSourceId !== "all") {
         conditions.push(eq(loans.fundingSourceId, fundingSourceId as string));
@@ -6856,11 +6885,12 @@ export async function registerRoutes(
 
   app.get("/api/reports/monthly-due-summary", isAuthenticated, requirePageAccess("monthly-due-summary"), async (req, res) => {
     try {
-      const { branchId, fundingSourceId } = req.query;
+      const { fundingSourceId } = req.query;
+      const effectiveBranch = await getEffectiveBranchId(req);
 
       let branchFilter = "";
-      if (branchId && branchId !== "all") {
-        branchFilter = ` AND l.branch_id = '${(branchId as string).replace(/'/g, "''")}'`;
+      if (effectiveBranch && effectiveBranch !== "all") {
+        branchFilter = ` AND l.branch_id = '${(effectiveBranch as string).replace(/'/g, "''")}'`;
       }
       let fundingFilter = "";
       if (fundingSourceId && fundingSourceId !== "all") {
@@ -6938,11 +6968,12 @@ export async function registerRoutes(
   app.get("/api/reports/monthly-due-detail/:monthYear", isAuthenticated, requirePageAccess("monthly-due-summary"), async (req, res) => {
     try {
       const { monthYear } = req.params;
-      const { branchId, fundingSourceId } = req.query;
+      const { fundingSourceId } = req.query;
+      const effectiveBranch = await getEffectiveBranchId(req);
 
       let branchFilter = "";
-      if (branchId && branchId !== "all") {
-        branchFilter = ` AND l.branch_id = '${(branchId as string).replace(/'/g, "''")}'`;
+      if (effectiveBranch && effectiveBranch !== "all") {
+        branchFilter = ` AND l.branch_id = '${(effectiveBranch as string).replace(/'/g, "''")}'`;
       }
       let fundingFilter = "";
       if (fundingSourceId && fundingSourceId !== "all") {

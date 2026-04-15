@@ -240,7 +240,7 @@ export interface IStorage {
   deleteParCategory(id: number): Promise<void>;
   
   // Customers
-  getCustomers(search?: string, page?: number, limit?: number): Promise<{ customers: Customer[]; total: number }>;
+  getCustomers(search?: string, page?: number, limit?: number, branchId?: string): Promise<{ customers: Customer[]; total: number }>;
   getCustomer(id: string): Promise<Customer | undefined>;
   createCustomer(data: InsertCustomer): Promise<Customer>;
   updateCustomer(id: string, data: Partial<InsertCustomer>): Promise<Customer>;
@@ -249,11 +249,12 @@ export interface IStorage {
   deleteCustomerDocument(id: string): Promise<void>;
   
   // Loans
-  getLoans(filters: { search?: string; status?: string; financeOfficerId?: string; page?: number; limit?: number; userId?: string }): Promise<{ loans: any[]; total: number }>;
+  getLoans(filters: { search?: string; status?: string; financeOfficerId?: string; page?: number; limit?: number; userId?: string; branchId?: string }): Promise<{ loans: any[]; total: number }>;
+
   getLoansWithDetails(filters: { status?: string }): Promise<any[]>;
   getLoan(id: string): Promise<Loan | undefined>;
-  getPendingLoans(search?: string): Promise<any[]>;
-  getApprovedLoans(search?: string): Promise<any[]>;
+  getPendingLoans(search?: string, branchId?: string): Promise<any[]>;
+  getApprovedLoans(search?: string, branchId?: string): Promise<any[]>;
   createLoan(data: InsertLoan): Promise<Loan>;
   updateLoan(id: string, data: Partial<InsertLoan>): Promise<Loan>;
   approveLoan(loanId: string, approvalData: InsertLoanApproval): Promise<void>;
@@ -925,9 +926,36 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Customers
-  async getCustomers(search?: string, page = 1, limit = 10): Promise<{ customers: Customer[]; total: number }> {
+  async getCustomers(search?: string, page = 1, limit = 10, branchId?: string): Promise<{ customers: Customer[]; total: number }> {
     const offset = (page - 1) * limit;
     
+    if (branchId) {
+      const customerIdsInBranch = await db
+        .selectDistinct({ customerId: loans.customerId })
+        .from(loans)
+        .where(eq(loans.branchId, branchId));
+      const branchCustomerIds = customerIdsInBranch.map(r => r.customerId).filter(Boolean) as string[];
+      
+      if (branchCustomerIds.length === 0) {
+        return { customers: [], total: 0 };
+      }
+
+      const conditions: any[] = [inArray(customers.id, branchCustomerIds)];
+      if (search) {
+        conditions.push(or(
+          ilike(customers.firstName, `%${search}%`),
+          ilike(customers.lastName, `%${search}%`),
+          ilike(customers.customerNo, `%${search}%`),
+          ilike(customers.nationalId, `%${search}%`),
+          ilike(customers.phoneNumber, `%${search}%`)
+        ));
+      }
+      const whereCondition = and(...conditions);
+      const [countResult] = await db.select({ count: count() }).from(customers).where(whereCondition);
+      const result = await db.select().from(customers).where(whereCondition).orderBy(customers.createdAt).limit(limit).offset(offset);
+      return { customers: result, total: Number(countResult?.count || 0) };
+    }
+
     let baseQuery = db.select().from(customers);
     let countQuery = db.select({ count: count() }).from(customers);
 
@@ -1105,8 +1133,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Loans
-  async getLoans(filters: { search?: string; status?: string; financeOfficerId?: string; page?: number; limit?: number; userId?: string }): Promise<{ loans: any[]; total: number }> {
-    const { search, status, financeOfficerId, page = 1, limit = 10, userId } = filters;
+  async getLoans(filters: { search?: string; status?: string; financeOfficerId?: string; page?: number; limit?: number; userId?: string; branchId?: string }): Promise<{ loans: any[]; total: number }> {
+    const { search, status, financeOfficerId, page = 1, limit = 10, userId, branchId } = filters;
     const offset = (page - 1) * limit;
 
     let userFilter = undefined;
@@ -1126,6 +1154,7 @@ export class DatabaseStorage implements IStorage {
     const whereConditions = and(
       status && status !== "all" ? eq(loans.status, status as any) : undefined,
       financeOfficerId ? eq(loans.financeOfficerId, financeOfficerId) : undefined,
+      branchId ? eq(loans.branchId, branchId) : undefined,
       search
         ? or(
             ilike(loans.applicationId, `%${search}%`),
@@ -1197,7 +1226,9 @@ export class DatabaseStorage implements IStorage {
     return loan;
   }
 
-  async getPendingLoans(search?: string): Promise<any[]> {
+  async getPendingLoans(search?: string, branchId?: string): Promise<any[]> {
+    const conditions = [eq(loans.status, "pending" as any)];
+    if (branchId) conditions.push(eq(loans.branchId, branchId));
     return db
       .select({
         id: loans.id,
@@ -1215,10 +1246,12 @@ export class DatabaseStorage implements IStorage {
       .from(loans)
       .leftJoin(customers, eq(loans.customerId, customers.id))
       .leftJoin(branches, eq(loans.branchId, branches.id))
-      .where(eq(loans.status, "pending"));
+      .where(and(...conditions));
   }
 
-  async getApprovedLoans(search?: string): Promise<any[]> {
+  async getApprovedLoans(search?: string, branchId?: string): Promise<any[]> {
+    const conditions = [eq(loans.status, "approved" as any)];
+    if (branchId) conditions.push(eq(loans.branchId, branchId));
     return db
       .select({
         id: loans.id,
@@ -1239,7 +1272,7 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(customers, eq(loans.customerId, customers.id))
       .leftJoin(branches, eq(loans.branchId, branches.id))
       .leftJoin(loanApprovals, eq(loans.id, loanApprovals.loanId))
-      .where(eq(loans.status, "approved"));
+      .where(and(...conditions));
   }
 
   async getMaxApplicationIdByPrefix(prefix: string): Promise<string | null> {

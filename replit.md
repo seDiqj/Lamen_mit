@@ -70,6 +70,11 @@ Preferred communication style: Simple, everyday language.
   - `hasRole()` checks both the direct role value AND the roleType from lookup_roles
   - Frontend uses roleType for menu visibility and page access decisions
 - **Role Types**: Three access levels - User (basic page permissions), Managerial (full page access), Admin (full system + user management)
+- **Branch Filtering**: Global branch context system with server-side enforcement
+  - `BranchProvider`/`useBranch` context: tracks selected branch globally, auto-locks users with `user.branchId`
+  - `BranchSelector` in header: dropdown for HQ (unlocked) users, badge for branch-locked users
+  - Server-side `getEffectiveBranchId(req)` helper enforces branch lock — overrides any client-side `branchId` param for locked users
+  - All financing endpoints (customers, loans, pending/approved/disbursed, collections, reports) use server-enforced branch
 - **Activity Logging**: All significant actions are logged with user ID, IP address, and timestamps
 
 ### Build System

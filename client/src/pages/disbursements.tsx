@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useBranch } from "@/contexts/branch-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -196,6 +197,7 @@ type BulkResponse = {
 };
 
 export default function DisbursementsPage() {
+  const { selectedBranchId } = useBranch();
   const [, setLocation] = useLocation();
   const [search, setSearch] = useState("");
   const [selectedLoan, setSelectedLoan] = useState<ApprovedLoan | null>(null);
@@ -230,10 +232,11 @@ export default function DisbursementsPage() {
   const canPickDate = userRole === "ceo" || userRole === "admin";
 
   const { data: loans, isLoading } = useQuery<ApprovedLoan[]>({
-    queryKey: ["/api/loans/approved", search],
+    queryKey: ["/api/loans/approved", search, selectedBranchId],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
+      if (selectedBranchId) params.set("branchId", selectedBranchId);
       const url = params.toString() ? `/api/loans/approved?${params.toString()}` : "/api/loans/approved";
       const res = await fetch(url, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch approved loans");

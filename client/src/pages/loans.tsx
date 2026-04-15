@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
+import { useBranch } from "@/contexts/branch-context";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -209,6 +210,7 @@ type SortColumn = "applicationId" | "customerName" | "productName" | "amount" | 
 type SortDirection = "asc" | "desc";
 
 export default function LoansPage() {
+  const { selectedBranchId } = useBranch();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [page, setPage] = useState(1);
@@ -243,13 +245,14 @@ export default function LoansPage() {
     page: number;
     totalPages: number;
   }>({
-    queryKey: ["/api/loans", search, statusFilter, page, limit],
+    queryKey: ["/api/loans", search, statusFilter, page, limit, selectedBranchId],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
       if (statusFilter && statusFilter !== "all") params.set("status", statusFilter);
       params.set("page", String(page));
       params.set("limit", String(limit));
+      if (selectedBranchId) params.set("branchId", selectedBranchId);
       const res = await fetch(`/api/loans?${params.toString()}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch loans");
       return res.json();
@@ -352,6 +355,7 @@ export default function LoansPage() {
     if (statusFilter && statusFilter !== "all") params.set("status", statusFilter);
     params.set("page", "1");
     params.set("limit", "100000");
+    if (selectedBranchId) params.set("branchId", selectedBranchId);
     const res = await fetch(`/api/loans?${params.toString()}`, { credentials: "include" });
     if (!res.ok) throw new Error("Failed to fetch loans for export");
     const result = await res.json();

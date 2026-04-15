@@ -1,5 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useBranch } from "@/contexts/branch-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,13 +65,19 @@ type BranchGroup = {
 };
 
 export default function LoanDisbursementReport() {
+  const { selectedBranchId, isLocked } = useBranch();
+  const [branchId, setBranchId] = useState("all");
+
+  useEffect(() => {
+    setBranchId(selectedBranchId || "all");
+  }, [selectedBranchId]);
+
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
     d.setMonth(d.getMonth() - 1);
     return d.toISOString().split("T")[0];
   });
   const [endDate, setEndDate] = useState(() => new Date().toISOString().split("T")[0]);
-  const [branchId, setBranchId] = useState("all");
   const [fundingSourceId, setFundingSourceId] = useState("all");
   const [data, setData] = useState<DisbursementRow[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -363,7 +370,7 @@ export default function LoanDisbursementReport() {
           <div className="flex items-end gap-4 flex-wrap">
             <div className="space-y-2">
               <Label>Branch</Label>
-              <Select value={branchId} onValueChange={setBranchId}>
+              <Select value={branchId} onValueChange={setBranchId} disabled={isLocked}>
                 <SelectTrigger className="w-[200px]" data-testid="select-branch">
                   <SelectValue placeholder="Select Branch" />
                 </SelectTrigger>

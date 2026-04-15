@@ -7,6 +7,8 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { UserMenu } from "@/components/user-menu";
 import { IconRailNav } from "@/components/icon-rail-nav";
+import { BranchSelector } from "@/components/branch-selector";
+import { BranchProvider } from "@/contexts/branch-context";
 import { useAuth } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -81,25 +83,28 @@ import NotFound from "@/pages/not-found";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-screen w-full bg-gradient-to-br from-background via-background to-muted/30">
-      <IconRailNav />
-      <div className="flex flex-col flex-1 overflow-hidden">
-        <header className="flex items-center justify-between gap-4 px-4 py-3 border-b bg-card/80 backdrop-blur-sm shadow-sm">
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-muted-foreground">
-              Financing Management System
-            </span>
-          </div>
-          <div className="flex items-center gap-3">
-            <ThemeToggle />
-            <UserMenu />
-          </div>
-        </header>
-        <main className="flex-1 overflow-auto p-6">
-          {children}
-        </main>
+    <BranchProvider>
+      <div className="flex h-screen w-full bg-gradient-to-br from-background via-background to-muted/30">
+        <IconRailNav />
+        <div className="flex flex-col flex-1 overflow-hidden">
+          <header className="flex items-center justify-between gap-4 px-4 py-3 border-b bg-card/80 backdrop-blur-sm shadow-sm">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-muted-foreground">
+                Financing Management System
+              </span>
+            </div>
+            <div className="flex items-center gap-3">
+              <BranchSelector />
+              <ThemeToggle />
+              <UserMenu />
+            </div>
+          </header>
+          <main className="flex-1 overflow-auto p-6">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </BranchProvider>
   );
 }
 
