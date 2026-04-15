@@ -22,6 +22,7 @@ import {
 import type { Branch, FinanceOfficer, FundingSource, Province, District, CollateralType } from "@shared/schema";
 import { Textarea } from "@/components/ui/textarea";
 import { cn, toPersianDate, calculateAge } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
 import { generateQRText, generateQRWithLogo, downloadQRCode, type QRLoanData } from "@/lib/qr-generator";
 import {
   Dialog,
@@ -166,6 +167,7 @@ export default function LoanDetailsPage() {
   const [, params] = useRoute("/loans/:id");
   const loanId = params?.id;
   const { toast } = useToast();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [currentStep, setCurrentStep] = useState(1);
   const [isEditing, setIsEditing] = useState(false);
@@ -855,7 +857,7 @@ export default function LoanDetailsPage() {
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   <FormField control={form.control} name="branchId" render={({ field }) => (
                     <FormItem><FormLabel>Branch</FormLabel>
-                      <Select disabled={!isEditing} onValueChange={field.onChange} value={field.value}>
+                      <Select disabled={!isEditing || !!(user as any)?.branchId} onValueChange={field.onChange} value={field.value}>
                         <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                         <SelectContent>{branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectContent>
                       </Select><FormMessage /></FormItem>

@@ -881,7 +881,7 @@ export default function LoanApplicationPage() {
                             .then(data => { if (data.customerNo) form.setValue("customerNo", data.customerNo); })
                             .catch(() => {});
                         }
-                      }} value={field.value}>
+                      }} value={field.value} disabled={!!(user as any)?.branchId}>
                         <FormControl>
                           <SelectTrigger className="h-9" data-testid="select-branch"><SelectValue placeholder="Select branch" /></SelectTrigger>
                         </FormControl>
