@@ -17,6 +17,10 @@ import {
   LayoutGrid, Table2, Pencil, Trash2, User, Shield, AlertTriangle,
   RefreshCw, X
 } from "lucide-react";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import { Check, ChevronsUpDown } from "lucide-react";
 import type { FinancingProduct, ProductCycleLimit } from "@shared/schema";
 
 const CALCULATION_METHODS = [
@@ -51,6 +55,7 @@ const defaultFormData = {
   requiresGuarantor: false,
   lateFee: "",
   isActive: true,
+  receivableAccountCode: "",
   description: "",
 };
 
@@ -70,8 +75,14 @@ export default function FinancingProductsPage() {
   const [cycleLimits, setCycleLimits] = useState<CycleRow[]>([]);
   const [deletingCycleIdx, setDeletingCycleIdx] = useState<number | null>(null);
 
+  const [accountSearchOpen, setAccountSearchOpen] = useState(false);
+
   const { data: products = [], isLoading } = useQuery<FinancingProduct[]>({
     queryKey: ["/api/financing-products"],
+  });
+
+  const { data: allAccounts = [] } = useQuery<any[]>({
+    queryKey: ["/api/accounts"],
   });
 
   const createMutation = useMutation({
@@ -143,6 +154,7 @@ export default function FinancingProductsPage() {
       requiresGuarantor: product.requiresGuarantor,
       lateFee: product.lateFee || "",
       isActive: product.isActive,
+      receivableAccountCode: product.receivableAccountCode || "",
       description: product.description || "",
     });
     setDialogOpen(true);
@@ -556,6 +568,57 @@ export default function FinancingProductsPage() {
                   <Switch checked={formData.isActive} onCheckedChange={(v) => setFormData({ ...formData, isActive: v })} data-testid="switch-active" />
                   <Label className="text-xs">Active</Label>
                 </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Receivable Account</Label>
+                <Popover open={accountSearchOpen} onOpenChange={setAccountSearchOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" aria-expanded={accountSearchOpen} className="w-full justify-between h-8 text-sm font-normal" data-testid="select-receivable-account">
+                      {formData.receivableAccountCode
+                        ? (() => {
+                            const acc = allAccounts.find((a: any) => a.accountCode === formData.receivableAccountCode);
+                            return acc ? `${acc.accountCode} - ${acc.accountName}` : formData.receivableAccountCode;
+                          })()
+                        : "Select receivable account..."}
+                      <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[380px] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search by code or name..." className="h-8 text-sm" />
+                      <CommandList>
+                        <CommandEmpty>No account found.</CommandEmpty>
+                        <CommandGroup className="max-h-[200px] overflow-y-auto">
+                          <CommandItem
+                            value="clear-selection"
+                            onSelect={() => {
+                              setFormData({ ...formData, receivableAccountCode: "" });
+                              setAccountSearchOpen(false);
+                            }}
+                          >
+                            <span className="text-muted-foreground text-xs">-- None --</span>
+                          </CommandItem>
+                          {allAccounts
+                            .filter((a: any) => a.accountType === "asset")
+                            .sort((a: any, b: any) => a.accountCode.localeCompare(b.accountCode))
+                            .map((acc: any) => (
+                              <CommandItem
+                                key={acc.id}
+                                value={`${acc.accountCode} ${acc.accountName}`}
+                                onSelect={() => {
+                                  setFormData({ ...formData, receivableAccountCode: acc.accountCode });
+                                  setAccountSearchOpen(false);
+                                }}
+                              >
+                                <Check className={cn("mr-2 h-3 w-3", formData.receivableAccountCode === acc.accountCode ? "opacity-100" : "opacity-0")} />
+                                <span className="text-xs">{acc.accountCode} - {acc.accountName}</span>
+                              </CommandItem>
+                            ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Description</Label>

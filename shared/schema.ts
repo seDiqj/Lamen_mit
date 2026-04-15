@@ -1409,6 +1409,7 @@ export const financingProducts = pgTable("financing_products", {
   requiresGuarantor: boolean("requires_guarantor").notNull().default(false),
   lateFee: varchar("late_fee", { length: 100 }),
   isActive: boolean("is_active").notNull().default(true),
+  receivableAccountCode: varchar("receivable_account_code", { length: 20 }),
   description: text("description"),
   createdAt: timestamp("created_at").defaultNow(),
 });

@@ -39,6 +39,7 @@ Preferred communication style: Simple, everyday language.
   - `collateralTypes` - Lookup table for collateral type dropdown values
   - `productCycleLimits` - Unlimited cycle-based min/max amount limits per financing product
   - `loans`, `collaterals`, `guarantors` - Loan information (loans includes `businessDetailedDescription`, `clientOccupation` fields; collaterals includes `description`, `district` fields)
+  - `financingProducts` has `receivableAccountCode` column — dynamic receivable account per product used during disbursement journal entries (falls back to `11000` if not set)
   - `loanApprovals`, `disbursements`, `installments` - Loan lifecycle
   - `loanTransfers` - Officer-to-officer loan transfers
   - `collectionRecords` - Collection approval workflow (pending/approved/rejected) with journal entry tracking

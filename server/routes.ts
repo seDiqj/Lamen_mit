@@ -3315,8 +3315,16 @@ export async function registerRoutes(
         const totalReceivableAmount = disbursementAmount + marginAmount;
 
         const creditCode = branch?.accountCode || "10206";
-        const debitCode = "11000";
         const marginCreditCode = "20900";
+
+        let debitCode = "11000";
+        if (loan.productName) {
+          const allProducts = await storage.getFinancingProducts();
+          const matchedProduct = allProducts.find((p: any) => p.name === loan.productName);
+          if (matchedProduct?.receivableAccountCode) {
+            debitCode = matchedProduct.receivableAccountCode;
+          }
+        }
 
         const debitAccount = await storage.getAccountByCode(debitCode);
         const creditAccount = await storage.getAccountByCode(creditCode);
@@ -3392,7 +3400,6 @@ export async function registerRoutes(
       }
 
       const marginCreditCode = "20900";
-      const debitCode = "11000";
       const marginCreditAccount = await storage.getAccountByCode(marginCreditCode);
       if (!marginCreditAccount) {
         return res.status(400).json({ message: `Account ${marginCreditCode} not found` });
@@ -3429,6 +3436,16 @@ export async function registerRoutes(
 
           const totalReceivableAmount = principalAmount + marginAmount;
           const creditCode = branch?.accountCode || "10206";
+
+          let debitCode = "11000";
+          if (loan.productName) {
+            const allProducts = await storage.getFinancingProducts();
+            const matchedProduct = allProducts.find((p: any) => p.name === loan.productName);
+            if (matchedProduct?.receivableAccountCode) {
+              debitCode = matchedProduct.receivableAccountCode;
+            }
+          }
+
           const debitAccount = await storage.getAccountByCode(debitCode);
           const creditAccount = await storage.getAccountByCode(creditCode);
 
@@ -3688,8 +3705,17 @@ export async function registerRoutes(
               const bulkTotalReceivable = disbursementAmount + bulkMarginAmount;
 
               const creditCode = branch?.accountCode || "10206";
-              const debitCode = "11000";
               const bulkMarginCreditCode = "20900";
+
+              let debitCode = "11000";
+              if (loan.productName) {
+                const allProducts = await storage.getFinancingProducts();
+                const matchedProduct = allProducts.find((p: any) => p.name === loan.productName);
+                if (matchedProduct?.receivableAccountCode) {
+                  debitCode = matchedProduct.receivableAccountCode;
+                }
+              }
+
               const debitAccount = await storage.getAccountByCode(debitCode);
               const creditAccount = await storage.getAccountByCode(creditCode);
               const bulkMarginCreditAccount = await storage.getAccountByCode(bulkMarginCreditCode);
