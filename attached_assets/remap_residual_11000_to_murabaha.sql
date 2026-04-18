@@ -1,10 +1,11 @@
--- Reclassify the remaining 451 journal lines on 11000 (Gross Financing Portfolio) to Murabaha (11100)
--- Run against PRODUCTION database. Auto-COMMITs at the end.
+-- Reclassify residual 451 journal lines on 11000 to Murabaha (11100)
+-- Run against PRODUCTION. Auto-COMMITs at the end.
+-- Run AFTER remap_11000_to_product_receivables.sql
 
 BEGIN;
 
--- Pre-check: count
-SELECT COUNT(*) AS lines_to_remap FROM journal_lines
+SELECT COUNT(*) AS lines_to_remap
+  FROM journal_lines
  WHERE account_id = 'a68da106-bae6-43d4-9c59-faaaae108f7e'
    AND id IN (
   '006cde07-3f47-4902-a568-4f4aa2422e09',
@@ -918,8 +919,8 @@ UPDATE journal_lines
   'fedd700b-6a03-4c41-85d4-5cb23d3b19cc'
 );
 
--- Verify: zero remaining of the residual on 11000
-SELECT COUNT(*) AS still_on_11000_should_be_zero FROM journal_lines
+SELECT COUNT(*) AS still_on_11000_should_be_zero
+  FROM journal_lines
  WHERE account_id = 'a68da106-bae6-43d4-9c59-faaaae108f7e'
    AND id IN (
   '006cde07-3f47-4902-a568-4f4aa2422e09',
@@ -1375,7 +1376,6 @@ SELECT COUNT(*) AS still_on_11000_should_be_zero FROM journal_lines
   'fedd700b-6a03-4c41-85d4-5cb23d3b19cc'
 );
 
--- Recompute current_balance for 11000 and 11100
 UPDATE accounts a
    SET current_balance = COALESCE((
      SELECT SUM(jl.debit_amount - jl.credit_amount)
