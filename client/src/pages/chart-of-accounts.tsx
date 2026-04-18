@@ -35,12 +35,14 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Plus, Edit2, Trash2, ChevronRight, ChevronDown, BookOpen, Search, Filter, PlusCircle, GripVertical, FolderTree, TableProperties, MoveUp, MoveDown, ArrowRight, Check, ChevronsUpDown } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 
+import { ACCOUNT_TYPE_OPTIONS, getMainAccountType } from "@shared/schema";
+
+type MainAccountType = "asset" | "liability" | "equity" | "income" | "expense";
 type Account = {
   id: string;
   accountCode: string;
   accountName: string;
-  accountType: "asset" | "liability" | "equity" | "income" | "expense";
-  accountSubtype: string | null;
+  accountType: string;
   parentId: string | null;
   description: string | null;
   isActive: boolean;
@@ -57,29 +59,11 @@ const accountTypeColors: Record<string, string> = {
   expense: "bg-orange-500/10 text-orange-600 border-orange-500/20",
 };
 
-const ACCOUNT_SUBTYPES: Record<string, { value: string; label: string }[]> = {
-  asset: [
-    { value: "current_asset", label: "Current Asset" },
-    { value: "non_current_asset", label: "Non-Current Asset" },
-    { value: "fixed_asset", label: "Fixed Asset" },
-  ],
-  liability: [
-    { value: "current_liability", label: "Current Liability" },
-    { value: "non_current_liability", label: "Non-Current Liability" },
-  ],
-  equity: [
-    { value: "owners_capital", label: "Owner's Capital" },
-  ],
-  income: [
-    { value: "operating_income", label: "Operating Income" },
-    { value: "non_operating_income", label: "Non-Operating Income" },
-    { value: "other_income", label: "Other Income" },
-  ],
-  expense: [
-    { value: "operating_expense", label: "Operating Expense" },
-    { value: "non_operating_expense", label: "Non-Operating Expense" },
-    { value: "cost_of_financing", label: "Cost of Financing" },
-  ],
+const accountTypeLabel = (val: string): string => {
+  const opt = ACCOUNT_TYPE_OPTIONS.find(o => o.value === val);
+  if (opt) return opt.label;
+  // Legacy main types
+  return val.charAt(0).toUpperCase() + val.slice(1);
 };
 
 const accountTypeBgDrag: Record<string, string> = {
@@ -108,8 +92,7 @@ export default function ChartOfAccounts() {
   const [formData, setFormData] = useState({
     accountCode: "",
     accountName: "",
-    accountType: "asset" as Account["accountType"],
-    accountSubtype: "",
+    accountType: "current_asset",
     parentId: "",
     description: "",
     openingBalance: "0",
@@ -196,7 +179,7 @@ export default function ChartOfAccounts() {
   });
 
   const resetForm = () => {
-    setFormData({ accountCode: "", accountName: "", accountType: "asset", accountSubtype: "", parentId: "", description: "", openingBalance: "0" });
+    setFormData({ accountCode: "", accountName: "", accountType: "current_asset", parentId: "", description: "", openingBalance: "0" });
     setEditingAccount(null);
   };
 
@@ -206,7 +189,6 @@ export default function ChartOfAccounts() {
       accountCode: account.accountCode,
       accountName: account.accountName,
       accountType: account.accountType,
-      accountSubtype: account.accountSubtype || "",
       parentId: account.parentId || "",
       description: account.description || "",
       openingBalance: account.openingBalance || "0",
@@ -280,7 +262,7 @@ export default function ChartOfAccounts() {
       const matchesSearch = !searchTerm ||
         acc.accountCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
         acc.accountName.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesType = typeFilter === "all" || acc.accountType === typeFilter;
+      const matchesType = typeFilter === "all" || getMainAccountType(acc.accountType) === typeFilter;
       return matchesSearch && matchesType;
     };
 
@@ -356,7 +338,7 @@ export default function ChartOfAccounts() {
 
     const draggedAccount = findAccountById(draggedId, hierarchy);
     const targetAccount = findAccountById(accountId, hierarchy);
-    if (draggedAccount && targetAccount && draggedAccount.accountType !== targetAccount.accountType) return;
+    if (draggedAccount && targetAccount && getMainAccountType(draggedAccount.accountType) !== getMainAccountType(targetAccount.accountType)) return;
 
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const y = e.clientY - rect.top;
@@ -395,7 +377,7 @@ export default function ChartOfAccounts() {
 
     const draggedAccount = findAccountById(draggedId, hierarchy);
     const target = findAccountById(targetId, hierarchy);
-    if (draggedAccount && target && draggedAccount.accountType !== target.accountType) {
+    if (draggedAccount && target && getMainAccountType(draggedAccount.accountType) !== getMainAccountType(target.accountType)) {
       toast({ title: "Cannot move", description: "Accounts can only be moved within the same type", variant: "destructive" });
       resetDrag();
       return;
@@ -466,11 +448,8 @@ export default function ChartOfAccounts() {
           )}
           <span className="font-mono text-sm font-medium text-muted-foreground w-16 flex-shrink-0">{account.accountCode}</span>
           <span className="text-sm font-medium flex-1 truncate">{account.accountName}</span>
-          <Badge variant="outline" className={`text-xs ${accountTypeColors[account.accountType]}`}>
-            {account.accountType.charAt(0).toUpperCase() + account.accountType.slice(1)}
-            {account.accountSubtype && (
-              <span className="ml-1 opacity-75">· {ACCOUNT_SUBTYPES[account.accountType]?.find(s => s.value === account.accountSubtype)?.label || account.accountSubtype}</span>
-            )}
+          <Badge variant="outline" className={`text-xs ${accountTypeColors[getMainAccountType(account.accountType)]}`}>
+            {accountTypeLabel(account.accountType)}
           </Badge>
           <span className="font-mono text-xs text-muted-foreground w-20 text-right">{formatCurrency(account.currentBalance || "0")}</span>
         </div>
@@ -503,16 +482,9 @@ export default function ChartOfAccounts() {
         </TableCell>
         <TableCell className="font-medium">{account.accountName}</TableCell>
         <TableCell>
-          <div className="flex flex-col gap-1 items-start">
-            <Badge variant="outline" className={accountTypeColors[account.accountType]}>
-              {account.accountType.charAt(0).toUpperCase() + account.accountType.slice(1)}
-            </Badge>
-            {account.accountSubtype && (
-              <Badge variant="secondary" className="text-xs font-normal">
-                {ACCOUNT_SUBTYPES[account.accountType]?.find(s => s.value === account.accountSubtype)?.label || account.accountSubtype}
-              </Badge>
-            )}
-          </div>
+          <Badge variant="outline" className={accountTypeColors[getMainAccountType(account.accountType)]}>
+            {accountTypeLabel(account.accountType)}
+          </Badge>
         </TableCell>
         <TableCell className="text-right font-mono">{formatCurrency(account.currentBalance || "0")}</TableCell>
         <TableCell>
@@ -593,36 +565,17 @@ export default function ChartOfAccounts() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="accountType">Account Type</Label>
-                  <Select value={formData.accountType} onValueChange={(val) => setFormData(prev => ({ ...prev, accountType: val as Account["accountType"], accountSubtype: "" }))}>
+                  <Select value={formData.accountType} onValueChange={(val) => setFormData(prev => ({ ...prev, accountType: val }))}>
                     <SelectTrigger data-testid="select-account-type">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="asset">Asset</SelectItem>
-                      <SelectItem value="liability">Liability</SelectItem>
-                      <SelectItem value="equity">Equity</SelectItem>
-                      <SelectItem value="income">Income</SelectItem>
-                      <SelectItem value="expense">Expense</SelectItem>
+                      {ACCOUNT_TYPE_OPTIONS.map(opt => (
+                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="accountSubtype">Account Subtype</Label>
-                <Select
-                  value={formData.accountSubtype || "none"}
-                  onValueChange={(val) => setFormData(prev => ({ ...prev, accountSubtype: val === "none" ? "" : val }))}
-                >
-                  <SelectTrigger data-testid="select-account-subtype">
-                    <SelectValue placeholder="Select a subtype (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {ACCOUNT_SUBTYPES[formData.accountType]?.map(s => (
-                      <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="accountName">Account Name</Label>
@@ -665,7 +618,7 @@ export default function ChartOfAccounts() {
                             No Parent (Top Level)
                           </CommandItem>
                           {allAccounts
-                            .filter(a => a.id !== editingAccount?.id && a.accountType === formData.accountType)
+                            .filter(a => a.id !== editingAccount?.id && getMainAccountType(a.accountType) === getMainAccountType(formData.accountType))
                             .map(a => (
                               <CommandItem
                                 key={a.id}
@@ -684,7 +637,7 @@ export default function ChartOfAccounts() {
                     </Command>
                   </PopoverContent>
                 </Popover>
-                <p className="text-xs text-muted-foreground">Only showing {formData.accountType} accounts</p>
+                <p className="text-xs text-muted-foreground">Only showing {getMainAccountType(formData.accountType)} accounts</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="openingBalance">Opening Balance</Label>

@@ -574,16 +574,36 @@ export type DisbursementTarget = typeof disbursementTargets.$inferSelect;
 
 // ============== ACCOUNTING MODULE ==============
 
-// Account Types Enum
+// Account Types Enum (legacy main types kept for backward compat)
 export const accountTypeEnum = pgEnum("account_type", ["asset", "liability", "equity", "income", "expense"]);
+
+// Account type values stored in the DB. Can be one of the 5 main types OR a subtype value.
+export const ACCOUNT_TYPE_OPTIONS: { value: string; label: string; mainType: "asset" | "liability" | "equity" | "income" | "expense" }[] = [
+  { value: "current_asset",         label: "Asset - Current Asset",            mainType: "asset" },
+  { value: "non_current_asset",     label: "Asset - Non-Current Asset",        mainType: "asset" },
+  { value: "fixed_asset",           label: "Asset - Fixed Asset",              mainType: "asset" },
+  { value: "current_liability",     label: "Liability - Current Liability",    mainType: "liability" },
+  { value: "non_current_liability", label: "Liability - Non-Current Liability", mainType: "liability" },
+  { value: "owners_capital",        label: "Equity - Owner's Capital",         mainType: "equity" },
+  { value: "operating_income",      label: "Income - Operating Income",        mainType: "income" },
+  { value: "non_operating_income",  label: "Income - Non-Operating Income",    mainType: "income" },
+  { value: "other_income",          label: "Income - Other Income",            mainType: "income" },
+  { value: "operating_expense",     label: "Expense - Operating Expense",      mainType: "expense" },
+  { value: "non_operating_expense", label: "Expense - Non-Operating Expense",  mainType: "expense" },
+  { value: "cost_of_financing",     label: "Expense - Cost of Financing",      mainType: "expense" },
+];
+
+export function getMainAccountType(value: string): "asset" | "liability" | "equity" | "income" | "expense" {
+  if (["asset","liability","equity","income","expense"].includes(value)) return value as any;
+  return ACCOUNT_TYPE_OPTIONS.find(o => o.value === value)?.mainType ?? "asset";
+}
 
 // Chart of Accounts
 export const accounts = pgTable("accounts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   accountCode: varchar("account_code", { length: 20 }).notNull().unique(),
   accountName: varchar("account_name", { length: 255 }).notNull(),
-  accountType: accountTypeEnum("account_type").notNull(),
-  accountSubtype: varchar("account_subtype", { length: 50 }),
+  accountType: varchar("account_type", { length: 50 }).notNull(),
   parentId: varchar("parent_id"), // Self-referencing for hierarchy
   description: text("description"),
   isActive: boolean("is_active").default(true),
