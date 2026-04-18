@@ -61,6 +61,79 @@ const defaultFormData = {
 
 type CycleRow = { cycleNumber: string; minAmount: string; maxAmount: string };
 
+type ProductTheme = {
+  gradient: string;
+  iconBg: string;
+  iconColor: string;
+  metricColor: string;
+  ring: string;
+  accent: string;
+};
+
+const PRODUCT_THEMES: ProductTheme[] = [
+  {
+    gradient: "from-emerald-50 via-emerald-50/60 to-transparent dark:from-emerald-950/30 dark:via-emerald-950/10",
+    iconBg: "bg-emerald-100 dark:bg-emerald-900/40",
+    iconColor: "text-emerald-700 dark:text-emerald-300",
+    metricColor: "text-emerald-600 dark:text-emerald-400",
+    ring: "ring-1 ring-emerald-200/70 dark:ring-emerald-900/40",
+    accent: "border-l-4 border-l-emerald-500",
+  },
+  {
+    gradient: "from-sky-50 via-sky-50/60 to-transparent dark:from-sky-950/30 dark:via-sky-950/10",
+    iconBg: "bg-sky-100 dark:bg-sky-900/40",
+    iconColor: "text-sky-700 dark:text-sky-300",
+    metricColor: "text-sky-600 dark:text-sky-400",
+    ring: "ring-1 ring-sky-200/70 dark:ring-sky-900/40",
+    accent: "border-l-4 border-l-sky-500",
+  },
+  {
+    gradient: "from-amber-50 via-amber-50/60 to-transparent dark:from-amber-950/30 dark:via-amber-950/10",
+    iconBg: "bg-amber-100 dark:bg-amber-900/40",
+    iconColor: "text-amber-700 dark:text-amber-300",
+    metricColor: "text-amber-600 dark:text-amber-400",
+    ring: "ring-1 ring-amber-200/70 dark:ring-amber-900/40",
+    accent: "border-l-4 border-l-amber-500",
+  },
+  {
+    gradient: "from-violet-50 via-violet-50/60 to-transparent dark:from-violet-950/30 dark:via-violet-950/10",
+    iconBg: "bg-violet-100 dark:bg-violet-900/40",
+    iconColor: "text-violet-700 dark:text-violet-300",
+    metricColor: "text-violet-600 dark:text-violet-400",
+    ring: "ring-1 ring-violet-200/70 dark:ring-violet-900/40",
+    accent: "border-l-4 border-l-violet-500",
+  },
+  {
+    gradient: "from-rose-50 via-rose-50/60 to-transparent dark:from-rose-950/30 dark:via-rose-950/10",
+    iconBg: "bg-rose-100 dark:bg-rose-900/40",
+    iconColor: "text-rose-700 dark:text-rose-300",
+    metricColor: "text-rose-600 dark:text-rose-400",
+    ring: "ring-1 ring-rose-200/70 dark:ring-rose-900/40",
+    accent: "border-l-4 border-l-rose-500",
+  },
+  {
+    gradient: "from-teal-50 via-teal-50/60 to-transparent dark:from-teal-950/30 dark:via-teal-950/10",
+    iconBg: "bg-teal-100 dark:bg-teal-900/40",
+    iconColor: "text-teal-700 dark:text-teal-300",
+    metricColor: "text-teal-600 dark:text-teal-400",
+    ring: "ring-1 ring-teal-200/70 dark:ring-teal-900/40",
+    accent: "border-l-4 border-l-teal-500",
+  },
+];
+
+function getProductTheme(product: FinancingProduct): ProductTheme {
+  const key = (product.name || product.code || "").toLowerCase();
+  if (key.includes("murabaha")) return PRODUCT_THEMES[0];
+  if (key.includes("musharaka") || key.includes("musharakah")) return PRODUCT_THEMES[1];
+  if (key.includes("mudaraba")) return PRODUCT_THEMES[2];
+  if (key.includes("qarz") || key.includes("qard") || key.includes("hassan")) return PRODUCT_THEMES[3];
+  if (key.includes("ijara")) return PRODUCT_THEMES[4];
+  if (key.includes("salam") || key.includes("istisna")) return PRODUCT_THEMES[5];
+  let h = 0;
+  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+  return PRODUCT_THEMES[h % PRODUCT_THEMES.length];
+}
+
 export default function FinancingProductsPage() {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
@@ -279,54 +352,54 @@ export default function FinancingProductsPage() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="border shadow-sm" data-testid="card-total-products">
-          <CardContent className="p-4">
+        <Card className="border-l-4 border-l-sky-500 ring-1 ring-sky-200/70 dark:ring-sky-900/40 shadow-sm hover:shadow-md transition-shadow overflow-hidden" data-testid="card-total-products">
+          <CardContent className="p-4 bg-gradient-to-br from-sky-50 via-sky-50/50 to-transparent dark:from-sky-950/30 dark:via-sky-950/10">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Products</p>
-                <p className="text-3xl font-bold mt-1">{totalProducts}</p>
+                <p className="text-3xl font-bold mt-1 text-sky-700 dark:text-sky-300">{totalProducts}</p>
               </div>
-              <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                <Package className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              <div className="h-10 w-10 rounded-full bg-sky-100 dark:bg-sky-900/40 flex items-center justify-center shadow-sm">
+                <Package className="h-5 w-5 text-sky-700 dark:text-sky-300" />
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="border shadow-sm" data-testid="card-active-products">
-          <CardContent className="p-4">
+        <Card className="border-l-4 border-l-emerald-500 ring-1 ring-emerald-200/70 dark:ring-emerald-900/40 shadow-sm hover:shadow-md transition-shadow overflow-hidden" data-testid="card-active-products">
+          <CardContent className="p-4 bg-gradient-to-br from-emerald-50 via-emerald-50/50 to-transparent dark:from-emerald-950/30 dark:via-emerald-950/10">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Active</p>
-                <p className="text-3xl font-bold mt-1">{activeProducts}</p>
+                <p className="text-3xl font-bold mt-1 text-emerald-700 dark:text-emerald-300">{activeProducts}</p>
               </div>
-              <div className="h-10 w-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+              <div className="h-10 w-10 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center shadow-sm">
+                <CheckCircle2 className="h-5 w-5 text-emerald-700 dark:text-emerald-300" />
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="border shadow-sm" data-testid="card-inactive-products">
-          <CardContent className="p-4">
+        <Card className="border-l-4 border-l-rose-500 ring-1 ring-rose-200/70 dark:ring-rose-900/40 shadow-sm hover:shadow-md transition-shadow overflow-hidden" data-testid="card-inactive-products">
+          <CardContent className="p-4 bg-gradient-to-br from-rose-50 via-rose-50/50 to-transparent dark:from-rose-950/30 dark:via-rose-950/10">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Inactive</p>
-                <p className="text-3xl font-bold mt-1">{inactiveProducts}</p>
+                <p className="text-3xl font-bold mt-1 text-rose-700 dark:text-rose-300">{inactiveProducts}</p>
               </div>
-              <div className="h-10 w-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-                <XCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+              <div className="h-10 w-10 rounded-full bg-rose-100 dark:bg-rose-900/40 flex items-center justify-center shadow-sm">
+                <XCircle className="h-5 w-5 text-rose-700 dark:text-rose-300" />
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="border shadow-sm" data-testid="card-group-products">
-          <CardContent className="p-4">
+        <Card className="border-l-4 border-l-violet-500 ring-1 ring-violet-200/70 dark:ring-violet-900/40 shadow-sm hover:shadow-md transition-shadow overflow-hidden" data-testid="card-group-products">
+          <CardContent className="p-4 bg-gradient-to-br from-violet-50 via-violet-50/50 to-transparent dark:from-violet-950/30 dark:via-violet-950/10">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Group Products</p>
-                <p className="text-3xl font-bold mt-1">{groupProducts}</p>
+                <p className="text-3xl font-bold mt-1 text-violet-700 dark:text-violet-300">{groupProducts}</p>
               </div>
-              <div className="h-10 w-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-                <Users className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              <div className="h-10 w-10 rounded-full bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center shadow-sm">
+                <Users className="h-5 w-5 text-violet-700 dark:text-violet-300" />
               </div>
             </div>
           </CardContent>
@@ -773,14 +846,15 @@ function ProductCard({
   getMethodLabel: (m: string) => string;
   getFrequencyLabel: (f: string) => string;
 }) {
+  const theme = getProductTheme(product);
   return (
-    <Card className="border shadow-sm hover:shadow-md transition-shadow overflow-hidden group" data-testid={`card-product-${product.id}`}>
+    <Card className={`border shadow-sm hover:shadow-lg transition-all overflow-hidden group ${theme.accent} ${theme.ring}`} data-testid={`card-product-${product.id}`}>
       <CardContent className="p-0">
-        {/* Header */}
-        <div className="flex items-start justify-between p-4 pb-3">
+        {/* Header with gradient */}
+        <div className={`flex items-start justify-between p-4 pb-3 bg-gradient-to-br ${theme.gradient}`}>
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-              <Banknote className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+            <div className={`h-10 w-10 rounded-full ${theme.iconBg} flex items-center justify-center shadow-sm`}>
+              <Banknote className={`h-5 w-5 ${theme.iconColor}`} />
             </div>
             <div>
               <h3 className="font-semibold text-sm leading-tight">{product.name}</h3>
@@ -803,17 +877,17 @@ function ProductCard({
         </div>
 
         {/* Key Metrics */}
-        <div className="grid grid-cols-3 gap-px bg-muted/30 mx-4 rounded-lg overflow-hidden border">
+        <div className="grid grid-cols-3 gap-px bg-muted/30 mx-4 mt-1 rounded-lg overflow-hidden border">
           <div className="bg-background p-3 text-center">
-            <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{Number(product.interestRate)}%</p>
+            <p className={`text-xl font-bold ${theme.metricColor}`}>{Number(product.interestRate)}%</p>
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Margin</p>
           </div>
           <div className="bg-background p-3 text-center">
-            <p className="text-xl font-bold">{product.minDurationMonths || 0}–{product.maxDurationMonths}</p>
+            <p className={`text-xl font-bold ${theme.metricColor}`}>{product.minDurationMonths || 0}–{product.maxDurationMonths}</p>
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Months</p>
           </div>
           <div className="bg-background p-3 text-center">
-            <p className="text-xl font-bold">{product.gracePeriodDays}</p>
+            <p className={`text-xl font-bold ${theme.metricColor}`}>{product.gracePeriodDays}</p>
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Grace Mo</p>
           </div>
         </div>
