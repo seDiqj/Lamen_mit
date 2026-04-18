@@ -963,11 +963,11 @@ export default function AccountStatement() {
                       <TableCell className="text-right font-mono font-medium">{formatCurrency(principalStatement.openingBalance.toString())}</TableCell>
                     </TableRow>
                     {principalStatement.transactions.length > 0 ? principalStatement.transactions.map((tx, idx) => (
-                      <TableRow key={idx} className={tx.type === 'disbursement' ? 'bg-red-50/30 dark:bg-red-950/10' : 'bg-green-50/30 dark:bg-green-950/10'}>
+                      <TableRow key={idx} className={tx.type === 'disbursement' ? 'bg-red-50/30 dark:bg-red-950/10' : tx.type === 'fund_receipt' ? 'bg-blue-50/30 dark:bg-blue-950/10' : 'bg-green-50/30 dark:bg-green-950/10'}>
                         <TableCell>{formatDate(tx.date)}</TableCell>
                         <TableCell>
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${tx.type === 'disbursement' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
-                            {tx.type === 'disbursement' ? 'Disbursed' : 'Collected'}
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${tx.type === 'disbursement' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : tx.type === 'fund_receipt' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
+                            {tx.type === 'disbursement' ? 'Disbursed' : tx.type === 'fund_receipt' ? 'Fund Received' : 'Collected'}
                           </span>
                         </TableCell>
                         <TableCell className="font-mono text-sm">{tx.applicationId}</TableCell>

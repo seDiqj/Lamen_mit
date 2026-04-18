@@ -6137,15 +6137,56 @@ export class DatabaseStorage implements IStorage {
 
     type PrincipalTx = {
       date: string;
-      type: 'disbursement' | 'collection';
+      type: 'disbursement' | 'collection' | 'fund_receipt';
       applicationId: string;
       customerName: string;
       debitAmount: number;
       creditAmount: number;
       balance: number;
+      reference?: string;
+      description?: string;
     };
 
     const allTransactions: PrincipalTx[] = [];
+
+    // Fund receipts: journal entries that credit a liability account on behalf of this funding source
+    const fundReceiptResult = await db.execute(sql`
+      SELECT je.entry_number, je.entry_date, je.description, je.reference,
+             SUM(COALESCE(jl.credit_amount::numeric, 0) - COALESCE(jl.debit_amount::numeric, 0)) AS net_credit
+      FROM journal_entries je
+      INNER JOIN journal_lines jl ON jl.journal_entry_id = je.id
+      INNER JOIN accounts a ON a.id = jl.account_id
+      WHERE je.is_posted = true
+        AND a.account_type = 'liability'
+        AND je.reference_type NOT IN ('disbursement', 'collection')
+        AND (
+          jl.funding_source_id = ${fundingSourceId}
+          OR (jl.funding_source_id IS NULL AND je.funding_source_id = ${fundingSourceId})
+        )
+      GROUP BY je.id, je.entry_number, je.entry_date, je.description, je.reference
+      HAVING SUM(COALESCE(jl.credit_amount::numeric, 0) - COALESCE(jl.debit_amount::numeric, 0)) <> 0
+    `);
+    const fundReceiptRows = fundReceiptResult.rows as Array<{
+      entry_number: string;
+      entry_date: string;
+      description: string | null;
+      reference: string | null;
+      net_credit: string | null;
+    }>;
+    for (const row of fundReceiptRows) {
+      const net = Number(row.net_credit || 0);
+      allTransactions.push({
+        date: row.entry_date,
+        type: 'fund_receipt',
+        applicationId: row.entry_number,
+        customerName: row.description || 'Fund received',
+        debitAmount: net < 0 ? -net : 0,
+        creditAmount: net > 0 ? net : 0,
+        balance: 0,
+        reference: row.reference || row.entry_number,
+        description: row.description || '',
+      });
+    }
 
     for (const row of disbursedRows) {
       if (row.disbursement_date) {
