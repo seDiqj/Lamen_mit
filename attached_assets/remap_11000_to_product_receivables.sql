@@ -1117,7 +1117,7 @@ UPDATE accounts a
    SET current_balance = COALESCE((
      SELECT SUM(jl.debit_amount - jl.credit_amount)
        FROM journal_lines jl
-       JOIN journal_entries je ON je.id = jl.entry_id
+       JOIN journal_entries je ON je.id = jl.journal_entry_id
       WHERE jl.account_id = a.id
         AND je.status = 'posted'
    ), 0)
