@@ -583,6 +583,7 @@ export const accounts = pgTable("accounts", {
   accountCode: varchar("account_code", { length: 20 }).notNull().unique(),
   accountName: varchar("account_name", { length: 255 }).notNull(),
   accountType: accountTypeEnum("account_type").notNull(),
+  accountSubtype: varchar("account_subtype", { length: 50 }),
   parentId: varchar("parent_id"), // Self-referencing for hierarchy
   description: text("description"),
   isActive: boolean("is_active").default(true),

@@ -40,6 +40,7 @@ type Account = {
   accountCode: string;
   accountName: string;
   accountType: "asset" | "liability" | "equity" | "income" | "expense";
+  accountSubtype: string | null;
   parentId: string | null;
   description: string | null;
   isActive: boolean;
@@ -54,6 +55,31 @@ const accountTypeColors: Record<string, string> = {
   equity: "bg-purple-500/10 text-purple-600 border-purple-500/20",
   income: "bg-green-500/10 text-green-600 border-green-500/20",
   expense: "bg-orange-500/10 text-orange-600 border-orange-500/20",
+};
+
+const ACCOUNT_SUBTYPES: Record<string, { value: string; label: string }[]> = {
+  asset: [
+    { value: "current_asset", label: "Current Asset" },
+    { value: "non_current_asset", label: "Non-Current Asset" },
+    { value: "fixed_asset", label: "Fixed Asset" },
+  ],
+  liability: [
+    { value: "current_liability", label: "Current Liability" },
+    { value: "non_current_liability", label: "Non-Current Liability" },
+  ],
+  equity: [
+    { value: "owners_capital", label: "Owner's Capital" },
+  ],
+  income: [
+    { value: "operating_income", label: "Operating Income" },
+    { value: "non_operating_income", label: "Non-Operating Income" },
+    { value: "other_income", label: "Other Income" },
+  ],
+  expense: [
+    { value: "operating_expense", label: "Operating Expense" },
+    { value: "non_operating_expense", label: "Non-Operating Expense" },
+    { value: "cost_of_financing", label: "Cost of Financing" },
+  ],
 };
 
 const accountTypeBgDrag: Record<string, string> = {
@@ -83,6 +109,7 @@ export default function ChartOfAccounts() {
     accountCode: "",
     accountName: "",
     accountType: "asset" as Account["accountType"],
+    accountSubtype: "",
     parentId: "",
     description: "",
     openingBalance: "0",
@@ -169,7 +196,7 @@ export default function ChartOfAccounts() {
   });
 
   const resetForm = () => {
-    setFormData({ accountCode: "", accountName: "", accountType: "asset", parentId: "", description: "", openingBalance: "0" });
+    setFormData({ accountCode: "", accountName: "", accountType: "asset", accountSubtype: "", parentId: "", description: "", openingBalance: "0" });
     setEditingAccount(null);
   };
 
@@ -179,6 +206,7 @@ export default function ChartOfAccounts() {
       accountCode: account.accountCode,
       accountName: account.accountName,
       accountType: account.accountType,
+      accountSubtype: account.accountSubtype || "",
       parentId: account.parentId || "",
       description: account.description || "",
       openingBalance: account.openingBalance || "0",
@@ -440,6 +468,9 @@ export default function ChartOfAccounts() {
           <span className="text-sm font-medium flex-1 truncate">{account.accountName}</span>
           <Badge variant="outline" className={`text-xs ${accountTypeColors[account.accountType]}`}>
             {account.accountType.charAt(0).toUpperCase() + account.accountType.slice(1)}
+            {account.accountSubtype && (
+              <span className="ml-1 opacity-75">· {ACCOUNT_SUBTYPES[account.accountType]?.find(s => s.value === account.accountSubtype)?.label || account.accountSubtype}</span>
+            )}
           </Badge>
           <span className="font-mono text-xs text-muted-foreground w-20 text-right">{formatCurrency(account.currentBalance || "0")}</span>
         </div>
@@ -555,7 +586,7 @@ export default function ChartOfAccounts() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="accountType">Account Type</Label>
-                  <Select value={formData.accountType} onValueChange={(val) => setFormData(prev => ({ ...prev, accountType: val as Account["accountType"] }))}>
+                  <Select value={formData.accountType} onValueChange={(val) => setFormData(prev => ({ ...prev, accountType: val as Account["accountType"], accountSubtype: "" }))}>
                     <SelectTrigger data-testid="select-account-type">
                       <SelectValue />
                     </SelectTrigger>
@@ -568,6 +599,23 @@ export default function ChartOfAccounts() {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="accountSubtype">Account Subtype</Label>
+                <Select
+                  value={formData.accountSubtype || "none"}
+                  onValueChange={(val) => setFormData(prev => ({ ...prev, accountSubtype: val === "none" ? "" : val }))}
+                >
+                  <SelectTrigger data-testid="select-account-subtype">
+                    <SelectValue placeholder="Select a subtype (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {ACCOUNT_SUBTYPES[formData.accountType]?.map(s => (
+                      <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="accountName">Account Name</Label>
