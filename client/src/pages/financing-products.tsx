@@ -353,7 +353,7 @@ export default function FinancingProductsPage() {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="border-l-4 border-l-sky-500 ring-1 ring-sky-200/70 dark:ring-sky-900/40 shadow-sm hover:shadow-md transition-shadow overflow-hidden" data-testid="card-total-products">
-          <CardContent className="p-4 bg-gradient-to-br from-sky-50 via-sky-50/50 to-transparent dark:from-sky-950/30 dark:via-sky-950/10">
+          <CardContent className="p-4 bg-gradient-to-br from-sky-100 via-sky-50 to-white dark:from-sky-900/40 dark:via-sky-950/30 dark:to-background">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Products</p>
@@ -366,7 +366,7 @@ export default function FinancingProductsPage() {
           </CardContent>
         </Card>
         <Card className="border-l-4 border-l-emerald-500 ring-1 ring-emerald-200/70 dark:ring-emerald-900/40 shadow-sm hover:shadow-md transition-shadow overflow-hidden" data-testid="card-active-products">
-          <CardContent className="p-4 bg-gradient-to-br from-emerald-50 via-emerald-50/50 to-transparent dark:from-emerald-950/30 dark:via-emerald-950/10">
+          <CardContent className="p-4 bg-gradient-to-br from-emerald-100 via-emerald-50 to-white dark:from-emerald-900/40 dark:via-emerald-950/30 dark:to-background">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Active</p>
@@ -379,7 +379,7 @@ export default function FinancingProductsPage() {
           </CardContent>
         </Card>
         <Card className="border-l-4 border-l-rose-500 ring-1 ring-rose-200/70 dark:ring-rose-900/40 shadow-sm hover:shadow-md transition-shadow overflow-hidden" data-testid="card-inactive-products">
-          <CardContent className="p-4 bg-gradient-to-br from-rose-50 via-rose-50/50 to-transparent dark:from-rose-950/30 dark:via-rose-950/10">
+          <CardContent className="p-4 bg-gradient-to-br from-rose-100 via-rose-50 to-white dark:from-rose-900/40 dark:via-rose-950/30 dark:to-background">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Inactive</p>
@@ -392,7 +392,7 @@ export default function FinancingProductsPage() {
           </CardContent>
         </Card>
         <Card className="border-l-4 border-l-violet-500 ring-1 ring-violet-200/70 dark:ring-violet-900/40 shadow-sm hover:shadow-md transition-shadow overflow-hidden" data-testid="card-group-products">
-          <CardContent className="p-4 bg-gradient-to-br from-violet-50 via-violet-50/50 to-transparent dark:from-violet-950/30 dark:via-violet-950/10">
+          <CardContent className="p-4 bg-gradient-to-br from-violet-100 via-violet-50 to-white dark:from-violet-900/40 dark:via-violet-950/30 dark:to-background">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Group Products</p>
