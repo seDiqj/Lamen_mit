@@ -503,9 +503,16 @@ export default function ChartOfAccounts() {
         </TableCell>
         <TableCell className="font-medium">{account.accountName}</TableCell>
         <TableCell>
-          <Badge variant="outline" className={accountTypeColors[account.accountType]}>
-            {account.accountType.charAt(0).toUpperCase() + account.accountType.slice(1)}
-          </Badge>
+          <div className="flex flex-col gap-1 items-start">
+            <Badge variant="outline" className={accountTypeColors[account.accountType]}>
+              {account.accountType.charAt(0).toUpperCase() + account.accountType.slice(1)}
+            </Badge>
+            {account.accountSubtype && (
+              <Badge variant="secondary" className="text-xs font-normal">
+                {ACCOUNT_SUBTYPES[account.accountType]?.find(s => s.value === account.accountSubtype)?.label || account.accountSubtype}
+              </Badge>
+            )}
+          </div>
         </TableCell>
         <TableCell className="text-right font-mono">{formatCurrency(account.currentBalance || "0")}</TableCell>
         <TableCell>
