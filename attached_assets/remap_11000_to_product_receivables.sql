@@ -1119,7 +1119,7 @@ UPDATE accounts a
        FROM journal_lines jl
        JOIN journal_entries je ON je.id = jl.journal_entry_id
       WHERE jl.account_id = a.id
-        AND je.status = 'posted'
+        AND je.is_posted = true
    ), 0)
  WHERE a.id IN ('a68da106-bae6-43d4-9c59-faaaae108f7e','68c67428-5bca-4255-b931-6e00d688a1db','fa469f28-35cc-414c-90f8-359aa52e149b','4818ad83-204a-43ca-9b95-8e504fcef547','19a014e4-72a4-4bc2-89fd-00389055fdb3');
 
