@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "t-b4kmi2PrWt6LfEZDeUU"
+uri = "file://attached_assets/unmapped_11000_journal_lines.csv"
+type = "table"
+title = "Unmapped 11000 Journal Lines (356 rows)"
