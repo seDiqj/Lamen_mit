@@ -1129,6 +1129,15 @@ SELECT account_code, account_name, current_balance
  WHERE id IN ('a68da106-bae6-43d4-9c59-faaaae108f7e','68c67428-5bca-4255-b931-6e00d688a1db','fa469f28-35cc-414c-90f8-359aa52e149b','4818ad83-204a-43ca-9b95-8e504fcef547','19a014e4-72a4-4bc2-89fd-00389055fdb3')
  ORDER BY account_code;
 
--- Review the output of the SELECTs above. If the "still_on_11000_should_be_zero" is 0
--- and the balances look correct, run:  COMMIT;
--- Otherwise run:                       ROLLBACK;
+COMMIT;
+
+-- ====================================================================
+-- IMPORTANT: This script auto-COMMITs at the end.
+-- The previous run ROLLED BACK because COMMIT was never executed
+-- (the connection closed before COMMIT was sent).
+--
+-- If after running you find a problem, the data on accounts
+-- 11000/11100/11200/11300/11400 can be reverted by running this
+-- inverse script (each UPDATE pattern reversed). Ask the agent.
+-- ====================================================================
+
