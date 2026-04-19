@@ -15,7 +15,9 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -579,9 +581,26 @@ export default function ChartOfAccounts() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {ACCOUNT_TYPE_OPTIONS.map(opt => (
-                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                        ))}
+                        {(["asset", "liability", "equity", "income", "expense"] as const).map(mainType => {
+                          const groupOptions = ACCOUNT_TYPE_OPTIONS.filter(o => o.mainType === mainType);
+                          if (groupOptions.length === 0) return null;
+                          const mainLabel = mainType.charAt(0).toUpperCase() + mainType.slice(1);
+                          return (
+                            <SelectGroup key={mainType}>
+                              <SelectLabel className="text-xs font-bold uppercase tracking-wider text-foreground bg-muted/60 px-2 py-1.5">
+                                {mainLabel}
+                              </SelectLabel>
+                              {groupOptions.map(opt => {
+                                const subLabel = opt.label.includes(" - ") ? opt.label.split(" - ")[1] : opt.label;
+                                return (
+                                  <SelectItem key={opt.value} value={opt.value} className="pl-8">
+                                    {subLabel}
+                                  </SelectItem>
+                                );
+                              })}
+                            </SelectGroup>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                   )}
