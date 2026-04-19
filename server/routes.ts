@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { customers, loans, disbursements, branches, financeOfficers, installments, fundingSources as fundingSourcesTable, collaterals, customerBusinesses, businessLicenses, loanApprovals, guarantors, userRoles, fadReviews, riskComplianceReviews, accounts, journalEntries, journalLines, clientOccupations, productCycleLimits, loanTransfers, collectionRecords, activityLogs } from "@shared/schema";
+import { customers, loans, disbursements, branches, financeOfficers, installments, fundingSources as fundingSourcesTable, collaterals, customerBusinesses, businessLicenses, loanApprovals, guarantors, userRoles, fadReviews, riskComplianceReviews, accounts, journalEntries, journalLines, clientOccupations, productCycleLimits, loanTransfers, collectionRecords, activityLogs, getMainAccountType } from "@shared/schema";
 import { users } from "@shared/models/auth";
 import { eq, and, or, inArray, sql, gte, lte, desc } from "drizzle-orm";
 import { z } from "zod";
@@ -5506,8 +5506,8 @@ export async function registerRoutes(
 
           const currentAccount = allAccounts.find(a => a.id === accountId);
           const parentAccount = allAccounts.find(a => a.id === req.body.parentId);
-          if (currentAccount && parentAccount && currentAccount.accountType !== parentAccount.accountType) {
-            return res.status(400).json({ message: "Accounts can only be moved within the same type" });
+          if (currentAccount && parentAccount && getMainAccountType(currentAccount.accountType) !== getMainAccountType(parentAccount.accountType)) {
+            return res.status(400).json({ message: "Accounts can only be moved within the same main type (Asset, Liability, Equity, Income, Expense)" });
           }
 
           const descendants = new Set<string>();
