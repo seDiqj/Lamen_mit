@@ -565,16 +565,26 @@ export default function ChartOfAccounts() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="accountType">Account Type</Label>
-                  <Select value={formData.accountType} onValueChange={(val) => setFormData(prev => ({ ...prev, accountType: val }))}>
-                    <SelectTrigger data-testid="select-account-type">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ACCOUNT_TYPE_OPTIONS.map(opt => (
-                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {editingAccount ? (
+                    <div
+                      id="accountType"
+                      className="flex h-10 items-center rounded-md border border-input bg-muted px-3 text-sm font-medium capitalize text-muted-foreground"
+                      data-testid="display-account-type"
+                    >
+                      {getMainAccountType(formData.accountType)}
+                    </div>
+                  ) : (
+                    <Select value={formData.accountType} onValueChange={(val) => setFormData(prev => ({ ...prev, accountType: val }))}>
+                      <SelectTrigger data-testid="select-account-type">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ACCOUNT_TYPE_OPTIONS.map(opt => (
+                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
               </div>
               <div className="space-y-2">
