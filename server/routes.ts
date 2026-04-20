@@ -735,13 +735,13 @@ export async function registerRoutes(
 
         const totalIncomeResult = await db.execute(sql`
           SELECT COALESCE(SUM(
-            CASE WHEN a.account_type = 'income' THEN jl.credit_amount::numeric - jl.debit_amount::numeric ELSE 0 END
+            CASE WHEN a.account_type IN ('operating_income','non_operating_income','other_income','income') THEN jl.credit_amount::numeric - jl.debit_amount::numeric ELSE 0 END
           ), 0) as total_income,
           COALESCE(SUM(
-            CASE WHEN a.account_type = 'expense' THEN jl.debit_amount::numeric - jl.credit_amount::numeric ELSE 0 END
+            CASE WHEN a.account_type IN ('operating_expense','non_operating_expense','cost_of_financing','expense') THEN jl.debit_amount::numeric - jl.credit_amount::numeric ELSE 0 END
           ), 0) as total_expenses,
           COALESCE(SUM(
-            CASE WHEN a.account_type = 'expense' AND a.account_code >= '60000' AND a.account_code < '70000'
+            CASE WHEN a.account_type IN ('operating_expense','non_operating_expense','cost_of_financing','expense') AND a.account_code >= '60000' AND a.account_code < '70000'
             THEN jl.debit_amount::numeric - jl.credit_amount::numeric ELSE 0 END
           ), 0) as operating_expenses
           FROM journal_lines jl
@@ -749,7 +749,7 @@ export async function registerRoutes(
           JOIN accounts a ON jl.account_id = a.id
           WHERE je.is_posted = true
             AND je.entry_date >= ${startDate} AND je.entry_date <= ${endDate}
-            AND (a.account_type = 'income' OR a.account_type = 'expense')
+            AND a.account_type IN ('operating_income','non_operating_income','other_income','income','operating_expense','non_operating_expense','cost_of_financing','expense')
         `);
 
         const totalIncome = parseFloat(totalIncomeResult.rows[0]?.total_income as string || "0");
@@ -4458,7 +4458,7 @@ export async function registerRoutes(
         const bs = accBalSplit[acc.id] || { restricted: { debit: 0, credit: 0 }, unrestricted: { debit: 0, credit: 0 } };
         const calcBal = (bucket: { debit: number; credit: number }, addOpening: boolean): number => {
           const op = addOpening ? opening : 0;
-          if (acc.accountType === 'asset' || acc.accountType === 'expense') {
+          if (getMainAccountType(acc.accountType) === 'asset' || getMainAccountType(acc.accountType) === 'expense') {
             return op + bucket.debit - bucket.credit;
           }
           return op + bucket.credit - bucket.debit;
@@ -4610,11 +4610,11 @@ export async function registerRoutes(
       let totalExpenseRU = ru();
       for (const acc of allAccounts) {
         const s = getBalanceSplit(acc);
-        if (acc.accountType === 'income') {
+        if (getMainAccountType(acc.accountType) === 'income') {
           totalIncomeRU.restricted += Math.abs(s.restricted);
           totalIncomeRU.unrestricted += Math.abs(s.unrestricted);
           totalIncomeRU.total += Math.abs(s.total);
-        } else if (acc.accountType === 'expense') {
+        } else if (getMainAccountType(acc.accountType) === 'expense') {
           totalExpenseRU.restricted += Math.abs(s.restricted);
           totalExpenseRU.unrestricted += Math.abs(s.unrestricted);
           totalExpenseRU.total += Math.abs(s.total);
@@ -4786,7 +4786,7 @@ export async function registerRoutes(
       const calcBalance = (acc: any, jMap: Record<string, { debit: number; credit: number }>, includeOpening: boolean): number => {
         const opening = includeOpening ? (Number(acc.openingBalance) || 0) : 0;
         const jb = jMap[acc.id] || { debit: 0, credit: 0 };
-        if (acc.accountType === 'asset' || acc.accountType === 'expense') {
+        if (getMainAccountType(acc.accountType) === 'asset' || getMainAccountType(acc.accountType) === 'expense') {
           return opening + jb.debit - jb.credit;
         }
         return opening + jb.credit - jb.debit;
@@ -4814,8 +4814,8 @@ export async function registerRoutes(
 
       const openingShareCapital = sumByPrefixOpening('301');
 
-      const incomeAccts = allAccounts.filter(a => a.accountType === 'income');
-      const expenseAccts = allAccounts.filter(a => a.accountType === 'expense');
+      const incomeAccts = allAccounts.filter(a => getMainAccountType(a.accountType) === 'income');
+      const expenseAccts = allAccounts.filter(a => getMainAccountType(a.accountType) === 'expense');
       const totalIncome = incomeAccts.reduce((s, a) => s + getPeriodMovement(a), 0);
       const totalExpenses = expenseAccts.reduce((s, a) => s + getPeriodMovement(a), 0);
       const netProfitLoss = totalIncome - totalExpenses;
@@ -5619,11 +5619,11 @@ export async function registerRoutes(
       const accounts = await storage.getAccounts();
       
       // Calculate totals from account balances
-      const assetAccounts = accounts.filter(a => a.accountType === "asset");
-      const liabilityAccounts = accounts.filter(a => a.accountType === "liability");
-      const equityAccounts = accounts.filter(a => a.accountType === "equity");
-      const incomeAccounts = accounts.filter(a => a.accountType === "income");
-      const expenseAccounts = accounts.filter(a => a.accountType === "expense");
+      const assetAccounts = accounts.filter(a => getMainAccountType(a.accountType) === "asset");
+      const liabilityAccounts = accounts.filter(a => getMainAccountType(a.accountType) === "liability");
+      const equityAccounts = accounts.filter(a => getMainAccountType(a.accountType) === "equity");
+      const incomeAccounts = accounts.filter(a => getMainAccountType(a.accountType) === "income");
+      const expenseAccounts = accounts.filter(a => getMainAccountType(a.accountType) === "expense");
       
       const totalAssets = assetAccounts.reduce((sum, a) => sum + Number(a.currentBalance || 0), 0);
       const totalLiabilities = liabilityAccounts.reduce((sum, a) => sum + Number(a.currentBalance || 0), 0);
@@ -6271,8 +6271,8 @@ export async function registerRoutes(
   app.get("/api/reports/profitability-analysis", isAuthenticated, async (req, res) => {
     try {
       const allAccounts = await db.select().from(accounts);
-      const incomeAccounts = allAccounts.filter((a: any) => a.accountType === 'income');
-      const expenseAccounts = allAccounts.filter((a: any) => a.accountType === 'expense');
+      const incomeAccounts = allAccounts.filter((a: any) => getMainAccountType(a.accountType) === 'income');
+      const expenseAccounts = allAccounts.filter((a: any) => getMainAccountType(a.accountType) === 'expense');
 
       const allAccountIds = [...incomeAccounts, ...expenseAccounts].map((a: any) => a.id);
 
@@ -6304,7 +6304,7 @@ export async function registerRoutes(
           const acc = allAccounts.find((a: any) => a.id === row.accountId);
           if (!acc) continue;
 
-          if (acc.accountType === 'income') {
+          if (getMainAccountType(acc.accountType) === 'income') {
             const amount = credit - debit;
             totalIncome += amount;
             if (Math.abs(amount) > 0.01) {
@@ -6314,7 +6314,7 @@ export async function registerRoutes(
                 amount,
               });
             }
-          } else if (acc.accountType === 'expense') {
+          } else if (getMainAccountType(acc.accountType) === 'expense') {
             const amount = debit - credit;
             totalExpenses += amount;
             if (Math.abs(amount) > 0.01) {
@@ -6675,7 +6675,7 @@ export async function registerRoutes(
       for (const entry of postedEntries) {
         const debit = parseFloat(entry.debitTotal || "0");
         const credit = parseFloat(entry.creditTotal || "0");
-        if (entry.accountType === "income") {
+        if (getMainAccountType(entry.accountType) === "income") {
           balanceMap[entry.accountCode] = credit - debit;
         } else {
           balanceMap[entry.accountCode] = debit - credit;

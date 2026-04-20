@@ -137,6 +137,7 @@ import {
   type LookupRole,
   type InsertSavedReport,
   type SavedReport,
+  getMainAccountType,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -2123,7 +2124,7 @@ export class DatabaseStorage implements IStorage {
     const getBalance = (acc: any): number => {
       const opening = Number(acc.openingBalance) || 0;
       const jb = jBalMap[acc.id] || { debit: 0, credit: 0 };
-      if (acc.accountType === 'asset' || acc.accountType === 'expense') {
+      if (getMainAccountType(acc.accountType) === 'asset' || getMainAccountType(acc.accountType) === 'expense') {
         return opening + jb.debit - jb.credit;
       }
       return opening + jb.credit - jb.debit;
@@ -2202,8 +2203,8 @@ export class DatabaseStorage implements IStorage {
     const longAllowance = 0;
     const netLongFinanceReceivable = longFinanceReceivable - longAllowance;
 
-    const incomeAccounts = allAccounts.filter(a => a.accountType === 'income');
-    const expenseAccounts = allAccounts.filter(a => a.accountType === 'expense');
+    const incomeAccounts = allAccounts.filter(a => getMainAccountType(a.accountType) === 'income');
+    const expenseAccounts = allAccounts.filter(a => getMainAccountType(a.accountType) === 'expense');
     const totalIncome = incomeAccounts.reduce((s, a) => s + Math.abs(getBalance(a)), 0);
     const totalExpenses = expenseAccounts.reduce((s, a) => s + Math.abs(getBalance(a)), 0);
     const currentMonthPL = totalIncome - totalExpenses;
@@ -5127,7 +5128,7 @@ export class DatabaseStorage implements IStorage {
           let newBalance = Number(account.currentBalance || 0);
           const debitAmt = Number(line.debitAmount || 0);
           const creditAmt = Number(line.creditAmount || 0);
-          if (account.accountType === 'asset' || account.accountType === 'expense') {
+          if (getMainAccountType(account.accountType) === 'asset' || getMainAccountType(account.accountType) === 'expense') {
             newBalance += debitAmt - creditAmt;
           } else {
             newBalance += creditAmt - debitAmt;
@@ -5193,7 +5194,7 @@ export class DatabaseStorage implements IStorage {
       
       // For asset/expense accounts: debit increases, credit decreases
       // For liability/equity/income accounts: credit increases, debit decreases
-      if (account.accountType === 'asset' || account.accountType === 'expense') {
+      if (getMainAccountType(account.accountType) === 'asset' || getMainAccountType(account.accountType) === 'expense') {
         newBalance += debit - credit;
       } else {
         newBalance += credit - debit;
@@ -5218,7 +5219,7 @@ export class DatabaseStorage implements IStorage {
       const debit = Number(line.debitAmount || 0);
       const credit = Number(line.creditAmount || 0);
 
-      if (account.accountType === 'asset' || account.accountType === 'expense') {
+      if (getMainAccountType(account.accountType) === 'asset' || getMainAccountType(account.accountType) === 'expense') {
         newBalance -= debit - credit;
       } else {
         newBalance -= credit - debit;
@@ -5274,7 +5275,7 @@ export class DatabaseStorage implements IStorage {
           let newBalance = Number(account.currentBalance || 0);
           const debit = Number(line.debitAmount || 0);
           const credit = Number(line.creditAmount || 0);
-          if (account.accountType === 'asset' || account.accountType === 'expense') {
+          if (getMainAccountType(account.accountType) === 'asset' || getMainAccountType(account.accountType) === 'expense') {
             newBalance -= debit - credit;
           } else {
             newBalance -= credit - debit;
@@ -5310,7 +5311,7 @@ export class DatabaseStorage implements IStorage {
       const totalCredit = Number(rows[0]?.totalCredit || 0);
       
       let correctBalance: number;
-      if (account.accountType === 'asset' || account.accountType === 'expense') {
+      if (getMainAccountType(account.accountType) === 'asset' || getMainAccountType(account.accountType) === 'expense') {
         correctBalance = totalDebit - totalCredit;
       } else {
         correctBalance = totalCredit - totalDebit;
@@ -5392,10 +5393,10 @@ export class DatabaseStorage implements IStorage {
     const getBalanceForAccount = (acc: typeof allAccts[0]) => {
       const bal = periodBalances[acc.id];
       if (!bal) return 0;
-      if (acc.accountType === 'income') return bal.credit - bal.debit;
-      if (acc.accountType === 'expense') return bal.debit - bal.credit;
-      if (acc.accountType === 'asset') return bal.debit - bal.credit;
-      if (acc.accountType === 'liability' || acc.accountType === 'equity') return bal.credit - bal.debit;
+      if (getMainAccountType(acc.accountType) === 'income') return bal.credit - bal.debit;
+      if (getMainAccountType(acc.accountType) === 'expense') return bal.debit - bal.credit;
+      if (getMainAccountType(acc.accountType) === 'asset') return bal.debit - bal.credit;
+      if (getMainAccountType(acc.accountType) === 'liability' || getMainAccountType(acc.accountType) === 'equity') return bal.credit - bal.debit;
       return bal.credit - bal.debit;
     };
 
@@ -5470,8 +5471,8 @@ export class DatabaseStorage implements IStorage {
     
     return allAccounts.map(acc => {
       const balance = Number(acc.currentBalance) || 0;
-      const isDebitNormal = acc.accountType === 'asset' || acc.accountType === 'expense';
-      const isCreditNormal = acc.accountType === 'liability' || acc.accountType === 'equity' || acc.accountType === 'income';
+      const isDebitNormal = getMainAccountType(acc.accountType) === 'asset' || getMainAccountType(acc.accountType) === 'expense';
+      const isCreditNormal = getMainAccountType(acc.accountType) === 'liability' || getMainAccountType(acc.accountType) === 'equity' || getMainAccountType(acc.accountType) === 'income';
       
       let debit = 0;
       let credit = 0;
@@ -5604,11 +5605,11 @@ export class DatabaseStorage implements IStorage {
 
   async getBalanceSheet(asOfDate: string): Promise<any> {
     const allAccounts = await db.select().from(accounts);
-    const incomeAccounts = allAccounts.filter(a => a.accountType === 'income');
-    const expenseAccounts = allAccounts.filter(a => a.accountType === 'expense');
+    const incomeAccounts = allAccounts.filter(a => getMainAccountType(a.accountType) === 'income');
+    const expenseAccounts = allAccounts.filter(a => getMainAccountType(a.accountType) === 'expense');
 
     const balanceSheetAccountIds = allAccounts
-      .filter(a => a.accountType === 'asset' || a.accountType === 'liability' || a.accountType === 'equity')
+      .filter(a => getMainAccountType(a.accountType) === 'asset' || getMainAccountType(a.accountType) === 'liability' || getMainAccountType(a.accountType) === 'equity')
       .map(a => a.id);
 
     const balanceRows = balanceSheetAccountIds.length > 0
@@ -5635,7 +5636,7 @@ export class DatabaseStorage implements IStorage {
       const credit = Number(row.totalCredit || 0);
       const acc = allAccounts.find(a => a.id === row.accountId);
       if (!acc) continue;
-      if (acc.accountType === 'asset') {
+      if (getMainAccountType(acc.accountType) === 'asset') {
         balanceMap.set(row.accountId, r2(debit - credit));
       } else {
         balanceMap.set(row.accountId, r2(credit - debit));
@@ -5691,9 +5692,9 @@ export class DatabaseStorage implements IStorage {
       return roots.map(buildNode);
     };
 
-    const assetAccounts = allAccounts.filter(a => a.accountType === 'asset');
-    const liabilityAccounts = allAccounts.filter(a => a.accountType === 'liability');
-    const equityAccounts = allAccounts.filter(a => a.accountType === 'equity');
+    const assetAccounts = allAccounts.filter(a => getMainAccountType(a.accountType) === 'asset');
+    const liabilityAccounts = allAccounts.filter(a => getMainAccountType(a.accountType) === 'liability');
+    const equityAccounts = allAccounts.filter(a => getMainAccountType(a.accountType) === 'equity');
 
     const assetsTree = buildTree(assetAccounts);
     const liabilitiesTree = buildTree(liabilityAccounts);
@@ -5735,7 +5736,7 @@ export class DatabaseStorage implements IStorage {
         const debit = round2(Number(row.totalDebit || 0));
         const acc = [...incomeAccounts, ...expenseAccounts].find(a => a.id === row.accountId);
         if (!acc) continue;
-        if (acc.accountType === 'income') {
+        if (getMainAccountType(acc.accountType) === 'income') {
           totalInc = round2(totalInc + (credit - debit));
         } else {
           totalExp = round2(totalExp + (debit - credit));
@@ -5793,10 +5794,10 @@ export class DatabaseStorage implements IStorage {
 
     const cashAccountCodes = ['100', '101', '102'];
     const cashAccounts = allAccounts.filter(a => {
-      if (a.accountType === 'income' || a.accountType === 'expense') return false;
+      if (getMainAccountType(a.accountType) === 'income' || getMainAccountType(a.accountType) === 'expense') return false;
       return cashAccountCodes.some(code => a.accountCode.startsWith(code)) ||
-        (a.accountName.toLowerCase().includes('cash') && a.accountType === 'asset') ||
-        (a.accountName.toLowerCase().includes('bank') && a.accountType === 'asset');
+        (a.accountName.toLowerCase().includes('cash') && getMainAccountType(a.accountType) === 'asset') ||
+        (a.accountName.toLowerCase().includes('bank') && getMainAccountType(a.accountType) === 'asset');
     });
     const cashAccountIds = new Set(cashAccounts.map(a => a.id));
 
@@ -5955,7 +5956,7 @@ export class DatabaseStorage implements IStorage {
       for (const tx of priorTxns) {
         const debit = Number(tx.debitAmount || 0);
         const credit = Number(tx.creditAmount || 0);
-        if (account.accountType === 'asset' || account.accountType === 'expense') {
+        if (getMainAccountType(account.accountType) === 'asset' || getMainAccountType(account.accountType) === 'expense') {
           openingBalance += debit - credit;
         } else {
           openingBalance += credit - debit;
@@ -5993,7 +5994,7 @@ export class DatabaseStorage implements IStorage {
       const debit = Number(tx.debitAmount || 0);
       const credit = Number(tx.creditAmount || 0);
 
-      if (account.accountType === 'asset' || account.accountType === 'expense') {
+      if (getMainAccountType(account.accountType) === 'asset' || getMainAccountType(account.accountType) === 'expense') {
         runningBalance += debit - credit;
       } else {
         runningBalance += credit - debit;
@@ -6157,7 +6158,7 @@ export class DatabaseStorage implements IStorage {
       INNER JOIN journal_lines jl ON jl.journal_entry_id = je.id
       INNER JOIN accounts a ON a.id = jl.account_id
       WHERE je.is_posted = true
-        AND a.account_type = 'liability'
+        AND a.account_type IN ('current_liability','non_current_liability','liability')
         AND je.reference_type NOT IN ('disbursement', 'collection')
         AND (
           jl.funding_source_id = ${fundingSourceId}
