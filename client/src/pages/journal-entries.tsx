@@ -108,6 +108,7 @@ export default function JournalEntries() {
   const [undoReversalConfirmOpen, setUndoReversalConfirmOpen] = useState(false);
   const [entryToUndoReversal, setEntryToUndoReversal] = useState<JournalEntry | null>(null);
   const [fundingSourceFilter, setFundingSourceFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "posted" | "unposted">("all");
 
   const [formData, setFormData] = useState({
     entryDate: new Date().toISOString().split("T")[0],
@@ -122,11 +123,13 @@ export default function JournalEntries() {
   ]);
 
   const { data: paginatedData, isLoading } = useQuery<PaginatedResponse>({
-    queryKey: ["/api/journal-entries", searchTerm, currentPage, fundingSourceFilter],
+    queryKey: ["/api/journal-entries", searchTerm, currentPage, fundingSourceFilter, statusFilter],
     queryFn: async () => {
       const params = new URLSearchParams({ page: String(currentPage), limit: "50" });
       if (searchTerm) params.set("search", searchTerm);
       if (fundingSourceFilter && fundingSourceFilter !== "all") params.set("fundingSourceId", fundingSourceFilter);
+      if (statusFilter === "posted") params.set("isPosted", "true");
+      else if (statusFilter === "unposted") params.set("isPosted", "false");
       const res = await fetch(`/api/journal-entries?${params}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch journal entries");
       return res.json();
@@ -457,6 +460,16 @@ export default function JournalEntries() {
                 {fundingSources.map((fs) => (
                   <SelectItem key={fs.id} value={fs.id}>{fs.code} - {fs.name}</SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+            <Select value={statusFilter} onValueChange={(val) => { setStatusFilter(val as "all" | "posted" | "unposted"); setCurrentPage(1); }}>
+              <SelectTrigger className="w-[160px]" data-testid="filter-status">
+                <SelectValue placeholder="All Statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="posted">Posted</SelectItem>
+                <SelectItem value="unposted">Unposted</SelectItem>
               </SelectContent>
             </Select>
           </div>
