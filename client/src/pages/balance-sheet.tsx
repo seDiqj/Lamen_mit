@@ -636,26 +636,6 @@ export default function BalanceSheet() {
                                 {data.equityTree.map((node) => (
                                   <AccountTreeRow key={node.id} node={node} depth={2} expanded={expanded} onToggle={onToggle} showZeroBalances={showZeroBalances} />
                                 ))}
-                                {(showZeroBalances || data.retainedEarnings !== 0) && (
-                                  <tr className="border-b border-gray-100 dark:border-gray-800">
-                                    <td className="py-1.5 text-sm" style={{ paddingLeft: `${2 * 24 + 8 + 20}px` }}>
-                                      Retained Earnings
-                                    </td>
-                                    <td className="py-1.5 text-right pr-4 tabular-nums text-sm whitespace-nowrap">
-                                      {formatAmountNum(data.retainedEarnings)}
-                                    </td>
-                                  </tr>
-                                )}
-                                {(showZeroBalances || data.currentPeriodNetIncome !== 0) && (
-                                  <tr className="border-b border-gray-100 dark:border-gray-800">
-                                    <td className="py-1.5 text-sm" style={{ paddingLeft: `${2 * 24 + 8 + 20}px` }}>
-                                      Net Income
-                                    </td>
-                                    <td className="py-1.5 text-right pr-4 tabular-nums text-sm whitespace-nowrap">
-                                      {formatAmountNum(data.currentPeriodNetIncome)}
-                                    </td>
-                                  </tr>
-                                )}
                                 <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/20">
                                   <td className="py-1.5 pl-16 pr-2 font-semibold text-sm">Total for Shareholder's Equity</td>
                                   <td className="py-1.5 text-right pr-4 font-semibold tabular-nums text-sm whitespace-nowrap">{formatAmount(data.totalEquity)}</td>
