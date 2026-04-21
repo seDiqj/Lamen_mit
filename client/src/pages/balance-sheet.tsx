@@ -18,6 +18,7 @@ type TreeNode = {
   id: string;
   accountCode: string;
   accountName: string;
+  accountType?: string;
   amount: number;
   children: TreeNode[];
   isLeaf: boolean;
@@ -331,28 +332,38 @@ export default function BalanceSheet() {
   };
 
   const categorizeAssets = (nodes: TreeNode[]) => {
-    const currentAssetCodes = ["10000", "11000", "12000", "12900", "13000", "18000"];
     const current: TreeNode[] = [];
+    const nonCurrent: TreeNode[] = [];
+    const fixed: TreeNode[] = [];
     const longTerm: TreeNode[] = [];
     for (const node of nodes) {
-      if (currentAssetCodes.includes(node.accountCode) || parseInt(node.accountCode) < 14000) {
+      const t = node.accountType;
+      if (t === 'fixed_asset') {
+        fixed.push(node);
+        longTerm.push(node);
+      } else if (t === 'non_current_asset') {
+        nonCurrent.push(node);
+        longTerm.push(node);
+      } else if (t === 'current_asset' || t === 'asset') {
         current.push(node);
       } else {
-        longTerm.push(node);
+        if (parseInt(node.accountCode) < 14000) current.push(node);
+        else { nonCurrent.push(node); longTerm.push(node); }
       }
     }
-    return { current, longTerm };
+    return { current, longTerm, nonCurrent, fixed };
   };
 
   const categorizeLiabilities = (nodes: TreeNode[]) => {
-    const currentCodes = ["20100", "20110", "20130", "20140", "20150", "20800", "20900", "21000"];
     const current: TreeNode[] = [];
     const nonCurrent: TreeNode[] = [];
     for (const node of nodes) {
-      if (currentCodes.includes(node.accountCode) || (parseInt(node.accountCode) >= 20100 && parseInt(node.accountCode) < 20200) || parseInt(node.accountCode) >= 20800) {
-        current.push(node);
-      } else {
-        nonCurrent.push(node);
+      const t = node.accountType;
+      if (t === 'non_current_liability') nonCurrent.push(node);
+      else if (t === 'current_liability' || t === 'liability') current.push(node);
+      else {
+        if (parseInt(node.accountCode) >= 20120 && parseInt(node.accountCode) < 20800) nonCurrent.push(node);
+        else current.push(node);
       }
     }
     return { current, nonCurrent };

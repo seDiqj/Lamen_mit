@@ -5571,35 +5571,51 @@ export class DatabaseStorage implements IStorage {
       return groups.sort(sortByCode);
     };
 
-    const operatingIncomeAccounts = allIncomeAccounts.filter(a => a.accountCode.startsWith('5'));
-    const otherIncomeAccounts = allIncomeAccounts.filter(a => !a.accountCode.startsWith('5'));
-    const costOfSalesAccounts = allExpenseAccounts.filter(a => a.accountCode.startsWith('51'));
-    const expenseOnlyAccounts = allExpenseAccounts.filter(a => !a.accountCode.startsWith('51'));
+    const operatingIncomeAccounts = allIncomeAccounts.filter(a => a.accountType === 'operating_income' || a.accountType === 'income');
+    const nonOperatingIncomeAccounts = allIncomeAccounts.filter(a => a.accountType === 'non_operating_income' || a.accountType === 'other_income');
+    const costOfFinancingAccounts = allExpenseAccounts.filter(a => a.accountType === 'cost_of_financing');
+    const operatingExpenseAccounts = allExpenseAccounts.filter(a => a.accountType === 'operating_expense' || a.accountType === 'expense');
+    const nonOperatingExpenseAccounts = allExpenseAccounts.filter(a => a.accountType === 'non_operating_expense');
 
-    const incomeGroups = buildGroup(operatingIncomeAccounts);
-    const costOfSalesGroups = buildGroup(costOfSalesAccounts);
-    const otherIncomeGroups = buildGroup(otherIncomeAccounts);
-    const expenseGroups = buildGroup(expenseOnlyAccounts);
+    const operatingIncomeGroups = buildGroup(operatingIncomeAccounts);
+    const nonOperatingIncomeGroups = buildGroup(nonOperatingIncomeAccounts);
+    const costOfFinancingGroups = buildGroup(costOfFinancingAccounts);
+    const operatingExpenseGroups = buildGroup(operatingExpenseAccounts);
+    const nonOperatingExpenseGroups = buildGroup(nonOperatingExpenseAccounts);
 
-    const totalIncome = incomeGroups.reduce((s, g) => s + g.total, 0);
-    const totalCostOfSales = costOfSalesGroups.reduce((s, g) => s + g.total, 0);
-    const grossProfit = totalIncome - totalCostOfSales;
-    const totalOtherIncome = otherIncomeGroups.reduce((s, g) => s + g.total, 0);
-    const totalExpenses = expenseGroups.reduce((s, g) => s + g.total, 0);
-    const netIncome = grossProfit + totalOtherIncome - totalExpenses;
+    const totalOperatingIncome = operatingIncomeGroups.reduce((s, g) => s + g.total, 0);
+    const totalNonOperatingIncome = nonOperatingIncomeGroups.reduce((s, g) => s + g.total, 0);
+    const totalIncome = totalOperatingIncome + totalNonOperatingIncome;
+    const totalCostOfFinancing = costOfFinancingGroups.reduce((s, g) => s + g.total, 0);
+    const grossProfit = totalOperatingIncome - totalCostOfFinancing;
+    const totalOperatingExpenses = operatingExpenseGroups.reduce((s, g) => s + g.total, 0);
+    const totalNonOperatingExpenses = nonOperatingExpenseGroups.reduce((s, g) => s + g.total, 0);
+    const totalExpenses = totalOperatingExpenses + totalNonOperatingExpenses;
+    const netIncome = grossProfit + totalNonOperatingIncome - totalExpenses;
 
     return {
-      incomeGroups,
-      costOfSalesGroups,
-      otherIncomeGroups,
-      expenseGroups,
+      operatingIncomeGroups,
+      nonOperatingIncomeGroups,
+      costOfFinancingGroups,
+      operatingExpenseGroups,
+      nonOperatingExpenseGroups,
+      totalOperatingIncome,
+      totalNonOperatingIncome,
       totalIncome,
-      totalCostOfSales,
+      totalCostOfFinancing,
       grossProfit,
-      totalOtherIncome,
+      totalOperatingExpenses,
+      totalNonOperatingExpenses,
       totalExpenses,
       netIncome,
       period: { startDate, endDate },
+      // legacy aliases for any older clients
+      incomeGroups: operatingIncomeGroups,
+      otherIncomeGroups: nonOperatingIncomeGroups,
+      costOfSalesGroups: costOfFinancingGroups,
+      expenseGroups: [...operatingExpenseGroups, ...nonOperatingExpenseGroups],
+      totalCostOfSales: totalCostOfFinancing,
+      totalOtherIncome: totalNonOperatingIncome,
     };
   }
 
@@ -5647,6 +5663,7 @@ export class DatabaseStorage implements IStorage {
       id: string;
       accountCode: string;
       accountName: string;
+      accountType: string;
       amount: number;
       children: TreeNode[];
       isLeaf: boolean;
@@ -5682,6 +5699,7 @@ export class DatabaseStorage implements IStorage {
           id: acc.id,
           accountCode: acc.accountCode,
           accountName: acc.accountName,
+          accountType: acc.accountType,
           amount,
           children: childNodes,
           isLeaf,

@@ -25,14 +25,18 @@ type AccountGroup = {
 };
 
 type IncomeStatementData = {
-  incomeGroups: AccountGroup[];
-  costOfSalesGroups: AccountGroup[];
-  otherIncomeGroups: AccountGroup[];
-  expenseGroups: AccountGroup[];
+  operatingIncomeGroups: AccountGroup[];
+  nonOperatingIncomeGroups: AccountGroup[];
+  costOfFinancingGroups: AccountGroup[];
+  operatingExpenseGroups: AccountGroup[];
+  nonOperatingExpenseGroups: AccountGroup[];
+  totalOperatingIncome: number;
+  totalNonOperatingIncome: number;
   totalIncome: number;
-  totalCostOfSales: number;
+  totalCostOfFinancing: number;
   grossProfit: number;
-  totalOtherIncome: number;
+  totalOperatingExpenses: number;
+  totalNonOperatingExpenses: number;
   totalExpenses: number;
   netIncome: number;
   period: { startDate: string; endDate: string };
@@ -56,6 +60,7 @@ function CollapsibleSection({
   defaultOpen = true,
   level = 0,
   showZeroBalances = false,
+  subSections,
 }: { 
   title: string; 
   groups: AccountGroup[]; 
@@ -64,6 +69,7 @@ function CollapsibleSection({
   defaultOpen?: boolean;
   level?: number;
   showZeroBalances?: boolean;
+  subSections?: { title: string; groups: AccountGroup[]; totalLabel: string; totalAmount: number }[];
 }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(groups.map(g => g.accountCode)));
@@ -104,7 +110,29 @@ function CollapsibleSection({
         {isOpen ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
         <span>{title}</span>
       </button>
-      {isOpen && (
+      {isOpen && subSections && subSections.length > 0 && (
+        <div>
+          {subSections.map((sub) => (
+            <CollapsibleSection
+              key={sub.title}
+              title={sub.title}
+              groups={sub.groups}
+              totalLabel={sub.totalLabel}
+              totalAmount={sub.totalAmount}
+              level={level + 1}
+              showZeroBalances={showZeroBalances}
+            />
+          ))}
+          <div
+            className="flex items-center justify-between py-1.5 text-sm font-bold bg-muted/50 border-t border-border/50 px-2"
+            style={{ paddingLeft: `${paddingLeft + 24}px` }}
+          >
+            <span>{totalLabel}</span>
+            <span className="font-mono text-right min-w-[120px]">{formatAFNTotal(totalAmount)}</span>
+          </div>
+        </div>
+      )}
+      {isOpen && (!subSections || subSections.length === 0) && (
         <div>
           {filteredGroups.map((group) => {
             const hasChildren = group.children.length > 0;
@@ -221,12 +249,16 @@ export default function IncomeStatement() {
       exportData.push({ "Account Code": "", "Account Name": "", "Amount (AFN)": "" });
     };
 
-    addSection("INCOME", data.incomeGroups, "Total for Income", data.totalIncome);
-    addSection("COST OF SALES", data.costOfSalesGroups, "Total for Cost of Sales", data.totalCostOfSales);
+    addSection("OPERATING INCOME", data.operatingIncomeGroups, "Total for Operating Income", data.totalOperatingIncome);
+    addSection("NON-OPERATING INCOME", data.nonOperatingIncomeGroups, "Total for Non-Operating Income", data.totalNonOperatingIncome);
+    exportData.push({ "Account Code": "", "Account Name": "Total Income", "Amount (AFN)": data.totalIncome });
+    exportData.push({ "Account Code": "", "Account Name": "", "Amount (AFN)": "" });
+    addSection("COST OF FINANCING", data.costOfFinancingGroups, "Total for Cost of Financing", data.totalCostOfFinancing);
     exportData.push({ "Account Code": "", "Account Name": "Gross Profit", "Amount (AFN)": data.grossProfit });
     exportData.push({ "Account Code": "", "Account Name": "", "Amount (AFN)": "" });
-    addSection("OTHER INCOME", data.otherIncomeGroups, "Total for Other Income", data.totalOtherIncome);
-    addSection("EXPENSES", data.expenseGroups, "Total for Expenses", data.totalExpenses);
+    addSection("OPERATING EXPENSES", data.operatingExpenseGroups, "Total for Operating Expenses", data.totalOperatingExpenses);
+    addSection("NON-OPERATING EXPENSES", data.nonOperatingExpenseGroups, "Total for Non-Operating Expenses", data.totalNonOperatingExpenses);
+    exportData.push({ "Account Code": "", "Account Name": "Total Expenses", "Amount (AFN)": data.totalExpenses });
     exportData.push({ "Account Code": "", "Account Name": data.netIncome >= 0 ? "Net Profit" : "Net Loss", "Amount (AFN)": data.netIncome });
 
     const ws = XLSX.utils.json_to_sheet(exportData);
@@ -269,14 +301,16 @@ export default function IncomeStatement() {
       tableData.push([{ content: totalLabel, colSpan: 2, styles: { fontStyle: "bold" } }, { content: formatAFNTotal(totalAmount), styles: { fontStyle: "bold", halign: "right" } }]);
     };
 
-    addPDFSection("Income", data.incomeGroups, "Total for Income", data.totalIncome);
+    addPDFSection("Operating Income", data.operatingIncomeGroups, "Total for Operating Income", data.totalOperatingIncome);
+    addPDFSection("Non-Operating Income", data.nonOperatingIncomeGroups, "Total for Non-Operating Income", data.totalNonOperatingIncome);
+    tableData.push([{ content: "Total Income", colSpan: 2, styles: { fontStyle: "bold" } }, { content: formatAFNTotal(data.totalIncome), styles: { fontStyle: "bold", halign: "right" } }]);
     tableData.push(["", "", ""]);
-    addPDFSection("Cost of Sales", data.costOfSalesGroups, "Total for Cost of Sales", data.totalCostOfSales);
+    addPDFSection("Cost of Financing", data.costOfFinancingGroups, "Total for Cost of Financing", data.totalCostOfFinancing);
     tableData.push([{ content: "Gross Profit", colSpan: 2, styles: { fontStyle: "bold" } }, { content: formatAFNTotal(data.grossProfit), styles: { fontStyle: "bold", halign: "right" } }]);
     tableData.push(["", "", ""]);
-    addPDFSection("Other Income", data.otherIncomeGroups, "Total for Other Income", data.totalOtherIncome);
-    tableData.push(["", "", ""]);
-    addPDFSection("Expenses", data.expenseGroups, "Total for Expenses", data.totalExpenses);
+    addPDFSection("Operating Expenses", data.operatingExpenseGroups, "Total for Operating Expenses", data.totalOperatingExpenses);
+    addPDFSection("Non-Operating Expenses", data.nonOperatingExpenseGroups, "Total for Non-Operating Expenses", data.totalNonOperatingExpenses);
+    tableData.push([{ content: "Total Expenses", colSpan: 2, styles: { fontStyle: "bold" } }, { content: formatAFNTotal(data.totalExpenses), styles: { fontStyle: "bold", halign: "right" } }]);
     tableData.push(["", "", ""]);
     const netLabel = data.netIncome >= 0 ? "Net Profit" : "Net Loss";
     tableData.push([{ content: netLabel, colSpan: 2, styles: { fontStyle: "bold", fillColor: data.netIncome >= 0 ? [220, 252, 231] : [254, 202, 202] } }, { content: formatAFNTotal(data.netIncome), styles: { fontStyle: "bold", halign: "right", fillColor: data.netIncome >= 0 ? [220, 252, 231] : [254, 202, 202] } }]);
@@ -437,17 +471,21 @@ export default function IncomeStatement() {
 
             <CollapsibleSection
               title="Income"
-              groups={data.incomeGroups}
-              totalLabel="Total for Income"
+              groups={[]}
+              totalLabel="Total Income"
               totalAmount={data.totalIncome}
               showZeroBalances={showZeroBalances}
+              subSections={[
+                { title: "Operating Income", groups: data.operatingIncomeGroups, totalLabel: "Total for Operating Income", totalAmount: data.totalOperatingIncome },
+                { title: "Non-Operating Income", groups: data.nonOperatingIncomeGroups, totalLabel: "Total for Non-Operating Income", totalAmount: data.totalNonOperatingIncome },
+              ]}
             />
 
             <CollapsibleSection
-              title="Cost of Sales"
-              groups={data.costOfSalesGroups}
-              totalLabel="Total for Cost of Sales"
-              totalAmount={data.totalCostOfSales}
+              title="Cost of Financing"
+              groups={data.costOfFinancingGroups}
+              totalLabel="Total for Cost of Financing"
+              totalAmount={data.totalCostOfFinancing}
               showZeroBalances={showZeroBalances}
             />
 
@@ -457,19 +495,15 @@ export default function IncomeStatement() {
             </div>
 
             <CollapsibleSection
-              title="Other Income"
-              groups={data.otherIncomeGroups}
-              totalLabel="Total for Other Income"
-              totalAmount={data.totalOtherIncome}
-              showZeroBalances={showZeroBalances}
-            />
-
-            <CollapsibleSection
               title="Expenses"
-              groups={data.expenseGroups}
-              totalLabel="Total for Expenses"
+              groups={[]}
+              totalLabel="Total Expenses"
               totalAmount={data.totalExpenses}
               showZeroBalances={showZeroBalances}
+              subSections={[
+                { title: "Operating Expenses", groups: data.operatingExpenseGroups, totalLabel: "Total for Operating Expenses", totalAmount: data.totalOperatingExpenses },
+                { title: "Non-Operating Expenses", groups: data.nonOperatingExpenseGroups, totalLabel: "Total for Non-Operating Expenses", totalAmount: data.totalNonOperatingExpenses },
+              ]}
             />
 
             <div className={`flex items-center justify-between px-4 py-3 font-bold text-base border-t-2 ${data.netIncome >= 0 ? 'bg-green-50 dark:bg-green-950/30 border-green-300 dark:border-green-800' : 'bg-red-50 dark:bg-red-950/30 border-red-300 dark:border-red-800'}`} data-testid="row-net-income">
