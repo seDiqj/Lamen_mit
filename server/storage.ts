@@ -5767,16 +5767,25 @@ export class DatabaseStorage implements IStorage {
     const currentPeriodNetIncome = await computePL(currentYearStart, asOfDate);
     const netIncome = round2(retainedEarnings + currentPeriodNetIncome);
 
+    const overlayPL = (nodes: TreeNode[]): TreeNode[] => nodes.map(n => {
+      let amount = n.amount;
+      const children = overlayPL(n.children);
+      if (n.accountCode === '30310') amount = round2(amount + retainedEarnings);
+      else if (n.accountCode === '30320') amount = round2(amount + currentPeriodNetIncome);
+      else if (children.length > 0) amount = round2(children.reduce((s, c) => s + c.amount, 0));
+      return { ...n, amount, children };
+    });
+    const equityTreeWithPL = overlayPL(equityTree);
+
     const sumTree = (nodes: TreeNode[]): number => round2(nodes.reduce((s, n) => s + round2(n.amount), 0));
     const totalAssets = sumTree(assetsTree);
     const totalLiabilities = sumTree(liabilitiesTree);
-    const totalEquityFromAccounts = sumTree(equityTree);
-    const totalEquity = round2(totalEquityFromAccounts + netIncome);
+    const totalEquity = sumTree(equityTreeWithPL);
 
     return {
       assetsTree,
       liabilitiesTree,
-      equityTree,
+      equityTree: equityTreeWithPL,
       retainedEarnings,
       currentPeriodNetIncome,
       netIncome,
