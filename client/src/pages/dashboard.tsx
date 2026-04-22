@@ -369,6 +369,8 @@ export default function Dashboard() {
   const [filterEndDate, setFilterEndDate] = useState<string>("");
   const [alertDialogOpen, setAlertDialogOpen] = useState(false);
   const [selectedAlertCategory, setSelectedAlertCategory] = useState<string | null>(null);
+  const [dailyOpDialogOpen, setDailyOpDialogOpen] = useState(false);
+  const [selectedDailyOpType, setSelectedDailyOpType] = useState<string | null>(null);
   const [collectionRateDialogOpen, setCollectionRateDialogOpen] = useState(false);
   const [expandedMonth, setExpandedMonth] = useState<string | null>(null);
   const [customersByStatusDialogOpen, setCustomersByStatusDialogOpen] = useState(false);
@@ -413,6 +415,21 @@ export default function Dashboard() {
       return response.json();
     },
     enabled: !!selectedAlertCategory && alertDialogOpen,
+  });
+
+  const { data: dailyOpDetails, isLoading: dailyOpDetailsLoading } = useQuery<{
+    type: string;
+    title: string;
+    columns: string[];
+    items: any[];
+  }>({
+    queryKey: ["/api/dashboard/daily-op-details", selectedDailyOpType],
+    queryFn: async () => {
+      const response = await fetch(`/api/dashboard/daily-op-details/${selectedDailyOpType}`);
+      if (!response.ok) throw new Error("Failed to fetch daily op details");
+      return response.json();
+    },
+    enabled: !!selectedDailyOpType && dailyOpDialogOpen,
   });
 
   const { data: roleData } = useQuery<{ role: string }>({
@@ -812,18 +829,24 @@ export default function Dashboard() {
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
               {[
-                { label: "Applications Received", value: stats?.dailyOps?.applicationsToday || 0, icon: FileText, color: "text-blue-600", bg: "bg-blue-500/10" },
-                { label: "Approved Today", value: stats?.dailyOps?.approvedToday || 0, icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-500/10" },
-                { label: "Rejected Today", value: stats?.dailyOps?.rejectedToday || 0, icon: X, color: "text-red-500", bg: "bg-red-500/10" },
-                { label: "Disbursed Today", value: stats?.dailyOps?.disbursedToday || 0, icon: ArrowUpRight, color: "text-teal-600", bg: "bg-teal-500/10" },
-                { label: "Amount Disbursed", value: formatCurrency(stats?.dailyOps?.amountDisbursedToday || 0), icon: DollarSign, color: "text-teal-600", bg: "bg-teal-500/10", isAmount: true },
-                { label: "Amount Due Today", value: formatCurrency(stats?.dailyOps?.amountDueToday || 0), icon: Clock, color: "text-amber-600", bg: "bg-amber-500/10", isAmount: true },
-                { label: "Collected Today", value: formatCurrency(stats?.dailyOps?.amountCollectedToday || 0), icon: Wallet, color: "text-emerald-600", bg: "bg-emerald-500/10", isAmount: true },
-                { label: "Payments Collected", value: stats?.dailyOps?.collectedTodayCount || 0, icon: CheckCircle2, color: "text-green-600", bg: "bg-green-500/10" },
-                { label: "Installments Due", value: stats?.dailyOps?.dueTodayCount || 0, icon: Clock, color: "text-orange-600", bg: "bg-orange-500/10" },
-                { label: "Missed Payments", value: stats?.dailyOps?.missedPayments || 0, icon: AlertCircle, color: (stats?.dailyOps?.missedPayments || 0) > 0 ? "text-red-500" : "text-emerald-600", bg: (stats?.dailyOps?.missedPayments || 0) > 0 ? "bg-red-500/10" : "bg-emerald-500/10" },
+                { type: "applications_today", label: "Applications Received", value: stats?.dailyOps?.applicationsToday || 0, icon: FileText, color: "text-blue-600", bg: "bg-blue-500/10" },
+                { type: "approved_today", label: "Approved Today", value: stats?.dailyOps?.approvedToday || 0, icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-500/10" },
+                { type: "rejected_today", label: "Rejected Today", value: stats?.dailyOps?.rejectedToday || 0, icon: X, color: "text-red-500", bg: "bg-red-500/10" },
+                { type: "disbursed_today", label: "Disbursed Today", value: stats?.dailyOps?.disbursedToday || 0, icon: ArrowUpRight, color: "text-teal-600", bg: "bg-teal-500/10" },
+                { type: "amount_disbursed_today", label: "Amount Disbursed", value: formatCurrency(stats?.dailyOps?.amountDisbursedToday || 0), icon: DollarSign, color: "text-teal-600", bg: "bg-teal-500/10", isAmount: true },
+                { type: "amount_due_today", label: "Amount Due Today", value: formatCurrency(stats?.dailyOps?.amountDueToday || 0), icon: Clock, color: "text-amber-600", bg: "bg-amber-500/10", isAmount: true },
+                { type: "amount_collected_today", label: "Collected Today", value: formatCurrency(stats?.dailyOps?.amountCollectedToday || 0), icon: Wallet, color: "text-emerald-600", bg: "bg-emerald-500/10", isAmount: true },
+                { type: "collected_today_count", label: "Payments Collected", value: stats?.dailyOps?.collectedTodayCount || 0, icon: CheckCircle2, color: "text-green-600", bg: "bg-green-500/10" },
+                { type: "installments_due_today", label: "Installments Due", value: stats?.dailyOps?.dueTodayCount || 0, icon: Clock, color: "text-orange-600", bg: "bg-orange-500/10" },
+                { type: "missed_payments", label: "Missed Payments", value: stats?.dailyOps?.missedPayments || 0, icon: AlertCircle, color: (stats?.dailyOps?.missedPayments || 0) > 0 ? "text-red-500" : "text-emerald-600", bg: (stats?.dailyOps?.missedPayments || 0) > 0 ? "bg-red-500/10" : "bg-emerald-500/10" },
               ].map((item, idx) => (
-                <div key={idx} className="flex items-start gap-3 p-3 rounded-xl bg-muted/30 border border-border/50" data-testid={`daily-op-${idx}`}>
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => { setSelectedDailyOpType(item.type); setDailyOpDialogOpen(true); }}
+                  className="flex items-start gap-3 p-3 rounded-xl bg-muted/30 border border-border/50 text-left hover:bg-muted/60 hover:border-border transition-colors cursor-pointer"
+                  data-testid={`daily-op-${item.type}`}
+                >
                   <div className={`h-9 w-9 rounded-lg ${item.bg} flex items-center justify-center flex-shrink-0 mt-0.5`}>
                     <item.icon className={`h-4 w-4 ${item.color}`} />
                   </div>
@@ -833,7 +856,7 @@ export default function Dashboard() {
                       {item.value}
                     </p>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           )}
@@ -2318,6 +2341,122 @@ export default function Dashboard() {
               <div className="text-center py-12 text-muted-foreground">
                 <CheckCircle2 className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
                 <p>No items found for this alert</p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Daily Operations Details Dialog */}
+      <Dialog open={dailyOpDialogOpen} onOpenChange={(open) => { setDailyOpDialogOpen(open); if (!open) setSelectedDailyOpType(null); }}>
+        <DialogContent className="max-w-6xl max-h-[85vh] overflow-hidden flex flex-col" data-testid="dialog-daily-op-details">
+          <DialogHeader className="flex-shrink-0">
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarDays className="h-5 w-5 text-orange-500" />
+              {dailyOpDetails?.title || 'Daily Operations Details'}
+              <Badge variant="outline" className="ml-2">
+                {dailyOpDetails?.items?.length || 0} items
+              </Badge>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto">
+            {dailyOpDetailsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : dailyOpDetails?.items && dailyOpDetails.items.length > 0 ? (
+              <table className="w-full text-sm" data-testid="table-daily-op-details">
+                <thead className="sticky top-0 bg-background z-10">
+                  <tr className="border-b bg-muted/30">
+                    <th className="px-3 py-2 text-left font-semibold text-muted-foreground text-xs uppercase">App ID</th>
+                    <th className="px-3 py-2 text-left font-semibold text-muted-foreground text-xs uppercase">Customer</th>
+                    <th className="px-3 py-2 text-left font-semibold text-muted-foreground text-xs uppercase">Branch</th>
+                    <th className="px-3 py-2 text-left font-semibold text-muted-foreground text-xs uppercase">Officer</th>
+                    {dailyOpDetails.columns?.includes('product') && (
+                      <th className="px-3 py-2 text-left font-semibold text-muted-foreground text-xs uppercase">Product</th>
+                    )}
+                    {dailyOpDetails.columns?.includes('installment') && (
+                      <th className="px-3 py-2 text-center font-semibold text-muted-foreground text-xs uppercase">Inst #</th>
+                    )}
+                    {dailyOpDetails.columns?.includes('due_date') && (
+                      <th className="px-3 py-2 text-left font-semibold text-muted-foreground text-xs uppercase">Due Date</th>
+                    )}
+                    {dailyOpDetails.columns?.includes('paid_date') && (
+                      <th className="px-3 py-2 text-left font-semibold text-muted-foreground text-xs uppercase">Paid Date</th>
+                    )}
+                    {dailyOpDetails.columns?.includes('paid') && (
+                      <th className="px-3 py-2 text-right font-semibold text-muted-foreground text-xs uppercase">Paid</th>
+                    )}
+                    {dailyOpDetails.columns?.includes('due') && (
+                      <th className="px-3 py-2 text-right font-semibold text-muted-foreground text-xs uppercase">Due</th>
+                    )}
+                    {dailyOpDetails.columns?.includes('amount') && (
+                      <th className="px-3 py-2 text-right font-semibold text-muted-foreground text-xs uppercase">Amount</th>
+                    )}
+                    {dailyOpDetails.columns?.includes('status') && (
+                      <th className="px-3 py-2 text-center font-semibold text-muted-foreground text-xs uppercase">Status</th>
+                    )}
+                    {dailyOpDetails.columns?.includes('days_overdue') && (
+                      <th className="px-3 py-2 text-center font-semibold text-muted-foreground text-xs uppercase">Days Overdue</th>
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {dailyOpDetails.items.map((item: any, idx: number) => (
+                    <tr key={idx} className={`border-b last:border-0 hover:bg-muted/30 transition-colors ${idx % 2 === 0 ? 'bg-background' : 'bg-muted/10'}`} data-testid={`daily-op-detail-row-${idx}`}>
+                      <td className="px-3 py-2 font-medium">
+                        <Link href={`/loans/${item.loanId}`} className="text-blue-600 hover:underline">
+                          {item.applicationId || '-'}
+                        </Link>
+                      </td>
+                      <td className="px-3 py-2">{item.customerName || '-'}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{item.branchName || '-'}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{item.officerName || '-'}</td>
+                      {dailyOpDetails.columns?.includes('product') && (
+                        <td className="px-3 py-2 text-muted-foreground">{item.productName || '-'}</td>
+                      )}
+                      {dailyOpDetails.columns?.includes('installment') && (
+                        <td className="px-3 py-2 text-center">{item.installmentNumber || '-'}</td>
+                      )}
+                      {dailyOpDetails.columns?.includes('due_date') && (
+                        <td className="px-3 py-2">{item.dueDate ? formatDate(item.dueDate) : '-'}</td>
+                      )}
+                      {dailyOpDetails.columns?.includes('paid_date') && (
+                        <td className="px-3 py-2">{item.paymentDate ? formatDate(item.paymentDate) : '-'}</td>
+                      )}
+                      {dailyOpDetails.columns?.includes('paid') && (
+                        <td className="px-3 py-2 text-right text-emerald-600 font-medium">{formatCurrency(item.paidAmount || 0)}</td>
+                      )}
+                      {dailyOpDetails.columns?.includes('due') && (
+                        <td className="px-3 py-2 text-right">{formatCurrency(item.amount || 0)}</td>
+                      )}
+                      {dailyOpDetails.columns?.includes('amount') && (
+                        <td className="px-3 py-2 text-right font-medium">{formatCurrency(item.amount || 0)}</td>
+                      )}
+                      {dailyOpDetails.columns?.includes('status') && (
+                        <td className="px-3 py-2 text-center">
+                          <Badge variant="outline" className="text-xs">{item.status || '-'}</Badge>
+                        </td>
+                      )}
+                      {dailyOpDetails.columns?.includes('days_overdue') && (
+                        <td className="px-3 py-2 text-center">
+                          <Badge variant="outline" className={
+                            item.daysOverdue > 90 ? 'bg-red-500/10 text-red-600 border-red-500/30' :
+                            item.daysOverdue > 30 ? 'bg-orange-500/10 text-orange-600 border-orange-500/30' :
+                            'bg-amber-500/10 text-amber-600 border-amber-500/30'
+                          }>
+                            {item.daysOverdue}d
+                          </Badge>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">
+                <CheckCircle2 className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
+                <p>No items found for this metric today</p>
               </div>
             )}
           </div>

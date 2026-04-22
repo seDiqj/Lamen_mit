@@ -487,6 +487,19 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/dashboard/daily-op-details/:type", isAuthenticated, async (req: any, res) => {
+    try {
+      const branchId = (typeof getEffectiveBranchId === 'function')
+        ? await getEffectiveBranchId(req)
+        : (req.query.branchId as string | undefined);
+      const details = await storage.getDailyOpDetails(req.params.type, branchId || undefined);
+      res.json(details);
+    } catch (error) {
+      console.error("Error fetching daily op details:", error);
+      res.status(500).json({ message: "Failed to fetch daily op details" });
+    }
+  });
+
   app.get("/api/dashboard/collection-rate-details", isAuthenticated, async (req, res) => {
     try {
       const { branchId, startDate, endDate } = req.query;

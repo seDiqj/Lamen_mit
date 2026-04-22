@@ -2883,6 +2883,27 @@ export class DatabaseStorage implements IStorage {
       });
     }
 
+    const licenseExpiryResult = await db.execute(sql`
+      SELECT COUNT(DISTINCT bl.id) as expiring_count
+      FROM business_licenses bl
+      JOIN customer_businesses cb ON bl.customer_business_id = cb.id
+      JOIN customers c ON cb.customer_id = c.id
+      WHERE bl.expiry_date IS NOT NULL
+        AND bl.expiry_date >= CURRENT_DATE
+        AND bl.expiry_date <= CURRENT_DATE + INTERVAL '15 days'
+        ${filters?.branchId ? sql`AND c.branch_id = ${filters.branchId}` : sql``}
+    `);
+    const expiringLicenses = Number((licenseExpiryResult.rows[0] as any)?.expiring_count || 0);
+    if (expiringLicenses > 0) {
+      alerts.push({
+        id: 'license-expiry',
+        type: 'warning',
+        title: `${expiringLicenses} Business License${expiringLicenses === 1 ? '' : 's'} Expiring Soon`,
+        description: `License${expiringLicenses === 1 ? '' : 's'} expiring within the next 15 days — please follow up with the customer${expiringLicenses === 1 ? '' : 's'}`,
+        category: 'license_expiry',
+      });
+    }
+
     if (alerts.length === 0) {
       alerts.push({
         id: 'all-clear',
@@ -3089,8 +3110,193 @@ export class DatabaseStorage implements IStorage {
           })),
         };
       }
+      case 'license_expiry': {
+        const result = await db.execute(sql`
+          SELECT bl.id as license_id, bl.license_type, bl.license_number, bl.register_date, bl.expiry_date,
+            cb.business_name, c.id as customer_id,
+            CONCAT(c.first_name, ' ', c.last_name) as customer_name,
+            c.phone_number, b.name as branch_name,
+            (bl.expiry_date - CURRENT_DATE) as days_until_expiry
+          FROM business_licenses bl
+          JOIN customer_businesses cb ON bl.customer_business_id = cb.id
+          JOIN customers c ON cb.customer_id = c.id
+          LEFT JOIN branches b ON c.branch_id = b.id
+          WHERE bl.expiry_date IS NOT NULL
+            AND bl.expiry_date >= CURRENT_DATE
+            AND bl.expiry_date <= CURRENT_DATE + INTERVAL '15 days'
+          ORDER BY bl.expiry_date ASC
+          LIMIT 100
+        `);
+        return {
+          category: 'license_expiry',
+          title: 'Business Licenses Expiring Within 15 Days',
+          items: (result.rows as any[]).map(r => ({
+            licenseId: r.license_id,
+            customerId: r.customer_id,
+            customerName: r.customer_name,
+            phoneNumber: r.phone_number,
+            businessName: r.business_name,
+            licenseType: r.license_type,
+            licenseNumber: r.license_number,
+            registerDate: r.register_date,
+            expiryDate: r.expiry_date,
+            daysUntilExpiry: Number(r.days_until_expiry || 0),
+            branchName: r.branch_name,
+          })),
+        };
+      }
       default:
         return { category, title: 'Alert Details', items: [] };
+    }
+  }
+
+  async getDailyOpDetails(type: string, branchId?: string): Promise<any> {
+    const branchFilter = branchId ? sql`AND l.branch_id = ${branchId}` : sql``;
+    const branchFilterRoot = branchId ? sql`AND branch_id = ${branchId}` : sql``;
+    switch (type) {
+      case 'applications_today': {
+        const result = await db.execute(sql`
+          SELECT l.id, l.application_id, CONCAT(c.first_name, ' ', c.last_name) as customer_name,
+            l.request_amount, l.product_name, l.status, l.created_at,
+            b.name as branch_name, fo.name as officer_name
+          FROM loans l
+          LEFT JOIN customers c ON l.customer_id = c.id
+          LEFT JOIN branches b ON l.branch_id = b.id
+          LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
+          WHERE DATE(l.created_at) = CURRENT_DATE ${branchFilterRoot}
+          ORDER BY l.created_at DESC
+        `);
+        return { type, title: "Applications Received Today", columns: ['app','customer','branch','officer','product','amount','status'],
+          items: (result.rows as any[]).map(r => ({ loanId: r.id, applicationId: r.application_id, customerName: r.customer_name,
+            amount: Number(r.request_amount || 0), productName: r.product_name, status: r.status,
+            branchName: r.branch_name, officerName: r.officer_name })) };
+      }
+      case 'approved_today': {
+        const result = await db.execute(sql`
+          SELECT DISTINCT l.id, l.application_id, CONCAT(c.first_name, ' ', c.last_name) as customer_name,
+            l.principle_amount, l.request_amount, l.product_name, l.status,
+            b.name as branch_name, fo.name as officer_name, la.created_at as approved_at
+          FROM loan_approvals la
+          JOIN loans l ON la.loan_id = l.id
+          LEFT JOIN customers c ON l.customer_id = c.id
+          LEFT JOIN branches b ON l.branch_id = b.id
+          LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
+          WHERE DATE(la.created_at) = CURRENT_DATE ${branchFilter}
+          ORDER BY la.created_at DESC
+        `);
+        return { type, title: "Approved Today", columns: ['app','customer','branch','officer','product','amount','status'],
+          items: (result.rows as any[]).map(r => ({ loanId: r.id, applicationId: r.application_id, customerName: r.customer_name,
+            amount: Number(r.principle_amount || r.request_amount || 0), productName: r.product_name, status: r.status,
+            branchName: r.branch_name, officerName: r.officer_name })) };
+      }
+      case 'rejected_today': {
+        const result = await db.execute(sql`
+          SELECT l.id, l.application_id, CONCAT(c.first_name, ' ', c.last_name) as customer_name,
+            l.request_amount, l.product_name, b.name as branch_name, fo.name as officer_name, l.updated_at
+          FROM loans l
+          LEFT JOIN customers c ON l.customer_id = c.id
+          LEFT JOIN branches b ON l.branch_id = b.id
+          LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
+          WHERE l.status = 'rejected' AND DATE(l.updated_at) = CURRENT_DATE ${branchFilterRoot}
+          ORDER BY l.updated_at DESC
+        `);
+        return { type, title: "Rejected Today", columns: ['app','customer','branch','officer','product','amount'],
+          items: (result.rows as any[]).map(r => ({ loanId: r.id, applicationId: r.application_id, customerName: r.customer_name,
+            amount: Number(r.request_amount || 0), productName: r.product_name,
+            branchName: r.branch_name, officerName: r.officer_name })) };
+      }
+      case 'disbursed_today':
+      case 'amount_disbursed_today': {
+        const result = await db.execute(sql`
+          SELECT l.id, l.application_id, CONCAT(c.first_name, ' ', c.last_name) as customer_name,
+            l.principle_amount, l.product_name, b.name as branch_name, fo.name as officer_name,
+            d.disbursement_date
+          FROM disbursements d
+          JOIN loans l ON d.loan_id = l.id
+          LEFT JOIN customers c ON l.customer_id = c.id
+          LEFT JOIN branches b ON l.branch_id = b.id
+          LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
+          WHERE d.disbursement_date = CURRENT_DATE ${branchFilter}
+          ORDER BY d.disbursement_date DESC
+        `);
+        return { type, title: type === 'amount_disbursed_today' ? "Amount Disbursed Today" : "Disbursed Today",
+          columns: ['app','customer','branch','officer','product','amount'],
+          items: (result.rows as any[]).map(r => ({ loanId: r.id, applicationId: r.application_id, customerName: r.customer_name,
+            amount: Number(r.principle_amount || 0), productName: r.product_name,
+            branchName: r.branch_name, officerName: r.officer_name })) };
+      }
+      case 'amount_due_today':
+      case 'installments_due_today': {
+        const result = await db.execute(sql`
+          SELECT l.id, l.application_id, CONCAT(c.first_name, ' ', c.last_name) as customer_name,
+            ins.installment_number, ins.due_date, ins.total_amount, ins.paid_amount,
+            b.name as branch_name, fo.name as officer_name, l.product_name
+          FROM installments ins
+          JOIN loans l ON ins.loan_id = l.id
+          LEFT JOIN customers c ON l.customer_id = c.id
+          LEFT JOIN branches b ON l.branch_id = b.id
+          LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
+          WHERE ins.due_date = CURRENT_DATE AND ins.is_paid = false ${branchFilter}
+          ORDER BY ins.total_amount DESC
+        `);
+        return { type, title: type === 'amount_due_today' ? "Amount Due Today" : "Installments Due Today",
+          columns: ['app','customer','branch','officer','installment','due_date','amount'],
+          items: (result.rows as any[]).map(r => ({ loanId: r.id, applicationId: r.application_id, customerName: r.customer_name,
+            installmentNumber: r.installment_number, dueDate: r.due_date,
+            amount: Number(r.total_amount || 0), paidAmount: Number(r.paid_amount || 0),
+            branchName: r.branch_name, officerName: r.officer_name })) };
+      }
+      case 'amount_collected_today':
+      case 'collected_today_count': {
+        const result = await db.execute(sql`
+          SELECT l.id, l.application_id, CONCAT(c.first_name, ' ', c.last_name) as customer_name,
+            ins.installment_number, ins.due_date, ins.payment_date,
+            ins.total_amount, ins.paid_amount, ins.is_paid,
+            b.name as branch_name, fo.name as officer_name
+          FROM installments ins
+          JOIN loans l ON ins.loan_id = l.id
+          LEFT JOIN customers c ON l.customer_id = c.id
+          LEFT JOIN branches b ON l.branch_id = b.id
+          LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
+          WHERE DATE(ins.payment_date) = CURRENT_DATE
+            ${type === 'collected_today_count' ? sql`AND ins.is_paid = true` : sql`AND COALESCE(ins.paid_amount::numeric, 0) > 0`}
+            ${branchFilter}
+          ORDER BY ins.payment_date DESC
+        `);
+        return { type, title: type === 'collected_today_count' ? "Payments Collected Today" : "Amount Collected Today",
+          columns: ['app','customer','branch','officer','installment','paid_date','paid','due'],
+          items: (result.rows as any[]).map(r => ({ loanId: r.id, applicationId: r.application_id, customerName: r.customer_name,
+            installmentNumber: r.installment_number, dueDate: r.due_date, paymentDate: r.payment_date,
+            paidAmount: Number(r.paid_amount || 0), amount: Number(r.total_amount || 0),
+            branchName: r.branch_name, officerName: r.officer_name })) };
+      }
+      case 'missed_payments': {
+        const result = await db.execute(sql`
+          SELECT l.id, l.application_id, CONCAT(c.first_name, ' ', c.last_name) as customer_name,
+            ins.installment_number, ins.due_date, ins.total_amount, ins.paid_amount,
+            b.name as branch_name, fo.name as officer_name,
+            (CURRENT_DATE - ins.due_date) as days_overdue
+          FROM installments ins
+          JOIN loans l ON ins.loan_id = l.id
+          LEFT JOIN customers c ON l.customer_id = c.id
+          LEFT JOIN branches b ON l.branch_id = b.id
+          LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
+          WHERE ins.due_date < CURRENT_DATE AND ins.is_paid = false
+            AND COALESCE(ins.principle_amount::numeric, 0) > 0
+            ${branchFilter}
+          ORDER BY ins.due_date ASC
+          LIMIT 200
+        `);
+        return { type, title: "Missed Payments",
+          columns: ['app','customer','branch','officer','installment','due_date','amount','days_overdue'],
+          items: (result.rows as any[]).map(r => ({ loanId: r.id, applicationId: r.application_id, customerName: r.customer_name,
+            installmentNumber: r.installment_number, dueDate: r.due_date,
+            amount: Number(r.total_amount || 0), paidAmount: Number(r.paid_amount || 0),
+            daysOverdue: Number(r.days_overdue || 0),
+            branchName: r.branch_name, officerName: r.officer_name })) };
+      }
+      default:
+        return { type, title: 'Daily Operations Details', items: [], columns: [] };
     }
   }
 
