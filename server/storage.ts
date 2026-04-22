@@ -1317,12 +1317,13 @@ export class DatabaseStorage implements IStorage {
       if (!loan) throw new Error("Loan not found");
 
       const durationMonths = loan.financingDurationMonths || 12;
-      const numInstallments = durationMonths;
+      const isMudaraba = /mudaraba/i.test(loan.productName || "") || /mudaraba/i.test(loan.productCode || "");
+      const numInstallments = isMudaraba ? 1 : durationMonths;
       const gracePeriod = loan.gracePeriod || 0;
       const principalTotal = parseFloat(loan.principleAmount || loan.requestAmount || "0");
       let profitTotal = parseFloat(loan.profit || "0");
 
-      if (profitTotal === 0 && principalTotal > 0) {
+      if (profitTotal === 0 && principalTotal > 0 && !isMudaraba) {
         const marginRate = parseFloat(loan.marginRate || "0");
         const rate = marginRate > 1 ? marginRate / 100 : marginRate;
         profitTotal = (principalTotal * rate / 12) * durationMonths;
@@ -1337,6 +1338,30 @@ export class DatabaseStorage implements IStorage {
         numberOfInstallments: numInstallments,
         updatedAt: new Date(),
       }).where(eq(loans.id, loanId));
+
+      if (isMudaraba) {
+        const startDate = new Date(disbursementData.firstInstallmentDate || new Date());
+        const maturityStr = disbursementData.maturityDate
+          ? (typeof disbursementData.maturityDate === "string"
+              ? disbursementData.maturityDate
+              : new Date(disbursementData.maturityDate as any).toISOString().split("T")[0])
+          : (() => {
+              const d = new Date(startDate);
+              d.setMonth(d.getMonth() + durationMonths - 1);
+              return d.toISOString().split("T")[0];
+            })();
+        await tx.insert(installments).values({
+          loanId,
+          installmentNumber: 1,
+          dueDate: maturityStr,
+          principleAmount: principalTotal.toFixed(2),
+          marginAmount: profitTotal.toFixed(2),
+          totalAmount: grandTotal.toFixed(2),
+          isPaid: false,
+        });
+        installmentsCreated = 1;
+        return;
+      }
 
       const principalInstallments = durationMonths - gracePeriod;
       const principalPerInst = principalInstallments > 0 ? principalTotal / principalInstallments : 0;
@@ -1422,12 +1447,13 @@ export class DatabaseStorage implements IStorage {
         });
 
         const durationMonths = loan.financingDurationMonths || duration;
-        const numInstallments = durationMonths;
+        const isMudaraba = /mudaraba/i.test(loan.productName || "") || /mudaraba/i.test(loan.productCode || "");
+        const numInstallments = isMudaraba ? 1 : durationMonths;
         const gracePeriod = loan.gracePeriod || 0;
         const principalTotal = parseFloat(loan.principleAmount || loan.requestAmount || "0");
         let profitTotal = parseFloat(loan.profit || "0");
 
-        if (profitTotal === 0 && principalTotal > 0) {
+        if (profitTotal === 0 && principalTotal > 0 && !isMudaraba) {
           const marginRate = parseFloat(loan.marginRate || "0");
           const rate = marginRate > 1 ? marginRate / 100 : marginRate;
           profitTotal = (principalTotal * rate / 12) * durationMonths;
@@ -1442,6 +1468,19 @@ export class DatabaseStorage implements IStorage {
           numberOfInstallments: numInstallments,
           updatedAt: new Date(),
         }).where(eq(loans.id, loan.id));
+
+        if (isMudaraba) {
+          await tx.insert(installments).values({
+            loanId: loan.id,
+            installmentNumber: 1,
+            dueDate: maturityDate.toISOString().split("T")[0],
+            principleAmount: principalTotal.toFixed(2),
+            marginAmount: profitTotal.toFixed(2),
+            totalAmount: grandTotalReceivable.toFixed(2),
+            isPaid: false,
+          });
+          return;
+        }
 
         const principalInstallments = durationMonths - gracePeriod;
         const principalPerInst = principalInstallments > 0 ? principalTotal / principalInstallments : 0;
