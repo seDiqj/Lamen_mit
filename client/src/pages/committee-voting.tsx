@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -161,6 +161,15 @@ export default function CommitteeVotingPage() {
     },
     enabled: !!selectedLoanId,
   });
+
+  useEffect(() => {
+    if (loanDetails?.loan) {
+      const reqAmt = loanDetails.loan.requestAmount || loanDetails.loan.principleAmount || "";
+      setCommitteePrincipleAmount(String(reqAmt || ""));
+      setCommitteeMarginRate(String(loanDetails.loan.marginRate || ""));
+      setCommitteeGracePeriod(String(loanDetails.loan.gracePeriod ?? ""));
+    }
+  }, [loanDetails?.loan?.id]);
 
   const guarantors = (() => {
     const list: any[] = [];
