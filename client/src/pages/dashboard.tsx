@@ -2238,10 +2238,25 @@ export default function Dashboard() {
               <table className="w-full text-sm" data-testid="table-alert-details">
                 <thead className="sticky top-0 bg-background z-10">
                   <tr className="border-b bg-muted/30">
+                    {selectedAlertCategory === 'license_expiry' ? (
+                      <>
+                        <th className="px-3 py-2 text-left font-semibold text-muted-foreground text-xs uppercase">Customer</th>
+                        <th className="px-3 py-2 text-left font-semibold text-muted-foreground text-xs uppercase">Phone</th>
+                        <th className="px-3 py-2 text-left font-semibold text-muted-foreground text-xs uppercase">Business</th>
+                        <th className="px-3 py-2 text-left font-semibold text-muted-foreground text-xs uppercase">License Type</th>
+                        <th className="px-3 py-2 text-left font-semibold text-muted-foreground text-xs uppercase">License #</th>
+                        <th className="px-3 py-2 text-left font-semibold text-muted-foreground text-xs uppercase">Expiry Date</th>
+                        <th className="px-3 py-2 text-center font-semibold text-muted-foreground text-xs uppercase">Days Left</th>
+                        <th className="px-3 py-2 text-left font-semibold text-muted-foreground text-xs uppercase">Branch</th>
+                      </>
+                    ) : (
+                    <>
                     <th className="px-3 py-2 text-left font-semibold text-muted-foreground text-xs uppercase">App ID</th>
                     <th className="px-3 py-2 text-left font-semibold text-muted-foreground text-xs uppercase">Customer</th>
                     <th className="px-3 py-2 text-left font-semibold text-muted-foreground text-xs uppercase">Branch</th>
                     <th className="px-3 py-2 text-left font-semibold text-muted-foreground text-xs uppercase">Officer</th>
+                    </>
+                    )}
                     {(selectedAlertCategory === 'overdue' || selectedAlertCategory === 'due_today' || selectedAlertCategory === 'upcoming') && (
                       <>
                         <th className="px-3 py-2 text-center font-semibold text-muted-foreground text-xs uppercase">Inst #</th>
@@ -2280,6 +2295,31 @@ export default function Dashboard() {
                 <tbody>
                   {alertDetails.items.map((item: any, idx: number) => (
                     <tr key={idx} className={`border-b last:border-0 hover:bg-muted/30 transition-colors ${idx % 2 === 0 ? 'bg-background' : 'bg-muted/10'}`} data-testid={`alert-detail-row-${idx}`}>
+                      {selectedAlertCategory === 'license_expiry' ? (
+                        <>
+                          <td className="px-3 py-2 font-medium">
+                            <Link href={`/customers/${item.customerId}`} className="text-blue-600 hover:underline">
+                              {item.customerName || '-'}
+                            </Link>
+                          </td>
+                          <td className="px-3 py-2 text-muted-foreground">{item.phoneNumber || '-'}</td>
+                          <td className="px-3 py-2">{item.businessName || '-'}</td>
+                          <td className="px-3 py-2 text-muted-foreground">{item.licenseType || '-'}</td>
+                          <td className="px-3 py-2 text-muted-foreground">{item.licenseNumber || '-'}</td>
+                          <td className="px-3 py-2">{item.expiryDate ? formatDate(item.expiryDate) : '-'}</td>
+                          <td className="px-3 py-2 text-center">
+                            <Badge variant="outline" className={
+                              item.daysUntilExpiry <= 3 ? 'bg-red-500/10 text-red-600 border-red-500/30' :
+                              item.daysUntilExpiry <= 7 ? 'bg-orange-500/10 text-orange-600 border-orange-500/30' :
+                              'bg-amber-500/10 text-amber-600 border-amber-500/30'
+                            }>
+                              {item.daysUntilExpiry}d
+                            </Badge>
+                          </td>
+                          <td className="px-3 py-2 text-muted-foreground">{item.branchName || '-'}</td>
+                        </>
+                      ) : (
+                      <>
                       <td className="px-3 py-2 font-medium">
                         <Link href={`/loans/${item.loanId}`} className="text-blue-600 hover:underline">
                           {item.applicationId || '-'}
@@ -2288,6 +2328,8 @@ export default function Dashboard() {
                       <td className="px-3 py-2">{item.customerName || '-'}</td>
                       <td className="px-3 py-2 text-muted-foreground">{item.branchName || '-'}</td>
                       <td className="px-3 py-2 text-muted-foreground">{item.officerName || '-'}</td>
+                      </>
+                      )}
                       {(selectedAlertCategory === 'overdue' || selectedAlertCategory === 'due_today' || selectedAlertCategory === 'upcoming') && (
                         <>
                           <td className="px-3 py-2 text-center">{item.installmentNumber || '-'}</td>
