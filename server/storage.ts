@@ -5789,9 +5789,11 @@ export class DatabaseStorage implements IStorage {
 
     const getBalance = (accountId: string, accountType: string) => {
       const net = periodBalances[accountId] || 0;
-      if (accountType === 'income') return net;
-      if (accountType === 'expense') return -net;
-      return Math.abs(net);
+      const incomeTypes = ['operating_income', 'non_operating_income', 'other_income', 'income'];
+      const expenseTypes = ['operating_expense', 'non_operating_expense', 'cost_of_financing', 'expense'];
+      if (incomeTypes.includes(accountType)) return net;
+      if (expenseTypes.includes(accountType)) return -net;
+      return net;
     };
 
     const sortByCode = (a: any, b: any) => (a.accountCode || "").localeCompare(b.accountCode || "", undefined, { numeric: true });
