@@ -2927,10 +2927,10 @@ export class DatabaseStorage implements IStorage {
       FROM business_licenses bl
       JOIN customer_businesses cb ON bl.customer_business_id = cb.id
       JOIN customers c ON cb.customer_id = c.id
+      ${filters?.branchId ? sql`JOIN loans l ON l.customer_id = c.id AND l.branch_id = ${filters.branchId}` : sql``}
       WHERE bl.expiry_date IS NOT NULL
         AND bl.expiry_date >= CURRENT_DATE
         AND bl.expiry_date <= CURRENT_DATE + INTERVAL '15 days'
-        ${filters?.branchId ? sql`AND c.branch_id = ${filters.branchId}` : sql``}
     `);
     const expiringLicenses = Number((licenseExpiryResult.rows[0] as any)?.expiring_count || 0);
     if (expiringLicenses > 0) {
@@ -3159,7 +3159,12 @@ export class DatabaseStorage implements IStorage {
           FROM business_licenses bl
           JOIN customer_businesses cb ON bl.customer_business_id = cb.id
           JOIN customers c ON cb.customer_id = c.id
-          LEFT JOIN branches b ON c.branch_id = b.id
+          LEFT JOIN LATERAL (
+            SELECT l.branch_id FROM loans l
+            WHERE l.customer_id = c.id AND l.branch_id IS NOT NULL
+            ORDER BY l.created_at DESC LIMIT 1
+          ) lb ON true
+          LEFT JOIN branches b ON lb.branch_id = b.id
           WHERE bl.expiry_date IS NOT NULL
             AND bl.expiry_date >= CURRENT_DATE
             AND bl.expiry_date <= CURRENT_DATE + INTERVAL '15 days'
