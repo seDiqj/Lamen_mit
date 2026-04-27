@@ -1,0 +1,358 @@
+================================================================================
+LAMEN MICROFINANCE INSTITUTION
+HUMAN RESOURCES (HR) MODULE — Detailed Description
+================================================================================
+
+1. OVERVIEW
+--------------------------------------------------------------------------------
+The HR module is a comprehensive human capital management system embedded
+inside the Lamen Microfinance application. It covers the full employee
+life-cycle: organizational structure, employee records, attendance & leave,
+payroll, recruitment, performance management, training, and benefits
+administration. It is integrated with the rest of the platform through the
+shared `users`, `branches`, and `finance_officers` tables, so an employee
+record can be linked to both a system user and an active finance officer.
+
+The module is exposed under the `/hr/*` routes and is governed by the same
+role-based permission system as the rest of the application (HR pages are
+permission-controlled, and sensitive areas — payroll, salary, performance —
+are typically restricted to HR/manager/admin roles).
+
+
+2. PAGES (UI ROUTES)
+--------------------------------------------------------------------------------
+  /hr/dashboard          HR analytics overview
+  /hr/org-structure      Organisational chart (departments + positions tree)
+  /hr/employees          Employee directory
+  /hr/employees/new      New employee form
+  /hr/employees/:id/edit Edit employee
+  /hr/departments        Departments management
+  /hr/positions          Positions / job titles management
+  /hr/attendance         Daily attendance & timesheets
+  /hr/leave-types        Leave-type configuration
+  /hr/leave-requests     Leave request workflow
+  /hr/holidays           Holiday calendar
+  /hr/payroll            Payroll runs & payslips
+  /hr/recruitment        Job postings, applicants, interviews
+  /hr/performance        Performance reviews, goals, competency ratings
+  /hr/training           Training programs, sessions, enrollments
+  /hr/benefits           Benefit plans & enrollments
+
+
+3. ORGANIZATIONAL STRUCTURE
+--------------------------------------------------------------------------------
+3.1 Departments  (table: departments)
+    • Hierarchical (parentId) — supports nested sub-departments
+    • Each department may have a managerId pointing to an employee
+    • Unique code, description, isActive flag
+
+3.2 Positions / Job Titles  (table: positions)
+    • Belong to a department (departmentId)
+    • Two reporting lines:
+        - parentPositionId             (primary report-to)
+        - secondaryReportingPositionId (matrix / dotted-line reporting)
+    • Grade and code attributes
+    • Used by recruitment (job postings) and by employee assignment
+
+3.3 Org-Structure Page
+    • Visual tree combining departments and the positions inside each
+    • Driven entirely by the department/position hierarchy
+
+
+4. EMPLOYEE MASTER DATA
+--------------------------------------------------------------------------------
+The `employees` table is the core record (modelled on the institution's Staff
+Personal Information Form):
+
+  Identification
+    • employeeCode (unique), userId (link to platform user),
+      financeOfficerId (link to lending officer record if applicable)
+
+  Personal information
+    • firstName, lastName, fatherName, gender (enum), dateOfBirth, age,
+      maritalStatus (single/married/divorced/widowed)
+
+  National ID / Tazkira
+    • nationalId, nationalIdPlaceOfIssue
+
+  Contact information
+    • phoneNumber, secondPhoneNumber, email
+    • permanentAddress, currentAddress
+
+  Employment
+    • positionId, departmentId, branchId, dutyStation
+    • hireDate, terminationDate
+    • employmentStatus enum:
+        active | on_leave | suspended | terminated | resigned
+
+  Education
+    • educationLevel enum:
+        not_graduate | high_school | bachelor | master | phd
+    • educationDetails (free text)
+
+  Experience
+    • totalExperienceYears, jobRelatedExperienceYears, otherExperienceYears
+
+  Photo & metadata
+    • photoUrl (object storage), createdBy, createdAt, updatedAt
+
+Related child tables
+  • employee_emergency_contacts  — name, relationship, phone, address
+  • employee_languages           — language + proficiency
+                                   (basic / conversational / fluent)
+  • employee_family_members      — spouse, children, parents, etc.
+  • employee_references          — professional references
+  • employee_documents           — uploaded files (contract, ID copy,
+                                   certificates) with optional expiryDate
+                                   so HR can be alerted before expiry
+
+Together these implement a complete digital employee file.
+
+
+5. LEAVE MANAGEMENT
+--------------------------------------------------------------------------------
+5.1 Leave Types  (table: leave_types)
+    • name, code, daysPerYear (entitlement)
+    • isPaid / unpaid
+    • carryForward + maxCarryForwardDays for unused-leave rollover
+
+5.2 Leave Balances  (table: leave_balances)
+    • Per employee, per leave type, per year
+    • Tracks: entitlement, used, carriedForward, balance
+    • Updated automatically on leave approval
+
+5.3 Leave Requests  (table: leave_requests)
+    • Workflow: pending → approved | rejected | cancelled
+    • Captures startDate, endDate, totalDays, reason
+    • Approver and approval timestamp recorded
+    • Rejection reason captured
+    • Approval automatically deducts from leave balance
+
+5.4 Holidays Calendar  (table: holidays)
+    • Public/observed holidays per year
+    • isRecurring flag for fixed-date holidays
+    • Used by attendance and leave-day computations to skip non-working days
+
+
+6. ATTENDANCE
+--------------------------------------------------------------------------------
+Table: attendance
+
+  • One row per employee per date
+  • checkIn / checkOut timestamps
+  • status enum: present | absent | late | half_day | on_leave | holiday
+  • workHours and overtimeHours (decimal)
+  • notes and recordedBy (the user who entered the record)
+
+Use cases
+  • Daily attendance entry
+  • Timesheet view per employee / per branch
+  • Drives payroll proration (absences, overtime)
+  • Integrates with leave_requests so approved leaves are reflected
+    automatically as `on_leave`
+
+
+7. PAYROLL
+--------------------------------------------------------------------------------
+7.1 Configuration
+    • Salary Structures (salary_structures)
+        - Named pay scales (e.g. "Branch Officer L1") with baseSalary
+          and currency (default AFN)
+    • Allowance Types (allowance_types)
+        - name, code, isPercentage flag (% of base or fixed amount),
+          defaultValue, isTaxable
+        - Examples: housing, transport, communication
+    • Deduction Types (deduction_types)
+        - isPercentage, defaultValue, isStatutory flag
+          (statutory = mandatory by law, e.g. tax, social security)
+
+7.2 Employee Compensation
+    • Employee Salary  (employee_salaries)
+        - Effective-dated; can record promotions / salary revisions with
+          effectiveDate / endDate. Multiple historical rows preserved.
+    • Employee Allowances  (employee_allowances)
+        - Employee-specific allowances with effective dates
+    • Employee Deductions  (employee_deductions)
+        - Employee-specific deductions (loan repayment, advances, etc.)
+
+7.3 Payroll Runs  (payroll_runs)
+    • payrollNumber (unique), periodStart, periodEnd, paymentDate
+    • Aggregates: totalGrossSalary, totalDeductions, totalNetSalary
+    • Status enum:
+        draft | pending_approval | approved | paid | cancelled
+    • Approval workflow before payment
+    • Each run produces detail rows per employee:
+        baseSalary, allowances breakdown, deductions breakdown,
+        grossSalary, netSalary
+
+The payroll module produces payslips, integrates with attendance for
+proration, and is designed to be journalled into the accounting module
+(salary expense / payable accounts) when finalised.
+
+
+8. RECRUITMENT
+--------------------------------------------------------------------------------
+8.1 Job Postings  (job_postings)
+    • title, positionId, departmentId, location
+    • employmentType (full-time / part-time / contract)
+    • salaryMin / salaryMax range
+    • description, requirements, responsibilities, benefits
+    • openings (number of vacancies), publishedAt, closingDate
+    • Status enum: draft | published | closed | on_hold | cancelled
+      (jobStatusEnum)
+
+8.2 Applicants  (applicants)
+    • Linked to a jobPosting
+    • Personal info, email, phone, resume / cover letter URLs (object
+      storage), LinkedIn URL
+    • currentCompany, currentPosition, expectedSalary,
+      yearsOfExperience
+    • status (applicantStatusEnum: new, screening, interview, offer,
+      hired, rejected, withdrawn, etc.)
+    • rating (1-5), notes, source (referral / job board / website)
+    • appliedAt timestamp
+
+8.3 Interviews  (interviews)
+    • Scheduled per applicant; interviewer is an employee
+    • interviewType (phone / video / in-person / technical)
+    • scheduledDate, duration (minutes), location
+    • Status: scheduled | completed | cancelled | no_show
+    • feedback, rating, recommendation (hire / no-hire / maybe),
+      completedAt
+
+The recruitment workflow runs end-to-end: posting → application →
+screening → interviews → decision → (optionally) onboarding into the
+employees table.
+
+
+9. PERFORMANCE MANAGEMENT
+--------------------------------------------------------------------------------
+9.1 Performance Periods  (performance_periods)
+    • Named cycles (e.g. "H1 2026") with startDate, endDate, isActive
+
+9.2 Performance Reviews  (performance_reviews)
+    • Per employee, per period, with assigned reviewer
+    • Status workflow:
+        draft → self_review → manager_review → completed → acknowledged
+    • Self rating, manager rating, overall rating (1-5)
+    • Self comments, manager comments, strengths, areas of improvement,
+      goals
+    • employeeAcknowledgedAt timestamp closes the loop
+
+9.3 Performance Goals  (performance_goals)
+    • Linked to an employee and (optionally) a review
+    • title, description, targetDate
+    • weight (% importance), progress (% complete)
+    • Status: not_started | in_progress | completed | deferred | cancelled
+    • managerNotes / employeeNotes for ongoing dialogue
+
+9.4 Competencies & Ratings
+    • competencies — competency library, with category, description,
+      isCore flag (core vs role-specific)
+    • competency_ratings — per review, per competency, captured rating
+
+This implements a structured 360-style review with goal cascading and
+competency assessment.
+
+
+10. TRAINING
+--------------------------------------------------------------------------------
+10.1 Training Programs  (training_programs)
+     • Catalogue of available courses / programs
+
+10.2 Training Sessions  (training_sessions)
+     • Scheduled instances of a program (date, location, capacity, etc.)
+     • Status: planned | in_progress | completed | cancelled
+
+10.3 Training Enrollments  (training_enrollments)
+     • Per session, per employee
+     • Tracks attendance, completion, score / certification
+
+Allows HR to plan and track staff development, identify training gaps
+arising from performance reviews, and maintain training records for
+audit/regulatory purposes.
+
+
+11. BENEFITS
+--------------------------------------------------------------------------------
+11.1 Benefit Plans  (benefit_plans)
+     • benefitType enum:
+         health | dental | vision | life | retirement |
+         transportation | housing | food | other
+     • provider, coverageDetails
+     • employerContribution and employeeContribution
+       (fixed amount or percentage via isPercentage)
+     • effectiveDate, terminationDate, isActive
+
+11.2 Employee Benefit Enrollments  (employee_benefit_enrollments)
+     • Links employee to a benefit plan
+     • enrollmentDate, terminationDate
+     • coverageLevel (employee / employee+spouse / family)
+     • dependentCount and per-enrollment contribution overrides
+     • Active flag and notes
+
+11.3 Benefit Dependents  (benefit_dependents)
+     • Dependents covered under an enrollment (spouse, children…)
+     • name, relationship, dateOfBirth, nationalId
+
+
+12. INTEGRATION WITH THE WIDER SYSTEM
+--------------------------------------------------------------------------------
+  • Branch isolation — employees carry a branchId, so HR pages respect the
+    same global branch filter and server-side branch enforcement used by
+    the financing modules.
+  • Finance officers — an employee can be linked to a finance_officer
+    record, keeping HR data and lending operations in sync.
+  • Users — an employee can be linked to a system user account, so
+    permissions and authentication remain unified.
+  • Accounting — payroll runs and benefit costs are designed to flow
+    into the double-entry accounting module via journal entries (salary
+    expense, statutory payables, benefits expense, etc.).
+  • Document storage — employee documents, applicant resumes, and
+    cover letters are stored in object storage, accessed via authenticated
+    routes.
+  • Audit — all create / update / delete actions on HR entities are
+    written to activity_logs (user, IP, timestamp, description).
+
+
+13. KEY HR DATABASE TABLES (SUMMARY)
+--------------------------------------------------------------------------------
+  Organization
+    departments, positions
+
+  Employee master
+    employees, employee_emergency_contacts, employee_languages,
+    employee_family_members, employee_references, employee_documents
+
+  Leave & attendance
+    leave_types, leave_balances, leave_requests, holidays, attendance
+
+  Payroll
+    salary_structures, allowance_types, deduction_types,
+    employee_salaries, employee_allowances, employee_deductions,
+    payroll_runs (and payroll detail rows)
+
+  Recruitment
+    job_postings, applicants, interviews
+
+  Performance
+    performance_periods, performance_reviews, performance_goals,
+    competencies, competency_ratings
+
+  Training
+    training_programs, training_sessions, training_enrollments
+
+  Benefits
+    benefit_plans, employee_benefit_enrollments, benefit_dependents
+
+
+14. SUMMARY
+--------------------------------------------------------------------------------
+The HR module turns the Lamen platform into a complete people-management
+system in addition to a financing platform. It captures the full employee
+journey — from job posting and recruitment, through employment, attendance,
+leave, performance, training, payroll and benefits, to termination — using
+clean relational tables and consistent enumerated status flows. Because it
+shares the same authentication, branch, role and audit infrastructure as
+the financing side, the institution gets a single source of truth for both
+its workforce and its loan portfolio.

@@ -12,3 +12,9 @@ id = "8EnOHgYa3SM5ez37EB7Vp"
 uri = "file://SYSTEM_DESCRIPTION.txt"
 type = "text"
 title = "Lamen Microfinance — System Description"
+
+[[outputs]]
+id = "HHi-ZLYe8ibqV9vtCQB0c"
+uri = "file://HR_MODULE_DESCRIPTION.txt"
+type = "text"
+title = "Lamen Microfinance — HR Module Description"
