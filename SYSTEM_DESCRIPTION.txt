@@ -1,0 +1,388 @@
+================================================================================
+LAMEN MICROFINANCE INSTITUTION — LOAN MANAGEMENT SYSTEM
+Detailed System Description
+================================================================================
+
+1. OVERVIEW
+--------------------------------------------------------------------------------
+The Lamen Microfinance Loan Management System is a full-stack web application
+purpose-built for an Islamic microfinance institution operating in Afghanistan.
+It manages the complete financing lifecycle — from customer registration and
+loan application, through committee approval, disbursement, repayment
+collection, classification and reporting — and is integrated with a full
+double-entry accounting module that produces both internal financial reports
+and the regulatory reports required by Da Afghanistan Bank (DAB).
+
+The application is multi-branch, multi-product, multi-currency-aware (AFN base),
+role-based and bilingual (English / Dari-Persian where applicable). It is
+designed to be operated by branch staff, finance officers, finance/risk/admin
+managers, and executives.
+
+
+2. TECHNOLOGY STACK
+--------------------------------------------------------------------------------
+Frontend
+  • React 18 + TypeScript
+  • Wouter for routing
+  • TanStack React Query for server-state caching
+  • shadcn/ui components built on Radix UI primitives
+  • Tailwind CSS with light/dark theming via CSS variables
+  • React Hook Form + Zod for form handling and validation
+  • Recharts for data visualization
+
+Backend
+  • Express.js + TypeScript (REST API, JSON)
+  • Replit Auth (OpenID Connect) via Passport.js
+  • express-session with a PostgreSQL-backed store (connect-pg-simple)
+  • Drizzle ORM with PostgreSQL dialect
+
+Database
+  • PostgreSQL (single tenant, accessed through DATABASE_URL)
+  • Drizzle Kit for schema management (db:push)
+
+Build / Runtime
+  • Vite dev server in development (HMR), proxied through Express
+  • Production build: Vite → dist/public, esbuild → dist/index.cjs
+  • Object storage integration for document/photo upload
+
+
+3. AUTHENTICATION & AUTHORIZATION
+--------------------------------------------------------------------------------
+Authentication
+  • Users sign in via Replit Auth (OIDC). Sessions are stored in PostgreSQL
+    with a 30-minute idle timeout and rolling renewal on activity.
+
+Authorization (two layers)
+  • user_roles.role  — the specific role assigned to the user
+                        (e.g. cfo, finance_officer, admin, branch_manager).
+  • lookup_roles     — defines each role and its role_type, which is one of:
+                          - user        (basic page permissions)
+                          - manager     (full page access)
+                          - admin       (full system + user management)
+  • The hasRole() helper checks both the direct role value AND the role_type
+    via lookup_roles, so menus and APIs can grant access either by exact role
+    or by access tier.
+
+Page-level permissions
+  • role_page_permissions stores default page permissions per role; these are
+    auto-applied when a user is created or has their role changed.
+  • Individual user-level permissions can override the role defaults.
+
+Branch filtering / data isolation
+  • A global BranchProvider/useBranch context tracks the active branch.
+  • Users with a fixed user.branchId are auto-locked to their branch in the
+    UI (header shows a branch badge instead of a selector).
+  • HQ users (no branchId) get a BranchSelector dropdown in the header.
+  • Server-side getEffectiveBranchId(req) helper enforces the branch lock:
+    even if a locked user passes a different branchId in the query string,
+    the server overrides it with their own branch. Every financing endpoint
+    (customers, loans, pending/approved/disbursed lists, collections,
+    reports) honors this rule.
+
+Activity logging
+  • Significant actions (login, create/update/delete on key entities, status
+    changes, password changes) are written to activity_logs with user ID,
+    IP address, action type, target entity, description, and timestamp.
+
+
+4. ORGANIZATIONAL STRUCTURE
+--------------------------------------------------------------------------------
+  • branches          — Each branch has a code, short name, address, and an
+                        accountCode used for bookkeeping segregation.
+  • finance_officers  — Officers belong to a branch and to a user account.
+                        They are the loan-handling staff and are the basis
+                        for officer-level PAR (Portfolio at Risk) reports.
+  • users             — Application users; may optionally be linked to a
+                        finance_officer and/or a branch.
+  • lookup tables     — financingPurposes, collateralTypes, productCycleLimits
+                        (per-product min/max amount per cycle, unlimited
+                        cycles supported), funding sources, etc.
+
+
+5. CUSTOMER MODULE
+--------------------------------------------------------------------------------
+Customer registration captures personal details, dependents, contact info,
+addresses (province/district/area type), national ID with expiry tracking,
+and Dari/Persian name fields. Each customer can have:
+
+  • customer_businesses    — One or more business entities owned/operated.
+  • business_licenses      — License type, number, register date, expiry
+                             date. Expiring licenses (≤15 days) are
+                             surfaced as dashboard alerts with a clickable
+                             detail dialog.
+  • customer_documents     — Uploaded supporting documents and photos
+                             (object storage backed).
+
+
+6. LOAN LIFECYCLE
+--------------------------------------------------------------------------------
+6.1 Loan Application
+    Customers apply for a loan tied to a branch and finance officer. The
+    application records:
+      - Product (e.g. Murabaha, Mudaraba, Musharaka, Qardul Hasana, Ijarah)
+      - Sector and business description (short + detailed) and client
+        occupation
+      - Financing purpose and detailed purpose
+      - Financing cycle, requested amount, duration in months, grace period
+      - Source of fund / funding_source (Shareholder, MISFA, etc.)
+      - Previous financing (amount, institution)
+      - Margin rate (for Murabaha) or expected profit (for partnership
+        products)
+      - Collaterals (with description and district) and guarantors
+
+6.2 Reviews
+    Each application can pass through:
+      - FAD review (Finance & Administration Department)
+      - Risk & Compliance review
+    Reviewers add comments, recommendations, and approval/rejection.
+
+6.3 Committee Voting
+    A committee approves loans. The committee voting screen pre-populates
+    proposal fields (principle, margin rate, grace period) from the loan
+    request so the recorded vote stays internally consistent. Each committee
+    member casts a vote with comments. Decisions feed loan_approvals.
+
+6.4 Disbursement
+    Approved loans move to the disbursement queue. Disbursement records:
+      - Disbursement date
+      - First installment date
+      - Maturity date (auto-computed if not provided)
+      - Disbursing officer
+    Single-loan and bulk disbursement are both supported.
+
+    Schedule generation is product-aware:
+      • Murabaha and similar products
+        - Generates one installment per month for the full duration
+        - Honors grace period (margin-only installments first)
+        - Rounds principal/margin per installment with remainder applied to
+          the first principal installment
+      • Mudaraba (and any product whose name/code matches "mudaraba")
+        - Generates a SINGLE bullet installment at maturity for the full
+          principal + profit; no monthly schedule.
+
+    Disbursement also posts a journal entry that debits the product's
+    receivable account (financing_products.receivableAccountCode, falling
+    back to 11000) and credits the disbursing cash/bank account.
+
+6.5 Collections
+    Repayments are entered against installments. Each collection produces a
+    record in collection_records with status pending → approved/rejected.
+    Approved collections post a journal entry (debit cash/bank, credit
+    receivable; margin portion is split into the appropriate income
+    account). Partial payments are supported and proportional principal/
+    margin allocation is computed automatically.
+
+6.6 Loan Transfers
+    Loans can be transferred from one finance officer to another, with the
+    history preserved in loan_transfers (source officer, target officer,
+    transfer date, reason, performed by).
+
+6.7 Classification
+    Loans are classified (Standard, Watch, Substandard, Doubtful, Loss)
+    based on overdue days following DAB rules. PAR categories are
+    configurable.
+
+
+7. ACCOUNTING MODULE
+--------------------------------------------------------------------------------
+The system implements full double-entry bookkeeping with strict server-side
+validation (debits must equal credits, minimum two lines, no negative
+amounts).
+
+  • accounts          — Hierarchical chart of accounts. Five main types:
+                        asset, liability, equity, income, expense; with
+                        subtypes (e.g. operating_income, non_operating_income,
+                        other_income, cost_of_financing, operating_expense,
+                        non_operating_expense). Each account has a code,
+                        normal balance side, opening balance, and current
+                        balance.
+  • journal_entries   — Header for each transaction (date, number,
+                        description, reference, posted/unposted, reversal).
+  • journal_lines     — Detail rows (debit/credit, account, optional
+                        funding source).
+  • fiscal_periods    — Accounting period management (open/close).
+
+Posting & reversal
+  • Entries can be drafted, posted, and reversed. Reversals create the
+    mirror entry and link back to the original. Only posted entries
+    contribute to financial reports.
+
+Internal financial reports
+  • Trial Balance
+  • Income Statement (operating income, non-operating income, cost of
+    financing, operating expenses, non-operating expenses, gross profit,
+    total expenses, net income — with parent + child grouping). Sign
+    handling is type-aware so a credit-net expense account (e.g. exchange
+    gain) shows as a negative expense reducing total expenses.
+  • Balance Sheet
+  • Account Statement (per-account ledger with opening balance, all
+    posted movements, running balance, and closing balance).
+
+DAB regulatory reports (page: /dab-report) — five tabs
+  • Notes to Financial Statements (account-based, asOfDate filter)
+  • Statement of Profit or Loss (account-code mapped, date range)
+  • Statement of Cash Flow (operating / financing / investing activities)
+  • Statement of Financial Position (date-filtered balance sheet with
+    Restricted / Unrestricted / Total columns, sourced from Notes +
+    account codes)
+  • Statement of Changes in Equity (Share Capital from 301-prefixed
+    accounts, Retained Earnings from P&L, Dividends from 30400,
+    Revaluation Reserve from OCI)
+
+Access to financial reports is restricted to manager and admin role types.
+
+
+8. DASHBOARD
+--------------------------------------------------------------------------------
+The Financial Overview dashboard provides a real-time operational view,
+respecting the global branch and date filters.
+
+Headline cards
+  • Total Financing Applications
+  • Current Month Financing (count + amount, with % change vs. previous
+    month)
+  • Total Customers
+  • Collection Rate
+  • Total Disbursed, Total Portfolio, Total Collected, Outstanding Balance
+  • Average Loan Size
+  Each card with a "click for details" affordance opens a drill-down
+  dialog.
+
+Today's Operations (10 metrics, each clickable for details)
+  • Applications Received
+  • Approved Today
+  • Rejected Today
+  • Disbursed Today (count and amount)
+  • Amount Due Today, Amount Collected Today
+  • Payments Collected, Installments Due
+  • Missed Payments
+
+Charts
+  • Monthly disbursed vs. collected trend
+  • Loans by status
+  • Sector distribution
+
+Alerts & Notifications
+  • Overdue installments (with aging buckets)
+  • Due today / upcoming due
+  • Pending approvals and pending disbursements
+  • Officer-level Portfolio at Risk
+  • Business Licenses Expiring within 15 days
+  Each alert opens a clickable dialog with category-specific columns
+  (App ID / customer / branch / officer for loan-related; or customer /
+  business / license type / number / expiry / days-left badge / branch
+  for license-expiry).
+
+
+9. REPORTS
+--------------------------------------------------------------------------------
+Operational reports
+  • Citizen Balance Statement
+  • Loan Disbursement Report
+  • PAR Report (with configurable PAR categories)
+  • Shareholder Report
+  • Funding-source / branch breakdowns
+  • Profitability analysis (cost-per-loan, income-per-loan, cost/income
+    ratio, by product)
+  • Loan Cost Analysis
+
+Custom Report Builder (/custom-reports)
+  Users can:
+    • Pick a data source — customers, loans, installments, collections,
+      guarantors, disbursements
+    • Select columns
+    • Add filters (field/operator/value)
+    • Group and sort
+    • Preview the results
+    • Export to Excel or PDF
+    • Save the configuration as a shared template
+
+DAB report — see section 7.
+
+
+10. KEY DATABASE TABLES (selection)
+--------------------------------------------------------------------------------
+Authentication
+  users, sessions, user_roles, lookup_roles,
+  role_page_permissions, user_page_permissions
+
+Organization
+  branches, finance_officers, funding_sources
+
+Customer
+  customers, customer_businesses, business_licenses,
+  customer_documents
+
+Loan & lifecycle
+  financing_products (with receivableAccountCode, productCycleLimits),
+  loans (incl. businessDetailedDescription, clientOccupation),
+  collaterals (incl. description, district), guarantors,
+  loan_approvals, fad_reviews, risk_compliance_reviews,
+  committee_votes, disbursements (incl. maturityDate),
+  installments, collection_records, loan_transfers,
+  loan_classifications
+
+Accounting
+  accounts, journal_entries, journal_lines, fiscal_periods
+
+Audit
+  activity_logs
+
+
+11. PROJECT STRUCTURE
+--------------------------------------------------------------------------------
+  ├── client/src/                 React frontend
+  │   ├── components/             Reusable UI components (shadcn/ui based)
+  │   ├── hooks/                  Custom hooks (auth, branch context, etc.)
+  │   ├── lib/                    Query client, formatting, utilities
+  │   └── pages/                  Route pages (dashboard, customers, loans,
+  │                               collections, reports, accounting, etc.)
+  ├── server/                     Express backend
+  │   ├── replit_integrations/auth/  Replit Auth setup
+  │   ├── routes.ts               REST API route definitions
+  │   └── storage.ts              Database operations & business logic
+  ├── shared/                     Code shared by frontend & backend
+  │   ├── schema.ts               Drizzle schema (single source of truth)
+  │   └── models/                 Shared type definitions
+  └── migrations/                 Drizzle migration artifacts
+
+
+12. SECURITY & DATA INTEGRITY
+--------------------------------------------------------------------------------
+  • Server-side branch enforcement on every financing endpoint.
+  • Server-side validation of accounting entries (balanced, non-negative,
+    minimum two lines).
+  • Role-based route protection in addition to UI menu hiding.
+  • All write actions on key entities are recorded in activity_logs.
+  • Sessions secured by SESSION_SECRET; cookies are HTTP-only.
+  • Object storage is used for uploaded documents; access is mediated
+    through authenticated routes.
+
+
+13. EXTERNAL DEPENDENCIES & ENVIRONMENT
+--------------------------------------------------------------------------------
+Required environment
+  • DATABASE_URL                       Postgres connection string
+  • SESSION_SECRET                     Session encryption secret
+  • ISSUER_URL                         OIDC issuer (defaults to Replit)
+  • REPL_ID                            Replit environment identifier
+  • PUBLIC_OBJECT_SEARCH_PATHS,
+    PRIVATE_OBJECT_DIR,
+    DEFAULT_OBJECT_STORAGE_BUCKET_ID  Object storage configuration
+
+Integrations
+  • Replit Auth (OIDC)
+  • Replit Object Storage
+
+
+14. SUMMARY
+--------------------------------------------------------------------------------
+The system delivers an end-to-end, regulator-aware financing platform for an
+Islamic microfinance institution. It tightly couples the operational loan
+lifecycle to a true double-entry accounting core, so every business action
+(disbursement, collection, write-off, classification) produces a verifiable
+financial record. Multi-branch isolation, role-based permissions, an
+extensive dashboard with drill-downs, custom and DAB-mandated reporting,
+and product-specific schedule generation (including Mudaraba bullet payments)
+make it suitable for both branch operations staff and head-office finance
+and risk management.
