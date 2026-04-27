@@ -1,388 +1,681 @@
 ================================================================================
-LAMEN MICROFINANCE INSTITUTION — LOAN MANAGEMENT SYSTEM
-Detailed System Description
+INTEGRATED MICROFINANCE MANAGEMENT SYSTEM
+Microfinance · Accounting · HRMIS  —  Full System Description
 ================================================================================
 
-1. OVERVIEW
+
+PART 1.  SYSTEM AT A GLANCE
 --------------------------------------------------------------------------------
-The Lamen Microfinance Loan Management System is a full-stack web application
-purpose-built for an Islamic microfinance institution operating in Afghanistan.
-It manages the complete financing lifecycle — from customer registration and
-loan application, through committee approval, disbursement, repayment
-collection, classification and reporting — and is integrated with a full
-double-entry accounting module that produces both internal financial reports
-and the regulatory reports required by Da Afghanistan Bank (DAB).
+This platform is an integrated, web-based management system for a
+microfinance institution. It brings together three major business areas
+into a single application with a single database, a single login, and a
+unified user experience:
 
-The application is multi-branch, multi-product, multi-currency-aware (AFN base),
-role-based and bilingual (English / Dari-Persian where applicable). It is
-designed to be operated by branch staff, finance officers, finance/risk/admin
-managers, and executives.
+  1) MICROFINANCE   — Customer, loan and portfolio management
+  2) ACCOUNTING     — Full double-entry bookkeeping and financial reporting
+  3) HRMIS          — Human Resources & Management Information System
+
+Each module is fully featured on its own, but the real value comes from
+how tightly they are integrated: a single business event (a loan
+disbursement, a collection, a salary payment) automatically flows
+through to every relevant module — operational records, accounting
+journals, dashboards, alerts and reports.
+
+Cross-cutting capabilities shared by all three modules:
+
+  • Multi-branch with central head-office consolidation
+  • Role-based access control (RBAC) with page-level permissions
+  • Authentication via secure single sign-on (OpenID Connect)
+  • Activity log / audit trail (who did what, when, from which IP)
+  • Bilingual support (English + Persian/Dari) and RTL layout
+  • Document attachments via secure object storage
+  • Excel and PDF export across all major reports
+  • Custom Report Builder for ad-hoc reporting on any data source
 
 
-2. TECHNOLOGY STACK
+================================================================================
+PART 2.  MICROFINANCE MODULE
+================================================================================
+
+2.1  PURPOSE
 --------------------------------------------------------------------------------
-Frontend
-  • React 18 + TypeScript
-  • Wouter for routing
-  • TanStack React Query for server-state caching
-  • shadcn/ui components built on Radix UI primitives
-  • Tailwind CSS with light/dark theming via CSS variables
-  • React Hook Form + Zod for form handling and validation
-  • Recharts for data visualization
+The microfinance module manages the full life-cycle of customers and
+financing contracts — from initial customer registration, through loan
+application and approval, disbursement, repayment collection, restructuring,
+and closure, all the way to portfolio analytics and regulatory reporting.
 
-Backend
-  • Express.js + TypeScript (REST API, JSON)
-  • Replit Auth (OpenID Connect) via Passport.js
-  • express-session with a PostgreSQL-backed store (connect-pg-simple)
-  • Drizzle ORM with PostgreSQL dialect
-
-Database
-  • PostgreSQL (single tenant, accessed through DATABASE_URL)
-  • Drizzle Kit for schema management (db:push)
-
-Build / Runtime
-  • Vite dev server in development (HMR), proxied through Express
-  • Production build: Vite → dist/public, esbuild → dist/index.cjs
-  • Object storage integration for document/photo upload
-
-
-3. AUTHENTICATION & AUTHORIZATION
+2.2  CUSTOMER MANAGEMENT
 --------------------------------------------------------------------------------
-Authentication
-  • Users sign in via Replit Auth (OIDC). Sessions are stored in PostgreSQL
-    with a 30-minute idle timeout and rolling renewal on activity.
+  • Customer master file with personal, contact and demographic data
+  • Linked tables for businesses, business licenses and supporting
+    documents
+  • Integrated province / district lookup for accurate addressing
+  • Document attachments (ID copies, photos, business licenses,
+    contracts, etc.)
+  • License-expiry tracking with dashboard alerts before expiry
+  • Customer search, filter, and history view
 
-Authorization (two layers)
-  • user_roles.role  — the specific role assigned to the user
-                        (e.g. cfo, finance_officer, admin, branch_manager).
-  • lookup_roles     — defines each role and its role_type, which is one of:
-                          - user        (basic page permissions)
-                          - manager     (full page access)
-                          - admin       (full system + user management)
-  • The hasRole() helper checks both the direct role value AND the role_type
-    via lookup_roles, so menus and APIs can grant access either by exact role
-    or by access tier.
-
-Page-level permissions
-  • role_page_permissions stores default page permissions per role; these are
-    auto-applied when a user is created or has their role changed.
-  • Individual user-level permissions can override the role defaults.
-
-Branch filtering / data isolation
-  • A global BranchProvider/useBranch context tracks the active branch.
-  • Users with a fixed user.branchId are auto-locked to their branch in the
-    UI (header shows a branch badge instead of a selector).
-  • HQ users (no branchId) get a BranchSelector dropdown in the header.
-  • Server-side getEffectiveBranchId(req) helper enforces the branch lock:
-    even if a locked user passes a different branchId in the query string,
-    the server overrides it with their own branch. Every financing endpoint
-    (customers, loans, pending/approved/disbursed lists, collections,
-    reports) honors this rule.
-
-Activity logging
-  • Significant actions (login, create/update/delete on key entities, status
-    changes, password changes) are written to activity_logs with user ID,
-    IP address, action type, target entity, description, and timestamp.
-
-
-4. ORGANIZATIONAL STRUCTURE
+2.3  LOAN ORIGINATION
 --------------------------------------------------------------------------------
-  • branches          — Each branch has a code, short name, address, and an
-                        accountCode used for bookkeeping segregation.
-  • finance_officers  — Officers belong to a branch and to a user account.
-                        They are the loan-handling staff and are the basis
-                        for officer-level PAR (Portfolio at Risk) reports.
-  • users             — Application users; may optionally be linked to a
-                        finance_officer and/or a branch.
-  • lookup tables     — financingPurposes, collateralTypes, productCycleLimits
-                        (per-product min/max amount per cycle, unlimited
-                        cycles supported), funding sources, etc.
+  • Loan / financing application form supporting Islamic-finance
+    products (Murabaha, Mudaraba, Ijara, Salam, Istisna, etc.) as
+    well as conventional products
+  • Configurable financing products with cycle-based limits
+    (each cycle has its own minimum and maximum amount)
+  • Sector / business / financing-purpose / collateral-type lookups
+  • Multi-collateral support per loan
+  • Multiple guarantors per loan (financial and family guarantors)
+  • Funding-source tagging on every loan (track which fund / donor
+    money was used)
 
-
-5. CUSTOMER MODULE
+2.4  APPROVAL WORKFLOW
 --------------------------------------------------------------------------------
-Customer registration captures personal details, dependents, contact info,
-addresses (province/district/area type), national ID with expiry tracking,
-and Dari/Persian name fields. Each customer can have:
+A configurable, multi-stage approval workflow is built in:
 
-  • customer_businesses    — One or more business entities owned/operated.
-  • business_licenses      — License type, number, register date, expiry
-                             date. Expiring licenses (≤15 days) are
-                             surfaced as dashboard alerts with a clickable
-                             detail dialog.
-  • customer_documents     — Uploaded supporting documents and photos
-                             (object storage backed).
+   pending
+     ↓
+   data quality review     (FAD review)
+     ↓
+   risk & compliance review
+     ↓
+   committee review        (multi-vote committee)
+     ↓
+   approved   →  disbursed  →  active  →  completed
+     ↘ rejected / returned
 
+Each stage is permission-controlled. Reviewers add notes, vote, and
+return loans for clarification. The full approval history is preserved.
 
-6. LOAN LIFECYCLE
+2.5  DISBURSEMENT
 --------------------------------------------------------------------------------
-6.1 Loan Application
-    Customers apply for a loan tied to a branch and finance officer. The
-    application records:
-      - Product (e.g. Murabaha, Mudaraba, Musharaka, Qardul Hasana, Ijarah)
-      - Sector and business description (short + detailed) and client
-        occupation
-      - Financing purpose and detailed purpose
-      - Financing cycle, requested amount, duration in months, grace period
-      - Source of fund / funding_source (Shareholder, MISFA, etc.)
-      - Previous financing (amount, institution)
-      - Margin rate (for Murabaha) or expected profit (for partnership
-        products)
-      - Collaterals (with description and district) and guarantors
+  • Single and bulk disbursement
+  • Automatic generation of the installment schedule
+      - Standard products → monthly installment plan
+      - Mudaraba / profit-sharing products → single bullet
+        installment at maturity
+  • Automatic posting of the disbursement journal entry
+    (financing receivable / cash-or-bank), with the receivable
+    account taken from the financing product
 
-6.2 Reviews
-    Each application can pass through:
-      - FAD review (Finance & Administration Department)
-      - Risk & Compliance review
-    Reviewers add comments, recommendations, and approval/rejection.
-
-6.3 Committee Voting
-    A committee approves loans. The committee voting screen pre-populates
-    proposal fields (principle, margin rate, grace period) from the loan
-    request so the recorded vote stays internally consistent. Each committee
-    member casts a vote with comments. Decisions feed loan_approvals.
-
-6.4 Disbursement
-    Approved loans move to the disbursement queue. Disbursement records:
-      - Disbursement date
-      - First installment date
-      - Maturity date (auto-computed if not provided)
-      - Disbursing officer
-    Single-loan and bulk disbursement are both supported.
-
-    Schedule generation is product-aware:
-      • Murabaha and similar products
-        - Generates one installment per month for the full duration
-        - Honors grace period (margin-only installments first)
-        - Rounds principal/margin per installment with remainder applied to
-          the first principal installment
-      • Mudaraba (and any product whose name/code matches "mudaraba")
-        - Generates a SINGLE bullet installment at maturity for the full
-          principal + profit; no monthly schedule.
-
-    Disbursement also posts a journal entry that debits the product's
-    receivable account (financing_products.receivableAccountCode, falling
-    back to 11000) and credits the disbursing cash/bank account.
-
-6.5 Collections
-    Repayments are entered against installments. Each collection produces a
-    record in collection_records with status pending → approved/rejected.
-    Approved collections post a journal entry (debit cash/bank, credit
-    receivable; margin portion is split into the appropriate income
-    account). Partial payments are supported and proportional principal/
-    margin allocation is computed automatically.
-
-6.6 Loan Transfers
-    Loans can be transferred from one finance officer to another, with the
-    history preserved in loan_transfers (source officer, target officer,
-    transfer date, reason, performed by).
-
-6.7 Classification
-    Loans are classified (Standard, Watch, Substandard, Doubtful, Loss)
-    based on overdue days following DAB rules. PAR categories are
-    configurable.
-
-
-7. ACCOUNTING MODULE
+2.6  REPAYMENTS & COLLECTIONS
 --------------------------------------------------------------------------------
-The system implements full double-entry bookkeeping with strict server-side
-validation (debits must equal credits, minimum two lines, no negative
-amounts).
+  • Installment register (per-loan repayment schedule)
+  • Cash collection, bank collection and partial-payment support
+  • Collection approval workflow (pending → approved / rejected)
+  • Automatic journal entries for principal, profit and any
+    write-offs / fees on approval
+  • Bulk collection processing
+  • Loan transfers (re-assigning a loan from one finance officer to
+    another)
 
-  • accounts          — Hierarchical chart of accounts. Five main types:
-                        asset, liability, equity, income, expense; with
-                        subtypes (e.g. operating_income, non_operating_income,
-                        other_income, cost_of_financing, operating_expense,
-                        non_operating_expense). Each account has a code,
-                        normal balance side, opening balance, and current
-                        balance.
-  • journal_entries   — Header for each transaction (date, number,
-                        description, reference, posted/unposted, reversal).
-  • journal_lines     — Detail rows (debit/credit, account, optional
-                        funding source).
-  • fiscal_periods    — Accounting period management (open/close).
+2.7  PORTFOLIO MONITORING
+--------------------------------------------------------------------------------
+  • Real-time portfolio outstanding, total collection, profit booked
+  • PAR (Portfolio at Risk) categories and PAR report
+  • Loan classification (standard / watch / sub-standard / doubtful /
+    loss) for provisioning
+  • Active customer outstanding report
+  • Monthly due summary
+  • Disbursement targets and achievement tracking
+  • Profitability analysis (per branch, officer, product, sector)
 
-Posting & reversal
-  • Entries can be drafted, posted, and reversed. Reversals create the
-    mirror entry and link back to the original. Only posted entries
-    contribute to financial reports.
+2.8  REPORTS (Operational)
+--------------------------------------------------------------------------------
+  Loan disbursement report, contract data report, collateral report,
+  individual report, citizen balance statement, shareholder report,
+  installment management, monthly due summary, PAR report, profitability
+  analysis, LCTR report, subject-role report, custom-built reports via
+  the Custom Report Builder, and many more.
 
-Internal financial reports
-  • Trial Balance
-  • Income Statement (operating income, non-operating income, cost of
-    financing, operating expenses, non-operating expenses, gross profit,
-    total expenses, net income — with parent + child grouping). Sign
-    handling is type-aware so a credit-net expense account (e.g. exchange
-    gain) shows as a negative expense reducing total expenses.
+2.9  REGULATORY (DAB) REPORTS
+--------------------------------------------------------------------------------
+A dedicated regulatory reporting suite produces the formal statements
+required by the central bank (Da Afghanistan Bank), with the same
+five tabs an examiner expects:
+
+  1. Notes to Financial Statements        (account-based, as-of date)
+  2. Statement of Profit or Loss          (P&L with code mapping)
+  3. Statement of Cash Flow               (operating / financing /
+                                           investing activities)
+  4. Statement of Financial Position      (balance sheet with
+                                           Restricted / Unrestricted /
+                                           Total columns)
+  5. Statement of Changes in Equity       (Share Capital, Retained
+                                           Earnings, Dividends,
+                                           Revaluation Reserve)
+
+These are produced directly from the live accounting data — no
+manual re-keying.
+
+
+================================================================================
+PART 3.  ACCOUNTING MODULE
+================================================================================
+
+3.1  PURPOSE
+--------------------------------------------------------------------------------
+A complete double-entry bookkeeping engine sits underneath the
+microfinance and HR modules. Every business event that has financial
+consequences is converted into balanced journal entries, posted to a
+configurable chart of accounts, and consolidated into financial
+statements that comply with both general accounting principles and the
+central bank's regulatory framework.
+
+3.2  CHART OF ACCOUNTS (CoA)
+--------------------------------------------------------------------------------
+  • Hierarchical (parent / child) accounts with unlimited depth
+  • Five primary account types:
+       Asset   Liability   Equity   Income   Expense
+  • Detailed sub-types for richer reporting and DAB classification:
+       Current Asset, Non-Current Asset, Fixed Asset
+       Current Liability, Non-Current Liability
+       Owner's Capital
+       Operating Income, Non-Operating Income, Other Income
+       Operating Expense, Non-Operating Expense, Cost of Financing
+  • Each account has:
+       account code (unique), account name, normal balance
+       (debit/credit), opening balance, current balance,
+       active/inactive flag, system-account flag
+  • Bulk import of CoA from spreadsheet
+  • One-click recalculation of all account balances from posted
+    journal entries
+
+3.3  FISCAL PERIODS
+--------------------------------------------------------------------------------
+  • Fiscal year and 12 monthly periods
+  • Period close: once a period is closed, no further entries can be
+    posted to it (admin only)
+  • Each journal entry is automatically tagged to a fiscal period
+
+3.4  JOURNAL ENTRIES
+--------------------------------------------------------------------------------
+  • Header + lines structure (one entry, many debit/credit lines)
+  • Strict double-entry validation: total debits MUST equal total
+    credits; minimum two lines; no negative amounts
+  • Lifecycle: draft → posted → (optionally) reversed
+  • Posting locks the entry; only admins may un-post
+  • Reversal generates a mirror entry referencing the original; the
+    original is flagged isReversed
+  • Every line carries:
+       account, description, debit, credit, optional
+       funding-source tag (so multi-fund accounting is possible)
+  • Each entry can carry a reference to the source business event
+    (loan ID, disbursement ID, collection ID, payroll run ID,
+    benefit enrolment, manual entry…) so you can drill from the
+    statement back to the originating transaction.
+
+3.5  AUTOMATIC JOURNAL ENTRIES (INTEGRATION POINTS)
+--------------------------------------------------------------------------------
+The accounting module is fed automatically by the operational modules.
+Examples:
+
+  Loan disbursement              Dr Financing Receivable
+                                 Cr Cash / Bank
+
+  Collection approved            Dr Cash / Bank
+                                 Cr Financing Receivable (principal)
+                                 Cr Profit / Margin Income
+
+  Loan write-off / provision     Dr Loan Loss Expense
+                                 Cr Provision for Loan Losses
+
+  Payroll run finalised          Dr Salary Expense
+                                 Dr Allowance Expense
+                                 Cr Statutory Payables (tax, etc.)
+                                 Cr Net Salary Payable / Bank
+
+  Benefit cost                   Dr Employee Benefits Expense
+                                 Cr Benefits Payable / Bank
+
+The receivable account used for disbursement is configurable per
+financing product (with a sensible default fallback), so different
+products can be tracked on different GL accounts. Each entry is fully
+reversible to handle errors cleanly.
+
+3.6  FINANCIAL REPORTS
+--------------------------------------------------------------------------------
+  • Trial Balance (date-filtered, posted-only)
+  • General Ledger / Account Statement (all activity for one account
+    in a period, with running balance)
+  • Income Statement (P&L) — handles all income/expense sub-types
+    with correct sign treatment (operating income, non-operating
+    income, other income, operating expense, non-operating expense,
+    cost of financing)
   • Balance Sheet
-  • Account Statement (per-account ledger with opening balance, all
-    posted movements, running balance, and closing balance).
+  • Cash Flow Statement
+  • Profit & Loss statement report (export-ready)
+  • DAB Regulatory Report set (5 tabs, see §2.9)
 
-DAB regulatory reports (page: /dab-report) — five tabs
-  • Notes to Financial Statements (account-based, asOfDate filter)
-  • Statement of Profit or Loss (account-code mapped, date range)
-  • Statement of Cash Flow (operating / financing / investing activities)
-  • Statement of Financial Position (date-filtered balance sheet with
-    Restricted / Unrestricted / Total columns, sourced from Notes +
-    account codes)
-  • Statement of Changes in Equity (Share Capital from 301-prefixed
-    accounts, Retained Earnings from P&L, Dividends from 30400,
-    Revaluation Reserve from OCI)
-
-Access to financial reports is restricted to manager and admin role types.
-
-
-8. DASHBOARD
+3.7  ACCOUNTING DASHBOARD
 --------------------------------------------------------------------------------
-The Financial Overview dashboard provides a real-time operational view,
-respecting the global branch and date filters.
+A dedicated accounting dashboard surfaces:
+  • Total posted entries and posting rate
+  • Current period status (open / closed)
+  • Cash & bank position
+  • Top expense / income accounts
+  • Recent journal entries
+  • Out-of-balance detector
 
-Headline cards
-  • Total Financing Applications
-  • Current Month Financing (count + amount, with % change vs. previous
-    month)
-  • Total Customers
-  • Collection Rate
-  • Total Disbursed, Total Portfolio, Total Collected, Outstanding Balance
-  • Average Loan Size
-  Each card with a "click for details" affordance opens a drill-down
-  dialog.
-
-Today's Operations (10 metrics, each clickable for details)
-  • Applications Received
-  • Approved Today
-  • Rejected Today
-  • Disbursed Today (count and amount)
-  • Amount Due Today, Amount Collected Today
-  • Payments Collected, Installments Due
-  • Missed Payments
-
-Charts
-  • Monthly disbursed vs. collected trend
-  • Loans by status
-  • Sector distribution
-
-Alerts & Notifications
-  • Overdue installments (with aging buckets)
-  • Due today / upcoming due
-  • Pending approvals and pending disbursements
-  • Officer-level Portfolio at Risk
-  • Business Licenses Expiring within 15 days
-  Each alert opens a clickable dialog with category-specific columns
-  (App ID / customer / branch / officer for loan-related; or customer /
-  business / license type / number / expiry / days-left badge / branch
-  for license-expiry).
-
-
-9. REPORTS
+3.8  CONTROLS & GOVERNANCE
 --------------------------------------------------------------------------------
-Operational reports
-  • Citizen Balance Statement
-  • Loan Disbursement Report
-  • PAR Report (with configurable PAR categories)
-  • Shareholder Report
-  • Funding-source / branch breakdowns
-  • Profitability analysis (cost-per-loan, income-per-loan, cost/income
-    ratio, by product)
-  • Loan Cost Analysis
-
-Custom Report Builder (/custom-reports)
-  Users can:
-    • Pick a data source — customers, loans, installments, collections,
-      guarantors, disbursements
-    • Select columns
-    • Add filters (field/operator/value)
-    • Group and sort
-    • Preview the results
-    • Export to Excel or PDF
-    • Save the configuration as a shared template
-
-DAB report — see section 7.
+  • Role-restricted access — financial reports are limited to
+    manager/admin
+  • Page-level permissions on chart-of-accounts, journals, and
+    each statement
+  • Full audit trail — every post, un-post, reverse and edit is
+    logged with user, time and IP
+  • Server-side enforcement of branch isolation on every accounting
+    query (you only see your branch unless you're a head-office user)
 
 
-10. KEY DATABASE TABLES (selection)
+================================================================================
+PART 4.  HRMIS MODULE
+================================================================================
+
+4.1  PURPOSE
 --------------------------------------------------------------------------------
-Authentication
-  users, sessions, user_roles, lookup_roles,
-  role_page_permissions, user_page_permissions
+The HRMIS (Human Resources Management Information System) covers the
+complete employee life-cycle — from recruitment, onboarding, day-to-day
+HR operations (attendance, leave, payroll, benefits) through to
+performance management, training and exit.
 
-Organization
-  branches, finance_officers, funding_sources
-
-Customer
-  customers, customer_businesses, business_licenses,
-  customer_documents
-
-Loan & lifecycle
-  financing_products (with receivableAccountCode, productCycleLimits),
-  loans (incl. businessDetailedDescription, clientOccupation),
-  collaterals (incl. description, district), guarantors,
-  loan_approvals, fad_reviews, risk_compliance_reviews,
-  committee_votes, disbursements (incl. maturityDate),
-  installments, collection_records, loan_transfers,
-  loan_classifications
-
-Accounting
-  accounts, journal_entries, journal_lines, fiscal_periods
-
-Audit
-  activity_logs
-
-
-11. PROJECT STRUCTURE
+4.2  ORGANIZATIONAL STRUCTURE
 --------------------------------------------------------------------------------
-  ├── client/src/                 React frontend
-  │   ├── components/             Reusable UI components (shadcn/ui based)
-  │   ├── hooks/                  Custom hooks (auth, branch context, etc.)
-  │   ├── lib/                    Query client, formatting, utilities
-  │   └── pages/                  Route pages (dashboard, customers, loans,
-  │                               collections, reports, accounting, etc.)
-  ├── server/                     Express backend
-  │   ├── replit_integrations/auth/  Replit Auth setup
-  │   ├── routes.ts               REST API route definitions
-  │   └── storage.ts              Database operations & business logic
-  ├── shared/                     Code shared by frontend & backend
-  │   ├── schema.ts               Drizzle schema (single source of truth)
-  │   └── models/                 Shared type definitions
-  └── migrations/                 Drizzle migration artifacts
+  • Departments — hierarchical, each with an optional manager
+  • Positions / Job Titles — belong to a department, support both a
+    primary reporting line (parentPosition) and a secondary /
+    matrix reporting line
+  • Visual organisation chart combining departments and positions
 
-
-12. SECURITY & DATA INTEGRITY
+4.3  EMPLOYEE MASTER DATA
 --------------------------------------------------------------------------------
-  • Server-side branch enforcement on every financing endpoint.
-  • Server-side validation of accounting entries (balanced, non-negative,
-    minimum two lines).
-  • Role-based route protection in addition to UI menu hiding.
-  • All write actions on key entities are recorded in activity_logs.
-  • Sessions secured by SESSION_SECRET; cookies are HTTP-only.
-  • Object storage is used for uploaded documents; access is mediated
-    through authenticated routes.
+A digital staff file modelled on the standard Staff Personal
+Information Form:
 
+  Identification:    employee code, link to system user account,
+                     link to finance officer record
+  Personal:          first/last name, father's name, gender, date
+                     of birth, age, marital status
+  National ID:       NIC / Tazkira number and place of issue
+  Contact:           phone(s), email, permanent & current address
+  Employment:        position, department, branch, duty station,
+                     hire date, termination date, employment status
+                     (active / on_leave / suspended / terminated /
+                     resigned)
+  Education:         level (not_graduate / high_school / bachelor /
+                     master / phd) and details
+  Experience:        total, job-related and other years
+  Photo:             stored in secure object storage
 
-13. EXTERNAL DEPENDENCIES & ENVIRONMENT
+Related digital file:
+  • Emergency contacts
+  • Languages spoken with proficiency
+  • Family members
+  • Professional references
+  • Documents (contracts, ID copies, certificates) with expiry
+    tracking
+
+4.4  ATTENDANCE
 --------------------------------------------------------------------------------
-Required environment
-  • DATABASE_URL                       Postgres connection string
-  • SESSION_SECRET                     Session encryption secret
-  • ISSUER_URL                         OIDC issuer (defaults to Replit)
-  • REPL_ID                            Replit environment identifier
-  • PUBLIC_OBJECT_SEARCH_PATHS,
-    PRIVATE_OBJECT_DIR,
-    DEFAULT_OBJECT_STORAGE_BUCKET_ID  Object storage configuration
+  • Daily attendance per employee
+  • Check-in / check-out timestamps, work hours and overtime hours
+  • Status: present, absent, late, half-day, on-leave, holiday
+  • Approved leaves and public holidays are reflected automatically
+  • Drives payroll proration
 
-Integrations
-  • Replit Auth (OIDC)
-  • Replit Object Storage
-
-
-14. SUMMARY
+4.5  LEAVE MANAGEMENT
 --------------------------------------------------------------------------------
-The system delivers an end-to-end, regulator-aware financing platform for an
-Islamic microfinance institution. It tightly couples the operational loan
-lifecycle to a true double-entry accounting core, so every business action
-(disbursement, collection, write-off, classification) produces a verifiable
-financial record. Multi-branch isolation, role-based permissions, an
-extensive dashboard with drill-downs, custom and DAB-mandated reporting,
-and product-specific schedule generation (including Mudaraba bullet payments)
-make it suitable for both branch operations staff and head-office finance
-and risk management.
+  • Leave types (paid / unpaid, days per year, carry-forward rules)
+  • Per-employee, per-year leave balances (entitlement, used,
+    carried-forward, remaining)
+  • Leave request workflow:
+       pending → approved / rejected / cancelled
+    with approver, approval timestamp and rejection reason
+  • Approval automatically deducts from the leave balance
+  • Holiday calendar (recurring and non-recurring)
+
+4.6  PAYROLL
+--------------------------------------------------------------------------------
+  • Salary structures (named pay scales, base salary, currency)
+  • Allowance types (fixed or percentage, taxable / non-taxable)
+  • Deduction types (fixed or percentage, statutory / non-statutory)
+  • Effective-dated employee compensation:
+       - Employee salary history (promotions / revisions)
+       - Employee allowances
+       - Employee deductions
+  • Payroll runs:
+       payroll number, period start/end, payment date,
+       totals (gross, deductions, net),
+       status workflow: draft → pending_approval → approved → paid
+       → cancelled
+  • Per-employee payroll details and payslips
+  • Automatic accounting journal on finalisation (see §3.5)
+
+4.7  RECRUITMENT
+--------------------------------------------------------------------------------
+  • Job postings (title, position, department, employment type,
+    salary range, openings, status: draft / published / closed,
+    publish & closing dates)
+  • Applicants:
+       contact info, resume / cover letter (object storage),
+       LinkedIn, current company & position, expected salary,
+       experience, applicant status, rating, source
+  • Interviews:
+       per applicant, interviewer is an employee, type
+       (phone / video / in-person / technical), schedule, duration,
+       location, status (scheduled / completed / cancelled / no_show),
+       feedback, rating, recommendation (hire / no-hire / maybe)
+  • End-to-end pipeline from posting to onboarding into the
+    employees table
+
+4.8  PERFORMANCE MANAGEMENT
+--------------------------------------------------------------------------------
+  • Performance periods (e.g. H1, H2, annual)
+  • Performance reviews:
+       self / manager / overall ratings (1–5), comments, strengths,
+       improvement areas, status workflow:
+       draft → self_review → manager_review → completed → acknowledged
+  • Goals / objectives:
+       per employee, optionally tied to a review,
+       weight, progress, status (not_started → in_progress →
+       completed / deferred / cancelled)
+  • Competency library and competency ratings per review
+       (core vs role-specific competencies)
+
+4.9  TRAINING
+--------------------------------------------------------------------------------
+  • Training programs catalogue
+  • Training sessions (scheduled instances of a program)
+  • Training enrolments per employee
+  • Status tracking: planned → in_progress → completed / cancelled
+
+4.10 BENEFITS
+--------------------------------------------------------------------------------
+  • Benefit plans by type:
+       health, dental, vision, life, retirement, transportation,
+       housing, food, other
+  • Provider, coverage details, employer & employee contributions
+    (fixed or percentage), effective and termination dates
+  • Employee enrolment with coverage level (employee /
+    employee+spouse / family) and dependent count
+  • Dependents register (name, relationship, DOB, national ID)
+
+4.11 HR DASHBOARD
+--------------------------------------------------------------------------------
+Real-time analytics on headcount, attendance, leave utilisation,
+recruitment funnel, payroll totals, performance review completion and
+training participation.
+
+
+================================================================================
+PART 5.  CROSS-MODULE INTEGRATION
+================================================================================
+
+The three modules are not bolted-on silos — they share the same
+database, the same authentication, the same branch and role model, and
+the same audit log. Below are the key integration paths.
+
+5.1  IDENTITY & ACCESS  (one user, one login, three modules)
+--------------------------------------------------------------------------------
+  • A single user account (managed via secure single sign-on) is used
+    across Microfinance, Accounting and HRMIS.
+  • A user can be linked to:
+       - a finance officer record (microfinance)
+       - an employee record (HR)
+    so the same person is recognised across all three areas without
+    duplicate data entry.
+  • Roles (admin, manager, CFO, COO, CEO, FAD, Risk & Compliance,
+    Sharia, Finance Officer, User…) drive what each user can see and
+    do in every module.
+  • Page-level permissions can be granted directly to a user OR
+    inherited from the user's role.
+
+5.2  BRANCH ISOLATION  (multi-branch with HQ consolidation)
+--------------------------------------------------------------------------------
+  • All three modules respect a central branch context.
+  • A branch-locked user (e.g. a branch officer) only ever sees their
+    own branch's customers, loans, journals and employees — enforced
+    on the server, not just hidden in the UI.
+  • Head-office users can switch branch from the global selector or
+    consolidate across branches.
+
+5.3  MICROFINANCE → ACCOUNTING
+--------------------------------------------------------------------------------
+Every operational microfinance event automatically generates the
+correct accounting journal entry:
+
+  • Loan disbursement
+       Dr Financing Receivable (account configured per product)
+       Cr Cash / Bank
+  • Collection approved
+       Dr Cash / Bank
+       Cr Financing Receivable (principal)
+       Cr Profit / Margin Income
+  • Loan write-off / provisioning
+       Dr Loan Loss Expense
+       Cr Provision for Loan Losses
+  • Reversal of any of the above creates a mirror entry, preserving
+    the audit trail.
+
+The journal entry stores a reference back to the source loan,
+disbursement or collection, so an auditor can drill from the financial
+statement straight back to the originating microfinance transaction.
+
+5.4  HRMIS → ACCOUNTING
+--------------------------------------------------------------------------------
+HR transactions also flow into the GL automatically:
+
+  • Payroll run finalised
+       Dr Salary Expense  /  Dr Allowance Expense
+       Cr Statutory Payables  /  Cr Net Salary Payable / Bank
+  • Benefit costs
+       Dr Employee Benefits Expense
+       Cr Benefits Payable / Bank
+  • Each posting is reversible and tagged with its source HR record.
+
+5.5  HRMIS ↔ MICROFINANCE
+--------------------------------------------------------------------------------
+  • A finance officer in the microfinance module IS an employee in
+    HR — same person, two business roles, one record.
+  • Loan officers' branches and statuses are read from HR, so
+    departures and transfers are reflected immediately in the loan
+    portfolio.
+  • Performance reviews can use real microfinance KPIs (disbursement
+    targets, PAR, profitability) as inputs.
+
+5.6  REPORTING & AUDIT  (one source of truth)
+--------------------------------------------------------------------------------
+  • Operational reports (microfinance), financial statements
+    (accounting) and HR analytics all draw from the same database
+    in real time — no spreadsheets, no re-keying.
+  • The activity log records every meaningful action (create, update,
+    delete, post, approve, disburse, collect, payroll-run, etc.)
+    with user, IP and timestamp.
+  • The Custom Report Builder lets authorised users design their own
+    reports across customers, loans, installments, collections,
+    guarantors, disbursements (and is extensible to HR and accounting
+    sources), then save them as shared templates and export to Excel
+    or PDF.
+
+
+================================================================================
+PART 6.  TECHNICAL ARCHITECTURE
+================================================================================
+
+6.1  HIGH-LEVEL ARCHITECTURE
+--------------------------------------------------------------------------------
+  Client (browser, desktop or mobile-friendly web UI)
+            │     HTTPS, JSON
+            ▼
+  Application server  (Node.js / Express / TypeScript)
+            │     SQL (parameterised, typed via ORM)
+            ▼
+  PostgreSQL  (single relational database, ~80 tables)
+            ⇅
+  Object Storage  (documents, photos, resumes, contracts)
+            ⇅
+  Identity Provider  (OpenID Connect — secure single sign-on)
+
+A single deployment serves all three modules. There are no separate
+servers for HR, Microfinance and Accounting — they share runtime,
+database and security boundary.
+
+6.2  FRONTEND
+--------------------------------------------------------------------------------
+  • React 18 with TypeScript (strict typing front-to-back)
+  • Wouter for lightweight client-side routing
+  • TanStack React Query for server state, caching and revalidation
+  • shadcn/ui component library on top of Radix UI primitives
+  • Tailwind CSS with CSS variables; light/dark theme support
+  • React Hook Form + Zod for form validation (the same Zod schemas
+    are reused on the backend)
+  • Recharts for dashboard and report visualisations
+  • Bilingual (English / Persian-Dari) with right-to-left layout
+  • Excel export via SheetJS / similar; PDF export via server- and
+    client-side renderers depending on the report
+
+6.3  BACKEND
+--------------------------------------------------------------------------------
+  • Express.js on Node.js with TypeScript
+  • RESTful JSON API
+  • Drizzle ORM for type-safe SQL against PostgreSQL
+  • drizzle-zod to derive Zod validators from table definitions, so
+    the database schema, the API contract and the frontend forms
+    all share one source of truth
+  • Passport.js for authentication strategies
+  • express-session with a PostgreSQL session store
+    (connect-pg-simple) — sessions survive restarts, 30-minute
+    rolling idle timeout
+  • Bundled for production with esbuild
+
+6.4  DATA LAYER
+--------------------------------------------------------------------------------
+  • PostgreSQL is the single source of truth for all three modules
+  • Approximately 80 tables grouped by domain:
+       - Auth & RBAC: users, sessions, user_roles, lookup_roles,
+         page_permissions, role_page_permissions
+       - Org / Lookup: branches, finance_officers, sectors,
+         businesses, provinces, districts, license_types,
+         financing_purposes, collateral_types, client_occupations,
+         funding_sources, financing_products
+       - Microfinance: customers, customer_documents,
+         customer_businesses, business_licenses, loans, collaterals,
+         guarantors, loan_approvals, fad_reviews,
+         risk_compliance_reviews, committee_votes, disbursements,
+         installments, par_categories, loan_transfers,
+         collection_records, disbursement_targets
+       - Accounting: accounts, fiscal_periods, journal_entries,
+         journal_lines
+       - HRMIS: departments, positions, employees,
+         employee_emergency_contacts, employee_languages,
+         employee_family_members, employee_references,
+         employee_documents, leave_types, leave_balances,
+         leave_requests, holidays, attendance, salary_structures,
+         allowance_types, deduction_types, employee_salaries,
+         employee_allowances, employee_deductions, payroll_runs
+         (and detail rows), job_postings, applicants, interviews,
+         performance_periods, performance_reviews,
+         performance_goals, competencies, competency_ratings,
+         training_programs, training_sessions, training_enrollments,
+         benefit_plans, employee_benefit_enrollments,
+         benefit_dependents
+       - Cross-cutting: notifications, activity_logs
+
+  • Schema migrations managed via Drizzle Kit (`db:push`).
+  • All foreign keys are explicit; status fields use PostgreSQL
+    enums where appropriate.
+
+6.5  SECURITY
+--------------------------------------------------------------------------------
+  • Authentication via OpenID Connect (single sign-on); no
+    application-side password storage
+  • Session cookies are HTTP-only and server-side; rolling 30-minute
+    idle timeout
+  • Two-layer authorisation:
+       1. Direct role value (e.g. cfo, finance_officer, admin)
+       2. Role TYPE from the lookup_roles table (user / managerial /
+          admin) — both checked on every protected route
+  • Page-level permissions evaluated server-side on every request
+  • Branch isolation is enforced by the server, not the client:
+    a helper extracts the "effective branch" for the request and
+    overrides any client-side branchId for branch-locked users
+  • Strict double-entry validation in accounting (debits = credits,
+    no negatives, minimum two lines)
+  • Closed fiscal periods cannot accept new entries
+  • All write operations are validated against Zod schemas before
+    reaching the database
+  • Activity log captures user, IP, action, entity, entity ID,
+    description and timestamp on every significant operation
+  • Object storage uses scoped, authenticated URLs
+
+6.6  PROJECT STRUCTURE
+--------------------------------------------------------------------------------
+  client/src/        React frontend
+    components/      shadcn/ui components
+    hooks/           Custom React hooks
+    lib/             Query client, utilities
+    pages/           Route pages (dashboards, lists, forms, reports)
+      hr/            HRMIS pages
+  server/            Express backend
+    replit_integrations/auth/  Authentication setup
+    routes.ts        API route definitions
+    storage.ts       Database operations (storage interface)
+  shared/            Code shared between frontend & backend
+    schema.ts        Drizzle schema (single source of truth for data)
+    models/          Shared type definitions
+  migrations/        Drizzle migration files
+
+6.7  BUILD, RUN & DEPLOYMENT
+--------------------------------------------------------------------------------
+  • Development: a single command starts both the API and the Vite
+    dev server (proxied through Express, hot-module reload).
+  • Production: the frontend is bundled by Vite into static assets;
+    the backend is bundled by esbuild into a single CommonJS server.
+  • A single Node.js process serves the bundled frontend and the API
+    on the same port behind HTTPS.
+  • Runtime requirements: Node.js, PostgreSQL, an object-storage
+    bucket, and an OpenID Connect identity provider.
+  • Environment configuration via environment variables / secrets
+    (database URL, session secret, OIDC issuer URL, identifiers,
+    object storage paths). Secrets are never stored in source.
+
+6.8  OBSERVABILITY & GOVERNANCE
+--------------------------------------------------------------------------------
+  • In-app activity log accessible to admins / auditors
+  • Dashboards across all three modules with real-time data
+  • Notifications table for in-app alerts
+  • License-expiry, due-installment and collection alerts surfaced
+    on the main dashboard with click-through to the underlying
+    record
+
+
+================================================================================
+PART 7.  SUMMARY
+================================================================================
+
+This system delivers what a microfinance institution actually needs:
+
+  • A complete MICROFINANCE engine that runs the loan business —
+    customers, applications, multi-stage approvals, disbursements,
+    collections, restructuring, portfolio analytics and central-bank
+    reporting.
+
+  • A full ACCOUNTING engine that turns every operational event into
+    proper double-entry journals, posts them to a configurable chart
+    of accounts, controls fiscal periods, and produces every
+    standard financial statement plus the regulatory DAB report set.
+
+  • A full HRMIS that manages the workforce that runs the business —
+    organisation structure, employee files, attendance, leave,
+    payroll, benefits, recruitment, performance and training.
+
+  • A tight INTEGRATION layer so the three behave as one system:
+    one login, one branch model, one role model, one audit trail,
+    one source of truth — with operational events flowing
+    automatically into accounting and HR data flowing into payroll
+    journals.
+
+  • A modern, secure TECHNICAL FOUNDATION (TypeScript end-to-end,
+    PostgreSQL, OpenID Connect, RBAC, server-enforced branch
+    isolation, validated APIs, full audit log) that is ready for
+    growth and for regulatory scrutiny.
