@@ -18,3 +18,9 @@ id = "HHi-ZLYe8ibqV9vtCQB0c"
 uri = "file://HR_MODULE_DESCRIPTION.txt"
 type = "text"
 title = "Lamen Microfinance — HR Module Description"
+
+[[outputs]]
+id = "6KK_N_0TC4LYQ4TKMtufT"
+uri = "file://exports/lamen-app-overview.pptx"
+type = "slides"
+title = "Lamen Microfinance — Product Overview"
