@@ -306,6 +306,13 @@ export default function CollectionsPage() {
         title: result.overflowApplied ? "Overpayment Applied" : result.isPaid ? "Full Payment Recorded" : "Partial Payment Recorded",
         description,
       });
+      if (result.journalEntryError) {
+        toast({
+          title: "Journal entry NOT created",
+          description: `Payment was saved but the journal entry failed: ${result.journalEntryError}. Please post a manual journal entry to keep the books in sync.`,
+          variant: "destructive",
+        });
+      }
       setShowPayDialog(false);
       setSelectedInstallment(null);
       setPaymentAmount("");

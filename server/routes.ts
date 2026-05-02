@@ -4175,6 +4175,7 @@ export async function registerRoutes(
         `Recorded payment of AFN ${parsed.amount.toLocaleString()} applied to installment(s) ${installmentNums}${result.overflow > 0 ? ` (AFN ${result.overflow.toLocaleString()} unapplied)` : ""}`
       );
 
+      let journalEntryError: string | null = null;
       try {
         const loan = firstInstallment.loanId ? await storage.getLoan(firstInstallment.loanId) : null;
         const customer = loan?.customerId ? await storage.getCustomer(loan.customerId) : null;
@@ -4280,8 +4281,9 @@ export async function registerRoutes(
             lines
           );
         }
-      } catch (journalError) {
+      } catch (journalError: any) {
         console.error("Warning: Failed to create journal entry for collection:", journalError);
+        journalEntryError = journalError?.message || "Unknown error creating journal entry";
       }
 
       res.json({
@@ -4290,6 +4292,7 @@ export async function registerRoutes(
         installmentsPaid: result.paidInstallments.length,
         totalApplied: result.totalApplied,
         overflow: result.overflow,
+        journalEntryError,
       });
     } catch (error: any) {
       console.error("Error recording collection payment:", error);

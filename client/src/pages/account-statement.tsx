@@ -519,10 +519,12 @@ export default function AccountStatement() {
     doc.save(`Principal_Statement_${fundCode}_${startStr}_to_${endStr}.pdf`);
   };
 
-  const flattenStatements = (s: StatementData): StatementData[] => {
+  const flattenStatements = (s: StatementData, seen: Set<string> = new Set()): StatementData[] => {
+    if (seen.has(s.account.id)) return [];
+    seen.add(s.account.id);
     const out: StatementData[] = [s];
     (s.childStatements || []).forEach((c) => {
-      out.push(...flattenStatements(c));
+      out.push(...flattenStatements(c, seen));
     });
     return out;
   };
@@ -534,6 +536,7 @@ export default function AccountStatement() {
     const accCode = statement.account.accountCode;
     const all = flattenStatements(statement);
     const wb = XLSX.utils.book_new();
+    const usedNames = new Set<string>();
     all.forEach((s) => {
       const exportData: any[] = [];
       exportData.push({
@@ -557,7 +560,15 @@ export default function AccountStatement() {
       });
       const ws = XLSX.utils.json_to_sheet(exportData);
       ws["!cols"] = [{ wch: 12 }, { wch: 15 }, { wch: 40 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 18 }];
-      const sheetName = `${s.account.accountCode} ${s.account.accountName}`.replace(/[\\\/\?\*\[\]:]/g, " ").substring(0, 31);
+      const baseName = `${s.account.accountCode} ${s.account.accountName}`.replace(/[\\\/\?\*\[\]:]/g, " ").substring(0, 31);
+      let sheetName = baseName;
+      let suffix = 1;
+      while (usedNames.has(sheetName)) {
+        const tag = `~${suffix}`;
+        sheetName = `${baseName.substring(0, 31 - tag.length)}${tag}`;
+        suffix++;
+      }
+      usedNames.add(sheetName);
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
     });
     XLSX.writeFile(wb, `Account_Statement_${accCode}_${startStr}_to_${endStr}.xlsx`);

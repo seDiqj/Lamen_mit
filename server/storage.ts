@@ -6215,7 +6215,10 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getAccountStatement(accountId: string, startDate?: string, endDate?: string, fundingSourceId?: string, includeChildren?: boolean): Promise<any> {
+  async getAccountStatement(accountId: string, startDate?: string, endDate?: string, fundingSourceId?: string, includeChildren?: boolean, _visited?: Set<string>): Promise<any> {
+    const visited = _visited || new Set<string>();
+    if (visited.has(accountId)) return null;
+    visited.add(accountId);
     const [account] = await db.select().from(accounts).where(eq(accounts.id, accountId));
     if (!account) return null;
 
@@ -6303,7 +6306,7 @@ export class DatabaseStorage implements IStorage {
         .orderBy(asc(accounts.accountCode));
 
       for (const child of directChildren) {
-        const childStmt = await this.getAccountStatement(child.id, startDate, endDate, fundingSourceId, true);
+        const childStmt = await this.getAccountStatement(child.id, startDate, endDate, fundingSourceId, true, visited);
         if (childStmt) childStatements.push(childStmt);
       }
     }
