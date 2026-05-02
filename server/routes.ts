@@ -4238,7 +4238,13 @@ export async function registerRoutes(
             },
           ];
 
-          if (totalMarginApplied > 0 && profitDebitAccount && profitCreditAccount) {
+          if (totalMarginApplied > 0) {
+            if (!profitDebitAccount) {
+              throw new Error(`Profit debit account "${profitDebitCode}" not found in chart of accounts`);
+            }
+            if (!profitCreditAccount) {
+              throw new Error(`Profit credit account "${profitCreditCode}" not found in chart of accounts`);
+            }
             lines.push(
               {
                 accountId: profitDebitAccount.id,

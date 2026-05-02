@@ -171,7 +171,7 @@ export default function ShareholderReportPage() {
 
     tableRows.push([{ content: "Income (Margin)", colSpan: 2, styles: { fontStyle: "bold" } }, "Collected", "Receivable"]);
     data.income.margin.collected.items.forEach(item => {
-      const receivable = item.accountCode === "50300" ? data.income.margin.receivable.total : 0;
+      const receivable = item.accountCode === "40300" ? data.income.margin.receivable.total : 0;
       tableRows.push([`  ${item.accountCode}`, item.accountName, formatCurrency(item.balance), formatCurrency(receivable)]);
     });
     tableRows.push([{ content: "Subtotal", colSpan: 2, styles: { fontStyle: "bold" } }, formatCurrency(data.income.margin.collected.total), formatCurrency(data.income.margin.receivable.total)]);
@@ -513,7 +513,7 @@ export default function ShareholderReportPage() {
                         </thead>
                         <tbody>
                           {data.income.margin.collected.items.map((item) => {
-                            const receivableAmount = item.accountCode === "50300"
+                            const receivableAmount = item.accountCode === "40300"
                               ? data.income.margin.receivable.total
                               : 0;
                             return (
