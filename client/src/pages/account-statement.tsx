@@ -21,6 +21,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 import { FileSpreadsheet, FileText, Landmark, Banknote } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { formatDate } from "@/lib/date-utils";
@@ -61,6 +62,7 @@ type StatementData = {
   openingBalance: number;
   transactions: Transaction[];
   closingBalance: number;
+  childStatements?: StatementData[];
 };
 
 type FundStatementData = {
@@ -324,6 +326,7 @@ export default function AccountStatement() {
     return d.toISOString().split("T")[0];
   });
   const [endDate, setEndDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [includeChildren, setIncludeChildren] = useState(true);
   const [statement, setStatement] = useState<StatementData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -362,6 +365,9 @@ export default function AccountStatement() {
       const params = new URLSearchParams({ startDate, endDate });
       if (selectedFundingSource && selectedFundingSource !== "all") {
         params.set("fundingSourceId", selectedFundingSource);
+      }
+      if (includeChildren) {
+        params.set("includeChildren", "true");
       }
       const res = await fetch(`/api/reports/account-statement/${selectedAccount}?${params}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch");
@@ -513,19 +519,48 @@ export default function AccountStatement() {
     doc.save(`Principal_Statement_${fundCode}_${startStr}_to_${endStr}.pdf`);
   };
 
+  const flattenStatements = (s: StatementData): StatementData[] => {
+    const out: StatementData[] = [s];
+    (s.childStatements || []).forEach((c) => {
+      out.push(...flattenStatements(c));
+    });
+    return out;
+  };
+
   const handleExportExcel = () => {
     if (!statement) return;
     const startStr = startDate.replace(/-/g, "");
     const endStr = endDate.replace(/-/g, "");
     const accCode = statement.account.accountCode;
-    exportStatementExcel(
-      "Account Statement",
-      `${accCode} - ${statement.account.accountName}`,
-      statement.openingBalance,
-      statement.closingBalance,
-      statement.transactions,
-      `Account_Statement_${accCode}_${startStr}_to_${endStr}.xlsx`
-    );
+    const all = flattenStatements(statement);
+    const wb = XLSX.utils.book_new();
+    all.forEach((s) => {
+      const exportData: any[] = [];
+      exportData.push({
+        "Date": "", "Entry #": "", "Description": "Opening Balance",
+        "Reference": "", "Debit (AFN)": "", "Credit (AFN)": "", "Balance (AFN)": s.openingBalance,
+      });
+      s.transactions.forEach((tx) => {
+        exportData.push({
+          "Date": formatDate(tx.entryDate),
+          "Entry #": tx.entryNumber,
+          "Description": tx.description || "-",
+          "Reference": tx.reference || "-",
+          "Debit (AFN)": Number(tx.debitAmount) > 0 ? Number(tx.debitAmount) : "",
+          "Credit (AFN)": Number(tx.creditAmount) > 0 ? Number(tx.creditAmount) : "",
+          "Balance (AFN)": tx.balance,
+        });
+      });
+      exportData.push({
+        "Date": "", "Entry #": "", "Description": "Closing Balance",
+        "Reference": "", "Debit (AFN)": "", "Credit (AFN)": "", "Balance (AFN)": s.closingBalance,
+      });
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      ws["!cols"] = [{ wch: 12 }, { wch: 15 }, { wch: 40 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 18 }];
+      const sheetName = `${s.account.accountCode} ${s.account.accountName}`.replace(/[\\\/\?\*\[\]:]/g, " ").substring(0, 31);
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    });
+    XLSX.writeFile(wb, `Account_Statement_${accCode}_${startStr}_to_${endStr}.xlsx`);
   };
 
   const handleExportPDF = () => {
@@ -533,15 +568,70 @@ export default function AccountStatement() {
     const startStr = startDate.replace(/-/g, "");
     const endStr = endDate.replace(/-/g, "");
     const accCode = statement.account.accountCode;
-    exportStatementPDF(
-      "Account Statement",
-      `Account: ${accCode} - ${statement.account.accountName}`,
-      `Period: ${formatDate(startDate)} to ${formatDate(endDate)}`,
-      statement.openingBalance,
-      statement.closingBalance,
-      statement.transactions,
-      `Account_Statement_${accCode}_${startStr}_to_${endStr}.pdf`
-    );
+    const all = flattenStatements(statement);
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    all.forEach((s, idx) => {
+      if (idx > 0) doc.addPage();
+      doc.setFontSize(18);
+      doc.setFont("helvetica", "bold");
+      doc.text("Lamen Microfinance Institution", 148, 15, { align: "center" });
+      doc.setFontSize(14);
+      doc.text("Account Statement", 148, 23, { align: "center" });
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Account: ${s.account.accountCode} - ${s.account.accountName}`, 148, 31, { align: "center" });
+      doc.setFontSize(10);
+      doc.text(`Period: ${formatDate(startDate)} to ${formatDate(endDate)}`, 148, 38, { align: "center" });
+      doc.setFontSize(9);
+      doc.text(`Generated: ${new Date().toLocaleDateString()}`, 148, 44, { align: "center" });
+
+      const headers = ["Date", "Entry #", "Description", "Reference", "Debit (AFN)", "Credit (AFN)", "Balance (AFN)"];
+      const tableData: any[] = [];
+      tableData.push(["", "", { content: "Opening Balance", styles: { fontStyle: "bold" } }, "", "", "", { content: formatCurrency(s.openingBalance.toString()).replace("AFN", "").trim(), styles: { fontStyle: "bold" } }]);
+      s.transactions.forEach((tx) => {
+        tableData.push([
+          formatDate(tx.entryDate), tx.entryNumber,
+          tx.description || "-", tx.reference || "-",
+          Number(tx.debitAmount) > 0 ? formatCurrency(tx.debitAmount).replace("AFN", "").trim() : "-",
+          Number(tx.creditAmount) > 0 ? formatCurrency(tx.creditAmount).replace("AFN", "").trim() : "-",
+          formatCurrency(tx.balance.toString()).replace("AFN", "").trim(),
+        ]);
+      });
+      const totalDebit = s.transactions.reduce((sum, tx) => sum + Number(tx.debitAmount), 0);
+      const totalCredit = s.transactions.reduce((sum, tx) => sum + Number(tx.creditAmount), 0);
+      tableData.push(["", "", "", { content: "Total", styles: { fontStyle: "bold", halign: "right" } },
+        { content: formatCurrency(totalDebit.toString()).replace("AFN", "").trim(), styles: { fontStyle: "bold" } },
+        { content: formatCurrency(totalCredit.toString()).replace("AFN", "").trim(), styles: { fontStyle: "bold" } }, ""]);
+      tableData.push(["", "", { content: "Closing Balance", styles: { fontStyle: "bold" } }, "", "", "",
+        { content: formatCurrency(s.closingBalance.toString()).replace("AFN", "").trim(), styles: { fontStyle: "bold", fillColor: [240, 240, 240] } }]);
+
+      autoTable(doc, {
+        startY: 50,
+        head: [headers],
+        body: tableData,
+        theme: "grid",
+        headStyles: { fillColor: [34, 139, 34], textColor: [255, 255, 255], fontStyle: "bold", halign: "center" },
+        columnStyles: {
+          0: { halign: "center", cellWidth: 25 },
+          1: { halign: "center", cellWidth: 25 },
+          2: { halign: "left", cellWidth: 80 },
+          3: { halign: "center", cellWidth: 25 },
+          4: { halign: "right", cellWidth: 30 },
+          5: { halign: "right", cellWidth: 30 },
+          6: { halign: "right", cellWidth: 35 },
+        },
+        styles: { fontSize: 8, cellPadding: 2 },
+      });
+    });
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(128, 128, 128);
+      doc.text(`Page ${i} of ${pageCount}`, 148, 200, { align: "center" });
+      doc.text("Lamen Microfinance Institution - Confidential", 14, 200);
+    }
+    doc.save(`Account_Statement_${accCode}_${startStr}_to_${endStr}.pdf`);
   };
 
   const handleFundExportExcel = () => {
@@ -680,88 +770,105 @@ export default function AccountStatement() {
                     {isLoading ? "Loading..." : "Generate Statement"}
                   </Button>
                 </div>
+                <div className="flex items-center gap-2 pt-1">
+                  <Checkbox
+                    id="include-children"
+                    checked={includeChildren}
+                    onCheckedChange={(v) => setIncludeChildren(v === true)}
+                    data-testid="checkbox-include-children"
+                  />
+                  <Label htmlFor="include-children" className="text-sm font-normal cursor-pointer">
+                    Include child accounts (show a separate statement for each direct sub-account)
+                  </Label>
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          {statement && (
-            <Card className="print:shadow-none">
-              <CardHeader className="border-b">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div>
-                    <CardTitle className="text-xl">{statement.account.accountCode} - {statement.account.accountName}</CardTitle>
-                    <p className="text-muted-foreground text-sm mt-1">
-                      Statement period: {formatDate(startDate)} to {formatDate(endDate)}
-                      {selectedFundingSource !== "all" && (() => {
-                        const fs = fundingSources.find(f => f.id === selectedFundingSource);
-                        return fs ? ` | Fund: ${fs.code} - ${fs.name}` : "";
-                      })()}
-                    </p>
+          {statement && flattenStatements(statement).map((s, sIdx) => {
+            const isChild = sIdx > 0;
+            return (
+              <Card key={s.account.id} className={`print:shadow-none ${isChild ? "ml-4 border-l-4 border-l-violet-300 dark:border-l-violet-700" : ""}`}>
+                <CardHeader className="border-b">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div>
+                      <CardTitle className="text-xl">
+                        {isChild && <span className="text-xs font-normal text-muted-foreground mr-2">↳ Child</span>}
+                        {s.account.accountCode} - {s.account.accountName}
+                      </CardTitle>
+                      <p className="text-muted-foreground text-sm mt-1">
+                        Statement period: {formatDate(startDate)} to {formatDate(endDate)}
+                        {selectedFundingSource !== "all" && (() => {
+                          const fs = fundingSources.find(f => f.id === selectedFundingSource);
+                          return fs ? ` | Fund: ${fs.code} - ${fs.name}` : "";
+                        })()}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-muted-foreground">Opening Balance</p>
+                      <p className="text-xl font-bold">{formatCurrency(s.openingBalance.toString())}</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm text-muted-foreground">Opening Balance</p>
-                    <p className="text-xl font-bold">{formatCurrency(statement.openingBalance.toString())}</p>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-4">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Entry #</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Reference</TableHead>
-                      <TableHead className="text-right">Debit</TableHead>
-                      <TableHead className="text-right">Credit</TableHead>
-                      <TableHead className="text-right">Balance</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    <TableRow className="bg-muted/30">
-                      <TableCell colSpan={6} className="font-medium">Opening Balance</TableCell>
-                      <TableCell className="text-right font-mono font-medium">{formatCurrency(statement.openingBalance.toString())}</TableCell>
-                    </TableRow>
-                    {statement.transactions.length > 0 ? statement.transactions.map((tx, idx) => (
-                      <TableRow key={idx}>
-                        <TableCell>{formatDate(tx.entryDate)}</TableCell>
-                        <TableCell className="font-mono">{tx.entryNumber}</TableCell>
-                        <TableCell>{tx.description || "-"}</TableCell>
-                        <TableCell>{tx.reference || "-"}</TableCell>
-                        <TableCell className="text-right font-mono">
-                          {Number(tx.debitAmount) > 0 ? formatCurrency(tx.debitAmount) : "-"}
-                        </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {Number(tx.creditAmount) > 0 ? formatCurrency(tx.creditAmount) : "-"}
-                        </TableCell>
-                        <TableCell className="text-right font-mono">{formatCurrency(tx.balance.toString())}</TableCell>
-                      </TableRow>
-                    )) : (
+                </CardHeader>
+                <CardContent className="pt-4">
+                  <Table>
+                    <TableHeader>
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                          No transactions found in this period.
-                        </TableCell>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Entry #</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead>Reference</TableHead>
+                        <TableHead className="text-right">Debit</TableHead>
+                        <TableHead className="text-right">Credit</TableHead>
+                        <TableHead className="text-right">Balance</TableHead>
                       </TableRow>
-                    )}
-                    <TableRow className="bg-muted/20 font-semibold border-t-2">
-                      <TableCell colSpan={4} className="text-right">Total</TableCell>
-                      <TableCell className="text-right font-mono">
-                        {formatCurrency(statement.transactions.reduce((sum, tx) => sum + Number(tx.debitAmount), 0).toString())}
-                      </TableCell>
-                      <TableCell className="text-right font-mono">
-                        {formatCurrency(statement.transactions.reduce((sum, tx) => sum + Number(tx.creditAmount), 0).toString())}
-                      </TableCell>
-                      <TableCell></TableCell>
-                    </TableRow>
-                    <TableRow className="bg-muted/30 font-semibold">
-                      <TableCell colSpan={6}>Closing Balance</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency(statement.closingBalance.toString())}</TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          )}
+                    </TableHeader>
+                    <TableBody>
+                      <TableRow className="bg-muted/30">
+                        <TableCell colSpan={6} className="font-medium">Opening Balance</TableCell>
+                        <TableCell className="text-right font-mono font-medium">{formatCurrency(s.openingBalance.toString())}</TableCell>
+                      </TableRow>
+                      {s.transactions.length > 0 ? s.transactions.map((tx, idx) => (
+                        <TableRow key={idx}>
+                          <TableCell>{formatDate(tx.entryDate)}</TableCell>
+                          <TableCell className="font-mono">{tx.entryNumber}</TableCell>
+                          <TableCell>{tx.description || "-"}</TableCell>
+                          <TableCell>{tx.reference || "-"}</TableCell>
+                          <TableCell className="text-right font-mono">
+                            {Number(tx.debitAmount) > 0 ? formatCurrency(tx.debitAmount) : "-"}
+                          </TableCell>
+                          <TableCell className="text-right font-mono">
+                            {Number(tx.creditAmount) > 0 ? formatCurrency(tx.creditAmount) : "-"}
+                          </TableCell>
+                          <TableCell className="text-right font-mono">{formatCurrency(tx.balance.toString())}</TableCell>
+                        </TableRow>
+                      )) : (
+                        <TableRow>
+                          <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                            No transactions found in this period.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      <TableRow className="bg-muted/20 font-semibold border-t-2">
+                        <TableCell colSpan={4} className="text-right">Total</TableCell>
+                        <TableCell className="text-right font-mono">
+                          {formatCurrency(s.transactions.reduce((sum, tx) => sum + Number(tx.debitAmount), 0).toString())}
+                        </TableCell>
+                        <TableCell className="text-right font-mono">
+                          {formatCurrency(s.transactions.reduce((sum, tx) => sum + Number(tx.creditAmount), 0).toString())}
+                        </TableCell>
+                        <TableCell></TableCell>
+                      </TableRow>
+                      <TableRow className="bg-muted/30 font-semibold">
+                        <TableCell colSpan={6}>Closing Balance</TableCell>
+                        <TableCell className="text-right font-mono">{formatCurrency(s.closingBalance.toString())}</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            );
+          })}
         </TabsContent>
 
         <TabsContent value="fund" className="flex flex-col gap-4 mt-4">

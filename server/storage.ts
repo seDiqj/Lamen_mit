@@ -398,7 +398,7 @@ export interface IStorage {
   getTrialBalance(asOfDate?: string): Promise<any[]>;
   getIncomeStatement(startDate: string, endDate: string): Promise<any>;
   getBalanceSheet(asOfDate: string): Promise<any>;
-  getAccountStatement(accountId: string, startDate?: string, endDate?: string, fundingSourceId?: string): Promise<any>;
+  getAccountStatement(accountId: string, startDate?: string, endDate?: string, fundingSourceId?: string, includeChildren?: boolean): Promise<any>;
   getFundingSourceStatement(fundingSourceId: string, startDate?: string, endDate?: string): Promise<any>;
   getFundingSourcePrincipleStatement(fundingSourceId: string, startDate?: string, endDate?: string): Promise<any>;
   getCashFlowStatement(startDate: string, endDate: string): Promise<any>;
@@ -6215,7 +6215,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getAccountStatement(accountId: string, startDate?: string, endDate?: string, fundingSourceId?: string): Promise<any> {
+  async getAccountStatement(accountId: string, startDate?: string, endDate?: string, fundingSourceId?: string, includeChildren?: boolean): Promise<any> {
     const [account] = await db.select().from(accounts).where(eq(accounts.id, accountId));
     if (!account) return null;
 
@@ -6294,11 +6294,26 @@ export class DatabaseStorage implements IStorage {
       };
     });
 
+    let childStatements: any[] = [];
+    if (includeChildren) {
+      const directChildren = await db
+        .select()
+        .from(accounts)
+        .where(eq(accounts.parentId, accountId))
+        .orderBy(asc(accounts.accountCode));
+
+      for (const child of directChildren) {
+        const childStmt = await this.getAccountStatement(child.id, startDate, endDate, fundingSourceId, true);
+        if (childStmt) childStatements.push(childStmt);
+      }
+    }
+
     return {
       account,
       openingBalance,
       transactions: statement,
       closingBalance: runningBalance,
+      childStatements,
     };
   }
 

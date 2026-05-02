@@ -7639,12 +7639,13 @@ export async function registerRoutes(
 
   app.get("/api/reports/account-statement/:accountId", isAuthenticated, async (req, res) => {
     try {
-      const { startDate, endDate, fundingSourceId } = req.query;
+      const { startDate, endDate, fundingSourceId, includeChildren } = req.query;
       const statement = await storage.getAccountStatement(
         req.params.accountId,
         startDate as string,
         endDate as string,
-        fundingSourceId as string | undefined
+        fundingSourceId as string | undefined,
+        includeChildren === "true" || includeChildren === "1"
       );
       if (!statement) {
         return res.status(404).json({ message: "Account not found" });
