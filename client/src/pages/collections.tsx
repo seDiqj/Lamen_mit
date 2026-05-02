@@ -4,6 +4,7 @@ import { useBranch } from "@/contexts/branch-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -164,6 +165,10 @@ export default function CollectionsPage() {
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split("T")[0]);
   const [debitAccountCode, setDebitAccountCode] = useState("10206");
+  const [creditAccountCode, setCreditAccountCode] = useState("11000");
+  const [profitDebitAccountCode, setProfitDebitAccountCode] = useState("20900");
+  const [profitCreditAccountCode, setProfitCreditAccountCode] = useState("40300");
+  const [editAccounts, setEditAccounts] = useState(false);
   const limit = 20;
 
   const queryClient = useQueryClient();
@@ -213,8 +218,8 @@ export default function CollectionsPage() {
   const bankAccounts = accountsList.filter((a: any) => a.accountType === "asset" && a.accountCode.startsWith("1"));
 
   const payMutation = useMutation({
-    mutationFn: async ({ id, amount, paymentDate, debitAccountCode }: { id: string; amount: number; paymentDate: string; debitAccountCode: string }) => {
-      const res = await apiRequest("PATCH", `/api/collections/${id}/pay`, { amount, paymentDate, debitAccountCode });
+    mutationFn: async ({ id, amount, paymentDate, debitAccountCode, creditAccountCode, profitDebitAccountCode, profitCreditAccountCode }: { id: string; amount: number; paymentDate: string; debitAccountCode: string; creditAccountCode: string; profitDebitAccountCode: string; profitCreditAccountCode: string }) => {
+      const res = await apiRequest("PATCH", `/api/collections/${id}/pay`, { amount, paymentDate, debitAccountCode, creditAccountCode, profitDebitAccountCode, profitCreditAccountCode });
       return res.json();
     },
     onSuccess: (result) => {
@@ -241,6 +246,10 @@ export default function CollectionsPage() {
       setPaymentAmount("");
       setPaymentDate(new Date().toISOString().split("T")[0]);
       setDebitAccountCode("10206");
+      setCreditAccountCode("11000");
+      setProfitDebitAccountCode("20900");
+      setProfitCreditAccountCode("40300");
+      setEditAccounts(false);
     },
     onError: (error: any) => {
       toast({
@@ -297,6 +306,10 @@ export default function CollectionsPage() {
     setPaymentAmount(remaining.toFixed(2));
     setPaymentDate(new Date().toISOString().split("T")[0]);
     setDebitAccountCode("10206");
+    setCreditAccountCode("11000");
+    setProfitDebitAccountCode("20900");
+    setProfitCreditAccountCode("40300");
+    setEditAccounts(false);
     setShowPayDialog(true);
   };
 
@@ -307,7 +320,7 @@ export default function CollectionsPage() {
       toast({ title: "Invalid Amount", description: "Payment amount must be greater than 0", variant: "destructive" });
       return;
     }
-    payMutation.mutate({ id: selectedInstallment.id, amount, paymentDate, debitAccountCode });
+    payMutation.mutate({ id: selectedInstallment.id, amount, paymentDate, debitAccountCode, creditAccountCode, profitDebitAccountCode, profitCreditAccountCode });
   };
 
   const [exporting, setExporting] = useState(false);
@@ -840,21 +853,76 @@ export default function CollectionsPage() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="debit-account">Bank Account (Debit)</Label>
-                <Select value={debitAccountCode} onValueChange={setDebitAccountCode}>
-                  <SelectTrigger data-testid="select-debit-account">
-                    <SelectValue placeholder="Select bank account" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {bankAccounts.map((acc: any) => (
-                      <SelectItem key={acc.id} value={acc.accountCode}>
-                        {acc.accountCode} - {acc.accountName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">Credit: 11000 - Accounts Receivable (auto)</p>
+              <div className="rounded-md border p-3 space-y-3 bg-muted/30">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-semibold">Journal Entry Accounts</Label>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="edit-accounts-toggle" className="text-xs text-muted-foreground cursor-pointer">
+                      Edit
+                    </Label>
+                    <Switch
+                      id="edit-accounts-toggle"
+                      checked={editAccounts}
+                      onCheckedChange={setEditAccounts}
+                      data-testid="switch-edit-accounts"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="debit-account" className="text-xs">Bank / Cash Account (Debit)</Label>
+                  <Select value={debitAccountCode} onValueChange={setDebitAccountCode} disabled={!editAccounts}>
+                    <SelectTrigger data-testid="select-debit-account">
+                      <SelectValue placeholder="Select bank account" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {bankAccounts.map((acc: any) => (
+                        <SelectItem key={acc.id} value={acc.accountCode}>
+                          {acc.accountCode} - {acc.accountName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="credit-account" className="text-xs">Receivable Account (Credit)</Label>
+                  <Input
+                    id="credit-account"
+                    value={creditAccountCode}
+                    onChange={(e) => setCreditAccountCode(e.target.value)}
+                    disabled={!editAccounts}
+                    data-testid="input-credit-account"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="profit-debit-account" className="text-xs">Deferred Profit (Debit)</Label>
+                    <Input
+                      id="profit-debit-account"
+                      value={profitDebitAccountCode}
+                      onChange={(e) => setProfitDebitAccountCode(e.target.value)}
+                      disabled={!editAccounts}
+                      data-testid="input-profit-debit-account"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="profit-credit-account" className="text-xs">Profit Income (Credit)</Label>
+                    <Input
+                      id="profit-credit-account"
+                      value={profitCreditAccountCode}
+                      onChange={(e) => setProfitCreditAccountCode(e.target.value)}
+                      disabled={!editAccounts}
+                      data-testid="input-profit-credit-account"
+                    />
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  The first pair (cash ↔ receivable) is posted for the full payment amount. The second pair
+                  (deferred profit → profit income) recognizes only the margin / profit portion of the installment.
+                </p>
               </div>
 
               {parseFloat(paymentAmount) > 0 && parseFloat(paymentAmount) < (parseFloat(selectedInstallment.totalAmount) - parseFloat(selectedInstallment.paidAmount || "0") - 0.01) && (

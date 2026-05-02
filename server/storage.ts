@@ -2012,6 +2012,7 @@ export class DatabaseStorage implements IStorage {
         .where(eq(installments.id, id))
         .returning();
 
+      (updated as any).appliedAmount = applyToCurrent.toFixed(2);
       paidInstallments.push(updated);
       remainingPayment -= applyToCurrent;
 
@@ -2059,6 +2060,7 @@ export class DatabaseStorage implements IStorage {
             .where(eq(installments.id, nextInst.id))
             .returning();
 
+          (nextUpdated as any).appliedAmount = applyToNext.toFixed(2);
           paidInstallments.push(nextUpdated);
           remainingPayment -= applyToNext;
         }

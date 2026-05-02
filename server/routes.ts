@@ -4161,6 +4161,9 @@ export async function registerRoutes(
         amount: z.number().positive("Payment amount must be greater than 0"),
         paymentDate: z.string().optional(),
         debitAccountCode: z.string().optional(),
+        creditAccountCode: z.string().optional(),
+        profitDebitAccountCode: z.string().optional(),
+        profitCreditAccountCode: z.string().optional(),
       });
       const parsed = schema.parse(req.body);
       const result = await storage.recordPaymentWithOverflow(req.params.id, parsed.amount, parsed.paymentDate);
@@ -4180,17 +4183,37 @@ export async function registerRoutes(
 
         const debitCode = parsed.debitAccountCode || "10206";
 
-        let creditCode = "11000";
-        if (loan?.productName) {
-          const allProducts = await storage.getFinancingProducts();
-          const matchedProduct = allProducts.find((p: any) => p.name === loan.productName);
-          if (matchedProduct?.receivableAccountCode) {
-            creditCode = matchedProduct.receivableAccountCode;
+        let creditCode = parsed.creditAccountCode;
+        if (!creditCode) {
+          creditCode = "11000";
+          if (loan?.productName) {
+            const allProducts = await storage.getFinancingProducts();
+            const matchedProduct = allProducts.find((p: any) => p.name === loan.productName);
+            if (matchedProduct?.receivableAccountCode) {
+              creditCode = matchedProduct.receivableAccountCode;
+            }
           }
         }
 
+        const profitDebitCode = parsed.profitDebitAccountCode || "20900";
+        const profitCreditCode = parsed.profitCreditAccountCode || "40300";
+
         const debitAccount = await storage.getAccountByCode(debitCode);
         const creditAccount = await storage.getAccountByCode(creditCode);
+        const profitDebitAccount = await storage.getAccountByCode(profitDebitCode);
+        const profitCreditAccount = await storage.getAccountByCode(profitCreditCode);
+
+        // Compute margin (profit) portion to recognize for this collection
+        let totalMarginApplied = 0;
+        for (const inst of result.paidInstallments) {
+          const applied = parseFloat((inst as any).appliedAmount || "0");
+          const total = parseFloat(inst.totalAmount || "0");
+          const margin = parseFloat(inst.marginAmount || "0");
+          if (total > 0 && applied > 0 && margin > 0) {
+            totalMarginApplied += (applied / total) * margin;
+          }
+        }
+        totalMarginApplied = Math.round(totalMarginApplied * 100) / 100;
 
         if (debitAccount && creditAccount) {
           const entryNumber = await storage.getNextEntryNumber();
@@ -4214,6 +4237,25 @@ export async function registerRoutes(
               fundingSourceId: collFundId,
             },
           ];
+
+          if (totalMarginApplied > 0 && profitDebitAccount && profitCreditAccount) {
+            lines.push(
+              {
+                accountId: profitDebitAccount.id,
+                description: `Deferred profit recognized - ${customerName} Inst ${installmentNums}`,
+                debitAmount: totalMarginApplied.toFixed(2),
+                creditAmount: "0",
+                fundingSourceId: collFundId,
+              },
+              {
+                accountId: profitCreditAccount.id,
+                description: `Profit income - ${customerName} Inst ${installmentNums}`,
+                debitAmount: "0",
+                creditAmount: totalMarginApplied.toFixed(2),
+                fundingSourceId: collFundId,
+              },
+            );
+          }
 
           await storage.createJournalEntry(
             {
@@ -10091,6 +10133,20 @@ export async function registerRoutes(
       const firstInstallment = payResult.paidInstallments[0];
       const installmentNums = payResult.paidInstallments.map((i: any) => `#${i.installmentNumber}`).join(", ");
 
+      const profitDebitAccount = await storage.getAccountByCode("20900");
+      const profitCreditAccount = await storage.getAccountByCode("40300");
+
+      let totalMarginApplied = 0;
+      for (const inst of payResult.paidInstallments) {
+        const applied = parseFloat((inst as any).appliedAmount || "0");
+        const total = parseFloat(inst.totalAmount || "0");
+        const margin = parseFloat(inst.marginAmount || "0");
+        if (total > 0 && applied > 0 && margin > 0) {
+          totalMarginApplied += (applied / total) * margin;
+        }
+      }
+      totalMarginApplied = Math.round(totalMarginApplied * 100) / 100;
+
       const entryNumber = await storage.getNextEntryNumber();
       const description = `Collection: ${record.customer_name} (${record.loan_application_id}) - Inst ${installmentNums} - AFN ${amount.toLocaleString()}`;
       const fundId = record.funding_source_id || null;
@@ -10111,6 +10167,25 @@ export async function registerRoutes(
           fundingSourceId: fundId,
         },
       ];
+
+      if (totalMarginApplied > 0 && profitDebitAccount && profitCreditAccount) {
+        lines.push(
+          {
+            accountId: profitDebitAccount.id,
+            description: `Deferred profit recognized - ${record.customer_name} Inst ${installmentNums}`,
+            debitAmount: totalMarginApplied.toFixed(2),
+            creditAmount: "0",
+            fundingSourceId: fundId,
+          },
+          {
+            accountId: profitCreditAccount.id,
+            description: `Profit income - ${record.customer_name} Inst ${installmentNums}`,
+            debitAmount: "0",
+            creditAmount: totalMarginApplied.toFixed(2),
+            fundingSourceId: fundId,
+          },
+        );
+      }
 
       const je = await storage.createJournalEntry(
         {
