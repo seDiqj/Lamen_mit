@@ -746,7 +746,7 @@ export default function CollectionsPage() {
       </Card>
 
       <Dialog open={showPayDialog} onOpenChange={setShowPayDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Record Payment</DialogTitle>
             <DialogDescription>
@@ -755,7 +755,7 @@ export default function CollectionsPage() {
           </DialogHeader>
           {selectedInstallment && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                 <div>
                   <span className="text-muted-foreground">Financing ID</span>
                   <p className="font-medium">{selectedInstallment.loanApplicationId}</p>
@@ -772,7 +772,7 @@ export default function CollectionsPage() {
                   <span className="text-muted-foreground">Already Paid</span>
                   <p className="font-medium">{formatCurrency(selectedInstallment.paidAmount)}</p>
                 </div>
-                <div className="col-span-2">
+                <div className="col-span-2 md:col-span-4">
                   <span className="text-muted-foreground">Remaining Balance</span>
                   <p className="text-lg font-bold text-primary">
                     {formatCurrency(parseFloat(selectedInstallment.totalAmount) - parseFloat(selectedInstallment.paidAmount || "0"))}
@@ -801,102 +801,104 @@ export default function CollectionsPage() {
                 return null;
               })()}
 
-              <div className="space-y-2">
-                <Label htmlFor="payment-date">Payment Date</Label>
-                <Input
-                  id="payment-date"
-                  type="date"
-                  value={paymentDate}
-                  onChange={(e) => setPaymentDate(e.target.value)}
-                  data-testid="input-payment-date"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="payment-amount">Payment Amount (AFN)</Label>
-                <Input
-                  id="payment-amount"
-                  type="number"
-                  step="0.01"
-                  min="1"
-                  value={paymentAmount}
-                  onChange={(e) => setPaymentAmount(e.target.value)}
-                  data-testid="input-payment-amount"
-                />
-                {parseFloat(paymentAmount || "0") > (parseFloat(selectedInstallment.totalAmount) - parseFloat(selectedInstallment.paidAmount || "0")) + 0.01 && (
-                  <div className="rounded-md bg-blue-50 dark:bg-blue-950/20 p-2 border border-blue-200 dark:border-blue-900/30">
-                    <p className="text-xs text-blue-700 dark:text-blue-400">
-                      Excess of {formatCurrency(parseFloat(paymentAmount || "0") - (parseFloat(selectedInstallment.totalAmount) - parseFloat(selectedInstallment.paidAmount || "0")))} will be applied to the next installment(s) as partial payment.
-                    </p>
-                  </div>
-                )}
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPaymentAmount((parseFloat(selectedInstallment.totalAmount) - parseFloat(selectedInstallment.paidAmount || "0")).toFixed(2))}
-                    data-testid="button-full-amount"
-                  >
-                    Full Amount
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const remaining = parseFloat(selectedInstallment.totalAmount) - parseFloat(selectedInstallment.paidAmount || "0");
-                      setPaymentAmount((remaining / 2).toFixed(2));
-                    }}
-                    data-testid="button-half-amount"
-                  >
-                    Half
-                  </Button>
-                </div>
-              </div>
-
-              <div className="rounded-md border p-3 space-y-3 bg-muted/30">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-semibold">Journal Entry Accounts</Label>
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="edit-accounts-toggle" className="text-xs text-muted-foreground cursor-pointer">
-                      Edit
-                    </Label>
-                    <Switch
-                      id="edit-accounts-toggle"
-                      checked={editAccounts}
-                      onCheckedChange={setEditAccounts}
-                      data-testid="switch-edit-accounts"
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="payment-date">Payment Date</Label>
+                    <Input
+                      id="payment-date"
+                      type="date"
+                      value={paymentDate}
+                      onChange={(e) => setPaymentDate(e.target.value)}
+                      data-testid="input-payment-date"
                     />
                   </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="payment-amount">Payment Amount (AFN)</Label>
+                    <Input
+                      id="payment-amount"
+                      type="number"
+                      step="0.01"
+                      min="1"
+                      value={paymentAmount}
+                      onChange={(e) => setPaymentAmount(e.target.value)}
+                      data-testid="input-payment-amount"
+                    />
+                    {parseFloat(paymentAmount || "0") > (parseFloat(selectedInstallment.totalAmount) - parseFloat(selectedInstallment.paidAmount || "0")) + 0.01 && (
+                      <div className="rounded-md bg-blue-50 dark:bg-blue-950/20 p-2 border border-blue-200 dark:border-blue-900/30">
+                        <p className="text-xs text-blue-700 dark:text-blue-400">
+                          Excess of {formatCurrency(parseFloat(paymentAmount || "0") - (parseFloat(selectedInstallment.totalAmount) - parseFloat(selectedInstallment.paidAmount || "0")))} will be applied to the next installment(s) as partial payment.
+                        </p>
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPaymentAmount((parseFloat(selectedInstallment.totalAmount) - parseFloat(selectedInstallment.paidAmount || "0")).toFixed(2))}
+                        data-testid="button-full-amount"
+                      >
+                        Full Amount
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const remaining = parseFloat(selectedInstallment.totalAmount) - parseFloat(selectedInstallment.paidAmount || "0");
+                          setPaymentAmount((remaining / 2).toFixed(2));
+                        }}
+                        data-testid="button-half-amount"
+                      >
+                        Half
+                      </Button>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="debit-account" className="text-xs">Bank / Cash Account (Debit)</Label>
-                  <Select value={debitAccountCode} onValueChange={setDebitAccountCode} disabled={!editAccounts}>
-                    <SelectTrigger data-testid="select-debit-account">
-                      <SelectValue placeholder="Select bank account" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {bankAccounts.map((acc: any) => (
-                        <SelectItem key={acc.id} value={acc.accountCode}>
-                          {acc.accountCode} - {acc.accountName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <div className="rounded-md border p-3 space-y-3 bg-muted/30">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-semibold">Journal Entry Accounts</Label>
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="edit-accounts-toggle" className="text-xs text-muted-foreground cursor-pointer">
+                        Edit
+                      </Label>
+                      <Switch
+                        id="edit-accounts-toggle"
+                        checked={editAccounts}
+                        onCheckedChange={setEditAccounts}
+                        data-testid="switch-edit-accounts"
+                      />
+                    </div>
+                  </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="credit-account" className="text-xs">Receivable Account (Credit)</Label>
-                  <Input
-                    id="credit-account"
-                    value={creditAccountCode}
-                    onChange={(e) => setCreditAccountCode(e.target.value)}
-                    disabled={!editAccounts}
-                    data-testid="input-credit-account"
-                  />
-                </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="debit-account" className="text-xs">Bank / Cash Account (Debit)</Label>
+                    <Select value={debitAccountCode} onValueChange={setDebitAccountCode} disabled={!editAccounts}>
+                      <SelectTrigger data-testid="select-debit-account">
+                        <SelectValue placeholder="Select bank account" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {bankAccounts.map((acc: any) => (
+                          <SelectItem key={acc.id} value={acc.accountCode}>
+                            {acc.accountCode} - {acc.accountName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="credit-account" className="text-xs">Receivable Account (Credit)</Label>
+                    <Input
+                      id="credit-account"
+                      value={creditAccountCode}
+                      onChange={(e) => setCreditAccountCode(e.target.value)}
+                      disabled={!editAccounts}
+                      data-testid="input-credit-account"
+                    />
+                  </div>
+
                   <div className="space-y-2">
                     <Label htmlFor="profit-debit-account" className="text-xs">Deferred Profit (Debit)</Label>
                     <Input
@@ -907,6 +909,7 @@ export default function CollectionsPage() {
                       data-testid="input-profit-debit-account"
                     />
                   </div>
+
                   <div className="space-y-2">
                     <Label htmlFor="profit-credit-account" className="text-xs">Profit Income (Credit)</Label>
                     <Input
@@ -917,12 +920,12 @@ export default function CollectionsPage() {
                       data-testid="input-profit-credit-account"
                     />
                   </div>
-                </div>
 
-                <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  The first pair (cash ↔ receivable) is posted for the full payment amount. The second pair
-                  (deferred profit → profit income) recognizes only the margin / profit portion of the installment.
-                </p>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    The first pair (cash ↔ receivable) posts the full payment. The second pair
+                    (deferred profit → profit income) recognizes only the margin portion.
+                  </p>
+                </div>
               </div>
 
               {parseFloat(paymentAmount) > 0 && parseFloat(paymentAmount) < (parseFloat(selectedInstallment.totalAmount) - parseFloat(selectedInstallment.paidAmount || "0") - 0.01) && (
