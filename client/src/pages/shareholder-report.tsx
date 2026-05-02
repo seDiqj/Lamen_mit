@@ -113,7 +113,7 @@ export default function ShareholderReportPage() {
     rows.push([]);
     rows.push(["Income (Margin)", "", "", ""]);
     data.income.margin.collected.items.forEach(item => {
-      const receivable = item.accountCode === "50300" ? data.income.margin.receivable.total : 0;
+      const receivable = item.accountCode === "40300" ? data.income.margin.receivable.total : 0;
       rows.push([`  ${item.accountCode} - ${item.accountName}`, "", formatCurrency(item.balance), formatCurrency(receivable)]);
     });
     rows.push(["Subtotal Income (Margin)", "", formatCurrency(data.income.margin.collected.total), formatCurrency(data.income.margin.receivable.total)]);

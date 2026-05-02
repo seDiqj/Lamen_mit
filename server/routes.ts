@@ -6760,7 +6760,7 @@ export async function registerRoutes(
         return total;
       };
 
-      const rev_murabaha = getBalance("50300", "20900");
+      const rev_murabaha = getBalance("40300", "20900");
       const rev_mudaraba = getBalance("50100");
       const rev_musharaka = getBalance("50200");
       const rev_other = 0;
