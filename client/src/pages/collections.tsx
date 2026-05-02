@@ -50,7 +50,12 @@ import {
   Download,
   FileSpreadsheet,
   Undo2,
+  ChevronsUpDown,
+  Check,
 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -141,6 +146,66 @@ function getParColor(bucket: string): string {
     case "PAR 90+": return "bg-red-200 text-red-900 dark:bg-red-900/50 dark:text-red-300";
     default: return "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400";
   }
+}
+
+interface AccountComboboxProps {
+  value: string;
+  onChange: (val: string) => void;
+  accounts: any[];
+  disabled?: boolean;
+  placeholder?: string;
+  testId?: string;
+}
+
+function AccountCombobox({ value, onChange, accounts, disabled, placeholder, testId }: AccountComboboxProps) {
+  const [open, setOpen] = useState(false);
+  const selected = accounts.find((a) => a.accountCode === value);
+  const label = selected
+    ? `${selected.accountCode} - ${selected.accountName}`
+    : value
+      ? value
+      : placeholder || "Select account";
+
+  return (
+    <Popover open={open} onOpenChange={(o) => !disabled && setOpen(o)}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          disabled={disabled}
+          className="w-full justify-between font-normal"
+          data-testid={testId}
+        >
+          <span className="truncate">{label}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[340px] p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Search by code or name..." />
+          <CommandList>
+            <CommandEmpty>No account found.</CommandEmpty>
+            <CommandGroup>
+              {accounts.map((a) => (
+                <CommandItem
+                  key={a.id}
+                  value={`${a.accountCode} ${a.accountName}`}
+                  onSelect={() => {
+                    onChange(a.accountCode);
+                    setOpen(false);
+                  }}
+                >
+                  <Check className={cn("mr-2 h-4 w-4", value === a.accountCode ? "opacity-100" : "opacity-0")} />
+                  {a.accountCode} - {a.accountName}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 export default function CollectionsPage() {
@@ -889,35 +954,38 @@ export default function CollectionsPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="credit-account" className="text-xs">Receivable Account (Credit)</Label>
-                    <Input
-                      id="credit-account"
+                    <Label className="text-xs">Receivable Account (Credit)</Label>
+                    <AccountCombobox
                       value={creditAccountCode}
-                      onChange={(e) => setCreditAccountCode(e.target.value)}
+                      onChange={setCreditAccountCode}
+                      accounts={accountsList}
                       disabled={!editAccounts}
-                      data-testid="input-credit-account"
+                      placeholder="Select receivable account"
+                      testId="combobox-credit-account"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="profit-debit-account" className="text-xs">Deferred Profit (Debit)</Label>
-                    <Input
-                      id="profit-debit-account"
+                    <Label className="text-xs">Deferred Profit (Debit)</Label>
+                    <AccountCombobox
                       value={profitDebitAccountCode}
-                      onChange={(e) => setProfitDebitAccountCode(e.target.value)}
+                      onChange={setProfitDebitAccountCode}
+                      accounts={accountsList}
                       disabled={!editAccounts}
-                      data-testid="input-profit-debit-account"
+                      placeholder="Select deferred profit account"
+                      testId="combobox-profit-debit-account"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="profit-credit-account" className="text-xs">Profit Income (Credit)</Label>
-                    <Input
-                      id="profit-credit-account"
+                    <Label className="text-xs">Profit Income (Credit)</Label>
+                    <AccountCombobox
                       value={profitCreditAccountCode}
-                      onChange={(e) => setProfitCreditAccountCode(e.target.value)}
+                      onChange={setProfitCreditAccountCode}
+                      accounts={accountsList}
                       disabled={!editAccounts}
-                      data-testid="input-profit-credit-account"
+                      placeholder="Select profit income account"
+                      testId="combobox-profit-credit-account"
                     />
                   </div>
 
