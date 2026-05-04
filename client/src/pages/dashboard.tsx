@@ -656,14 +656,25 @@ export default function Dashboard() {
       </Card>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Total Financing Applications"
-          value={stats?.totalLoans?.toString() || "0"}
-          icon={FileText}
-          loading={isLoading}
-          gradient="bg-gradient-to-r from-blue-500 to-cyan-500"
-          iconBg="bg-gradient-to-br from-blue-500 to-cyan-600"
-        />
+        <Card
+          className="overflow-hidden border-0 shadow-lg cursor-pointer"
+          onClick={() => setCustomersByStatusDialogOpen(true)}
+          data-testid="card-stat-total-financing-applications"
+        >
+          <div className="h-1 bg-gradient-to-r from-blue-500 to-cyan-500" />
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm text-muted-foreground font-medium">Total Financing Applications</p>
+                <p className="text-2xl font-bold mt-1">{isLoading ? "..." : (stats?.totalLoans?.toString() || "0")}</p>
+              </div>
+              <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center shadow-lg">
+                <FileText className="h-7 w-7 text-white" />
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-2 text-center">Click for details</p>
+          </CardContent>
+        </Card>
         {(() => {
           const curCount = stats?.currentMonthCount || 0;
           const curAmount = stats?.currentMonthAmount || 0;
@@ -686,25 +697,14 @@ export default function Dashboard() {
             />
           );
         })()}
-        <Card
-          className="overflow-hidden border-0 shadow-lg cursor-pointer"
-          onClick={() => setCustomersByStatusDialogOpen(true)}
-          data-testid="card-stat-total-customers"
-        >
-          <div className="h-1 bg-gradient-to-r from-violet-500 to-purple-500" />
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm text-muted-foreground font-medium">Total Customers</p>
-                <p className="text-2xl font-bold mt-1">{stats?.totalCustomers?.toString() || "0"}</p>
-              </div>
-              <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg">
-                <Users className="h-7 w-7 text-white" />
-              </div>
-            </div>
-            <p className="text-[10px] text-muted-foreground mt-2 text-center">Click for details</p>
-          </CardContent>
-        </Card>
+        <StatCard
+          title="Total Customers"
+          value={isLoading ? "..." : (stats?.disbursedLoanCount?.toString() || "0")}
+          icon={Users}
+          loading={isLoading}
+          gradient="bg-gradient-to-r from-violet-500 to-purple-500"
+          iconBg="bg-gradient-to-br from-violet-500 to-purple-600"
+        />
         {isLoading ? (
           <Card className="overflow-hidden">
             <CardContent className="p-6">
