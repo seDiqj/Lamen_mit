@@ -21,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { FileSpreadsheet, FileText, Receipt, Loader2 } from "lucide-react";
+import { FileSpreadsheet, FileText, Receipt, Loader2, Calendar } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { formatDate } from "@/lib/date-utils";
 import * as XLSX from "xlsx";
@@ -71,8 +71,74 @@ export default function CollectionReport() {
   });
   const [endDate, setEndDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [officerId, setOfficerId] = useState("all");
+  const [activePreset, setActivePreset] = useState<string | null>(null);
   const [data, setData] = useState<CollectionRow[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  const fmt = (d: Date) => d.toISOString().split("T")[0];
+
+  const applyDatePreset = (preset: string) => {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = today.getMonth();
+    const d = today.getDate();
+    let s: Date, e: Date;
+    switch (preset) {
+      case "today":
+        s = e = today;
+        break;
+      case "this-week": {
+        const day = today.getDay();
+        s = new Date(y, m, d - (day === 0 ? 6 : day - 1));
+        e = today;
+        break;
+      }
+      case "this-month":
+        s = new Date(y, m, 1);
+        e = today;
+        break;
+      case "last-month":
+        s = new Date(y, m - 1, 1);
+        e = new Date(y, m, 0);
+        break;
+      case "this-quarter": {
+        const qStart = Math.floor(m / 3) * 3;
+        s = new Date(y, qStart, 1);
+        e = today;
+        break;
+      }
+      case "last-quarter": {
+        const qStart = Math.floor(m / 3) * 3;
+        s = new Date(y, qStart - 3, 1);
+        e = new Date(y, qStart, 0);
+        break;
+      }
+      case "this-year":
+        s = new Date(y, 0, 1);
+        e = today;
+        break;
+      case "last-year":
+        s = new Date(y - 1, 0, 1);
+        e = new Date(y - 1, 11, 31);
+        break;
+      default:
+        return;
+    }
+    setStartDate(fmt(s));
+    setEndDate(fmt(e));
+    setActivePreset(preset);
+  };
+
+  const datePresets = [
+    { key: "today", label: "Today" },
+    { key: "this-week", label: "This Week" },
+    { key: "this-month", label: "This Month" },
+    { key: "last-month", label: "Last Month" },
+    { key: "this-quarter", label: "This Quarter" },
+    { key: "last-quarter", label: "Last Quarter" },
+    { key: "this-year", label: "This Year" },
+    { key: "last-year", label: "Last Year" },
+  ];
 
   const { data: branchesData } = useQuery<Branch[]>({ queryKey: ["/api/branches"] });
   const { data: officersData } = useQuery<Officer[]>({ queryKey: ["/api/finance-officers/active"] });
@@ -334,15 +400,31 @@ export default function CollectionReport() {
         <CardHeader className="pb-3">
           <CardTitle className="text-lg">Filter Options</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium text-muted-foreground mr-1">Quick Select:</span>
+            {datePresets.map((p) => (
+              <Button
+                key={p.key}
+                variant={activePreset === p.key ? "default" : "outline"}
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => applyDatePreset(p.key)}
+                data-testid={`button-preset-${p.key}`}
+              >
+                {p.label}
+              </Button>
+            ))}
+          </div>
           <div className="flex items-end gap-4 flex-wrap">
             <div className="space-y-2">
               <Label>Start Date</Label>
-              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} data-testid="input-start-date" />
+              <Input type="date" value={startDate} onChange={(e) => { setStartDate(e.target.value); setActivePreset(null); }} data-testid="input-start-date" />
             </div>
             <div className="space-y-2">
               <Label>End Date</Label>
-              <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} data-testid="input-end-date" />
+              <Input type="date" value={endDate} onChange={(e) => { setEndDate(e.target.value); setActivePreset(null); }} data-testid="input-end-date" />
             </div>
             <div className="space-y-2">
               <Label>Branch</Label>
