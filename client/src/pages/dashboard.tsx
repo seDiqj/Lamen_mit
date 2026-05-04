@@ -7,6 +7,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useAuth } from "@/hooks/use-auth";
 import { formatDate } from "@/lib/date-utils";
 import {
@@ -141,6 +149,20 @@ type DashboardStats = {
     expenseBreakdown: { accountCode: string; accountName: string; amount: number }[];
     monthlyTrend: { month: string; income: number; expenses: number; netIncome: number }[];
   };
+  productBreakdown: {
+    productName: string;
+    loanCount: number;
+    totalDisbursed: number;
+    totalPortfolio: number;
+    portfolioPrincipal: number;
+    portfolioMargin: number;
+    totalCollected: number;
+    principalCollected: number;
+    marginCollected: number;
+    outstandingBalance: number;
+    outstandingPrincipal: number;
+    outstandingMargin: number;
+  }[];
   loansByStatus: { status: string; count: number; requestedAmount: number }[];
   monthlyTrends: { month: string; disbursed: number; collected: number }[];
   recentLoans: {
@@ -262,6 +284,7 @@ type StatCardProps = {
   gradient: string;
   iconBg: string;
   breakdown?: StatCardBreakdown[];
+  onProductClick?: () => void;
 };
 
 function StatCard({
@@ -274,9 +297,11 @@ function StatCard({
   gradient,
   iconBg,
   breakdown,
+  onProductClick,
 }: StatCardProps) {
   const [expanded, setExpanded] = useState(false);
   const isClickable = breakdown && breakdown.length > 0;
+  const hasAction = isClickable || !!onProductClick;
 
   if (loading) {
     return (
@@ -294,10 +319,18 @@ function StatCard({
     );
   }
 
+  const handleClick = () => {
+    if (onProductClick) {
+      onProductClick();
+    } else if (isClickable) {
+      setExpanded(!expanded);
+    }
+  };
+
   return (
     <Card
-      className={`overflow-hidden border-0 shadow-lg ${isClickable ? "cursor-pointer" : ""}`}
-      onClick={isClickable ? () => setExpanded(!expanded) : undefined}
+      className={`overflow-hidden border-0 shadow-lg ${hasAction ? "cursor-pointer hover:shadow-xl transition-shadow" : ""}`}
+      onClick={hasAction ? handleClick : undefined}
       data-testid={`card-stat-${title.toLowerCase().replace(/\s+/g, '-')}`}
     >
       <div className={`h-1 ${gradient}`} />
@@ -323,7 +356,7 @@ function StatCard({
             <Icon className="h-7 w-7 text-white" />
           </div>
         </div>
-        {isClickable && expanded && (
+        {isClickable && !onProductClick && expanded && (
           <div className="mt-3 pt-3 border-t border-dashed space-y-1.5">
             {breakdown.map((item, idx) => (
               <div key={idx} className="flex items-center justify-between text-sm">
@@ -333,9 +366,9 @@ function StatCard({
             ))}
           </div>
         )}
-        {isClickable && (
+        {hasAction && (
           <p className="text-[10px] text-muted-foreground mt-2 text-center">
-            {expanded ? "Click to collapse" : "Click for details"}
+            {onProductClick ? "Click for details" : (expanded ? "Click to collapse" : "Click for details")}
           </p>
         )}
       </CardContent>
@@ -376,6 +409,8 @@ export default function Dashboard() {
   const [customersByStatusDialogOpen, setCustomersByStatusDialogOpen] = useState(false);
   const [sectorDialogOpen, setSectorDialogOpen] = useState(false);
   const [selectedSector, setSelectedSector] = useState<string | null>(null);
+  const [productDialogOpen, setProductDialogOpen] = useState(false);
+  const [productDialogMetric, setProductDialogMetric] = useState<"disbursed" | "portfolio" | "collected" | "outstanding">("disbursed");
   const [incomeExpanded, setIncomeExpanded] = useState(false);
   const [expenseExpanded, setExpenseExpanded] = useState(false);
 
@@ -756,6 +791,7 @@ export default function Dashboard() {
           loading={isLoading}
           gradient="bg-gradient-to-r from-teal-500 to-emerald-500"
           iconBg="bg-gradient-to-br from-teal-500 to-emerald-600"
+          onProductClick={() => { setProductDialogMetric("disbursed"); setProductDialogOpen(true); }}
         />
         <StatCard
           title="Total Portfolio"
@@ -764,10 +800,7 @@ export default function Dashboard() {
           loading={isLoading}
           gradient="bg-gradient-to-r from-purple-500 to-violet-500"
           iconBg="bg-gradient-to-br from-purple-500 to-violet-600"
-          breakdown={[
-            { label: "Principal Amount", value: formatCurrency(stats?.portfolioPrincipal || 0) },
-            { label: "Profit (Margin)", value: formatCurrency(stats?.portfolioMargin || 0) },
-          ]}
+          onProductClick={() => { setProductDialogMetric("portfolio"); setProductDialogOpen(true); }}
         />
         <StatCard
           title="Total Collected"
@@ -776,10 +809,7 @@ export default function Dashboard() {
           loading={isLoading}
           gradient="bg-gradient-to-r from-green-500 to-lime-500"
           iconBg="bg-gradient-to-br from-green-500 to-lime-600"
-          breakdown={[
-            { label: "Principal Amount", value: formatCurrency(stats?.principalCollected || 0) },
-            { label: "Profit (Margin)", value: formatCurrency(stats?.marginCollected || 0) },
-          ]}
+          onProductClick={() => { setProductDialogMetric("collected"); setProductDialogOpen(true); }}
         />
         <StatCard
           title="Outstanding Balance"
@@ -788,10 +818,7 @@ export default function Dashboard() {
           loading={isLoading}
           gradient="bg-gradient-to-r from-indigo-500 to-blue-500"
           iconBg="bg-gradient-to-br from-indigo-500 to-blue-600"
-          breakdown={[
-            { label: "Principal Amount", value: formatCurrency((stats?.portfolioPrincipal || 0) - (stats?.principalCollected || 0)) },
-            { label: "Profit (Margin)", value: formatCurrency((stats?.portfolioMargin || 0) - (stats?.marginCollected || 0)) },
-          ]}
+          onProductClick={() => { setProductDialogMetric("outstanding"); setProductDialogOpen(true); }}
         />
         <StatCard
           title="Average Loan Size"
@@ -806,6 +833,128 @@ export default function Dashboard() {
           })) || []}
         />
       </div>
+
+      <Dialog open={productDialogOpen} onOpenChange={setProductDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle data-testid="text-product-dialog-title">
+              {productDialogMetric === "disbursed" && "Total Disbursed — By Product"}
+              {productDialogMetric === "portfolio" && "Total Portfolio — By Product"}
+              {productDialogMetric === "collected" && "Total Collected — By Product"}
+              {productDialogMetric === "outstanding" && "Outstanding Balance — By Product"}
+            </DialogTitle>
+          </DialogHeader>
+          {stats?.productBreakdown && stats.productBreakdown.length > 0 ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 rounded-lg bg-muted/50">
+                  <p className="text-xs text-muted-foreground">Grand Total</p>
+                  <p className="text-lg font-bold" data-testid="text-product-grand-total">
+                    {formatCurrency(
+                      productDialogMetric === "disbursed" ? (stats.totalDisbursed || 0) :
+                      productDialogMetric === "portfolio" ? (stats.totalPortfolio || 0) :
+                      productDialogMetric === "collected" ? (stats.totalCollected || 0) :
+                      (stats.outstandingBalance || 0)
+                    )}
+                  </p>
+                </div>
+                <div className="p-3 rounded-lg bg-muted/50">
+                  <p className="text-xs text-muted-foreground">Products</p>
+                  <p className="text-lg font-bold" data-testid="text-product-count">{stats.productBreakdown.length}</p>
+                </div>
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Product</TableHead>
+                    <TableHead className="text-center">Loans</TableHead>
+                    {productDialogMetric !== "disbursed" ? (
+                      <>
+                        <TableHead className="text-right">Principal</TableHead>
+                        <TableHead className="text-right">Margin</TableHead>
+                      </>
+                    ) : null}
+                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead className="text-right">Share %</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {stats.productBreakdown.map((p, idx) => {
+                    const amount =
+                      productDialogMetric === "disbursed" ? p.totalDisbursed :
+                      productDialogMetric === "portfolio" ? p.totalPortfolio :
+                      productDialogMetric === "collected" ? p.totalCollected :
+                      p.outstandingBalance;
+                    const grandTotal =
+                      productDialogMetric === "disbursed" ? (stats.totalDisbursed || 1) :
+                      productDialogMetric === "portfolio" ? (stats.totalPortfolio || 1) :
+                      productDialogMetric === "collected" ? (stats.totalCollected || 1) :
+                      (stats.outstandingBalance || 1);
+                    const share = grandTotal > 0 ? ((amount / grandTotal) * 100).toFixed(1) : "0.0";
+                    return (
+                      <TableRow key={idx} data-testid={`row-product-${idx}`}>
+                        <TableCell className="font-medium">{p.productName}</TableCell>
+                        <TableCell className="text-center">{p.loanCount}</TableCell>
+                        {productDialogMetric === "portfolio" ? (
+                          <>
+                            <TableCell className="text-right">{formatCurrency(p.portfolioPrincipal)}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(p.portfolioMargin)}</TableCell>
+                          </>
+                        ) : productDialogMetric === "collected" ? (
+                          <>
+                            <TableCell className="text-right">{formatCurrency(p.principalCollected)}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(p.marginCollected)}</TableCell>
+                          </>
+                        ) : productDialogMetric === "outstanding" ? (
+                          <>
+                            <TableCell className="text-right">{formatCurrency(p.outstandingPrincipal)}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(p.outstandingMargin)}</TableCell>
+                          </>
+                        ) : null}
+                        <TableCell className="text-right font-semibold">{formatCurrency(amount)}</TableCell>
+                        <TableCell className="text-right">
+                          <Badge variant="outline" className="text-xs">{share}%</Badge>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  <TableRow className="bg-muted/50 font-bold">
+                    <TableCell>Total</TableCell>
+                    <TableCell className="text-center">{stats.productBreakdown.reduce((s, p) => s + p.loanCount, 0)}</TableCell>
+                    {productDialogMetric === "portfolio" ? (
+                      <>
+                        <TableCell className="text-right">{formatCurrency(stats.portfolioPrincipal || 0)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(stats.portfolioMargin || 0)}</TableCell>
+                      </>
+                    ) : productDialogMetric === "collected" ? (
+                      <>
+                        <TableCell className="text-right">{formatCurrency(stats.principalCollected || 0)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(stats.marginCollected || 0)}</TableCell>
+                      </>
+                    ) : productDialogMetric === "outstanding" ? (
+                      <>
+                        <TableCell className="text-right">{formatCurrency((stats.portfolioPrincipal || 0) - (stats.principalCollected || 0))}</TableCell>
+                        <TableCell className="text-right">{formatCurrency((stats.portfolioMargin || 0) - (stats.marginCollected || 0))}</TableCell>
+                      </>
+                    ) : null}
+                    <TableCell className="text-right">
+                      {formatCurrency(
+                        productDialogMetric === "disbursed" ? (stats.totalDisbursed || 0) :
+                        productDialogMetric === "portfolio" ? (stats.totalPortfolio || 0) :
+                        productDialogMetric === "collected" ? (stats.totalCollected || 0) :
+                        (stats.outstandingBalance || 0)
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right"><Badge variant="outline" className="text-xs">100%</Badge></TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <p className="text-center text-muted-foreground py-8">No product data available</p>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Daily Operations Panel */}
       <Card className="border-0 shadow-lg overflow-hidden" data-testid="card-daily-operations">
