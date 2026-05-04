@@ -366,9 +366,9 @@ function StatCard({
             ))}
           </div>
         )}
-        {hasAction && (
+        {hasAction && !onProductClick && (
           <p className="text-[10px] text-muted-foreground mt-2 text-center">
-            {onProductClick ? "Click for details" : (expanded ? "Click to collapse" : "Click for details")}
+            {expanded ? "Click to collapse" : "Click for details"}
           </p>
         )}
       </CardContent>
@@ -835,124 +835,211 @@ export default function Dashboard() {
       </div>
 
       <Dialog open={productDialogOpen} onOpenChange={setProductDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle data-testid="text-product-dialog-title">
-              {productDialogMetric === "disbursed" && "Total Disbursed — By Product"}
-              {productDialogMetric === "portfolio" && "Total Portfolio — By Product"}
-              {productDialogMetric === "collected" && "Total Collected — By Product"}
-              {productDialogMetric === "outstanding" && "Outstanding Balance — By Product"}
-            </DialogTitle>
-          </DialogHeader>
-          {stats?.productBreakdown && stats.productBreakdown.length > 0 ? (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 rounded-lg bg-muted/50">
-                  <p className="text-xs text-muted-foreground">Grand Total</p>
-                  <p className="text-lg font-bold" data-testid="text-product-grand-total">
-                    {formatCurrency(
-                      productDialogMetric === "disbursed" ? (stats.totalDisbursed || 0) :
-                      productDialogMetric === "portfolio" ? (stats.totalPortfolio || 0) :
-                      productDialogMetric === "collected" ? (stats.totalCollected || 0) :
-                      (stats.outstandingBalance || 0)
-                    )}
-                  </p>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto p-0 border-0 shadow-2xl">
+          {(() => {
+            const metricConfig = {
+              disbursed: { label: "Total Disbursed", gradient: "from-teal-500 to-emerald-500", bg: "bg-teal-50 dark:bg-teal-950/30", accent: "text-teal-700 dark:text-teal-300", border: "border-teal-200 dark:border-teal-800", badge: "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200", icon: PiggyBank },
+              portfolio: { label: "Total Portfolio", gradient: "from-purple-500 to-violet-500", bg: "bg-purple-50 dark:bg-purple-950/30", accent: "text-purple-700 dark:text-purple-300", border: "border-purple-200 dark:border-purple-800", badge: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200", icon: Briefcase },
+              collected: { label: "Total Collected", gradient: "from-green-500 to-lime-500", bg: "bg-green-50 dark:bg-green-950/30", accent: "text-green-700 dark:text-green-300", border: "border-green-200 dark:border-green-800", badge: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200", icon: Wallet },
+              outstanding: { label: "Outstanding Balance", gradient: "from-indigo-500 to-blue-500", bg: "bg-indigo-50 dark:bg-indigo-950/30", accent: "text-indigo-700 dark:text-indigo-300", border: "border-indigo-200 dark:border-indigo-800", badge: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200", icon: TrendingUp },
+            };
+            const cfg = metricConfig[productDialogMetric];
+            const MetricIcon = cfg.icon;
+            const productColors = [
+              "from-blue-500 to-cyan-500",
+              "from-amber-500 to-orange-500",
+              "from-rose-500 to-pink-500",
+              "from-emerald-500 to-teal-500",
+              "from-violet-500 to-purple-500",
+              "from-red-500 to-rose-500",
+            ];
+            return (
+              <>
+                <div className={`bg-gradient-to-r ${cfg.gradient} px-6 py-5`}>
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                      <MetricIcon className="h-5 w-5 text-white" />
+                    </div>
+                    <div>
+                      <DialogHeader>
+                        <DialogTitle className="text-white text-lg font-bold" data-testid="text-product-dialog-title">
+                          {cfg.label} — By Product
+                        </DialogTitle>
+                      </DialogHeader>
+                      <p className="text-white/70 text-xs mt-0.5">Breakdown across financing products</p>
+                    </div>
+                  </div>
                 </div>
-                <div className="p-3 rounded-lg bg-muted/50">
-                  <p className="text-xs text-muted-foreground">Products</p>
-                  <p className="text-lg font-bold" data-testid="text-product-count">{stats.productBreakdown.length}</p>
+                <div className="p-5 space-y-5">
+                  {stats?.productBreakdown && stats.productBreakdown.length > 0 ? (
+                    <>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className={`p-4 rounded-xl border ${cfg.border} ${cfg.bg}`}>
+                          <p className="text-xs text-muted-foreground font-medium">Grand Total</p>
+                          <p className={`text-xl font-bold mt-1 ${cfg.accent}`} data-testid="text-product-grand-total">
+                            {formatCurrency(
+                              productDialogMetric === "disbursed" ? (stats.totalDisbursed || 0) :
+                              productDialogMetric === "portfolio" ? (stats.totalPortfolio || 0) :
+                              productDialogMetric === "collected" ? (stats.totalCollected || 0) :
+                              (stats.outstandingBalance || 0)
+                            )}
+                          </p>
+                        </div>
+                        <div className={`p-4 rounded-xl border ${cfg.border} ${cfg.bg}`}>
+                          <p className="text-xs text-muted-foreground font-medium">Products</p>
+                          <p className={`text-xl font-bold mt-1 ${cfg.accent}`} data-testid="text-product-count">{stats.productBreakdown.length}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-1 h-3 rounded-full overflow-hidden">
+                        {stats.productBreakdown.map((p, idx) => {
+                          const amount =
+                            productDialogMetric === "disbursed" ? p.totalDisbursed :
+                            productDialogMetric === "portfolio" ? p.totalPortfolio :
+                            productDialogMetric === "collected" ? p.totalCollected :
+                            p.outstandingBalance;
+                          const grandTotal =
+                            productDialogMetric === "disbursed" ? (stats.totalDisbursed || 1) :
+                            productDialogMetric === "portfolio" ? (stats.totalPortfolio || 1) :
+                            productDialogMetric === "collected" ? (stats.totalCollected || 1) :
+                            (stats.outstandingBalance || 1);
+                          const pct = grandTotal > 0 ? (amount / grandTotal) * 100 : 0;
+                          return (
+                            <div
+                              key={idx}
+                              className={`bg-gradient-to-r ${productColors[idx % productColors.length]} rounded-full transition-all`}
+                              style={{ width: `${Math.max(pct, 2)}%` }}
+                              title={`${p.productName}: ${pct.toFixed(1)}%`}
+                            />
+                          );
+                        })}
+                      </div>
+                      <div className="flex flex-wrap gap-3">
+                        {stats.productBreakdown.map((p, idx) => (
+                          <div key={idx} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <div className={`h-2.5 w-2.5 rounded-full bg-gradient-to-r ${productColors[idx % productColors.length]}`} />
+                            <span>{p.productName}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="rounded-xl border overflow-hidden">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className={`${cfg.bg}`}>
+                              <TableHead className="font-semibold">Product</TableHead>
+                              <TableHead className="text-center font-semibold">Loans</TableHead>
+                              {productDialogMetric !== "disbursed" ? (
+                                <>
+                                  <TableHead className="text-right font-semibold">Principal</TableHead>
+                                  <TableHead className="text-right font-semibold">Margin</TableHead>
+                                </>
+                              ) : null}
+                              <TableHead className="text-right font-semibold">Amount</TableHead>
+                              <TableHead className="text-right font-semibold">Share</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {stats.productBreakdown.map((p, idx) => {
+                              const amount =
+                                productDialogMetric === "disbursed" ? p.totalDisbursed :
+                                productDialogMetric === "portfolio" ? p.totalPortfolio :
+                                productDialogMetric === "collected" ? p.totalCollected :
+                                p.outstandingBalance;
+                              const grandTotal =
+                                productDialogMetric === "disbursed" ? (stats.totalDisbursed || 1) :
+                                productDialogMetric === "portfolio" ? (stats.totalPortfolio || 1) :
+                                productDialogMetric === "collected" ? (stats.totalCollected || 1) :
+                                (stats.outstandingBalance || 1);
+                              const share = grandTotal > 0 ? ((amount / grandTotal) * 100).toFixed(1) : "0.0";
+                              return (
+                                <TableRow key={idx} className="hover:bg-muted/30 transition-colors" data-testid={`row-product-${idx}`}>
+                                  <TableCell>
+                                    <div className="flex items-center gap-2">
+                                      <div className={`h-2.5 w-2.5 rounded-full bg-gradient-to-r ${productColors[idx % productColors.length]}`} />
+                                      <span className="font-medium">{p.productName}</span>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    <Badge variant="secondary" className="text-xs font-semibold">{p.loanCount}</Badge>
+                                  </TableCell>
+                                  {productDialogMetric === "portfolio" ? (
+                                    <>
+                                      <TableCell className="text-right text-sm">{formatCurrency(p.portfolioPrincipal)}</TableCell>
+                                      <TableCell className="text-right text-sm">{formatCurrency(p.portfolioMargin)}</TableCell>
+                                    </>
+                                  ) : productDialogMetric === "collected" ? (
+                                    <>
+                                      <TableCell className="text-right text-sm">{formatCurrency(p.principalCollected)}</TableCell>
+                                      <TableCell className="text-right text-sm">{formatCurrency(p.marginCollected)}</TableCell>
+                                    </>
+                                  ) : productDialogMetric === "outstanding" ? (
+                                    <>
+                                      <TableCell className="text-right text-sm">{formatCurrency(p.outstandingPrincipal)}</TableCell>
+                                      <TableCell className="text-right text-sm">{formatCurrency(p.outstandingMargin)}</TableCell>
+                                    </>
+                                  ) : null}
+                                  <TableCell className={`text-right font-bold ${cfg.accent}`}>{formatCurrency(amount)}</TableCell>
+                                  <TableCell className="text-right">
+                                    <div className="flex items-center justify-end gap-2">
+                                      <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
+                                        <div
+                                          className={`h-full rounded-full bg-gradient-to-r ${productColors[idx % productColors.length]}`}
+                                          style={{ width: `${Math.min(parseFloat(share), 100)}%` }}
+                                        />
+                                      </div>
+                                      <span className="text-xs font-semibold text-muted-foreground w-12 text-right">{share}%</span>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                            <TableRow className={`${cfg.bg} font-bold border-t-2 ${cfg.border}`}>
+                              <TableCell>
+                                <span className={`font-bold ${cfg.accent}`}>Total</span>
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <Badge className={`text-xs font-bold border-0 ${cfg.badge}`}>{stats.productBreakdown.reduce((s, p) => s + p.loanCount, 0)}</Badge>
+                              </TableCell>
+                              {productDialogMetric === "portfolio" ? (
+                                <>
+                                  <TableCell className={`text-right ${cfg.accent}`}>{formatCurrency(stats.portfolioPrincipal || 0)}</TableCell>
+                                  <TableCell className={`text-right ${cfg.accent}`}>{formatCurrency(stats.portfolioMargin || 0)}</TableCell>
+                                </>
+                              ) : productDialogMetric === "collected" ? (
+                                <>
+                                  <TableCell className={`text-right ${cfg.accent}`}>{formatCurrency(stats.principalCollected || 0)}</TableCell>
+                                  <TableCell className={`text-right ${cfg.accent}`}>{formatCurrency(stats.marginCollected || 0)}</TableCell>
+                                </>
+                              ) : productDialogMetric === "outstanding" ? (
+                                <>
+                                  <TableCell className={`text-right ${cfg.accent}`}>{formatCurrency((stats.portfolioPrincipal || 0) - (stats.principalCollected || 0))}</TableCell>
+                                  <TableCell className={`text-right ${cfg.accent}`}>{formatCurrency((stats.portfolioMargin || 0) - (stats.marginCollected || 0))}</TableCell>
+                                </>
+                              ) : null}
+                              <TableCell className={`text-right font-bold ${cfg.accent}`}>
+                                {formatCurrency(
+                                  productDialogMetric === "disbursed" ? (stats.totalDisbursed || 0) :
+                                  productDialogMetric === "portfolio" ? (stats.totalPortfolio || 0) :
+                                  productDialogMetric === "collected" ? (stats.totalCollected || 0) :
+                                  (stats.outstandingBalance || 0)
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <span className={`text-xs font-bold ${cfg.accent}`}>100%</span>
+                              </TableCell>
+                            </TableRow>
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-center text-muted-foreground py-8">No product data available</p>
+                  )}
                 </div>
-              </div>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Product</TableHead>
-                    <TableHead className="text-center">Loans</TableHead>
-                    {productDialogMetric !== "disbursed" ? (
-                      <>
-                        <TableHead className="text-right">Principal</TableHead>
-                        <TableHead className="text-right">Margin</TableHead>
-                      </>
-                    ) : null}
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead className="text-right">Share %</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {stats.productBreakdown.map((p, idx) => {
-                    const amount =
-                      productDialogMetric === "disbursed" ? p.totalDisbursed :
-                      productDialogMetric === "portfolio" ? p.totalPortfolio :
-                      productDialogMetric === "collected" ? p.totalCollected :
-                      p.outstandingBalance;
-                    const grandTotal =
-                      productDialogMetric === "disbursed" ? (stats.totalDisbursed || 1) :
-                      productDialogMetric === "portfolio" ? (stats.totalPortfolio || 1) :
-                      productDialogMetric === "collected" ? (stats.totalCollected || 1) :
-                      (stats.outstandingBalance || 1);
-                    const share = grandTotal > 0 ? ((amount / grandTotal) * 100).toFixed(1) : "0.0";
-                    return (
-                      <TableRow key={idx} data-testid={`row-product-${idx}`}>
-                        <TableCell className="font-medium">{p.productName}</TableCell>
-                        <TableCell className="text-center">{p.loanCount}</TableCell>
-                        {productDialogMetric === "portfolio" ? (
-                          <>
-                            <TableCell className="text-right">{formatCurrency(p.portfolioPrincipal)}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(p.portfolioMargin)}</TableCell>
-                          </>
-                        ) : productDialogMetric === "collected" ? (
-                          <>
-                            <TableCell className="text-right">{formatCurrency(p.principalCollected)}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(p.marginCollected)}</TableCell>
-                          </>
-                        ) : productDialogMetric === "outstanding" ? (
-                          <>
-                            <TableCell className="text-right">{formatCurrency(p.outstandingPrincipal)}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(p.outstandingMargin)}</TableCell>
-                          </>
-                        ) : null}
-                        <TableCell className="text-right font-semibold">{formatCurrency(amount)}</TableCell>
-                        <TableCell className="text-right">
-                          <Badge variant="outline" className="text-xs">{share}%</Badge>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                  <TableRow className="bg-muted/50 font-bold">
-                    <TableCell>Total</TableCell>
-                    <TableCell className="text-center">{stats.productBreakdown.reduce((s, p) => s + p.loanCount, 0)}</TableCell>
-                    {productDialogMetric === "portfolio" ? (
-                      <>
-                        <TableCell className="text-right">{formatCurrency(stats.portfolioPrincipal || 0)}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(stats.portfolioMargin || 0)}</TableCell>
-                      </>
-                    ) : productDialogMetric === "collected" ? (
-                      <>
-                        <TableCell className="text-right">{formatCurrency(stats.principalCollected || 0)}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(stats.marginCollected || 0)}</TableCell>
-                      </>
-                    ) : productDialogMetric === "outstanding" ? (
-                      <>
-                        <TableCell className="text-right">{formatCurrency((stats.portfolioPrincipal || 0) - (stats.principalCollected || 0))}</TableCell>
-                        <TableCell className="text-right">{formatCurrency((stats.portfolioMargin || 0) - (stats.marginCollected || 0))}</TableCell>
-                      </>
-                    ) : null}
-                    <TableCell className="text-right">
-                      {formatCurrency(
-                        productDialogMetric === "disbursed" ? (stats.totalDisbursed || 0) :
-                        productDialogMetric === "portfolio" ? (stats.totalPortfolio || 0) :
-                        productDialogMetric === "collected" ? (stats.totalCollected || 0) :
-                        (stats.outstandingBalance || 0)
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right"><Badge variant="outline" className="text-xs">100%</Badge></TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </div>
-          ) : (
-            <p className="text-center text-muted-foreground py-8">No product data available</p>
-          )}
+              </>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 
