@@ -835,7 +835,7 @@ export default function Dashboard() {
       </div>
 
       <Dialog open={productDialogOpen} onOpenChange={setProductDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto p-0 border-0 shadow-2xl">
+        <DialogContent className="max-w-5xl p-0 border-0 shadow-2xl">
           {(() => {
             const metricConfig = {
               disbursed: { label: "Total Disbursed", gradient: "from-teal-500 to-emerald-500", bg: "bg-teal-50 dark:bg-teal-950/30", accent: "text-teal-700 dark:text-teal-300", border: "border-teal-200 dark:border-teal-800", badge: "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200", icon: PiggyBank },
