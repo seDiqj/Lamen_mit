@@ -79,6 +79,7 @@ import MobileFinancing from "@/pages/mobile/mobile-financing";
 import MobileCollections from "@/pages/mobile/mobile-collections";
 import { MobileLayout } from "@/pages/mobile/mobile-layout";
 import MonthlyDueSummaryPage from "@/pages/monthly-due-summary";
+import CollectionReportPage from "@/pages/collection-report";
 import NotFound from "@/pages/not-found";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
@@ -182,6 +183,7 @@ function AppRoutes() {
         <Route path="/shareholder-report" component={ShareholderReportPage} />
         <Route path="/custom-reports" component={CustomReportsPage} />
         <Route path="/monthly-due-summary" component={MonthlyDueSummaryPage} />
+        <Route path="/collection-report" component={CollectionReportPage} />
         <Route path="/branches" component={BranchesPage} />
         <Route path="/officers" component={OfficersPage} />
         <Route path="/funding-sources" component={FundingSourcesPage} />

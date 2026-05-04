@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { db } from "./db";
 import { customers, loans, disbursements, branches, financeOfficers, installments, fundingSources as fundingSourcesTable, collaterals, customerBusinesses, businessLicenses, loanApprovals, guarantors, userRoles, fadReviews, riskComplianceReviews, accounts, journalEntries, journalLines, clientOccupations, productCycleLimits, loanTransfers, collectionRecords, activityLogs, getMainAccountType } from "@shared/schema";
 import { users } from "@shared/models/auth";
-import { eq, and, or, inArray, sql, gte, lte, desc } from "drizzle-orm";
+import { eq, and, or, inArray, sql, gte, lte, gt, asc, desc } from "drizzle-orm";
 import { z } from "zod";
 import bcrypt from "bcrypt";
 import session from "express-session";
@@ -6706,6 +6706,82 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching loan disbursement report:", error);
       res.status(500).json({ message: "Failed to fetch loan disbursement report" });
+    }
+  });
+
+  app.get("/api/reports/collection-report", isAuthenticated, requirePageAccess("collection-report"), async (req: any, res) => {
+    try {
+      const { startDate, endDate, officerId } = req.query;
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "startDate and endDate are required" });
+      }
+
+      const effectiveBranch = await getEffectiveBranchId(req);
+      const conditions: any[] = [
+        sql`${installments.paymentDate} IS NOT NULL`,
+        gte(installments.paymentDate, startDate as string),
+        lte(installments.paymentDate, endDate as string),
+        gt(installments.paidAmount, "0"),
+      ];
+      if (effectiveBranch && effectiveBranch !== "all") {
+        conditions.push(eq(loans.branchId, effectiveBranch));
+      }
+      if (officerId && officerId !== "all") {
+        conditions.push(eq(loans.financeOfficerId, officerId as string));
+      }
+
+      const results = await db
+        .select({
+          installmentId: installments.id,
+          loanId: installments.loanId,
+          installmentNumber: installments.installmentNumber,
+          dueDate: installments.dueDate,
+          paymentDate: installments.paymentDate,
+          principleAmount: installments.principleAmount,
+          marginAmount: installments.marginAmount,
+          totalAmount: installments.totalAmount,
+          paidAmount: installments.paidAmount,
+          lateDays: installments.lateDays,
+          isPaid: installments.isPaid,
+          applicationId: loans.applicationId,
+          productName: loans.productName,
+          customerName: sql<string>`CONCAT(${customers.firstName}, ' ', ${customers.lastName})`,
+          phoneNumber: customers.phoneNumber,
+          branchName: branches.name,
+          officerName: financeOfficers.name,
+          officerCode: financeOfficers.code,
+        })
+        .from(installments)
+        .innerJoin(loans, eq(installments.loanId, loans.id))
+        .innerJoin(customers, eq(loans.customerId, customers.id))
+        .leftJoin(branches, eq(loans.branchId, branches.id))
+        .leftJoin(financeOfficers, eq(loans.financeOfficerId, financeOfficers.id))
+        .where(and(...conditions))
+        .orderBy(asc(installments.paymentDate), asc(installments.installmentNumber));
+
+      const enriched = results.map((row) => ({
+        customerName: row.customerName || "",
+        applicationId: row.applicationId || "",
+        installmentNumber: row.installmentNumber,
+        dueDate: row.dueDate,
+        paymentDate: row.paymentDate,
+        principleAmount: Number(row.principleAmount || 0),
+        marginAmount: Number(row.marginAmount || 0),
+        totalAmount: Number(row.totalAmount || 0),
+        paidAmount: Number(row.paidAmount || 0),
+        lateDays: row.lateDays || 0,
+        isPaid: row.isPaid,
+        productName: row.productName || "",
+        branchName: row.branchName || "",
+        officerName: row.officerName || "",
+        officerCode: row.officerCode || "",
+        phoneNumber: row.phoneNumber || "",
+      }));
+
+      res.json(enriched);
+    } catch (error) {
+      console.error("Error fetching collection report:", error);
+      res.status(500).json({ message: "Failed to fetch collection report" });
     }
   });
 

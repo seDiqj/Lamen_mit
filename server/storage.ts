@@ -3369,7 +3369,7 @@ export class DatabaseStorage implements IStorage {
       JOIN journal_entries je ON jl.journal_entry_id = je.id
       JOIN accounts a ON jl.account_id = a.id
       WHERE je.is_posted = true AND je.is_reversed = false
-        AND a.account_type IN ('income', 'expense')
+        AND a.account_type IN ('income', 'expense', 'operating_income', 'non_operating_income', 'other_income', 'operating_expense', 'non_operating_expense', 'cost_of_financing')
         ${dateFilterAll}
       GROUP BY a.account_type, a.account_name, a.account_code
       ORDER BY a.account_type, a.account_code
@@ -3384,7 +3384,7 @@ export class DatabaseStorage implements IStorage {
       JOIN journal_entries je ON jl.journal_entry_id = je.id
       JOIN accounts a ON jl.account_id = a.id
       WHERE je.is_posted = true AND je.is_reversed = false
-        AND a.account_type IN ('income', 'expense')
+        AND a.account_type IN ('income', 'expense', 'operating_income', 'non_operating_income', 'other_income', 'operating_expense', 'non_operating_expense', 'cost_of_financing')
         AND je.entry_date >= ${currentMonth}
         ${dateFilterAll}
       GROUP BY a.account_type
@@ -3399,7 +3399,7 @@ export class DatabaseStorage implements IStorage {
       JOIN journal_entries je ON jl.journal_entry_id = je.id
       JOIN accounts a ON jl.account_id = a.id
       WHERE je.is_posted = true AND je.is_reversed = false
-        AND a.account_type IN ('income', 'expense')
+        AND a.account_type IN ('income', 'expense', 'operating_income', 'non_operating_income', 'other_income', 'operating_expense', 'non_operating_expense', 'cost_of_financing')
         AND je.entry_date >= ${currentYear}
         ${dateFilterAll}
       GROUP BY a.account_type
@@ -3416,27 +3416,30 @@ export class DatabaseStorage implements IStorage {
       JOIN journal_entries je ON jl.journal_entry_id = je.id
       JOIN accounts a ON jl.account_id = a.id
       WHERE je.is_posted = true AND je.is_reversed = false
-        AND a.account_type IN ('income', 'expense')
+        AND a.account_type IN ('income', 'expense', 'operating_income', 'non_operating_income', 'other_income', 'operating_expense', 'non_operating_expense', 'cost_of_financing')
         AND je.entry_date >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '5 months')
         ${dateFilterAll}
       GROUP BY TO_CHAR(je.entry_date::date, 'Mon'), TO_CHAR(je.entry_date::date, 'YYYY-MM'), a.account_type
       ORDER BY sort_key
     `);
 
-    const incomeAccounts = (summaryResult.rows as any[]).filter(r => r.account_type === 'income');
-    const expenseAccounts = (summaryResult.rows as any[]).filter(r => r.account_type === 'expense');
+    const isIncomeType = (t: string) => ['income', 'operating_income', 'non_operating_income', 'other_income'].includes(t);
+    const isExpenseType = (t: string) => ['expense', 'operating_expense', 'non_operating_expense', 'cost_of_financing'].includes(t);
+
+    const incomeAccounts = (summaryResult.rows as any[]).filter(r => isIncomeType(r.account_type));
+    const expenseAccounts = (summaryResult.rows as any[]).filter(r => isExpenseType(r.account_type));
 
     const totalIncome = incomeAccounts.reduce((sum, r) => sum + (parseFloat(r.total_credit) - parseFloat(r.total_debit)), 0);
     const totalExpenses = expenseAccounts.reduce((sum, r) => sum + (parseFloat(r.total_debit) - parseFloat(r.total_credit)), 0);
 
-    const monthlyIncome = (monthlyResult.rows as any[]).filter(r => r.account_type === 'income')
+    const monthlyIncome = (monthlyResult.rows as any[]).filter(r => isIncomeType(r.account_type))
       .reduce((sum, r) => sum + (parseFloat(r.total_credit) - parseFloat(r.total_debit)), 0);
-    const monthlyExpenses = (monthlyResult.rows as any[]).filter(r => r.account_type === 'expense')
+    const monthlyExpenses = (monthlyResult.rows as any[]).filter(r => isExpenseType(r.account_type))
       .reduce((sum, r) => sum + (parseFloat(r.total_debit) - parseFloat(r.total_credit)), 0);
 
-    const ytdIncome = (ytdResult.rows as any[]).filter(r => r.account_type === 'income')
+    const ytdIncome = (ytdResult.rows as any[]).filter(r => isIncomeType(r.account_type))
       .reduce((sum, r) => sum + (parseFloat(r.total_credit) - parseFloat(r.total_debit)), 0);
-    const ytdExpenses = (ytdResult.rows as any[]).filter(r => r.account_type === 'expense')
+    const ytdExpenses = (ytdResult.rows as any[]).filter(r => isExpenseType(r.account_type))
       .reduce((sum, r) => sum + (parseFloat(r.total_debit) - parseFloat(r.total_credit)), 0);
 
     const trendMap = new Map<string, { month: string; income: number; expenses: number; netIncome: number }>();
@@ -3444,7 +3447,7 @@ export class DatabaseStorage implements IStorage {
       const key = row.sort_key;
       if (!trendMap.has(key)) trendMap.set(key, { month: row.month, income: 0, expenses: 0, netIncome: 0 });
       const entry = trendMap.get(key)!;
-      if (row.account_type === 'income') {
+      if (isIncomeType(row.account_type)) {
         entry.income += parseFloat(row.total_credit) - parseFloat(row.total_debit);
       } else {
         entry.expenses += parseFloat(row.total_debit) - parseFloat(row.total_credit);

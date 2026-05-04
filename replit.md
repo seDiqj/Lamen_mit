@@ -50,9 +50,9 @@ Preferred communication style: Simple, everyday language.
 
 ### Accounting Module
 - **Double-Entry Bookkeeping**: Full support for double-entry with strict validation (debits must equal credits)
-- **Chart of Accounts**: Hierarchical account structure with 5 types (asset, liability, equity, income, expense)
+- **Chart of Accounts**: Hierarchical account structure with multiple account types. Production uses granular types (`operating_income`, `non_operating_income`, `other_income`, `operating_expense`, `non_operating_expense`, `cost_of_financing`) while dev uses simple types (`income`, `expense`). Financial queries handle both naming conventions.
 - **Journal Entries**: Create, post, and reverse journal entries with proper audit trail
-- **Financial Reports**: Trial Balance, Income Statement, Balance Sheet, Account Statement
+- **Financial Reports**: Trial Balance, Income Statement, Balance Sheet, Account Statement, Collection Report (`/collection-report`)
 - **DAB Regulatory Reports** (`/dab-report`): 5 tabs:
   - Notes to Financial Statements (account-based, asOfDate filter)
   - Statement of Profit or Loss (P&L with account code mapping, startDate/endDate filter)
