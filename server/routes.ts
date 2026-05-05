@@ -6717,20 +6717,24 @@ export async function registerRoutes(
       }
 
       const effectiveBranch = await getEffectiveBranchId(req);
-      const conditions: any[] = [
+      const loanFilters: any[] = [];
+      if (effectiveBranch && effectiveBranch !== "all") {
+        loanFilters.push(eq(loans.branchId, effectiveBranch));
+      }
+      if (officerId && officerId !== "all") {
+        loanFilters.push(eq(loans.financeOfficerId, officerId as string));
+      }
+
+      // Step 1: find loans that had collection in date range (filtered installments)
+      const inRangeConditions: any[] = [
+        ...loanFilters,
         sql`${installments.paymentDate} IS NOT NULL`,
         gte(installments.paymentDate, startDate as string),
         lte(installments.paymentDate, endDate as string),
         gt(installments.paidAmount, "0"),
       ];
-      if (effectiveBranch && effectiveBranch !== "all") {
-        conditions.push(eq(loans.branchId, effectiveBranch));
-      }
-      if (officerId && officerId !== "all") {
-        conditions.push(eq(loans.financeOfficerId, officerId as string));
-      }
 
-      const results = await db
+      const inRangeRows = await db
         .select({
           installmentId: installments.id,
           loanId: installments.loanId,
@@ -6756,12 +6760,64 @@ export async function registerRoutes(
         .innerJoin(customers, eq(loans.customerId, customers.id))
         .leftJoin(branches, eq(loans.branchId, branches.id))
         .leftJoin(financeOfficers, eq(loans.financeOfficerId, financeOfficers.id))
-        .where(and(...conditions))
+        .where(and(...inRangeConditions))
         .orderBy(asc(installments.paymentDate), asc(installments.installmentNumber));
 
-      const enriched = results.map((row) => ({
-        customerName: row.customerName || "",
+      // Step 2: get loan-level totals (sum across ALL installments) for those loans
+      const loanIds = Array.from(new Set(inRangeRows.map((r) => r.loanId).filter(Boolean))) as string[];
+      const loanTotalsMap = new Map<string, { principleAmount: number; marginAmount: number; totalAmount: number; paidAmount: number }>();
+      if (loanIds.length > 0) {
+        const totals = await db
+          .select({
+            loanId: installments.loanId,
+            principleAmount: sql<string>`COALESCE(SUM(${installments.principleAmount}), 0)`,
+            marginAmount: sql<string>`COALESCE(SUM(${installments.marginAmount}), 0)`,
+            totalAmount: sql<string>`COALESCE(SUM(${installments.totalAmount}), 0)`,
+            paidAmount: sql<string>`COALESCE(SUM(${installments.paidAmount}), 0)`,
+          })
+          .from(installments)
+          .where(inArray(installments.loanId, loanIds))
+          .groupBy(installments.loanId);
+        for (const t of totals) {
+          if (t.loanId) {
+            loanTotalsMap.set(t.loanId, {
+              principleAmount: Number(t.principleAmount || 0),
+              marginAmount: Number(t.marginAmount || 0),
+              totalAmount: Number(t.totalAmount || 0),
+              paidAmount: Number(t.paidAmount || 0),
+            });
+          }
+        }
+      }
+
+      // Build loan-level summary list (one entry per loan)
+      const loanMap = new Map<string, any>();
+      for (const row of inRangeRows) {
+        const lid = row.loanId as string;
+        if (!loanMap.has(lid)) {
+          const totals = loanTotalsMap.get(lid) || { principleAmount: 0, marginAmount: 0, totalAmount: 0, paidAmount: 0 };
+          loanMap.set(lid, {
+            loanId: lid,
+            customerName: row.customerName || "",
+            phoneNumber: row.phoneNumber || "",
+            applicationId: row.applicationId || "",
+            productName: row.productName || "",
+            branchName: row.branchName || "",
+            officerName: row.officerName || "",
+            officerCode: row.officerCode || "",
+            loanPrincipleTotal: totals.principleAmount,
+            loanMarginTotal: totals.marginAmount,
+            loanTotalDue: totals.totalAmount,
+            loanTotalPaid: totals.paidAmount,
+            loanOutstanding: totals.totalAmount - totals.paidAmount,
+          });
+        }
+      }
+
+      const enrichedInstallments = inRangeRows.map((row) => ({
+        loanId: row.loanId,
         applicationId: row.applicationId || "",
+        customerName: row.customerName || "",
         installmentNumber: row.installmentNumber,
         dueDate: row.dueDate,
         paymentDate: row.paymentDate,
@@ -6771,14 +6827,12 @@ export async function registerRoutes(
         paidAmount: Number(row.paidAmount || 0),
         lateDays: row.lateDays || 0,
         isPaid: row.isPaid,
-        productName: row.productName || "",
-        branchName: row.branchName || "",
-        officerName: row.officerName || "",
-        officerCode: row.officerCode || "",
-        phoneNumber: row.phoneNumber || "",
       }));
 
-      res.json(enriched);
+      res.json({
+        loans: Array.from(loanMap.values()),
+        installments: enrichedInstallments,
+      });
     } catch (error) {
       console.error("Error fetching collection report:", error);
       res.status(500).json({ message: "Failed to fetch collection report" });
