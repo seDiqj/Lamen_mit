@@ -456,23 +456,31 @@ export default function CollectionReport() {
       </Card>
 
       {data && data.length > 0 && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           <Card className="border-0 shadow-md">
             <CardContent className="p-4">
               <p className="text-sm text-muted-foreground">Loans Collected</p>
               <p className="text-2xl font-bold mt-1" data-testid="text-total-loans">{loanGroups.length}</p>
+              <p className="text-xs text-muted-foreground mt-1">{data.length} installment{data.length !== 1 ? "s" : ""}</p>
             </CardContent>
           </Card>
-          <Card className="border-0 shadow-md">
+          <Card className="border-0 shadow-md border-l-4 border-l-blue-500">
             <CardContent className="p-4">
-              <p className="text-sm text-muted-foreground">Installments</p>
-              <p className="text-2xl font-bold mt-1" data-testid="text-total-installments">{data.length}</p>
+              <p className="text-sm text-muted-foreground">Principal Collected</p>
+              <p className="text-2xl font-bold mt-1 text-blue-600" data-testid="text-principal-collected">{formatCurrency(grandTotal.principleAmount)}</p>
             </CardContent>
           </Card>
-          <Card className="border-0 shadow-md">
+          <Card className="border-0 shadow-md border-l-4 border-l-purple-500">
+            <CardContent className="p-4">
+              <p className="text-sm text-muted-foreground">Margin Collected</p>
+              <p className="text-2xl font-bold mt-1 text-purple-600" data-testid="text-margin-collected">{formatCurrency(grandTotal.marginAmount)}</p>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-md border-l-4 border-l-emerald-500">
             <CardContent className="p-4">
               <p className="text-sm text-muted-foreground">Total Collected</p>
               <p className="text-2xl font-bold mt-1 text-emerald-600" data-testid="text-total-collected">{formatCurrency(grandTotal.paidAmount)}</p>
+              <p className="text-xs text-muted-foreground mt-1">Principal + Margin</p>
             </CardContent>
           </Card>
           <Card className="border-0 shadow-md">
