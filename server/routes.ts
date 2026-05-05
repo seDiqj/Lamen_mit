@@ -6774,9 +6774,9 @@ export async function registerRoutes(
             principleAmount: sql<string>`COALESCE(SUM(${installments.principleAmount}), 0)`,
             marginAmount: sql<string>`COALESCE(SUM(${installments.marginAmount}), 0)`,
             totalAmount: sql<string>`COALESCE(SUM(${installments.totalAmount}), 0)`,
-            paidAmount: sql<string>`COALESCE(SUM(${installments.paidAmount}), 0)`,
-            principalPaid: sql<string>`COALESCE(SUM(CASE WHEN ${installments.paidAmount} >= ${installments.totalAmount} THEN ${installments.principleAmount} WHEN ${installments.totalAmount} > 0 THEN ${installments.principleAmount} * ${installments.paidAmount} / ${installments.totalAmount} ELSE 0 END), 0)`,
-            marginPaid: sql<string>`COALESCE(SUM(CASE WHEN ${installments.paidAmount} >= ${installments.totalAmount} THEN ${installments.marginAmount} WHEN ${installments.totalAmount} > 0 THEN ${installments.marginAmount} * ${installments.paidAmount} / ${installments.totalAmount} ELSE 0 END), 0)`,
+            paidAmount: sql<string>`COALESCE(SUM(CASE WHEN ${installments.isPaid} = true THEN ${installments.totalAmount} ELSE COALESCE(${installments.paidAmount}, 0) END), 0)`,
+            principalPaid: sql<string>`COALESCE(SUM(CASE WHEN ${installments.isPaid} = true OR COALESCE(${installments.paidAmount}, 0) >= ${installments.totalAmount} THEN ${installments.principleAmount} WHEN ${installments.totalAmount} > 0 THEN ${installments.principleAmount} * COALESCE(${installments.paidAmount}, 0) / ${installments.totalAmount} ELSE 0 END), 0)`,
+            marginPaid: sql<string>`COALESCE(SUM(CASE WHEN ${installments.isPaid} = true OR COALESCE(${installments.paidAmount}, 0) >= ${installments.totalAmount} THEN ${installments.marginAmount} WHEN ${installments.totalAmount} > 0 THEN ${installments.marginAmount} * COALESCE(${installments.paidAmount}, 0) / ${installments.totalAmount} ELSE 0 END), 0)`,
           })
           .from(installments)
           .where(inArray(installments.loanId, loanIds))
