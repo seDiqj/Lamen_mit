@@ -21,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { FileSpreadsheet, FileText, Receipt, Loader2 } from "lucide-react";
+import { FileSpreadsheet, FileText, Receipt, Loader2, ChevronRight, ChevronDown, ChevronLeft } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { formatDate } from "@/lib/date-utils";
 import * as XLSX from "xlsx";
@@ -47,14 +47,26 @@ type CollectionRow = {
   phoneNumber: string;
 };
 
+type LoanGroup = {
+  key: string;
+  customerName: string;
+  phoneNumber: string;
+  applicationId: string;
+  productName: string;
+  branchName: string;
+  officerName: string;
+  installments: CollectionRow[];
+  principleAmount: number;
+  marginAmount: number;
+  totalAmount: number;
+  paidAmount: number;
+  outstanding: number;
+};
+
 type Branch = { id: string; name: string };
 type Officer = { id: string; name: string; code: string };
 
-type BranchGroup = {
-  branchName: string;
-  rows: CollectionRow[];
-  subtotal: { principleAmount: number; marginAmount: number; totalAmount: number; paidAmount: number };
-};
+const PAGE_SIZE = 20;
 
 const quickDateOptions = [
   { label: "1D", days: 1 },
@@ -117,6 +129,8 @@ export default function CollectionReport() {
   const [officerId, setOfficerId] = useState("all");
   const [data, setData] = useState<CollectionRow[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
+  const [currentPage, setCurrentPage] = useState(1);
 
   const { data: branchesData } = useQuery<Branch[]>({ queryKey: ["/api/branches"] });
   const { data: officersData } = useQuery<Officer[]>({ queryKey: ["/api/finance-officers/active"] });
@@ -131,6 +145,8 @@ export default function CollectionReport() {
       if (!res.ok) throw new Error("Failed to fetch");
       const result = await res.json();
       setData(result);
+      setCurrentPage(1);
+      setExpandedKeys(new Set());
     } catch (error) {
       console.error("Failed to fetch collection report:", error);
     } finally {
@@ -141,107 +157,147 @@ export default function CollectionReport() {
   const selectedBranchName = branchId === "all" ? "All Branches" : branchesData?.find(b => b.id === branchId)?.name || "";
   const selectedOfficerName = officerId === "all" ? "All Officers" : officersData?.find(o => o.id === officerId)?.name || "";
 
-  const { branchGroups, grandTotal } = useMemo(() => {
-    if (!data || data.length === 0) return { branchGroups: [], grandTotal: { principleAmount: 0, marginAmount: 0, totalAmount: 0, paidAmount: 0 } };
-
-    const sorted = [...data].sort((a, b) => (a.branchName || "").localeCompare(b.branchName || ""));
-    const groupMap = new Map<string, CollectionRow[]>();
-    for (const row of sorted) {
-      const key = row.branchName || "Unknown";
-      if (!groupMap.has(key)) groupMap.set(key, []);
-      groupMap.get(key)!.push(row);
+  const { loanGroups, grandTotal } = useMemo(() => {
+    if (!data || data.length === 0) {
+      return { loanGroups: [] as LoanGroup[], grandTotal: { principleAmount: 0, marginAmount: 0, totalAmount: 0, paidAmount: 0, outstanding: 0 } };
     }
 
-    const groups: BranchGroup[] = [];
-    const gt = { principleAmount: 0, marginAmount: 0, totalAmount: 0, paidAmount: 0 };
-
-    for (const [branchName, rows] of Array.from(groupMap.entries())) {
-      const subtotal = { principleAmount: 0, marginAmount: 0, totalAmount: 0, paidAmount: 0 };
-      for (const r of rows) {
-        subtotal.principleAmount += r.principleAmount;
-        subtotal.marginAmount += r.marginAmount;
-        subtotal.totalAmount += r.totalAmount;
-        subtotal.paidAmount += r.paidAmount;
+    const groupMap = new Map<string, LoanGroup>();
+    for (const row of data) {
+      const key = `${row.applicationId}__${row.customerName}`;
+      let group = groupMap.get(key);
+      if (!group) {
+        group = {
+          key,
+          customerName: row.customerName,
+          phoneNumber: row.phoneNumber,
+          applicationId: row.applicationId,
+          productName: row.productName,
+          branchName: row.branchName,
+          officerName: row.officerName,
+          installments: [],
+          principleAmount: 0,
+          marginAmount: 0,
+          totalAmount: 0,
+          paidAmount: 0,
+          outstanding: 0,
+        };
+        groupMap.set(key, group);
       }
-      gt.principleAmount += subtotal.principleAmount;
-      gt.marginAmount += subtotal.marginAmount;
-      gt.totalAmount += subtotal.totalAmount;
-      gt.paidAmount += subtotal.paidAmount;
-      groups.push({ branchName, rows, subtotal });
+      group.installments.push(row);
+      group.principleAmount += row.principleAmount;
+      group.marginAmount += row.marginAmount;
+      group.totalAmount += row.totalAmount;
+      group.paidAmount += row.paidAmount;
     }
 
-    return { branchGroups: groups, grandTotal: gt };
+    const groups = Array.from(groupMap.values()).map((g) => {
+      g.outstanding = g.totalAmount - g.paidAmount;
+      g.installments.sort((a, b) => a.installmentNumber - b.installmentNumber);
+      return g;
+    });
+    groups.sort((a, b) => (a.branchName || "").localeCompare(b.branchName || "") || a.customerName.localeCompare(b.customerName));
+
+    const gt = { principleAmount: 0, marginAmount: 0, totalAmount: 0, paidAmount: 0, outstanding: 0 };
+    for (const g of groups) {
+      gt.principleAmount += g.principleAmount;
+      gt.marginAmount += g.marginAmount;
+      gt.totalAmount += g.totalAmount;
+      gt.paidAmount += g.paidAmount;
+      gt.outstanding += g.outstanding;
+    }
+
+    return { loanGroups: groups, grandTotal: gt };
   }, [data]);
+
+  const totalPages = Math.max(1, Math.ceil(loanGroups.length / PAGE_SIZE));
+  const pagedGroups = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return loanGroups.slice(start, start + PAGE_SIZE);
+  }, [loanGroups, currentPage]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
+
+  const toggleExpand = (key: string) => {
+    setExpandedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
 
   const handleExportExcel = () => {
     if (!data) return;
-
     const rows: Record<string, string | number>[] = [];
     let serial = 1;
-    for (const group of branchGroups) {
-      for (const row of group.rows) {
-        rows.push({
-          "#": serial++,
-          "Customer Name": row.customerName,
-          "Application ID": row.applicationId,
-          "Inst #": row.installmentNumber,
-          "Due Date": row.dueDate ? formatDate(row.dueDate) : "",
-          "Payment Date": row.paymentDate ? formatDate(row.paymentDate) : "",
-          "Product": row.productName,
-          "Officer": row.officerName,
-          "Branch": row.branchName,
-          "Principle (AFN)": row.principleAmount,
-          "Margin (AFN)": row.marginAmount,
-          "Total Due (AFN)": row.totalAmount,
-          "Paid (AFN)": row.paidAmount,
-          "Late Days": row.lateDays,
-          "Status": row.isPaid ? "Fully Paid" : "Partial",
-          "Phone": row.phoneNumber,
-        });
-      }
+    for (const g of loanGroups) {
       rows.push({
-        "#": "",
-        "Customer Name": "",
-        "Application ID": "",
+        "#": serial++,
+        "Customer": g.customerName,
+        "Phone": g.phoneNumber,
+        "Application ID": g.applicationId,
+        "Product": g.productName,
+        "Branch": g.branchName,
+        "Officer": g.officerName,
         "Inst #": "",
         "Due Date": "",
         "Payment Date": "",
-        "Product": "",
-        "Officer": "",
-        "Branch": `Subtotal - ${group.branchName}`,
-        "Principle (AFN)": group.subtotal.principleAmount,
-        "Margin (AFN)": group.subtotal.marginAmount,
-        "Total Due (AFN)": group.subtotal.totalAmount,
-        "Paid (AFN)": group.subtotal.paidAmount,
+        "Principal (AFN)": g.principleAmount,
+        "Margin (AFN)": g.marginAmount,
+        "Total Due (AFN)": g.totalAmount,
+        "Paid (AFN)": g.paidAmount,
+        "Outstanding (AFN)": g.outstanding,
         "Late Days": "",
         "Status": "",
-        "Phone": "",
       });
+      for (const inst of g.installments) {
+        rows.push({
+          "#": "",
+          "Customer": "  ↳",
+          "Phone": "",
+          "Application ID": "",
+          "Product": "",
+          "Branch": "",
+          "Officer": "",
+          "Inst #": inst.installmentNumber,
+          "Due Date": inst.dueDate ? formatDate(inst.dueDate) : "",
+          "Payment Date": inst.paymentDate ? formatDate(inst.paymentDate) : "",
+          "Principal (AFN)": inst.principleAmount,
+          "Margin (AFN)": inst.marginAmount,
+          "Total Due (AFN)": inst.totalAmount,
+          "Paid (AFN)": inst.paidAmount,
+          "Outstanding (AFN)": inst.totalAmount - inst.paidAmount,
+          "Late Days": inst.lateDays,
+          "Status": inst.isPaid ? "Paid" : "Partial",
+        });
+      }
     }
     rows.push({
       "#": "",
-      "Customer Name": "",
+      "Customer": "Grand Total",
+      "Phone": "",
       "Application ID": "",
+      "Product": "",
+      "Branch": "",
+      "Officer": "",
       "Inst #": "",
       "Due Date": "",
       "Payment Date": "",
-      "Product": "",
-      "Officer": "",
-      "Branch": "Grand Total",
-      "Principle (AFN)": grandTotal.principleAmount,
+      "Principal (AFN)": grandTotal.principleAmount,
       "Margin (AFN)": grandTotal.marginAmount,
       "Total Due (AFN)": grandTotal.totalAmount,
       "Paid (AFN)": grandTotal.paidAmount,
+      "Outstanding (AFN)": grandTotal.outstanding,
       "Late Days": "",
       "Status": "",
-      "Phone": "",
     });
 
     const ws = XLSX.utils.json_to_sheet(rows);
     ws["!cols"] = [
-      { wch: 6 }, { wch: 22 }, { wch: 16 }, { wch: 7 }, { wch: 12 }, { wch: 12 },
-      { wch: 12 }, { wch: 18 }, { wch: 15 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
-      { wch: 14 }, { wch: 10 }, { wch: 10 }, { wch: 14 },
+      { wch: 6 }, { wch: 22 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 18 },
+      { wch: 7 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 10 }, { wch: 10 },
     ];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Collection Report");
@@ -251,87 +307,61 @@ export default function CollectionReport() {
 
   const handleExportPDF = () => {
     if (!data) return;
-
     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-
     doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
     doc.text("Collection Report", 148, 15, { align: "center" });
-
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.text(`From: ${formatDate(startDate)}    To: ${formatDate(endDate)}`, 148, 22, { align: "center" });
     doc.text(`Branch: ${selectedBranchName}    Officer: ${selectedOfficerName}`, 148, 28, { align: "center" });
-
     doc.setFontSize(9);
     doc.text(`Generated: ${new Date().toLocaleDateString()}`, 148, 34, { align: "center" });
 
     const tableData: any[][] = [];
     let serial = 1;
-    for (const group of branchGroups) {
-      for (const row of group.rows) {
-        tableData.push([
-          serial++,
-          row.customerName,
-          row.applicationId,
-          row.installmentNumber,
-          row.dueDate ? formatDate(row.dueDate) : "",
-          row.paymentDate ? formatDate(row.paymentDate) : "",
-          row.productName,
-          row.officerName,
-          row.branchName,
-          row.principleAmount.toLocaleString(),
-          row.marginAmount.toLocaleString(),
-          row.totalAmount.toLocaleString(),
-          row.paidAmount.toLocaleString(),
-          row.lateDays,
-          row.isPaid ? "Paid" : "Partial",
-        ]);
-      }
+    for (const g of loanGroups) {
       tableData.push([
-        "", "", "", "", "", "", "", "", `Subtotal - ${group.branchName}`,
-        group.subtotal.principleAmount.toLocaleString(),
-        group.subtotal.marginAmount.toLocaleString(),
-        group.subtotal.totalAmount.toLocaleString(),
-        group.subtotal.paidAmount.toLocaleString(),
-        "", "",
+        serial++,
+        g.customerName,
+        g.applicationId,
+        g.productName,
+        g.branchName,
+        g.officerName,
+        g.principleAmount.toLocaleString(),
+        g.marginAmount.toLocaleString(),
+        g.totalAmount.toLocaleString(),
+        g.paidAmount.toLocaleString(),
+        g.outstanding.toLocaleString(),
       ]);
     }
     tableData.push([
-      "", "", "", "", "", "", "", "", "Grand Total",
+      "", "Grand Total", "", "", "", "",
       grandTotal.principleAmount.toLocaleString(),
       grandTotal.marginAmount.toLocaleString(),
       grandTotal.totalAmount.toLocaleString(),
       grandTotal.paidAmount.toLocaleString(),
-      "", "",
+      grandTotal.outstanding.toLocaleString(),
     ]);
 
     autoTable(doc, {
       startY: 38,
-      head: [["#", "Customer", "App ID", "Inst#", "Due Date", "Paid Date", "Product", "Officer", "Branch", "Principle", "Margin", "Total Due", "Paid", "Late", "Status"]],
+      head: [["#", "Customer", "App ID", "Product", "Branch", "Officer", "Principal", "Margin", "Total Due", "Paid", "Outstanding"]],
       body: tableData,
       theme: "grid",
-      headStyles: { fillColor: [34, 87, 122], textColor: [255, 255, 255], fontStyle: "bold", halign: "center", fontSize: 6 },
-      styles: { fontSize: 6, cellPadding: 1.5 },
+      headStyles: { fillColor: [34, 87, 122], textColor: [255, 255, 255], fontStyle: "bold", halign: "center", fontSize: 8 },
+      styles: { fontSize: 7, cellPadding: 1.5 },
       columnStyles: {
         0: { halign: "center", cellWidth: 8 },
-        3: { halign: "center", cellWidth: 10 },
-        9: { halign: "right" },
-        10: { halign: "right" },
-        11: { halign: "right" },
-        12: { halign: "right" },
-        13: { halign: "center" },
-        14: { halign: "center" },
+        6: { halign: "right" }, 7: { halign: "right" }, 8: { halign: "right" }, 9: { halign: "right" }, 10: { halign: "right" },
       },
       didParseCell: (hookData: any) => {
         if (hookData.section === "body") {
           const rowData = hookData.row.raw as any[];
-          if (rowData && typeof rowData[8] === "string" && (rowData[8].startsWith("Subtotal") || rowData[8] === "Grand Total")) {
+          if (rowData && rowData[1] === "Grand Total") {
             hookData.cell.styles.fontStyle = "bold";
-            hookData.cell.styles.fillColor = rowData[8] === "Grand Total" ? [34, 87, 122] : [220, 230, 240];
-            if (rowData[8] === "Grand Total") {
-              hookData.cell.styles.textColor = [255, 255, 255];
-            }
+            hookData.cell.styles.fillColor = [34, 87, 122];
+            hookData.cell.styles.textColor = [255, 255, 255];
           }
         }
       },
@@ -345,7 +375,6 @@ export default function CollectionReport() {
       doc.text(`Page ${i} of ${pageCount}`, 148, 200, { align: "center" });
       doc.text("Lamen Microfinance Institution - Confidential", 14, 200);
     }
-
     const dateStr = `${startDate.replace(/-/g, "")}_${endDate.replace(/-/g, "")}`;
     doc.save(`Collection_Report_${dateStr}.pdf`);
   };
@@ -359,7 +388,7 @@ export default function CollectionReport() {
           </div>
           <div>
             <h1 className="text-2xl font-bold" data-testid="text-page-title">Collection Report</h1>
-            <p className="text-muted-foreground text-sm">View payment collections by date range, branch and officer</p>
+            <p className="text-muted-foreground text-sm">Grouped by customer & loan — click a row to see installment details</p>
           </div>
         </div>
         {data && data.length > 0 && (
@@ -427,23 +456,29 @@ export default function CollectionReport() {
       </Card>
 
       {data && data.length > 0 && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <Card className="border-0 shadow-md">
             <CardContent className="p-4">
-              <p className="text-sm text-muted-foreground">Total Collections</p>
-              <p className="text-2xl font-bold mt-1" data-testid="text-total-collections">{data.length}</p>
+              <p className="text-sm text-muted-foreground">Loans Collected</p>
+              <p className="text-2xl font-bold mt-1" data-testid="text-total-loans">{loanGroups.length}</p>
             </CardContent>
           </Card>
           <Card className="border-0 shadow-md">
             <CardContent className="p-4">
-              <p className="text-sm text-muted-foreground">Total Amount Due</p>
-              <p className="text-2xl font-bold mt-1" data-testid="text-total-due">{formatCurrency(grandTotal.totalAmount)}</p>
+              <p className="text-sm text-muted-foreground">Installments</p>
+              <p className="text-2xl font-bold mt-1" data-testid="text-total-installments">{data.length}</p>
             </CardContent>
           </Card>
           <Card className="border-0 shadow-md">
             <CardContent className="p-4">
               <p className="text-sm text-muted-foreground">Total Collected</p>
               <p className="text-2xl font-bold mt-1 text-emerald-600" data-testid="text-total-collected">{formatCurrency(grandTotal.paidAmount)}</p>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-md">
+            <CardContent className="p-4">
+              <p className="text-sm text-muted-foreground">Outstanding</p>
+              <p className="text-2xl font-bold mt-1 text-amber-600" data-testid="text-total-outstanding">{formatCurrency(grandTotal.outstanding)}</p>
             </CardContent>
           </Card>
           <Card className="border-0 shadow-md">
@@ -463,83 +498,194 @@ export default function CollectionReport() {
             <div className="flex items-center justify-between flex-wrap gap-2">
               <CardTitle className="text-lg">Collection Results</CardTitle>
               <span className="text-sm text-muted-foreground" data-testid="text-result-count">
-                {data.length} record{data.length !== 1 ? "s" : ""} found
+                {loanGroups.length} loan{loanGroups.length !== 1 ? "s" : ""} · {data.length} installment{data.length !== 1 ? "s" : ""}
               </span>
             </div>
           </CardHeader>
           <CardContent className="pt-4 overflow-x-auto">
-            {data.length === 0 ? (
+            {loanGroups.length === 0 ? (
               <p className="text-center text-muted-foreground py-8" data-testid="text-no-results">No collections found for the selected criteria.</p>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]">
-                    <TableHead className="text-center w-12 text-primary-foreground font-semibold">#</TableHead>
-                    <TableHead className="text-primary-foreground font-semibold">Customer Name</TableHead>
-                    <TableHead className="text-primary-foreground font-semibold">Application ID</TableHead>
-                    <TableHead className="text-center text-primary-foreground font-semibold">Inst #</TableHead>
-                    <TableHead className="text-primary-foreground font-semibold">Due Date</TableHead>
-                    <TableHead className="text-primary-foreground font-semibold">Payment Date</TableHead>
-                    <TableHead className="text-primary-foreground font-semibold">Product</TableHead>
-                    <TableHead className="text-primary-foreground font-semibold">Officer</TableHead>
-                    <TableHead className="text-primary-foreground font-semibold">Branch</TableHead>
-                    <TableHead className="text-right text-primary-foreground font-semibold">Principle</TableHead>
-                    <TableHead className="text-right text-primary-foreground font-semibold">Margin</TableHead>
-                    <TableHead className="text-right text-primary-foreground font-semibold">Total Due</TableHead>
-                    <TableHead className="text-right text-primary-foreground font-semibold">Paid</TableHead>
-                    <TableHead className="text-center text-primary-foreground font-semibold">Late Days</TableHead>
-                    <TableHead className="text-center text-primary-foreground font-semibold">Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(() => {
-                    let serial = 1;
-                    return branchGroups.map((group) => (
-                      <>{group.rows.map((row, idx) => (
-                          <TableRow key={`${group.branchName}-${idx}`} data-testid={`row-collection-${serial - 1 + idx}`} className={(serial - 1 + idx) % 2 === 0 ? "bg-muted/30" : ""}>
-                            <TableCell className="text-center font-mono">{serial + idx}</TableCell>
-                            <TableCell>{row.customerName}</TableCell>
-                            <TableCell className="font-mono">{row.applicationId}</TableCell>
-                            <TableCell className="text-center">{row.installmentNumber}</TableCell>
-                            <TableCell>{row.dueDate ? formatDate(row.dueDate) : ""}</TableCell>
-                            <TableCell>{row.paymentDate ? formatDate(row.paymentDate) : ""}</TableCell>
-                            <TableCell>{row.productName}</TableCell>
-                            <TableCell>{row.officerName}</TableCell>
-                            <TableCell>{row.branchName}</TableCell>
-                            <TableCell className="text-right font-mono">{formatCurrency(row.principleAmount)}</TableCell>
-                            <TableCell className="text-right font-mono">{formatCurrency(row.marginAmount)}</TableCell>
-                            <TableCell className="text-right font-mono">{formatCurrency(row.totalAmount)}</TableCell>
-                            <TableCell className="text-right font-mono font-semibold text-emerald-600">{formatCurrency(row.paidAmount)}</TableCell>
-                            <TableCell className={`text-center font-mono ${row.lateDays > 0 ? "text-red-600 font-semibold" : ""}`}>{row.lateDays}</TableCell>
+              <>
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]">
+                      <TableHead className="w-10 text-primary-foreground" />
+                      <TableHead className="text-center w-12 text-primary-foreground font-semibold">#</TableHead>
+                      <TableHead className="text-primary-foreground font-semibold">Customer</TableHead>
+                      <TableHead className="text-primary-foreground font-semibold">Application ID</TableHead>
+                      <TableHead className="text-primary-foreground font-semibold">Product</TableHead>
+                      <TableHead className="text-primary-foreground font-semibold">Branch</TableHead>
+                      <TableHead className="text-primary-foreground font-semibold">Officer</TableHead>
+                      <TableHead className="text-right text-primary-foreground font-semibold">Principal</TableHead>
+                      <TableHead className="text-right text-primary-foreground font-semibold">Margin</TableHead>
+                      <TableHead className="text-right text-primary-foreground font-semibold">Total Paid</TableHead>
+                      <TableHead className="text-right text-primary-foreground font-semibold">Outstanding</TableHead>
+                      <TableHead className="text-center text-primary-foreground font-semibold">Inst.</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pagedGroups.map((g, idx) => {
+                      const serial = (currentPage - 1) * PAGE_SIZE + idx + 1;
+                      const isExpanded = expandedKeys.has(g.key);
+                      return (
+                        <>
+                          <TableRow
+                            key={g.key}
+                            className={`cursor-pointer hover:bg-muted/50 transition-colors ${isExpanded ? "bg-emerald-50/40 dark:bg-emerald-950/20" : idx % 2 === 0 ? "bg-muted/20" : ""}`}
+                            onClick={() => toggleExpand(g.key)}
+                            data-testid={`row-loan-${idx}`}
+                          >
                             <TableCell className="text-center">
-                              <Badge variant={row.isPaid ? "default" : "secondary"} className={row.isPaid ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"}>
-                                {row.isPaid ? "Paid" : "Partial"}
-                              </Badge>
+                              {isExpanded ? <ChevronDown className="h-4 w-4 text-emerald-600" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                            </TableCell>
+                            <TableCell className="text-center font-mono text-xs">{serial}</TableCell>
+                            <TableCell>
+                              <div className="font-semibold">{g.customerName}</div>
+                              {g.phoneNumber && <div className="text-xs text-muted-foreground">{g.phoneNumber}</div>}
+                            </TableCell>
+                            <TableCell className="font-mono text-xs">{g.applicationId}</TableCell>
+                            <TableCell>{g.productName}</TableCell>
+                            <TableCell>{g.branchName}</TableCell>
+                            <TableCell>{g.officerName}</TableCell>
+                            <TableCell className="text-right font-mono text-sm">{formatCurrency(g.principleAmount)}</TableCell>
+                            <TableCell className="text-right font-mono text-sm">{formatCurrency(g.marginAmount)}</TableCell>
+                            <TableCell className="text-right font-mono font-semibold text-emerald-600">{formatCurrency(g.paidAmount)}</TableCell>
+                            <TableCell className={`text-right font-mono font-semibold ${g.outstanding > 0 ? "text-amber-600" : "text-emerald-600"}`}>{formatCurrency(g.outstanding)}</TableCell>
+                            <TableCell className="text-center">
+                              <Badge variant="secondary" className="font-mono text-xs">{g.installments.length}</Badge>
                             </TableCell>
                           </TableRow>
-                        ))}
-                        {(() => { serial += group.rows.length; return null; })()}
-                        <TableRow className="bg-blue-50 dark:bg-blue-950/30 font-semibold border-t-2 border-b-2 border-blue-200 dark:border-blue-800">
-                          <TableCell colSpan={9} className="text-right font-bold">Subtotal - {group.branchName}</TableCell>
-                          <TableCell className="text-right font-mono font-bold">{formatCurrency(group.subtotal.principleAmount)}</TableCell>
-                          <TableCell className="text-right font-mono font-bold">{formatCurrency(group.subtotal.marginAmount)}</TableCell>
-                          <TableCell className="text-right font-mono font-bold">{formatCurrency(group.subtotal.totalAmount)}</TableCell>
-                          <TableCell className="text-right font-mono font-bold">{formatCurrency(group.subtotal.paidAmount)}</TableCell>
-                          <TableCell colSpan={2}></TableCell>
-                        </TableRow>
-                      </>
-                    ));
-                  })()}
-                  <TableRow className="bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]">
-                    <TableCell colSpan={9} className="text-right font-bold text-primary-foreground text-base">Grand Total</TableCell>
-                    <TableCell className="text-right font-mono font-bold text-primary-foreground">{formatCurrency(grandTotal.principleAmount)}</TableCell>
-                    <TableCell className="text-right font-mono font-bold text-primary-foreground">{formatCurrency(grandTotal.marginAmount)}</TableCell>
-                    <TableCell className="text-right font-mono font-bold text-primary-foreground">{formatCurrency(grandTotal.totalAmount)}</TableCell>
-                    <TableCell className="text-right font-mono font-bold text-primary-foreground">{formatCurrency(grandTotal.paidAmount)}</TableCell>
-                    <TableCell colSpan={2} className="text-primary-foreground"></TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
+                          {isExpanded && (
+                            <TableRow key={`${g.key}-detail`} className="bg-emerald-50/20 dark:bg-emerald-950/10">
+                              <TableCell colSpan={12} className="p-0">
+                                <div className="px-6 py-4">
+                                  <p className="text-sm font-semibold mb-2 text-emerald-700 dark:text-emerald-400">
+                                    Collected Installments ({g.installments.length})
+                                  </p>
+                                  <div className="rounded-lg border bg-background overflow-hidden">
+                                    <Table>
+                                      <TableHeader>
+                                        <TableRow>
+                                          <TableHead className="text-center w-16">Inst #</TableHead>
+                                          <TableHead>Due Date</TableHead>
+                                          <TableHead>Payment Date</TableHead>
+                                          <TableHead className="text-right">Principal</TableHead>
+                                          <TableHead className="text-right">Margin</TableHead>
+                                          <TableHead className="text-right">Total Due</TableHead>
+                                          <TableHead className="text-right">Paid</TableHead>
+                                          <TableHead className="text-right">Outstanding</TableHead>
+                                          <TableHead className="text-center">Late Days</TableHead>
+                                          <TableHead className="text-center">Status</TableHead>
+                                        </TableRow>
+                                      </TableHeader>
+                                      <TableBody>
+                                        {g.installments.map((inst, instIdx) => {
+                                          const instOutstanding = inst.totalAmount - inst.paidAmount;
+                                          return (
+                                            <TableRow key={instIdx} data-testid={`row-installment-${idx}-${instIdx}`}>
+                                              <TableCell className="text-center font-mono">{inst.installmentNumber}</TableCell>
+                                              <TableCell>{inst.dueDate ? formatDate(inst.dueDate) : ""}</TableCell>
+                                              <TableCell>{inst.paymentDate ? formatDate(inst.paymentDate) : ""}</TableCell>
+                                              <TableCell className="text-right font-mono">{formatCurrency(inst.principleAmount)}</TableCell>
+                                              <TableCell className="text-right font-mono">{formatCurrency(inst.marginAmount)}</TableCell>
+                                              <TableCell className="text-right font-mono">{formatCurrency(inst.totalAmount)}</TableCell>
+                                              <TableCell className="text-right font-mono text-emerald-600 font-semibold">{formatCurrency(inst.paidAmount)}</TableCell>
+                                              <TableCell className={`text-right font-mono ${instOutstanding > 0 ? "text-amber-600" : ""}`}>{formatCurrency(instOutstanding)}</TableCell>
+                                              <TableCell className={`text-center font-mono ${inst.lateDays > 0 ? "text-red-600 font-semibold" : ""}`}>{inst.lateDays}</TableCell>
+                                              <TableCell className="text-center">
+                                                <Badge variant={inst.isPaid ? "default" : "secondary"} className={inst.isPaid ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"}>
+                                                  {inst.isPaid ? "Paid" : "Partial"}
+                                                </Badge>
+                                              </TableCell>
+                                            </TableRow>
+                                          );
+                                        })}
+                                      </TableBody>
+                                    </Table>
+                                  </div>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </>
+                      );
+                    })}
+                    <TableRow className="bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]">
+                      <TableCell colSpan={7} className="text-right font-bold text-primary-foreground text-base">Grand Total</TableCell>
+                      <TableCell className="text-right font-mono font-bold text-primary-foreground">{formatCurrency(grandTotal.principleAmount)}</TableCell>
+                      <TableCell className="text-right font-mono font-bold text-primary-foreground">{formatCurrency(grandTotal.marginAmount)}</TableCell>
+                      <TableCell className="text-right font-mono font-bold text-primary-foreground">{formatCurrency(grandTotal.paidAmount)}</TableCell>
+                      <TableCell className="text-right font-mono font-bold text-primary-foreground">{formatCurrency(grandTotal.outstanding)}</TableCell>
+                      <TableCell className="text-primary-foreground"></TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between gap-3 mt-4 flex-wrap" data-testid="pagination-controls">
+                    <div className="text-sm text-muted-foreground">
+                      Page {currentPage} of {totalPages} · Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, loanGroups.length)} of {loanGroups.length}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(1)}
+                        disabled={currentPage === 1}
+                        data-testid="button-page-first"
+                      >
+                        First
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        data-testid="button-page-prev"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      {(() => {
+                        const pageNumbers: number[] = [];
+                        const start = Math.max(1, currentPage - 2);
+                        const end = Math.min(totalPages, start + 4);
+                        for (let p = start; p <= end; p++) pageNumbers.push(p);
+                        return pageNumbers.map((p) => (
+                          <Button
+                            key={p}
+                            variant={p === currentPage ? "default" : "outline"}
+                            size="sm"
+                            className="min-w-[36px]"
+                            onClick={() => setCurrentPage(p)}
+                            data-testid={`button-page-${p}`}
+                          >
+                            {p}
+                          </Button>
+                        ));
+                      })()}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                        data-testid="button-page-next"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(totalPages)}
+                        disabled={currentPage === totalPages}
+                        data-testid="button-page-last"
+                      >
+                        Last
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
