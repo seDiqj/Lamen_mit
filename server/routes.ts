@@ -6764,8 +6764,9 @@ export async function registerRoutes(
         .orderBy(asc(installments.paymentDate), asc(installments.installmentNumber));
 
       // Step 2: get loan-level totals (sum across ALL installments) for those loans
+      // Split paidAmount into principal-paid vs margin-paid by proportional allocation
       const loanIds = Array.from(new Set(inRangeRows.map((r) => r.loanId).filter(Boolean))) as string[];
-      const loanTotalsMap = new Map<string, { principleAmount: number; marginAmount: number; totalAmount: number; paidAmount: number }>();
+      const loanTotalsMap = new Map<string, { principleAmount: number; marginAmount: number; totalAmount: number; paidAmount: number; principalPaid: number; marginPaid: number }>();
       if (loanIds.length > 0) {
         const totals = await db
           .select({
@@ -6774,6 +6775,8 @@ export async function registerRoutes(
             marginAmount: sql<string>`COALESCE(SUM(${installments.marginAmount}), 0)`,
             totalAmount: sql<string>`COALESCE(SUM(${installments.totalAmount}), 0)`,
             paidAmount: sql<string>`COALESCE(SUM(${installments.paidAmount}), 0)`,
+            principalPaid: sql<string>`COALESCE(SUM(CASE WHEN ${installments.paidAmount} >= ${installments.totalAmount} THEN ${installments.principleAmount} WHEN ${installments.totalAmount} > 0 THEN ${installments.principleAmount} * ${installments.paidAmount} / ${installments.totalAmount} ELSE 0 END), 0)`,
+            marginPaid: sql<string>`COALESCE(SUM(CASE WHEN ${installments.paidAmount} >= ${installments.totalAmount} THEN ${installments.marginAmount} WHEN ${installments.totalAmount} > 0 THEN ${installments.marginAmount} * ${installments.paidAmount} / ${installments.totalAmount} ELSE 0 END), 0)`,
           })
           .from(installments)
           .where(inArray(installments.loanId, loanIds))
@@ -6785,6 +6788,8 @@ export async function registerRoutes(
               marginAmount: Number(t.marginAmount || 0),
               totalAmount: Number(t.totalAmount || 0),
               paidAmount: Number(t.paidAmount || 0),
+              principalPaid: Number(t.principalPaid || 0),
+              marginPaid: Number(t.marginPaid || 0),
             });
           }
         }
@@ -6795,7 +6800,7 @@ export async function registerRoutes(
       for (const row of inRangeRows) {
         const lid = row.loanId as string;
         if (!loanMap.has(lid)) {
-          const totals = loanTotalsMap.get(lid) || { principleAmount: 0, marginAmount: 0, totalAmount: 0, paidAmount: 0 };
+          const totals = loanTotalsMap.get(lid) || { principleAmount: 0, marginAmount: 0, totalAmount: 0, paidAmount: 0, principalPaid: 0, marginPaid: 0 };
           loanMap.set(lid, {
             loanId: lid,
             customerName: row.customerName || "",
@@ -6809,6 +6814,8 @@ export async function registerRoutes(
             loanMarginTotal: totals.marginAmount,
             loanTotalDue: totals.totalAmount,
             loanTotalPaid: totals.paidAmount,
+            loanPrincipalPaid: totals.principalPaid,
+            loanMarginPaid: totals.marginPaid,
             loanOutstanding: totals.totalAmount - totals.paidAmount,
           });
         }
