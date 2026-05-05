@@ -248,6 +248,7 @@ export default function CollectionReport() {
         "Total Due (AFN)": g.loanTotalDue,
         "Principal Paid (AFN)": g.loanPrincipalPaid,
         "Margin Paid (AFN)": g.loanMarginPaid,
+        "Total Paid (AFN)": g.loanTotalPaid,
         "Outstanding (AFN)": g.loanOutstanding,
         "Late Days": "",
         "Status": "",
@@ -272,6 +273,7 @@ export default function CollectionReport() {
           "Total Due (AFN)": inst.totalAmount,
           "Principal Paid (AFN)": Number(instPrincipalPaid.toFixed(2)),
           "Margin Paid (AFN)": Number(instMarginPaid.toFixed(2)),
+          "Total Paid (AFN)": inst.paidAmount,
           "Outstanding (AFN)": inst.totalAmount - inst.paidAmount,
           "Late Days": inst.lateDays,
           "Status": inst.isPaid ? "Paid" : "Partial",
@@ -294,6 +296,7 @@ export default function CollectionReport() {
       "Total Due (AFN)": grandTotal.loanTotalDue,
       "Principal Paid (AFN)": grandTotal.loanPrincipalPaid,
       "Margin Paid (AFN)": grandTotal.loanMarginPaid,
+      "Total Paid (AFN)": grandTotal.loanTotalPaid,
       "Outstanding (AFN)": grandTotal.loanOutstanding,
       "Late Days": "",
       "Status": "",
@@ -337,6 +340,7 @@ export default function CollectionReport() {
         g.loanMarginTotal.toLocaleString(),
         g.loanPrincipalPaid.toLocaleString(undefined, { maximumFractionDigits: 0 }),
         g.loanMarginPaid.toLocaleString(undefined, { maximumFractionDigits: 0 }),
+        g.loanTotalPaid.toLocaleString(),
         g.loanOutstanding.toLocaleString(),
       ]);
     }
@@ -346,19 +350,20 @@ export default function CollectionReport() {
       grandTotal.loanMarginTotal.toLocaleString(),
       grandTotal.loanPrincipalPaid.toLocaleString(undefined, { maximumFractionDigits: 0 }),
       grandTotal.loanMarginPaid.toLocaleString(undefined, { maximumFractionDigits: 0 }),
+      grandTotal.loanTotalPaid.toLocaleString(),
       grandTotal.loanOutstanding.toLocaleString(),
     ]);
 
     autoTable(doc, {
       startY: 38,
-      head: [["#", "Customer", "App ID", "Product", "Branch", "Officer", "Principal", "Margin", "Principal Paid", "Margin Paid", "Outstanding"]],
+      head: [["#", "Customer", "App ID", "Product", "Branch", "Officer", "Principal", "Margin", "Principal Paid", "Margin Paid", "Total Paid", "Outstanding"]],
       body: tableData,
       theme: "grid",
       headStyles: { fillColor: [34, 87, 122], textColor: [255, 255, 255], fontStyle: "bold", halign: "center", fontSize: 8 },
       styles: { fontSize: 7, cellPadding: 1.5 },
       columnStyles: {
         0: { halign: "center", cellWidth: 8 },
-        6: { halign: "right" }, 7: { halign: "right" }, 8: { halign: "right" }, 9: { halign: "right" }, 10: { halign: "right" },
+        6: { halign: "right" }, 7: { halign: "right" }, 8: { halign: "right" }, 9: { halign: "right" }, 10: { halign: "right" }, 11: { halign: "right" },
       },
       didParseCell: (hookData: any) => {
         if (hookData.section === "body") {
@@ -538,6 +543,7 @@ export default function CollectionReport() {
                       <TableHead className="text-right text-primary-foreground font-semibold">Margin</TableHead>
                       <TableHead className="text-right text-primary-foreground font-semibold">Principal Paid</TableHead>
                       <TableHead className="text-right text-primary-foreground font-semibold">Margin Paid</TableHead>
+                      <TableHead className="text-right text-primary-foreground font-semibold">Total Paid</TableHead>
                       <TableHead className="text-right text-primary-foreground font-semibold">Outstanding</TableHead>
                       <TableHead className="text-center text-primary-foreground font-semibold">Inst.</TableHead>
                     </TableRow>
@@ -570,6 +576,7 @@ export default function CollectionReport() {
                             <TableCell className="text-right font-mono text-sm">{formatCurrency(g.loanMarginTotal)}</TableCell>
                             <TableCell className="text-right font-mono font-semibold text-blue-600">{formatCurrency(g.loanPrincipalPaid)}</TableCell>
                             <TableCell className="text-right font-mono font-semibold text-purple-600">{formatCurrency(g.loanMarginPaid)}</TableCell>
+                            <TableCell className="text-right font-mono font-semibold text-emerald-600">{formatCurrency(g.loanTotalPaid)}</TableCell>
                             <TableCell className={`text-right font-mono font-semibold ${g.loanOutstanding > 0 ? "text-amber-600" : "text-emerald-600"}`}>{formatCurrency(g.loanOutstanding)}</TableCell>
                             <TableCell className="text-center">
                               <Badge variant="secondary" className="font-mono text-xs">{g.installments.length}</Badge>
@@ -636,6 +643,7 @@ export default function CollectionReport() {
                       <TableCell className="text-right font-mono font-bold text-primary-foreground">{formatCurrency(grandTotal.loanMarginTotal)}</TableCell>
                       <TableCell className="text-right font-mono font-bold text-primary-foreground">{formatCurrency(grandTotal.loanPrincipalPaid)}</TableCell>
                       <TableCell className="text-right font-mono font-bold text-primary-foreground">{formatCurrency(grandTotal.loanMarginPaid)}</TableCell>
+                      <TableCell className="text-right font-mono font-bold text-primary-foreground">{formatCurrency(grandTotal.loanTotalPaid)}</TableCell>
                       <TableCell className="text-right font-mono font-bold text-primary-foreground">{formatCurrency(grandTotal.loanOutstanding)}</TableCell>
                       <TableCell className="text-primary-foreground"></TableCell>
                     </TableRow>
