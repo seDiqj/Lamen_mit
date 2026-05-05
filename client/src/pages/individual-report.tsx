@@ -273,7 +273,7 @@ export default function IndividualReport() {
                     <TableRow key={idx} data-testid={`row-individual-${idx}`} className={idx % 2 === 0 ? "bg-muted/30" : ""}>
                       {DAB_COLUMNS.map((col) => (
                         <TableCell key={col} className="whitespace-nowrap text-xs">
-                          {col === "DateOfBirth" && row[col] ? formatDate(String(row[col])) : String(row[col] ?? "")}
+                          {String(row[col] ?? "")}
                         </TableCell>
                       ))}
                     </TableRow>

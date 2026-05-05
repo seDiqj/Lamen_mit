@@ -7331,29 +7331,51 @@ export async function registerRoutes(
         .where(and(...conditions))
         .orderBy(branches.name, loans.applicationId);
 
+      const capitalize = (s: string | null | undefined) => {
+        if (!s) return "";
+        const str = String(s).trim();
+        if (!str) return "";
+        return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+      };
+      const formatDob = (d: string | null | undefined) => {
+        if (!d) return "";
+        const str = String(d);
+        const match = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (match) return `${match[1]}-${match[2]}-${match[3]}`;
+        const date = new Date(str);
+        if (!isNaN(date.getTime())) {
+          const y = date.getFullYear();
+          const m = String(date.getMonth() + 1).padStart(2, "0");
+          const day = String(date.getDate()).padStart(2, "0");
+          return `${y}-${m}-${day}`;
+        }
+        return str;
+      };
+
       const uniqueMap = new Map<string, any>();
       for (const row of results) {
         const key = `${row.contractCode}-${row.customerCode}`;
         if (!uniqueMap.has(key)) {
+          const fullName = `${row.firstName || ""} ${row.lastName || ""}`.trim();
           uniqueMap.set(key, {
             ContractCode: row.contractCode || "",
             CustomerCode: row.customerCode || "",
-            PresentSurname: row.lastName || "",
-            BirthSurname: "",
-            FirstName: row.firstName || "",
-            FirstNameLocal: row.firstNameDari || "",
+            PresentSurname: fullName,
+            BirthSurname: fullName,
+            FirstName: "",
+            FirstNameLocal: "",
             MiddleNames: "",
             MiddleNamesLocal: "",
-            FullName: `${row.firstName || ""} ${row.lastName || ""}`.trim(),
+            FullName: fullName,
             FullNameLocal: row.firstNameDari || "",
             Alias: "",
-            FathersName: row.fatherName || "",
+            FathersName: "",
             FathersNameLocal: row.fatherNameDari || "",
             ClassificationOfIndividual: "Individual",
-            Gender: row.gender || "",
-            DateOfBirth: row.dateOfBirth || "",
+            Gender: capitalize(row.gender),
+            DateOfBirth: formatDob(row.dateOfBirth),
             CountryOfBirth: "AF",
-            MaritalStatus: row.maritalStatus || "",
+            MaritalStatus: capitalize(row.maritalStatus),
             FateStatus: "Active",
             SocialStatus: "Employed",
             Residency: "Yes",
@@ -7361,8 +7383,8 @@ export async function registerRoutes(
             Employment: "Other",
             Education: "NotSpecified",
             BusinessName: row.businessName || "",
-            "IncomeAvailable.Value": row.monthlyIncomeAmount ? Number(row.monthlyIncomeAmount) : "",
-            "IncomeAvailable.Currency": row.monthlyIncomeAmount ? "AFN" : "",
+            "IncomeAvailable.Value": "",
+            "IncomeAvailable.Currency": "",
             "MonthlyExpenses.Value": "",
             "MonthlyExpenses.Currency": "",
             NegativeStatusOfIndividual: "NoNegativeStatus",
@@ -7372,8 +7394,8 @@ export async function registerRoutes(
             "IdentificationNumbers.DrivingLicenseNumber": "",
             "IdentificationNumbers.TazkiraNumber": "",
             "IdentificationNumbers.LabourCard": "",
-            "IdentificationNumbers.BusinessLicense": row.licenseNumber || "",
-            "IdentificationNumbers.BusinessLicenseExpirationDate": row.licenseExpiryDate || "",
+            "IdentificationNumbers.BusinessLicense": "",
+            "IdentificationNumbers.BusinessLicenseExpirationDate": formatDob(row.licenseExpiryDate),
             "MainAddress.Street": "",
             "MainAddress.NumberOfBuilding": "",
             "MainAddress.City": "",
