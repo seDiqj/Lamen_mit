@@ -6763,9 +6763,35 @@ export async function registerRoutes(
         .where(and(...inRangeConditions))
         .orderBy(asc(installments.paymentDate), asc(installments.installmentNumber));
 
+      // Step 1b: also fetch ALL disbursed/active/completed loans for branch+officer
+      // (so loans without any in-range collection still appear with zero paid)
+      const allLoanFilters: any[] = [
+        ...loanFilters,
+        inArray(loans.status, ['disbursed', 'active', 'completed']),
+      ];
+      const allLoansRows = await db
+        .select({
+          loanId: loans.id,
+          applicationId: loans.applicationId,
+          productName: loans.productName,
+          customerName: sql<string>`CONCAT(${customers.firstName}, ' ', ${customers.lastName})`,
+          phoneNumber: customers.phoneNumber,
+          branchName: branches.name,
+          officerName: financeOfficers.name,
+          officerCode: financeOfficers.code,
+        })
+        .from(loans)
+        .innerJoin(customers, eq(loans.customerId, customers.id))
+        .leftJoin(branches, eq(loans.branchId, branches.id))
+        .leftJoin(financeOfficers, eq(loans.financeOfficerId, financeOfficers.id))
+        .where(and(...allLoanFilters));
+
       // Step 2: get loan-level totals (sum across ALL installments) for those loans
       // Split paidAmount into principal-paid vs margin-paid by proportional allocation
-      const loanIds = Array.from(new Set(inRangeRows.map((r) => r.loanId).filter(Boolean))) as string[];
+      const loanIds = Array.from(new Set([
+        ...inRangeRows.map((r) => r.loanId).filter(Boolean) as string[],
+        ...allLoansRows.map((l) => l.loanId).filter(Boolean) as string[],
+      ]));
       const loanTotalsMap = new Map<string, { principleAmount: number; marginAmount: number; totalAmount: number; paidAmount: number; principalPaid: number; marginPaid: number }>();
       if (loanIds.length > 0) {
         const totals = await db
@@ -6795,8 +6821,31 @@ export async function registerRoutes(
         }
       }
 
-      // Build loan-level summary list (one entry per loan)
+      // Build loan-level summary list (one entry per loan) — include all qualifying loans
       const loanMap = new Map<string, any>();
+      for (const row of allLoansRows) {
+        const lid = row.loanId as string;
+        const totals = loanTotalsMap.get(lid) || { principleAmount: 0, marginAmount: 0, totalAmount: 0, paidAmount: 0, principalPaid: 0, marginPaid: 0 };
+        loanMap.set(lid, {
+          loanId: lid,
+          customerName: row.customerName || "",
+          phoneNumber: row.phoneNumber || "",
+          applicationId: row.applicationId || "",
+          productName: row.productName || "",
+          branchName: row.branchName || "",
+          officerName: row.officerName || "",
+          officerCode: row.officerCode || "",
+          loanPrincipleTotal: totals.principleAmount,
+          loanMarginTotal: totals.marginAmount,
+          loanTotalDue: totals.totalAmount,
+          loanTotalPaid: totals.paidAmount,
+          loanPrincipalPaid: totals.principalPaid,
+          loanMarginPaid: totals.marginPaid,
+          loanOutstanding: totals.totalAmount - totals.paidAmount,
+        });
+      }
+      // Also include loans found via in-range installments but missing from allLoansRows
+      // (defensive — e.g., status not in the filter list but had a payment)
       for (const row of inRangeRows) {
         const lid = row.loanId as string;
         if (!loanMap.has(lid)) {

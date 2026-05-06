@@ -568,17 +568,18 @@ export default function CollectionReport() {
                   <TableBody>
                     {pagedGroups.map((g, idx) => {
                       const serial = (currentPage - 1) * PAGE_SIZE + idx + 1;
-                      const isExpanded = expandedKeys.has(g.loanId);
+                      const hasInsts = g.installments.length > 0;
+                      const isExpanded = hasInsts && expandedKeys.has(g.loanId);
                       return (
                         <>
                           <TableRow
                             key={g.loanId}
-                            className={`cursor-pointer transition-colors border-l-4 ${isExpanded ? "bg-emerald-50 dark:bg-emerald-950/30 border-l-emerald-500 hover:bg-emerald-100 dark:hover:bg-emerald-950/40" : idx % 2 === 0 ? "bg-sky-50/60 dark:bg-sky-950/20 border-l-sky-300 dark:border-l-sky-800 hover:bg-sky-100/70 dark:hover:bg-sky-950/30" : "bg-white dark:bg-background border-l-slate-200 dark:border-l-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900/40"}`}
-                            onClick={() => toggleExpand(g.loanId)}
+                            className={`${hasInsts ? "cursor-pointer" : ""} transition-colors border-l-4 ${isExpanded ? "bg-emerald-50 dark:bg-emerald-950/30 border-l-emerald-500 hover:bg-emerald-100 dark:hover:bg-emerald-950/40" : idx % 2 === 0 ? "bg-sky-50/60 dark:bg-sky-950/20 border-l-sky-300 dark:border-l-sky-800 hover:bg-sky-100/70 dark:hover:bg-sky-950/30" : "bg-white dark:bg-background border-l-slate-200 dark:border-l-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900/40"}`}
+                            onClick={() => hasInsts && toggleExpand(g.loanId)}
                             data-testid={`row-loan-${idx}`}
                           >
                             <TableCell className="text-center">
-                              {isExpanded ? <ChevronDown className="h-4 w-4 text-emerald-600" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                              {hasInsts ? (isExpanded ? <ChevronDown className="h-4 w-4 text-emerald-600" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />) : <span className="text-muted-foreground/40">—</span>}
                             </TableCell>
                             <TableCell className="text-center font-mono text-xs">{serial}</TableCell>
                             <TableCell>
