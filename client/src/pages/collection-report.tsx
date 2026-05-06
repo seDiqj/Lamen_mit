@@ -344,6 +344,7 @@ export default function CollectionReport() {
         g.officerName,
         g.loanPrincipleTotal.toLocaleString(),
         g.loanMarginTotal.toLocaleString(),
+        g.loanTotalDue.toLocaleString(),
         g.loanPrincipalPaid.toLocaleString(undefined, { maximumFractionDigits: 0 }),
         g.loanMarginPaid.toLocaleString(undefined, { maximumFractionDigits: 0 }),
         g.loanTotalPaid.toLocaleString(),
@@ -354,6 +355,7 @@ export default function CollectionReport() {
       "", "Grand Total", "", "", "", "",
       grandTotal.loanPrincipleTotal.toLocaleString(),
       grandTotal.loanMarginTotal.toLocaleString(),
+      grandTotal.loanTotalDue.toLocaleString(),
       grandTotal.loanPrincipalPaid.toLocaleString(undefined, { maximumFractionDigits: 0 }),
       grandTotal.loanMarginPaid.toLocaleString(undefined, { maximumFractionDigits: 0 }),
       grandTotal.loanTotalPaid.toLocaleString(),
@@ -362,14 +364,14 @@ export default function CollectionReport() {
 
     autoTable(doc, {
       startY: 38,
-      head: [["#", "Customer", "App ID", "Product", "Branch", "Officer", "Principal", "Margin", "Principal Paid", "Margin Paid", "Total Paid", "Outstanding"]],
+      head: [["#", "Customer", "App ID", "Product", "Branch", "Officer", "Principal", "Margin", "Total", "Principal Paid", "Margin Paid", "Total Paid", "Outstanding"]],
       body: tableData,
       theme: "grid",
       headStyles: { fillColor: [34, 87, 122], textColor: [255, 255, 255], fontStyle: "bold", halign: "center", fontSize: 8 },
       styles: { fontSize: 7, cellPadding: 1.5 },
       columnStyles: {
         0: { halign: "center", cellWidth: 8 },
-        6: { halign: "right" }, 7: { halign: "right" }, 8: { halign: "right" }, 9: { halign: "right" }, 10: { halign: "right" }, 11: { halign: "right" },
+        6: { halign: "right" }, 7: { halign: "right" }, 8: { halign: "right" }, 9: { halign: "right" }, 10: { halign: "right" }, 11: { halign: "right" }, 12: { halign: "right" },
       },
       didParseCell: (hookData: any) => {
         if (hookData.section === "body") {
@@ -549,6 +551,7 @@ export default function CollectionReport() {
                       <TableHead className="text-primary-foreground font-semibold">Officer</TableHead>
                       <TableHead className="text-right text-primary-foreground font-semibold">Principal</TableHead>
                       <TableHead className="text-right text-primary-foreground font-semibold">Margin</TableHead>
+                      <TableHead className="text-right text-primary-foreground font-semibold">Total</TableHead>
                       <TableHead className="text-right text-primary-foreground font-semibold">Principal Paid</TableHead>
                       <TableHead className="text-right text-primary-foreground font-semibold">Margin Paid</TableHead>
                       <TableHead className="text-right text-primary-foreground font-semibold">Total Paid</TableHead>
@@ -582,6 +585,7 @@ export default function CollectionReport() {
                             <TableCell>{g.officerName}</TableCell>
                             <TableCell className="text-right font-mono text-sm">{formatCurrency(g.loanPrincipleTotal)}</TableCell>
                             <TableCell className="text-right font-mono text-sm">{formatCurrency(g.loanMarginTotal)}</TableCell>
+                            <TableCell className="text-right font-mono font-semibold">{formatCurrency(g.loanTotalDue)}</TableCell>
                             <TableCell className="text-right font-mono font-semibold text-blue-600">{formatCurrency(g.loanPrincipalPaid)}</TableCell>
                             <TableCell className="text-right font-mono font-semibold text-purple-600">{formatCurrency(g.loanMarginPaid)}</TableCell>
                             <TableCell className="text-right font-mono font-semibold text-emerald-600">{formatCurrency(g.loanTotalPaid)}</TableCell>
@@ -649,6 +653,7 @@ export default function CollectionReport() {
                       <TableCell colSpan={7} className="text-right font-bold text-primary-foreground text-base">Grand Total</TableCell>
                       <TableCell className="text-right font-mono font-bold text-primary-foreground">{formatCurrency(grandTotal.loanPrincipleTotal)}</TableCell>
                       <TableCell className="text-right font-mono font-bold text-primary-foreground">{formatCurrency(grandTotal.loanMarginTotal)}</TableCell>
+                      <TableCell className="text-right font-mono font-bold text-primary-foreground">{formatCurrency(grandTotal.loanTotalDue)}</TableCell>
                       <TableCell className="text-right font-mono font-bold text-primary-foreground">{formatCurrency(grandTotal.loanPrincipalPaid)}</TableCell>
                       <TableCell className="text-right font-mono font-bold text-primary-foreground">{formatCurrency(grandTotal.loanMarginPaid)}</TableCell>
                       <TableCell className="text-right font-mono font-bold text-primary-foreground">{formatCurrency(grandTotal.loanTotalPaid)}</TableCell>
