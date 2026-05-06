@@ -325,6 +325,58 @@ export default function CollectionReport() {
     XLSX.writeFile(wb, `Collection_Report_${dateStr}.xlsx`);
   };
 
+  const handleExportExcelSummary = () => {
+    if (!data) return;
+    const rows: Record<string, string | number>[] = [];
+    let serial = 1;
+    for (const g of loanGroups) {
+      rows.push({
+        "#": serial++,
+        "Customer": g.customerName,
+        "Phone": g.phoneNumber,
+        "Application ID": g.applicationId,
+        "Product": g.productName,
+        "Branch": g.branchName,
+        "Officer": g.officerName,
+        "Principal (AFN)": g.loanPrincipleTotal,
+        "Margin (AFN)": g.loanMarginTotal,
+        "Total Due (AFN)": g.loanTotalDue,
+        "Principal Paid (AFN)": g.loanPrincipalPaid,
+        "Margin Paid (AFN)": g.loanMarginPaid,
+        "Total Paid (AFN)": g.loanTotalPaid,
+        "Outstanding (AFN)": g.loanOutstanding,
+        "Installments": g.installments.length,
+      });
+    }
+    rows.push({
+      "#": "",
+      "Customer": "Grand Total",
+      "Phone": "",
+      "Application ID": "",
+      "Product": "",
+      "Branch": "",
+      "Officer": "",
+      "Principal (AFN)": grandTotal.loanPrincipleTotal,
+      "Margin (AFN)": grandTotal.loanMarginTotal,
+      "Total Due (AFN)": grandTotal.loanTotalDue,
+      "Principal Paid (AFN)": grandTotal.loanPrincipalPaid,
+      "Margin Paid (AFN)": grandTotal.loanMarginPaid,
+      "Total Paid (AFN)": grandTotal.loanTotalPaid,
+      "Outstanding (AFN)": grandTotal.loanOutstanding,
+      "Installments": "",
+    });
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws["!cols"] = [
+      { wch: 6 }, { wch: 22 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 18 },
+      { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 12 },
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Collection Summary");
+    const dateStr = `${startDate.replace(/-/g, "")}_${endDate.replace(/-/g, "")}`;
+    XLSX.writeFile(wb, `Collection_Report_Summary_${dateStr}.xlsx`);
+  };
+
   const handleExportPDF = () => {
     if (!data) return;
     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
@@ -417,8 +469,11 @@ export default function CollectionReport() {
         </div>
         {data && data.loans.length > 0 && (
           <div className="flex items-center gap-2">
-            <Button onClick={handleExportExcel} className="gap-2 bg-green-600 text-white" data-testid="button-export-excel">
-              <FileSpreadsheet className="h-4 w-4" /> Excel
+            <Button onClick={handleExportExcel} className="gap-2 bg-green-600 text-white hover:bg-green-700" data-testid="button-export-excel">
+              <FileSpreadsheet className="h-4 w-4" /> Excel (Detailed)
+            </Button>
+            <Button onClick={handleExportExcelSummary} className="gap-2 bg-emerald-600 text-white hover:bg-emerald-700" data-testid="button-export-excel-summary">
+              <FileSpreadsheet className="h-4 w-4" /> Excel (Summary)
             </Button>
             <Button onClick={handleExportPDF} className="gap-2 bg-red-600 text-white" data-testid="button-export-pdf">
               <FileText className="h-4 w-4" /> PDF
