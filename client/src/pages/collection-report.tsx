@@ -573,7 +573,7 @@ export default function CollectionReport() {
                         <>
                           <TableRow
                             key={g.loanId}
-                            className={`cursor-pointer hover:bg-muted/50 transition-colors ${isExpanded ? "bg-emerald-50/40 dark:bg-emerald-950/20" : idx % 2 === 0 ? "bg-muted/20" : ""}`}
+                            className={`cursor-pointer transition-colors border-l-4 ${isExpanded ? "bg-emerald-50 dark:bg-emerald-950/30 border-l-emerald-500 hover:bg-emerald-100 dark:hover:bg-emerald-950/40" : idx % 2 === 0 ? "bg-sky-50/60 dark:bg-sky-950/20 border-l-sky-300 dark:border-l-sky-800 hover:bg-sky-100/70 dark:hover:bg-sky-950/30" : "bg-white dark:bg-background border-l-slate-200 dark:border-l-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900/40"}`}
                             onClick={() => toggleExpand(g.loanId)}
                             data-testid={`row-loan-${idx}`}
                           >
@@ -601,33 +601,33 @@ export default function CollectionReport() {
                             </TableCell>
                           </TableRow>
                           {isExpanded && (
-                            <TableRow key={`${g.loanId}-detail`} className="bg-emerald-50/20 dark:bg-emerald-950/10">
+                            <TableRow key={`${g.loanId}-detail`} className="bg-emerald-50/40 dark:bg-emerald-950/15 border-l-4 border-l-emerald-500">
                               <TableCell colSpan={12} className="p-0">
                                 <div className="px-6 py-4">
                                   <p className="text-sm font-semibold mb-2 text-emerald-700 dark:text-emerald-400">
                                     Collected Installments ({g.installments.length})
                                   </p>
-                                  <div className="rounded-lg border bg-background overflow-hidden">
+                                  <div className="rounded-lg border border-emerald-200 dark:border-emerald-900 bg-background overflow-hidden">
                                     <Table>
                                       <TableHeader>
-                                        <TableRow>
-                                          <TableHead className="text-center w-16">Inst #</TableHead>
-                                          <TableHead>Due Date</TableHead>
-                                          <TableHead>Payment Date</TableHead>
-                                          <TableHead className="text-right">Principal</TableHead>
-                                          <TableHead className="text-right">Margin</TableHead>
-                                          <TableHead className="text-right">Total Due</TableHead>
-                                          <TableHead className="text-right">Paid</TableHead>
-                                          <TableHead className="text-right">Outstanding</TableHead>
-                                          <TableHead className="text-center">Late Days</TableHead>
-                                          <TableHead className="text-center">Status</TableHead>
+                                        <TableRow className="bg-emerald-100/70 dark:bg-emerald-950/40 hover:bg-emerald-100/70 dark:hover:bg-emerald-950/40">
+                                          <TableHead className="text-center w-16 text-emerald-800 dark:text-emerald-300 font-semibold">Inst #</TableHead>
+                                          <TableHead className="text-emerald-800 dark:text-emerald-300 font-semibold">Due Date</TableHead>
+                                          <TableHead className="text-emerald-800 dark:text-emerald-300 font-semibold">Payment Date</TableHead>
+                                          <TableHead className="text-right text-emerald-800 dark:text-emerald-300 font-semibold">Principal</TableHead>
+                                          <TableHead className="text-right text-emerald-800 dark:text-emerald-300 font-semibold">Margin</TableHead>
+                                          <TableHead className="text-right text-emerald-800 dark:text-emerald-300 font-semibold">Total Due</TableHead>
+                                          <TableHead className="text-right text-emerald-800 dark:text-emerald-300 font-semibold">Paid</TableHead>
+                                          <TableHead className="text-right text-emerald-800 dark:text-emerald-300 font-semibold">Outstanding</TableHead>
+                                          <TableHead className="text-center text-emerald-800 dark:text-emerald-300 font-semibold">Late Days</TableHead>
+                                          <TableHead className="text-center text-emerald-800 dark:text-emerald-300 font-semibold">Status</TableHead>
                                         </TableRow>
                                       </TableHeader>
                                       <TableBody>
                                         {g.installments.map((inst, instIdx) => {
                                           const instOutstanding = inst.totalAmount - inst.paidAmount;
                                           return (
-                                            <TableRow key={instIdx} data-testid={`row-installment-${idx}-${instIdx}`}>
+                                            <TableRow key={instIdx} data-testid={`row-installment-${idx}-${instIdx}`} className={instIdx % 2 === 0 ? "bg-white dark:bg-background hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20" : "bg-emerald-50/30 dark:bg-emerald-950/10 hover:bg-emerald-50/60 dark:hover:bg-emerald-950/25"}>
                                               <TableCell className="text-center font-mono">{inst.installmentNumber}</TableCell>
                                               <TableCell>{inst.dueDate ? formatDate(inst.dueDate) : ""}</TableCell>
                                               <TableCell>{inst.paymentDate ? formatDate(inst.paymentDate) : ""}</TableCell>
