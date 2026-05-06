@@ -193,17 +193,12 @@ export default function CollectionReport() {
       const insts = (installmentsByLoan.get(l.loanId) || []).sort((a, b) => a.installmentNumber - b.installmentNumber);
       let filteredPrincipal = 0, filteredMargin = 0, filteredPaid = 0;
       for (const i of insts) {
-        const fullyPaid = i.isPaid || i.paidAmount >= i.totalAmount;
-        const effectivePaid = fullyPaid ? i.totalAmount : i.paidAmount;
-        if (fullyPaid) {
-          filteredPrincipal += i.principleAmount;
-          filteredMargin += i.marginAmount;
-        } else if (i.totalAmount > 0) {
+        filteredPaid += i.paidAmount;
+        if (i.totalAmount > 0) {
           const ratio = i.paidAmount / i.totalAmount;
           filteredPrincipal += i.principleAmount * ratio;
           filteredMargin += i.marginAmount * ratio;
         }
-        filteredPaid += effectivePaid;
       }
       return { ...l, installments: insts, filteredPrincipal, filteredMargin, filteredPaid };
     });
