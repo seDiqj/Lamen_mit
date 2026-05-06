@@ -191,9 +191,20 @@ export default function CollectionReport() {
 
     const groups: LoanGroup[] = data.loans.map((l) => {
       const insts = (installmentsByLoan.get(l.loanId) || []).sort((a, b) => a.installmentNumber - b.installmentNumber);
-      const filteredPrincipal = insts.reduce((s, i) => s + i.principleAmount, 0);
-      const filteredMargin = insts.reduce((s, i) => s + i.marginAmount, 0);
-      const filteredPaid = insts.reduce((s, i) => s + i.paidAmount, 0);
+      let filteredPrincipal = 0, filteredMargin = 0, filteredPaid = 0;
+      for (const i of insts) {
+        const fullyPaid = i.isPaid || i.paidAmount >= i.totalAmount;
+        const effectivePaid = fullyPaid ? i.totalAmount : i.paidAmount;
+        if (fullyPaid) {
+          filteredPrincipal += i.principleAmount;
+          filteredMargin += i.marginAmount;
+        } else if (i.totalAmount > 0) {
+          const ratio = i.paidAmount / i.totalAmount;
+          filteredPrincipal += i.principleAmount * ratio;
+          filteredMargin += i.marginAmount * ratio;
+        }
+        filteredPaid += effectivePaid;
+      }
       return { ...l, installments: insts, filteredPrincipal, filteredMargin, filteredPaid };
     });
     groups.sort((a, b) => (a.branchName || "").localeCompare(b.branchName || "") || a.customerName.localeCompare(b.customerName));
