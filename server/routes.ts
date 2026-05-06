@@ -6836,9 +6836,40 @@ export async function registerRoutes(
         isPaid: row.isPaid,
       }));
 
+      // Life-to-date totals (matches dashboard logic): across ALL disbursed/active/completed loans
+      // for the selected branch + officer, regardless of date range.
+      let branchSql = sql``;
+      if (effectiveBranch && effectiveBranch !== "all") {
+        branchSql = sql`AND l.branch_id = ${effectiveBranch}`;
+      }
+      let officerSql = sql``;
+      if (officerId && officerId !== "all") {
+        officerSql = sql`AND l.finance_officer_id = ${officerId as string}`;
+      }
+      const portfolioRes: any = await db.execute(sql`
+        SELECT COALESCE(SUM(l.total_receivable::numeric), 0) AS total_portfolio
+        FROM loans l
+        WHERE l.status IN ('disbursed','active','completed') ${branchSql} ${officerSql}
+      `);
+      const collectedRes: any = await db.execute(sql`
+        SELECT COALESCE(SUM(COALESCE(i.paid_amount::numeric, 0)), 0) AS total_collected
+        FROM installments i
+        JOIN loans l ON i.loan_id = l.id
+        WHERE l.status IN ('disbursed','active','completed') ${branchSql} ${officerSql}
+      `);
+      const totalPortfolio = Number(portfolioRes.rows?.[0]?.total_portfolio || 0);
+      const totalCollectedLTD = Number(collectedRes.rows?.[0]?.total_collected || 0);
+      const lifeToDate = {
+        totalPortfolio,
+        totalCollected: totalCollectedLTD,
+        totalOutstanding: totalPortfolio - totalCollectedLTD,
+        collectionRate: totalPortfolio > 0 ? (totalCollectedLTD / totalPortfolio) * 100 : 0,
+      };
+
       res.json({
         loans: Array.from(loanMap.values()),
         installments: enrichedInstallments,
+        lifeToDate,
       });
     } catch (error) {
       console.error("Error fetching collection report:", error);

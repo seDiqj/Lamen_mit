@@ -64,6 +64,12 @@ type LoanSummary = {
 type CollectionResponse = {
   loans: LoanSummary[];
   installments: InstallmentRow[];
+  lifeToDate?: {
+    totalPortfolio: number;
+    totalCollected: number;
+    totalOutstanding: number;
+    collectionRate: number;
+  };
 };
 
 type LoanGroup = LoanSummary & {
@@ -498,7 +504,7 @@ export default function CollectionReport() {
           <Card className="border-0 shadow-md">
             <CardContent className="p-4">
               <p className="text-sm text-muted-foreground">Loan Outstanding</p>
-              <p className="text-2xl font-bold mt-1 text-amber-600" data-testid="text-total-outstanding">{formatCurrency(grandTotal.loanOutstanding)}</p>
+              <p className="text-2xl font-bold mt-1 text-amber-600" data-testid="text-total-outstanding">{formatCurrency(data?.lifeToDate?.totalOutstanding ?? grandTotal.loanOutstanding)}</p>
               <p className="text-xs text-muted-foreground mt-1">Life-to-date balance</p>
             </CardContent>
           </Card>
@@ -506,7 +512,9 @@ export default function CollectionReport() {
             <CardContent className="p-4">
               <p className="text-sm text-muted-foreground">Collection Rate</p>
               <p className="text-2xl font-bold mt-1" data-testid="text-collection-rate">
-                {grandTotal.loanTotalDue > 0 ? `${Math.round((grandTotal.loanTotalPaid / grandTotal.loanTotalDue) * 100)}%` : "0%"}
+                {data?.lifeToDate
+                  ? `${Math.round(data.lifeToDate.collectionRate)}%`
+                  : (grandTotal.loanTotalDue > 0 ? `${Math.round((grandTotal.loanTotalPaid / grandTotal.loanTotalDue) * 100)}%` : "0%")}
               </p>
               <p className="text-xs text-muted-foreground mt-1">Life-to-date</p>
             </CardContent>
