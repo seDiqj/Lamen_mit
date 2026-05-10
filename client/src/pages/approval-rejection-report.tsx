@@ -21,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { CheckCircle2, XCircle, FileSpreadsheet, FileText, Gavel } from "lucide-react";
+import { CheckCircle2, XCircle, FileSpreadsheet, FileText, Gavel, AlertOctagon, ChevronLeft, ChevronRight } from "lucide-react";
 import { formatDate } from "@/lib/date-utils";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -136,6 +136,8 @@ export default function ApprovalRejectionReport() {
   const [status, setStatus] = useState("all");
   const [data, setData] = useState<{ summary: Summary; rows: ReportRow[] } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 30;
 
   const { data: branchesData } = useQuery<Branch[]>({ queryKey: ["/api/branches"] });
 
@@ -146,6 +148,7 @@ export default function ApprovalRejectionReport() {
       const res = await fetch(`/api/reports/approval-rejection?${params}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch");
       setData(await res.json());
+      setCurrentPage(1);
     } catch (e) {
       console.error(e);
     } finally {
@@ -158,9 +161,34 @@ export default function ApprovalRejectionReport() {
     [branchId, branchesData]
   );
 
+  const sortedRows = useMemo(() => {
+    if (!data) return [];
+    return [...data.rows].sort((a, b) => (a.applicationId || "").localeCompare(b.applicationId || "") || (b.reviewedAt || "").localeCompare(a.reviewedAt || ""));
+  }, [data]);
+
+  const mostRejected = useMemo(() => {
+    if (!data) return null;
+    const map = new Map<string, { applicationId: string; customerName: string; count: number }>();
+    for (const r of data.rows) {
+      if (r.status !== "rejected" || !r.applicationId) continue;
+      const existing = map.get(r.applicationId);
+      if (existing) existing.count++;
+      else map.set(r.applicationId, { applicationId: r.applicationId, customerName: r.customerName, count: 1 });
+    }
+    let top: { applicationId: string; customerName: string; count: number } | null = null;
+    for (const v of map.values()) {
+      if (!top || v.count > top.count) top = v;
+    }
+    return top;
+  }, [data]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedRows.length / PAGE_SIZE));
+  const pageStart = (currentPage - 1) * PAGE_SIZE;
+  const pagedRows = sortedRows.slice(pageStart, pageStart + PAGE_SIZE);
+
   const exportExcel = () => {
     if (!data) return;
-    const rows = data.rows.map((r, i) => ({
+    const rows = sortedRows.map((r, i) => ({
       "#": i + 1,
       "Date": r.reviewedAt ? formatDate(r.reviewedAt) : "",
       "Unit": r.unit,
@@ -192,7 +220,7 @@ export default function ApprovalRejectionReport() {
     doc.text(`From: ${formatDate(startDate)}    To: ${formatDate(endDate)}    Branch: ${branchName}    Unit: ${UNITS.find((u) => u.value === unit)?.label}`, 148, 21, { align: "center" });
     doc.text(`Total: ${data.summary.total}    Approved: ${data.summary.approved}    Rejected: ${data.summary.rejected}`, 148, 27, { align: "center" });
 
-    const body = data.rows.map((r, i) => [
+    const body = sortedRows.map((r, i) => [
       i + 1,
       r.reviewedAt ? formatDate(r.reviewedAt) : "",
       r.unit,
@@ -330,7 +358,7 @@ export default function ApprovalRejectionReport() {
 
       {data && (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3">
             <Card data-testid="card-total">
               <CardContent className="pt-4">
                 <p className="text-xs text-muted-foreground uppercase">Total Decisions</p>
@@ -355,6 +383,23 @@ export default function ApprovalRejectionReport() {
                 <p className="text-2xl font-bold text-red-700 dark:text-red-400">{fmtNum(data.summary.rejected)}</p>
               </CardContent>
             </Card>
+            <Card className="border-amber-200 dark:border-amber-900" data-testid="card-most-rejected">
+              <CardContent className="pt-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground uppercase">Most Rejected</p>
+                  <AlertOctagon className="h-4 w-4 text-amber-600" />
+                </div>
+                {mostRejected ? (
+                  <>
+                    <p className="text-base font-bold font-mono truncate" data-testid="text-most-rejected-app">{mostRejected.applicationId}</p>
+                    <p className="text-xs text-muted-foreground truncate">{mostRejected.customerName}</p>
+                    <p className="text-xs mt-1 text-red-700 dark:text-red-400 font-semibold">{mostRejected.count} rejection{mostRejected.count !== 1 ? "s" : ""}</p>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground mt-1">None</p>
+                )}
+              </CardContent>
+            </Card>
             {data.summary.byUnit.map((u) => (
               <Card key={u.unit} data-testid={`card-unit-${u.unit.toLowerCase().replace(/\s+/g, "-")}`}>
                 <CardContent className="pt-4">
@@ -374,12 +419,13 @@ export default function ApprovalRejectionReport() {
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <CardTitle className="text-lg">Applications</CardTitle>
                 <span className="text-sm text-muted-foreground" data-testid="text-result-count">
-                  {data.rows.length} record{data.rows.length !== 1 ? "s" : ""} found
+                  {sortedRows.length} record{sortedRows.length !== 1 ? "s" : ""} found
+                  {sortedRows.length > PAGE_SIZE && ` • Page ${currentPage} of ${totalPages}`}
                 </span>
               </div>
             </CardHeader>
             <CardContent className="pt-4 overflow-x-auto">
-              {data.rows.length === 0 ? (
+              {sortedRows.length === 0 ? (
                 <p className="text-center text-muted-foreground py-8" data-testid="text-no-results">
                   No applications were approved or rejected within the selected criteria.
                 </p>
@@ -401,9 +447,9 @@ export default function ApprovalRejectionReport() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {data.rows.map((r, i) => (
-                      <TableRow key={`${r.unit}-${r.loanId}-${i}`} className={i % 2 === 0 ? "bg-muted/30" : ""} data-testid={`row-decision-${i}`}>
-                        <TableCell className="text-center font-mono">{i + 1}</TableCell>
+                    {pagedRows.map((r, i) => (
+                      <TableRow key={`${r.unit}-${r.loanId}-${pageStart + i}`} className={i % 2 === 0 ? "bg-muted/30" : ""} data-testid={`row-decision-${pageStart + i}`}>
+                        <TableCell className="text-center font-mono">{pageStart + i + 1}</TableCell>
                         <TableCell className="whitespace-nowrap">{r.reviewedAt ? formatDate(r.reviewedAt) : "-"}</TableCell>
                         <TableCell>{unitBadge(r.unit)}</TableCell>
                         <TableCell>{statusBadge(r.status)}</TableCell>
@@ -418,6 +464,24 @@ export default function ApprovalRejectionReport() {
                     ))}
                   </TableBody>
                 </Table>
+              )}
+              {sortedRows.length > PAGE_SIZE && (
+                <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                  <span className="text-sm text-muted-foreground" data-testid="text-pagination-info">
+                    Showing {pageStart + 1}-{Math.min(pageStart + PAGE_SIZE, sortedRows.length)} of {sortedRows.length}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1} data-testid="button-prev-page">
+                      <ChevronLeft className="h-4 w-4" /> Prev
+                    </Button>
+                    <span className="text-sm font-medium px-3" data-testid="text-page-indicator">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <Button variant="outline" size="sm" onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} data-testid="button-next-page">
+                      Next <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
               )}
             </CardContent>
           </Card>
