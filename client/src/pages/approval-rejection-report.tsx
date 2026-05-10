@@ -64,14 +64,49 @@ const STATUS_OPTIONS = [
   { value: "rejected", label: "Rejected Only" },
 ];
 
-const QUICK_RANGES = [
-  { value: "today", label: "Today" },
-  { value: "last7", label: "Last 7 Days" },
-  { value: "last30", label: "Last 30 Days" },
-  { value: "this_month", label: "This Month" },
-  { value: "last_month", label: "Last Month" },
-  { value: "this_year", label: "This Year" },
-];
+const quickDateOptions = [
+  { label: "1D", days: 1 },
+  { label: "2D", days: 2 },
+  { label: "1W", days: 7 },
+  { label: "2W", days: 14 },
+  { label: "1M", months: 1 },
+  { label: "3M", months: 3 },
+  { label: "6M", months: 6 },
+  { label: "1Y", months: 12 },
+  { label: "All", all: true },
+] as const;
+
+function QuickDateButtons({ setStartDate, setEndDate }: { setStartDate: (d: string) => void; setEndDate: (d: string) => void }) {
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="text-sm font-medium text-muted-foreground">Quick:</span>
+      {quickDateOptions.map((opt) => (
+        <button
+          key={opt.label}
+          type="button"
+          data-testid={`button-quick-${opt.label}`}
+          className="px-3 py-1 text-xs font-medium rounded-full border border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-100 dark:bg-sky-900/30 dark:text-sky-300 dark:border-sky-700 dark:hover:bg-sky-900/50 transition-colors"
+          onClick={() => {
+            const end = new Date();
+            setEndDate(end.toISOString().split("T")[0]);
+            if ("all" in opt && opt.all) {
+              setStartDate("2024-01-01");
+            } else {
+              const start = new Date();
+              if ("months" in opt && opt.months) start.setMonth(start.getMonth() - opt.months);
+              if ("days" in opt && opt.days) start.setDate(start.getDate() - opt.days);
+              const minDate = new Date("2024-01-01");
+              if (start < minDate) start.setTime(minDate.getTime());
+              setStartDate(start.toISOString().split("T")[0]);
+            }
+          }}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 function fmtNum(n: number) {
   return new Intl.NumberFormat("en-US").format(n);
@@ -83,36 +118,6 @@ function fmtAmount(s: string) {
   return new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 }
 
-function applyQuickRange(value: string): { start: string; end: string } {
-  const today = new Date();
-  const iso = (d: Date) => d.toISOString().split("T")[0];
-  if (value === "today") return { start: iso(today), end: iso(today) };
-  if (value === "last7") {
-    const d = new Date();
-    d.setDate(d.getDate() - 6);
-    return { start: iso(d), end: iso(today) };
-  }
-  if (value === "last30") {
-    const d = new Date();
-    d.setDate(d.getDate() - 29);
-    return { start: iso(d), end: iso(today) };
-  }
-  if (value === "this_month") {
-    const d = new Date(today.getFullYear(), today.getMonth(), 1);
-    return { start: iso(d), end: iso(today) };
-  }
-  if (value === "last_month") {
-    const s = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-    const e = new Date(today.getFullYear(), today.getMonth(), 0);
-    return { start: iso(s), end: iso(e) };
-  }
-  if (value === "this_year") {
-    const d = new Date(today.getFullYear(), 0, 1);
-    return { start: iso(d), end: iso(today) };
-  }
-  return { start: iso(today), end: iso(today) };
-}
-
 export default function ApprovalRejectionReport() {
   const { selectedBranchId, isLocked } = useBranch();
   const [branchId, setBranchId] = useState("all");
@@ -121,9 +126,12 @@ export default function ApprovalRejectionReport() {
     setBranchId(selectedBranchId || "all");
   }, [selectedBranchId]);
 
-  const init = applyQuickRange("last30");
-  const [startDate, setStartDate] = useState(init.start);
-  const [endDate, setEndDate] = useState(init.end);
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 1);
+    return d.toISOString().split("T")[0];
+  });
+  const [endDate, setEndDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [unit, setUnit] = useState("all");
   const [status, setStatus] = useState("all");
   const [data, setData] = useState<{ summary: Summary; rows: ReportRow[] } | null>(null);
@@ -143,12 +151,6 @@ export default function ApprovalRejectionReport() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleQuickRange = (v: string) => {
-    const r = applyQuickRange(v);
-    setStartDate(r.start);
-    setEndDate(r.end);
   };
 
   const branchName = useMemo(
@@ -187,7 +189,7 @@ export default function ApprovalRejectionReport() {
     doc.text("Approval & Rejection Report", 148, 14, { align: "center" });
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
-    doc.text(`From: ${formatDate(startDate)}    To: ${formatDate(endDate)}    Branch: ${branchName}    Unit: ${UNITS.find(u => u.value === unit)?.label}`, 148, 21, { align: "center" });
+    doc.text(`From: ${formatDate(startDate)}    To: ${formatDate(endDate)}    Branch: ${branchName}    Unit: ${UNITS.find((u) => u.value === unit)?.label}`, 148, 21, { align: "center" });
     doc.text(`Total: ${data.summary.total}    Approved: ${data.summary.approved}    Rejected: ${data.summary.rejected}`, 148, 27, { align: "center" });
 
     const body = data.rows.map((r, i) => [
@@ -267,20 +269,9 @@ export default function ApprovalRejectionReport() {
           <CardTitle className="text-lg">Filter Options</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-end gap-4 flex-wrap">
-            <div className="space-y-2">
-              <Label>Quick Select</Label>
-              <Select onValueChange={handleQuickRange}>
-                <SelectTrigger className="w-[180px]" data-testid="select-quick-range">
-                  <SelectValue placeholder="Choose range" />
-                </SelectTrigger>
-                <SelectContent>
-                  {QUICK_RANGES.map((q) => (
-                    <SelectItem key={q.value} value={q.value}>{q.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="flex flex-col gap-4">
+            <QuickDateButtons setStartDate={setStartDate} setEndDate={setEndDate} />
+            <div className="flex items-end gap-4 flex-wrap">
             <div className="space-y-2">
               <Label>Start Date</Label>
               <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} data-testid="input-start-date" />
@@ -332,6 +323,7 @@ export default function ApprovalRejectionReport() {
             <Button onClick={fetchReport} disabled={isLoading} data-testid="button-generate">
               {isLoading ? "Loading..." : "Generate Report"}
             </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
