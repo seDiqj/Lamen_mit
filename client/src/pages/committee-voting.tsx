@@ -728,6 +728,14 @@ export default function CommitteeVotingPage() {
                         <span className="text-muted-foreground">Date:</span>
                         <span className="font-medium">{formatDate(selectedLoanInfo?.fadReview?.reviewedAt || "")}</span>
                       </div>
+                      {selectedLoanInfo?.fadReview?.comments && (
+                        <div className="pt-2 mt-2 border-t border-blue-200 dark:border-blue-800">
+                          <span className="text-muted-foreground block mb-1">Comments:</span>
+                          <p className="text-sm whitespace-pre-wrap bg-white dark:bg-gray-900 rounded p-2 border border-blue-200 dark:border-blue-800" data-testid="text-fad-comments">
+                            {selectedLoanInfo.fadReview.comments}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -748,6 +756,14 @@ export default function CommitteeVotingPage() {
                         <span className="text-muted-foreground">Date:</span>
                         <span className="font-medium">{formatDate(selectedLoanInfo?.riskComplianceReview?.reviewedAt || "")}</span>
                       </div>
+                      {selectedLoanInfo?.riskComplianceReview?.comments && (
+                        <div className="pt-2 mt-2 border-t border-red-200 dark:border-red-800">
+                          <span className="text-muted-foreground block mb-1">Comments:</span>
+                          <p className="text-sm whitespace-pre-wrap bg-white dark:bg-gray-900 rounded p-2 border border-red-200 dark:border-red-800" data-testid="text-risk-comments">
+                            {selectedLoanInfo.riskComplianceReview.comments}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
