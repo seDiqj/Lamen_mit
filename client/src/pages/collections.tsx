@@ -74,6 +74,7 @@ type CollectionInstallment = {
   lateDays: number | null;
   isPaid: boolean;
   loanApplicationId: string;
+  productName: string | null;
   customerName: string;
   customerPhone: string | null;
   customerAddress: string | null;
@@ -282,6 +283,10 @@ export default function CollectionsPage() {
 
   const bankAccounts = accountsList.filter((a: any) => a.accountType === "asset" && a.accountCode.startsWith("1"));
 
+  const { data: financingProductsList = [] } = useQuery<any[]>({
+    queryKey: ["/api/financing-products"],
+  });
+
   const payMutation = useMutation({
     mutationFn: async ({ id, amount, paymentDate, debitAccountCode, creditAccountCode, profitDebitAccountCode, profitCreditAccountCode }: { id: string; amount: number; paymentDate: string; debitAccountCode: string; creditAccountCode: string; profitDebitAccountCode: string; profitCreditAccountCode: string }) => {
       const res = await apiRequest("PATCH", `/api/collections/${id}/pay`, { amount, paymentDate, debitAccountCode, creditAccountCode, profitDebitAccountCode, profitCreditAccountCode });
@@ -378,7 +383,10 @@ export default function CollectionsPage() {
     setPaymentAmount(remaining.toFixed(2));
     setPaymentDate(new Date().toISOString().split("T")[0]);
     setDebitAccountCode("10206");
-    setCreditAccountCode("11000");
+    const matchedProduct = inst.productName
+      ? financingProductsList.find((p: any) => p.name === inst.productName)
+      : null;
+    setCreditAccountCode(matchedProduct?.receivableAccountCode || "11000");
     setProfitDebitAccountCode("20900");
     setProfitCreditAccountCode("40300");
     setEditAccounts(false);

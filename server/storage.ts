@@ -1912,6 +1912,7 @@ export class DatabaseStorage implements IStorage {
         lateDays: installments.lateDays,
         isPaid: installments.isPaid,
         loanApplicationId: loans.applicationId,
+        productName: loans.productName,
         customerName: sql<string>`CONCAT(${customers.firstName}, ' ', ${customers.lastName})`,
         customerPhone: customers.phoneNumber,
         customerAddress: customers.homeAddress,
