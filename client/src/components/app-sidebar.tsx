@@ -98,6 +98,7 @@ const PAGE_URL_TO_NAME: Record<string, string> = {
   "/shareholder-report": "shareholder-report",
   "/monthly-due-summary": "monthly-due-summary",
   "/collection-report": "collection-report",
+  "/approval-rejection-report": "approval-rejection-report",
   "/loan-disbursement-report": "loan-disbursement-report",
   "/dab-reports": "dab-reports",
   "/lctr-report": "lctr-report",
@@ -257,6 +258,7 @@ export function AppSidebar() {
         { title: "Shareholder Report", url: "/shareholder-report", icon: PieChart, iconColor: "text-indigo-500" },
         { title: "Monthly Due Summary", url: "/monthly-due-summary", icon: CalendarCheck, iconColor: "text-cyan-500" },
         { title: "Collection Report", url: "/collection-report", icon: Receipt, iconColor: "text-emerald-500" },
+        { title: "Approval & Rejection", url: "/approval-rejection-report", icon: Vote, iconColor: "text-purple-500" },
       ],
     },
   ];
@@ -342,6 +344,7 @@ export function AppSidebar() {
         { title: "Shareholder Report", url: "/shareholder-report", icon: PieChart, iconColor: "text-indigo-500" },
         { title: "Monthly Due Summary", url: "/monthly-due-summary", icon: CalendarCheck, iconColor: "text-cyan-500" },
         { title: "Collection Report", url: "/collection-report", icon: Receipt, iconColor: "text-emerald-500" },
+        { title: "Approval & Rejection", url: "/approval-rejection-report", icon: Vote, iconColor: "text-purple-500" },
       ],
     },
   ];
@@ -432,6 +435,7 @@ export function AppSidebar() {
         { title: "Shareholder Report", url: "/shareholder-report", icon: PieChart, iconColor: "text-indigo-500" },
         { title: "Monthly Due Summary", url: "/monthly-due-summary", icon: CalendarCheck, iconColor: "text-cyan-500" },
         { title: "Collection Report", url: "/collection-report", icon: Receipt, iconColor: "text-emerald-500" },
+        { title: "Approval & Rejection", url: "/approval-rejection-report", icon: Vote, iconColor: "text-purple-500" },
         { title: "Activity Log", url: "/activity", icon: Activity, iconColor: "text-lime-500" },
       ],
     },

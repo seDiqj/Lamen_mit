@@ -6604,6 +6604,176 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/reports/approval-rejection", isAuthenticated, async (req, res) => {
+    try {
+      const { startDate, endDate, unit, status } = req.query as Record<string, string | undefined>;
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "startDate and endDate are required" });
+      }
+      const effectiveBranch = await getEffectiveBranchId(req);
+      const branchCond = effectiveBranch && effectiveBranch !== "all" ? sql` AND ${loans.branchId} = ${effectiveBranch}` : sql``;
+      const unitFilter = (unit || "all").toLowerCase();
+      const statusFilter = (status || "all").toLowerCase();
+
+      type Row = {
+        unit: string;
+        status: string;
+        reviewedAt: string | null;
+        reviewerName: string;
+        comments: string;
+        score: number | null;
+        loanId: string;
+        applicationId: string;
+        customerName: string;
+        branchName: string;
+        productName: string;
+        requestAmount: string;
+      };
+      const rows: Row[] = [];
+
+      const includeFad = unitFilter === "all" || unitFilter === "fad";
+      const includeRisk = unitFilter === "all" || unitFilter === "risk_compliance";
+      const includeCommittee = unitFilter === "all" || unitFilter === "committee";
+
+      const statusCond = (col: any) => statusFilter === "all"
+        ? sql`(${col} = 'approved' OR ${col} = 'rejected')`
+        : sql`${col} = ${statusFilter}`;
+
+      if (includeFad) {
+        const r = await db
+          .select({
+            status: fadReviews.status,
+            reviewedAt: fadReviews.reviewedAt,
+            reviewerName: fadReviews.reviewerName,
+            comments: fadReviews.comments,
+            score: fadReviews.dataQualityScore,
+            loanId: loans.id,
+            applicationId: loans.applicationId,
+            customerName: sql<string>`CONCAT(${customers.firstName}, ' ', ${customers.lastName})`,
+            branchName: branches.name,
+            productName: loans.productName,
+            requestAmount: loans.requestAmount,
+          })
+          .from(fadReviews)
+          .innerJoin(loans, eq(fadReviews.loanId, loans.id))
+          .leftJoin(customers, eq(loans.customerId, customers.id))
+          .leftJoin(branches, eq(loans.branchId, branches.id))
+          .where(sql`${fadReviews.reviewedAt} >= ${startDate}::date AND ${fadReviews.reviewedAt} < (${endDate}::date + INTERVAL '1 day') AND ${statusCond(fadReviews.status)}${branchCond}`)
+          .orderBy(desc(fadReviews.reviewedAt));
+        for (const x of r) rows.push({
+          unit: "FAD",
+          status: x.status || "",
+          reviewedAt: x.reviewedAt ? new Date(x.reviewedAt as any).toISOString() : null,
+          reviewerName: x.reviewerName || "",
+          comments: x.comments || "",
+          score: x.score ?? null,
+          loanId: x.loanId,
+          applicationId: x.applicationId || "",
+          customerName: x.customerName || "",
+          branchName: x.branchName || "",
+          productName: x.productName || "",
+          requestAmount: x.requestAmount || "0",
+        });
+      }
+
+      if (includeRisk) {
+        const r = await db
+          .select({
+            status: riskComplianceReviews.status,
+            reviewedAt: riskComplianceReviews.reviewedAt,
+            reviewerName: riskComplianceReviews.reviewerName,
+            comments: riskComplianceReviews.comments,
+            score: riskComplianceReviews.riskScore,
+            loanId: loans.id,
+            applicationId: loans.applicationId,
+            customerName: sql<string>`CONCAT(${customers.firstName}, ' ', ${customers.lastName})`,
+            branchName: branches.name,
+            productName: loans.productName,
+            requestAmount: loans.requestAmount,
+          })
+          .from(riskComplianceReviews)
+          .innerJoin(loans, eq(riskComplianceReviews.loanId, loans.id))
+          .leftJoin(customers, eq(loans.customerId, customers.id))
+          .leftJoin(branches, eq(loans.branchId, branches.id))
+          .where(sql`${riskComplianceReviews.reviewedAt} >= ${startDate}::date AND ${riskComplianceReviews.reviewedAt} < (${endDate}::date + INTERVAL '1 day') AND ${statusCond(riskComplianceReviews.status)}${branchCond}`)
+          .orderBy(desc(riskComplianceReviews.reviewedAt));
+        for (const x of r) rows.push({
+          unit: "Risk Compliance",
+          status: x.status || "",
+          reviewedAt: x.reviewedAt ? new Date(x.reviewedAt as any).toISOString() : null,
+          reviewerName: x.reviewerName || "",
+          comments: x.comments || "",
+          score: x.score ?? null,
+          loanId: x.loanId,
+          applicationId: x.applicationId || "",
+          customerName: x.customerName || "",
+          branchName: x.branchName || "",
+          productName: x.productName || "",
+          requestAmount: x.requestAmount || "0",
+        });
+      }
+
+      if (includeCommittee) {
+        const r = await db
+          .select({
+            status: loans.status,
+            reviewedAt: loanApprovals.approvedDate,
+            comments: loanApprovals.committeeDiscussion,
+            loanId: loans.id,
+            applicationId: loans.applicationId,
+            customerName: sql<string>`CONCAT(${customers.firstName}, ' ', ${customers.lastName})`,
+            branchName: branches.name,
+            productName: loans.productName,
+            requestAmount: loans.requestAmount,
+            approvedAmount: loanApprovals.approvedAmount,
+          })
+          .from(loanApprovals)
+          .innerJoin(loans, eq(loanApprovals.loanId, loans.id))
+          .leftJoin(customers, eq(loans.customerId, customers.id))
+          .leftJoin(branches, eq(loans.branchId, branches.id))
+          .where(sql`${loanApprovals.approvedDate} >= ${startDate}::date AND ${loanApprovals.approvedDate} <= ${endDate}::date AND (${loans.status} = 'approved' OR ${loans.status} = 'rejected' OR ${loans.status} = 'disbursed' OR ${loans.status} = 'active' OR ${loans.status} = 'completed')${branchCond}`)
+          .orderBy(desc(loanApprovals.approvedDate));
+        for (const x of r) {
+          const normalized = x.status === "rejected" ? "rejected" : "approved";
+          if (statusFilter !== "all" && normalized !== statusFilter) continue;
+          rows.push({
+            unit: "Committee",
+            status: normalized,
+            reviewedAt: x.reviewedAt ? new Date(x.reviewedAt as any).toISOString() : null,
+            reviewerName: "Committee",
+            comments: x.comments || "",
+            score: null,
+            loanId: x.loanId,
+            applicationId: x.applicationId || "",
+            customerName: x.customerName || "",
+            branchName: x.branchName || "",
+            productName: x.productName || "",
+            requestAmount: x.requestAmount || "0",
+          });
+        }
+      }
+
+      rows.sort((a, b) => (b.reviewedAt || "").localeCompare(a.reviewedAt || ""));
+
+      const summary = {
+        total: rows.length,
+        approved: rows.filter(r => r.status === "approved").length,
+        rejected: rows.filter(r => r.status === "rejected").length,
+        byUnit: ["FAD", "Risk Compliance", "Committee"].map(u => ({
+          unit: u,
+          approved: rows.filter(r => r.unit === u && r.status === "approved").length,
+          rejected: rows.filter(r => r.unit === u && r.status === "rejected").length,
+          total: rows.filter(r => r.unit === u).length,
+        })),
+      };
+
+      res.json({ summary, rows });
+    } catch (error) {
+      console.error("Error fetching approval-rejection report:", error);
+      res.status(500).json({ message: "Failed to fetch report" });
+    }
+  });
+
   app.get("/api/reports/loan-disbursement", isAuthenticated, async (req, res) => {
     try {
       const { startDate, endDate, fundingSourceId } = req.query;
