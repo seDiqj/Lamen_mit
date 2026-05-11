@@ -4739,6 +4739,8 @@ export class DatabaseStorage implements IStorage {
       "shareholder-report",
       "custom-reports",
       "dab-report",
+      "collection-report",
+      "approval-rejection-report",
       "accounting-dashboard",
       "profitability-analysis",
       "activity-logs",
