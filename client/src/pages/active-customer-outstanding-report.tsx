@@ -121,6 +121,7 @@ export default function ActiveCustomerOutstandingReport() {
       "Total Principal Received": row.totalPrincipalReceived,
       "Total Markup Received": row.totalMarkupReceived,
       "Total Amount Received": row.totalAmountReceived,
+      "Outstanding": row.balanceOutstanding,
       "Principal This Year": row.principalThisYear,
       "Markup This Year": row.markupThisYear,
     }));
@@ -144,6 +145,7 @@ export default function ActiveCustomerOutstandingReport() {
         "Total Principal Received": totals.totalPrincipalReceived,
         "Total Markup Received": totals.totalMarkupReceived,
         "Total Amount Received": totals.totalAmountReceived,
+        "Outstanding": totals.balanceOutstanding,
         "Principal This Year": totals.principalThisYear,
         "Markup This Year": totals.markupThisYear,
       });
@@ -153,7 +155,7 @@ export default function ActiveCustomerOutstandingReport() {
     ws["!cols"] = [
       { wch: 5 }, { wch: 12 }, { wch: 12 }, { wch: 18 }, { wch: 14 }, { wch: 20 },
       { wch: 14 }, { wch: 16 }, { wch: 18 }, { wch: 10 }, { wch: 12 }, { wch: 12 },
-      { wch: 14 }, { wch: 10 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 14 },
+      { wch: 14 }, { wch: 10 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 14 },
     ];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Active Customer Outstanding");
@@ -200,6 +202,7 @@ export default function ActiveCustomerOutstandingReport() {
       row.totalPrincipalReceived.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
       row.totalMarkupReceived.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
       row.totalAmountReceived.toLocaleString(undefined, { minimumFractionDigits: 3, maximumFractionDigits: 3 }),
+      row.balanceOutstanding.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
       row.principalThisYear.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
       row.markupThisYear.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
     ]);
@@ -212,6 +215,7 @@ export default function ActiveCustomerOutstandingReport() {
         totals.totalPrincipalReceived.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
         totals.totalMarkupReceived.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
         totals.totalAmountReceived.toLocaleString(undefined, { minimumFractionDigits: 3, maximumFractionDigits: 3 }),
+        totals.balanceOutstanding.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
         totals.principalThisYear.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
         totals.markupThisYear.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
       ]);
@@ -219,7 +223,7 @@ export default function ActiveCustomerOutstandingReport() {
 
     autoTable(doc, {
       startY: 35,
-      head: [["Branch", "Product", "Financing Officer", "Customer No", "Customer Name", "Disbursed Date", "Financing Amount", "Balance Outstanding Last", "Total Install.", "No Install Paid", "No. Install. unpaid", "Last Repayment Date", "No of Late Days", "Total Principal Received", "Total Markup Received", "Total Amount Received", "Principal This Year", "Markup This Year"]],
+      head: [["Branch", "Product", "Financing Officer", "Customer No", "Customer Name", "Disbursed Date", "Financing Amount", "Balance Outstanding Last", "Total Install.", "No Install Paid", "No. Install. unpaid", "Last Repayment Date", "No of Late Days", "Total Principal Received", "Total Markup Received", "Total Amount Received", "Outstanding", "Principal This Year", "Markup This Year"]],
       body: tableData,
       theme: "grid",
       headStyles: { fillColor: [34, 87, 122], textColor: [255, 255, 255], fontStyle: "bold", halign: "center", fontSize: 5.5 },
@@ -236,6 +240,7 @@ export default function ActiveCustomerOutstandingReport() {
         15: { halign: "right" },
         16: { halign: "right" },
         17: { halign: "right" },
+        18: { halign: "right" },
       },
     });
 
@@ -347,6 +352,7 @@ export default function ActiveCustomerOutstandingReport() {
                     <TableHead className="text-right text-primary-foreground font-semibold text-xs">Total Principal Received</TableHead>
                     <TableHead className="text-right text-primary-foreground font-semibold text-xs">Total Markup Received</TableHead>
                     <TableHead className="text-right text-primary-foreground font-semibold text-xs">Total Amount Received</TableHead>
+                    <TableHead className="text-right text-primary-foreground font-semibold text-xs">Outstanding</TableHead>
                     <TableHead className="text-right text-primary-foreground font-semibold text-xs">Principal This Year</TableHead>
                     <TableHead className="text-right text-primary-foreground font-semibold text-xs">Markup This Year</TableHead>
                   </TableRow>
@@ -371,6 +377,7 @@ export default function ActiveCustomerOutstandingReport() {
                       <TableCell className="text-right font-mono text-xs">{formatCurrency(row.totalPrincipalReceived.toFixed(2))}</TableCell>
                       <TableCell className="text-right font-mono text-xs">{formatCurrency(row.totalMarkupReceived.toFixed(2))}</TableCell>
                       <TableCell className="text-right font-mono text-xs">{formatCurrency(row.totalAmountReceived.toFixed(2))}</TableCell>
+                      <TableCell className="text-right font-mono text-xs" data-testid={`text-outstanding-${idx}`}>{formatCurrency(row.balanceOutstanding.toFixed(2))}</TableCell>
                       <TableCell className="text-right font-mono text-xs">{formatCurrency(row.principalThisYear.toFixed(2))}</TableCell>
                       <TableCell className="text-right font-mono text-xs">{formatCurrency(row.markupThisYear.toFixed(2))}</TableCell>
                     </TableRow>
@@ -384,6 +391,7 @@ export default function ActiveCustomerOutstandingReport() {
                       <TableCell className="text-right font-mono text-xs">{formatCurrency(totals.totalPrincipalReceived.toFixed(2))}</TableCell>
                       <TableCell className="text-right font-mono text-xs">{formatCurrency(totals.totalMarkupReceived.toFixed(2))}</TableCell>
                       <TableCell className="text-right font-mono text-xs">{formatCurrency(totals.totalAmountReceived.toFixed(2))}</TableCell>
+                      <TableCell className="text-right font-mono text-xs">{formatCurrency(totals.balanceOutstanding.toFixed(2))}</TableCell>
                       <TableCell className="text-right font-mono text-xs">{formatCurrency(totals.principalThisYear.toFixed(2))}</TableCell>
                       <TableCell className="text-right font-mono text-xs">{formatCurrency(totals.markupThisYear.toFixed(2))}</TableCell>
                     </TableRow>
