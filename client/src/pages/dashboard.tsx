@@ -838,8 +838,8 @@ export default function Dashboard() {
         <DialogContent className="max-w-5xl p-0 border-0 shadow-2xl">
           {(() => {
             const metricConfig = {
-              disbursed: { label: "Total Disbursed", gradient: "from-teal-500 to-emerald-500", bg: "bg-teal-50 dark:bg-teal-950/30", accent: "text-teal-700 dark:text-teal-300", border: "border-teal-200 dark:border-teal-800", badge: "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200", icon: PiggyBank },
-              portfolio: { label: "Total Portfolio", gradient: "from-purple-500 to-violet-500", bg: "bg-purple-50 dark:bg-purple-950/30", accent: "text-purple-700 dark:text-purple-300", border: "border-purple-200 dark:border-purple-800", badge: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200", icon: Briefcase },
+              disbursed: { label: "Total Portfolio", gradient: "from-teal-500 to-emerald-500", bg: "bg-teal-50 dark:bg-teal-950/30", accent: "text-teal-700 dark:text-teal-300", border: "border-teal-200 dark:border-teal-800", badge: "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200", icon: PiggyBank },
+              portfolio: { label: "Total Receivable Amount", gradient: "from-purple-500 to-violet-500", bg: "bg-purple-50 dark:bg-purple-950/30", accent: "text-purple-700 dark:text-purple-300", border: "border-purple-200 dark:border-purple-800", badge: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200", icon: Briefcase },
               collected: { label: "Total Collected", gradient: "from-green-500 to-lime-500", bg: "bg-green-50 dark:bg-green-950/30", accent: "text-green-700 dark:text-green-300", border: "border-green-200 dark:border-green-800", badge: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200", icon: Wallet },
               outstanding: { label: "Outstanding Balance", gradient: "from-indigo-500 to-blue-500", bg: "bg-indigo-50 dark:bg-indigo-950/30", accent: "text-indigo-700 dark:text-indigo-300", border: "border-indigo-200 dark:border-indigo-800", badge: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200", icon: TrendingUp },
             };
@@ -1870,8 +1870,8 @@ export default function Dashboard() {
                         <th className="px-4 py-3 text-left text-sm font-semibold text-muted-foreground">Branch</th>
                         <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">No. of Financings</th>
                         <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">No. of Customers</th>
-                        <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Total Disbursed</th>
                         <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Total Portfolio</th>
+                        <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Total Receivable Amount</th>
                         <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Total Collected</th>
                         <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Outstanding Balance</th>
                       </tr>
@@ -1996,8 +1996,8 @@ export default function Dashboard() {
                         <th className="px-4 py-3 text-left text-sm font-semibold text-muted-foreground">Branch</th>
                         <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">No. of Financings</th>
                         <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">No. of Customers</th>
-                        <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Total Disbursed</th>
                         <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Total Portfolio</th>
+                        <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Total Receivable Amount</th>
                         <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Total Collected</th>
                         <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">Outstanding Balance</th>
                       </tr>
