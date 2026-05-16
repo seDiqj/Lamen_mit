@@ -785,7 +785,7 @@ export default function Dashboard() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard
-          title="Total Disbursed"
+          title="Total Portfolio"
           value={formatCurrency(stats?.totalDisbursed || 0)}
           icon={PiggyBank}
           loading={isLoading}
@@ -794,7 +794,7 @@ export default function Dashboard() {
           onProductClick={() => { setProductDialogMetric("disbursed"); setProductDialogOpen(true); }}
         />
         <StatCard
-          title="Total Portfolio"
+          title="Total Receivable Amount"
           value={formatCurrency(stats?.totalPortfolio || 0)}
           icon={Briefcase}
           loading={isLoading}
