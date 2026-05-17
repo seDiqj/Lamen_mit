@@ -382,6 +382,7 @@ export default function UsersPage() {
   const [editUser, setEditUser] = useState<User | null>(null);
   const [deleteUser, setDeleteUser] = useState<User | null>(null);
   const [toggleStatusUser, setToggleStatusUser] = useState<User | null>(null);
+  const [resetMfaUser, setResetMfaUser] = useState<User | null>(null);
   const [permissionsUser, setPermissionsUser] = useState<User | null>(null);
   const [userPermissions, setUserPermissions] = useState<UserPermissions>({});
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
@@ -464,6 +465,21 @@ export default function UsersPage() {
     },
     onError: (error: Error) => {
       toast({ title: "Failed to delete user", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const resetMfaMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("POST", `/api/mfa/admin-reset/${id}`, {});
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      toast({ title: "Two-factor reset", description: "User will set it up again on next login." });
+      setResetMfaUser(null);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to reset two-factor", description: error.message, variant: "destructive" });
     },
   });
 
@@ -1071,6 +1087,15 @@ export default function UsersPage() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            onClick={() => setResetMfaUser(user)}
+                            data-testid={`button-reset-mfa-${user.id}`}
+                            title="Reset Two-Factor Authentication"
+                          >
+                            <Lock className="h-4 w-4 text-blue-600" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             onClick={() => openEditDialog(user)}
                             data-testid={`button-edit-${user.id}`}
                           >
@@ -1448,6 +1473,27 @@ export default function UsersPage() {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!resetMfaUser} onOpenChange={(open) => { if (!open) setResetMfaUser(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset two-factor authentication?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will clear the authenticator app and backup codes for <span className="font-semibold">{resetMfaUser?.firstName} {resetMfaUser?.lastName}</span>. They'll be asked to set it up again the next time they log in. All their trusted devices will also be signed out.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-reset-mfa">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => resetMfaUser && resetMfaMutation.mutate(resetMfaUser.id)}
+              className="bg-blue-600 hover:bg-blue-700"
+              data-testid="button-confirm-reset-mfa"
+            >
+              {resetMfaMutation.isPending ? "Resetting..." : "Reset Two-Factor"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlertDialog open={!!deleteUser} onOpenChange={(open) => { if (!open) setDeleteUser(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
