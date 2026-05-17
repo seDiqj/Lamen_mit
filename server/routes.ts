@@ -511,6 +511,7 @@ export async function registerRoutes(
       role: userRole?.role || null,
       branchId: officerBranchId || user.branchId || null,
       financeOfficerId: financeOfficerId || null,
+      mfaEnabled: !!user.mfaEnabled,
     });
   });
 

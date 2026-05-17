@@ -11,6 +11,7 @@ import { BranchSelector } from "@/components/branch-selector";
 import { BranchProvider } from "@/contexts/branch-context";
 import { useAuth } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useEffect } from "react";
 
 import LoginPage from "@/pages/login";
 import MfaChallengePage from "@/pages/mfa-challenge";
@@ -114,7 +115,15 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
 
 function AppRoutes() {
   const { user, isLoading } = useAuth();
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
+
+  // Force users without MFA to complete setup before using the app.
+  const mfaEnabled = !!(user && (user as any).mfaEnabled);
+  useEffect(() => {
+    if (user && !mfaEnabled && location !== "/mfa-setup") {
+      setLocation("/mfa-setup");
+    }
+  }, [user, mfaEnabled, location, setLocation]);
 
   if (isLoading) {
     return (
@@ -163,6 +172,7 @@ function AppRoutes() {
   return (
     <AuthenticatedLayout>
       <Switch>
+        <Route path="/mfa-setup" component={MfaSetupPage} />
         <Route path="/" component={Dashboard} />
         <Route path="/admin-dashboard" component={AdminDashboardPage} />
         <Route path="/loans" component={LoansPage} />
