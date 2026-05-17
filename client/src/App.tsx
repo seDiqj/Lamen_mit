@@ -13,6 +13,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import LoginPage from "@/pages/login";
+import MfaChallengePage from "@/pages/mfa-challenge";
+import MfaSetupPage from "@/pages/mfa-setup";
 import Dashboard from "@/pages/dashboard";
 import AdminDashboardPage from "@/pages/admin-dashboard";
 import LoansPage from "@/pages/loans";
@@ -135,6 +137,8 @@ function AppRoutes() {
         <Route path="/mobile/:rest*">
           <MobileLogin />
         </Route>
+        <Route path="/mfa-challenge" component={MfaChallengePage} />
+        <Route path="/mfa-setup" component={MfaSetupPage} />
         <Route path="/login" component={LoginPage} />
         <Route component={LoginPage} />
       </Switch>

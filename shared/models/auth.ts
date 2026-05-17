@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, index, jsonb, pgTable, timestamp, varchar } from "drizzle-orm/pg-core";
+import { boolean, index, jsonb, pgTable, text, timestamp, varchar } from "drizzle-orm/pg-core";
 
 // Session storage table.
 // (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
@@ -24,9 +24,24 @@ export const users = pgTable("users", {
   profileImageUrl: varchar("profile_image_url"),
   branchId: varchar("branch_id"),
   isActive: boolean("is_active").default(true),
+  mfaEnabled: boolean("mfa_enabled").default(false).notNull(),
+  mfaSecret: text("mfa_secret"),
+  mfaBackupCodes: text("mfa_backup_codes").array(),
+  mfaEnrolledAt: timestamp("mfa_enrolled_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const trustedDevices = pgTable("trusted_devices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  tokenHash: varchar("token_hash", { length: 255 }).notNull(),
+  userAgent: varchar("user_agent", { length: 500 }),
+  ipAddress: varchar("ip_address", { length: 100 }),
+  createdAt: timestamp("created_at").defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+});
+
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
+export type TrustedDevice = typeof trustedDevices.$inferSelect;

@@ -36,7 +36,12 @@ export default function LoginPage() {
       const res = await apiRequest("POST", "/api/auth/login", data);
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
+      if (data?.mfaRequired) {
+        queryClient.invalidateQueries({ queryKey: ["/api/mfa/status"] });
+        setLocation(data.setupNeeded ? "/mfa-setup" : "/mfa-challenge");
+        return;
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       toast({
         title: "Login Successful",

@@ -3,7 +3,20 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
 import { customers, loans, disbursements, branches, financeOfficers, installments, fundingSources as fundingSourcesTable, collaterals, customerBusinesses, businessLicenses, loanApprovals, guarantors, userRoles, fadReviews, riskComplianceReviews, accounts, journalEntries, journalLines, clientOccupations, productCycleLimits, loanTransfers, collectionRecords, activityLogs, getMainAccountType } from "@shared/schema";
-import { users } from "@shared/models/auth";
+import { users, trustedDevices } from "@shared/models/auth";
+import {
+  generateSecret,
+  buildOtpAuthUrl,
+  buildQrDataUrl,
+  encryptSecret,
+  verifyTotp,
+  generateBackupCodes,
+  hashBackupCode,
+  generateTrustToken,
+  hashTrustToken,
+  TRUST_DEVICE_DAYS,
+  TRUST_COOKIE_NAME,
+} from "./mfa";
 import { eq, and, or, inArray, sql, gte, lte, gt, asc, desc } from "drizzle-orm";
 import { z } from "zod";
 import bcrypt from "bcrypt";
@@ -60,7 +73,28 @@ const csvUpload = multer({
 declare module "express-session" {
   interface SessionData {
     userId?: string;
+    pendingMfaUserId?: string;
+    pendingMfaSecret?: string;
   }
+}
+
+// In-memory replay guard: maps `${userId}:${code}` -> expiry epoch ms.
+// Tokens are valid for at most ~90s with window=1, so we hold entries for 120s.
+const usedTotpCodes = new Map<string, number>();
+function markTotpUsed(userId: string, code: string) {
+  const key = `${userId}:${code}`;
+  usedTotpCodes.set(key, Date.now() + 120_000);
+  if (usedTotpCodes.size > 10_000) {
+    const now = Date.now();
+    for (const [k, exp] of usedTotpCodes) if (exp < now) usedTotpCodes.delete(k);
+  }
+}
+function isTotpReplayed(userId: string, code: string): boolean {
+  const key = `${userId}:${code}`;
+  const exp = usedTotpCodes.get(key);
+  if (!exp) return false;
+  if (exp < Date.now()) { usedTotpCodes.delete(key); return false; }
+  return true;
 }
 
 export async function registerRoutes(
@@ -107,11 +141,31 @@ export async function registerRoutes(
     return res.status(401).json({ message: "Unauthorized" });
   };
 
+  // Helper: check trusted device cookie for a given user.
+  const hasValidTrustedDevice = async (req: Request, userId: string): Promise<boolean> => {
+    const raw = (req as any).cookies?.[TRUST_COOKIE_NAME] || req.headers.cookie?.match(new RegExp(`${TRUST_COOKIE_NAME}=([^;]+)`))?.[1];
+    if (!raw) return false;
+    try {
+      const parts = String(raw).split(".");
+      if (parts.length !== 2 || parts[0] !== userId) return false;
+      const tokenHash = hashTrustToken(parts[1]);
+      const [row] = await db
+        .select()
+        .from(trustedDevices)
+        .where(and(eq(trustedDevices.userId, userId), eq(trustedDevices.tokenHash, tokenHash)));
+      if (!row) return false;
+      if (new Date(row.expiresAt).getTime() < Date.now()) return false;
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   // Login endpoint
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { username, password } = req.body;
-      
+
       if (!username || !password) {
         return res.status(400).json({ message: "Username and password are required" });
       }
@@ -130,19 +184,230 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Your account has been deactivated. Please contact an administrator." });
       }
 
-      req.session.userId = user.id;
-      
-      res.json({
-        id: user.id,
-        username: user.username,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-      });
+      // MFA gate (mandatory for all users)
+      if (user.mfaEnabled) {
+        // Trusted device shortcut
+        if (await hasValidTrustedDevice(req, user.id)) {
+          req.session.userId = user.id;
+          delete req.session.pendingMfaUserId;
+          delete req.session.pendingMfaSecret;
+          return res.json({
+            id: user.id, username: user.username, firstName: user.firstName,
+            lastName: user.lastName, email: user.email,
+          });
+        }
+        // Otherwise require code
+        req.session.pendingMfaUserId = user.id;
+        delete req.session.userId;
+        delete req.session.pendingMfaSecret;
+        return res.json({ mfaRequired: true, setupNeeded: false, username: user.username });
+      }
+
+      // MFA not yet set up — force enrollment
+      req.session.pendingMfaUserId = user.id;
+      delete req.session.userId;
+      delete req.session.pendingMfaSecret;
+      return res.json({ mfaRequired: true, setupNeeded: true, username: user.username });
     } catch (error) {
       console.error("Login error:", error);
       res.status(500).json({ message: "Login failed" });
     }
+  });
+
+  // ===== MFA endpoints =====
+
+  // Begin enrollment: returns QR + secret (secret kept pending in session until verified)
+  app.post("/api/mfa/setup", async (req, res) => {
+    try {
+      const uid = req.session.userId || req.session.pendingMfaUserId;
+      if (!uid) return res.status(401).json({ message: "Unauthorized" });
+      const user = await storage.getUserById(uid);
+      if (!user) return res.status(401).json({ message: "User not found" });
+
+      const secret = generateSecret();
+      req.session.pendingMfaSecret = secret;
+      const label = user.email || user.username;
+      const otpUrl = buildOtpAuthUrl(secret, label);
+      const qrCode = await buildQrDataUrl(otpUrl);
+      res.json({ qrCode, secret, otpUrl });
+    } catch (error) {
+      console.error("MFA setup error:", error);
+      res.status(500).json({ message: "Failed to start MFA setup" });
+    }
+  });
+
+  // Confirm enrollment with first code
+  app.post("/api/mfa/verify-setup", async (req, res) => {
+    try {
+      const uid = req.session.userId || req.session.pendingMfaUserId;
+      const pendingSecret = req.session.pendingMfaSecret;
+      const { code } = req.body || {};
+      if (!uid || !pendingSecret) return res.status(400).json({ message: "No pending MFA setup" });
+      if (!code) return res.status(400).json({ message: "Code is required" });
+
+      const encrypted = encryptSecret(pendingSecret);
+      if (!verifyTotp(String(code), encrypted)) {
+        return res.status(401).json({ message: "Invalid code. Please try again." });
+      }
+
+      const backupCodes = generateBackupCodes(10);
+      const hashed = backupCodes.map(hashBackupCode);
+
+      await db.update(users).set({
+        mfaEnabled: true,
+        mfaSecret: encrypted,
+        mfaBackupCodes: hashed,
+        mfaEnrolledAt: new Date(),
+      }).where(eq(users.id, uid));
+
+      delete req.session.pendingMfaSecret;
+      req.session.userId = uid;
+      delete req.session.pendingMfaUserId;
+
+      await storage.createActivityLog({
+        userId: uid, action: "MFA_ENABLED", entityType: "user", entityId: uid,
+        details: "Two-factor authentication enabled",
+        ipAddress: req.ip || req.socket?.remoteAddress,
+      });
+
+      res.json({ success: true, backupCodes });
+    } catch (error) {
+      console.error("MFA verify-setup error:", error);
+      res.status(500).json({ message: "Failed to enable MFA" });
+    }
+  });
+
+  // Login-time MFA challenge
+  app.post("/api/mfa/verify", async (req, res) => {
+    try {
+      const uid = req.session.pendingMfaUserId;
+      if (!uid) return res.status(401).json({ message: "No pending login" });
+      const { code, backupCode, trustDevice } = req.body || {};
+
+      const user = await storage.getUserById(uid);
+      if (!user || !user.mfaEnabled || !user.mfaSecret) {
+        return res.status(400).json({ message: "MFA is not enabled for this account" });
+      }
+
+      let ok = false;
+      let usedBackupIndex = -1;
+      if (code) {
+        const normalized = String(code).replace(/\s/g, "");
+        if (isTotpReplayed(uid, normalized)) {
+          return res.status(401).json({ message: "Code already used. Wait for the next code." });
+        }
+        ok = verifyTotp(normalized, user.mfaSecret);
+        if (ok) markTotpUsed(uid, normalized);
+      } else if (backupCode) {
+        const h = hashBackupCode(String(backupCode));
+        const codes = user.mfaBackupCodes || [];
+        usedBackupIndex = codes.indexOf(h);
+        ok = usedBackupIndex >= 0;
+      } else {
+        return res.status(400).json({ message: "Code is required" });
+      }
+
+      if (!ok) return res.status(401).json({ message: "Invalid code" });
+
+      // Burn the backup code
+      if (usedBackupIndex >= 0) {
+        const codes = (user.mfaBackupCodes || []).filter((_, i) => i !== usedBackupIndex);
+        await db.update(users).set({ mfaBackupCodes: codes }).where(eq(users.id, uid));
+      }
+
+      req.session.userId = uid;
+      delete req.session.pendingMfaUserId;
+
+      // Trust this device for 7 days
+      if (trustDevice) {
+        const token = generateTrustToken();
+        const tokenHash = hashTrustToken(token);
+        const expiresAt = new Date(Date.now() + TRUST_DEVICE_DAYS * 24 * 60 * 60 * 1000);
+        await db.insert(trustedDevices).values({
+          userId: uid,
+          tokenHash,
+          userAgent: req.headers["user-agent"]?.slice(0, 500) || null,
+          ipAddress: req.ip || req.socket?.remoteAddress || null,
+          expiresAt,
+        });
+        res.cookie(TRUST_COOKIE_NAME, `${uid}.${token}`, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+          maxAge: TRUST_DEVICE_DAYS * 24 * 60 * 60 * 1000,
+          path: "/",
+        });
+      }
+
+      await storage.createActivityLog({
+        userId: uid, action: "MFA_VERIFIED", entityType: "user", entityId: uid,
+        details: usedBackupIndex >= 0 ? "Logged in with backup code" : "Logged in with TOTP",
+        ipAddress: req.ip || req.socket?.remoteAddress,
+      });
+
+      res.json({
+        id: user.id, username: user.username, firstName: user.firstName,
+        lastName: user.lastName, email: user.email,
+      });
+    } catch (error) {
+      console.error("MFA verify error:", error);
+      res.status(500).json({ message: "MFA verification failed" });
+    }
+  });
+
+  // Cancel a pending MFA flow (back to login)
+  app.post("/api/mfa/cancel", (req, res) => {
+    delete req.session.pendingMfaUserId;
+    delete req.session.pendingMfaSecret;
+    res.json({ ok: true });
+  });
+
+  // Status (used by frontend to know which screen to show)
+  app.get("/api/mfa/status", async (req, res) => {
+    const uid = req.session.userId || req.session.pendingMfaUserId;
+    if (!uid) return res.json({ authenticated: false, pendingMfa: false });
+    const user = await storage.getUserById(uid);
+    if (!user) return res.json({ authenticated: false, pendingMfa: false });
+    res.json({
+      authenticated: !!req.session.userId,
+      pendingMfa: !!req.session.pendingMfaUserId,
+      mfaEnabled: !!user.mfaEnabled,
+      setupNeeded: !!req.session.pendingMfaUserId && !user.mfaEnabled,
+      username: user.username,
+      backupCodesRemaining: (user.mfaBackupCodes || []).length,
+    });
+  });
+
+  // Admin: reset another user's MFA (so they can re-enroll on next login)
+  app.post("/api/mfa/admin-reset/:userId", async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ message: "Unauthorized" });
+    const actor = await storage.getUserRole(req.session.userId);
+    const actorRoleValue = actor?.role || "";
+    let isAdmin = actorRoleValue === "admin";
+    if (!isAdmin) {
+      const lookup = await storage.getLookupRoleByValue(actorRoleValue);
+      isAdmin = lookup?.roleType === "admin";
+    }
+    if (!isAdmin) return res.status(403).json({ message: "Admin only" });
+    const targetId = req.params.userId;
+    await db.update(users).set({
+      mfaEnabled: false, mfaSecret: null, mfaBackupCodes: null, mfaEnrolledAt: null,
+    }).where(eq(users.id, targetId));
+    await db.delete(trustedDevices).where(eq(trustedDevices.userId, targetId));
+    await storage.createActivityLog({
+      userId: req.session.userId, action: "MFA_ADMIN_RESET", entityType: "user", entityId: targetId,
+      details: "Admin reset MFA for user",
+      ipAddress: req.ip || req.socket?.remoteAddress,
+    });
+    res.json({ ok: true });
+  });
+
+  // Self: revoke all trusted devices
+  app.post("/api/mfa/revoke-trusted-devices", async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ message: "Unauthorized" });
+    await db.delete(trustedDevices).where(eq(trustedDevices.userId, req.session.userId));
+    res.clearCookie(TRUST_COOKIE_NAME, { path: "/" });
+    res.json({ ok: true });
   });
 
   // Register endpoint - Only allows first user registration for initial admin setup
@@ -184,7 +449,8 @@ export async function registerRoutes(
 
       await storage.setUserRole({ userId: user.id, role: "admin" });
 
-      req.session.userId = user.id;
+      // MFA is mandatory: gate the new admin behind setup before granting a session.
+      req.session.pendingMfaUserId = user.id;
 
       res.status(201).json({
         id: user.id,
@@ -192,6 +458,8 @@ export async function registerRoutes(
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
+        mfaRequired: true,
+        setupNeeded: true,
       });
     } catch (error) {
       console.error("Registration error:", error);
