@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { validatePassword } from "@shared/password";
+import { PasswordStrength } from "@/components/password-strength";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -41,6 +43,7 @@ export function UserMenu() {
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  // password validator
   const [confirmPassword, setConfirmPassword] = useState("");
 
   const { data: roleData } = useQuery<UserRoleData>({
@@ -113,8 +116,9 @@ export function UserMenu() {
       toast({ title: "Passwords do not match", variant: "destructive" });
       return;
     }
-    if (newPassword.length < 6) {
-      toast({ title: "Password must be at least 6 characters", variant: "destructive" });
+    const pw = validatePassword(newPassword);
+    if (!pw.ok) {
+      toast({ title: "Password too weak", description: pw.message, variant: "destructive" });
       return;
     }
     changePasswordMutation.mutate({ currentPassword, newPassword });
@@ -272,6 +276,7 @@ export function UserMenu() {
                 placeholder="Enter new password"
                 data-testid="input-new-password"
               />
+              <PasswordStrength password={newPassword} />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="confirmPassword">Confirm New Password</Label>

@@ -54,6 +54,7 @@ import { Search, Plus, Pencil, Trash2, Users, Shield, UserCheck, UserX, Crown, L
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { format } from "date-fns";
+import { PasswordStrength } from "@/components/password-strength";
 import { cn } from "@/lib/utils";
 
 interface UserPermissions {
@@ -873,9 +874,10 @@ export default function UsersPage() {
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   required
-                  placeholder="Minimum 6 characters"
+                  placeholder="At least 8 characters with mixed case, number & symbol"
                   data-testid="input-password"
                 />
+                <PasswordStrength password={formData.password} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="role">Role *</Label>
@@ -1383,9 +1385,10 @@ export default function UsersPage() {
                 type="password"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                placeholder="Minimum 6 characters"
+                placeholder="At least 8 characters with mixed case, number & symbol"
                 data-testid="input-edit-password"
               />
+              <PasswordStrength password={formData.password} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-role">Role *</Label>

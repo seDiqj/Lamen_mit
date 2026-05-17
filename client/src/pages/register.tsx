@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Link } from "wouter";
 import lamenLogo from "@assets/LamenLogo_1769936371528.jpeg";
+import { PasswordStrength } from "@/components/password-strength";
 
 export default function RegisterPage() {
   const [, setLocation] = useLocation();
@@ -162,11 +163,12 @@ export default function RegisterPage() {
                 id="password"
                 name="password"
                 type="password"
-                placeholder="Choose a password (min 6 characters)"
+                placeholder="At least 8 characters with mixed case, number & symbol"
                 value={formData.password}
                 onChange={handleChange}
                 data-testid="input-password"
               />
+              <PasswordStrength password={formData.password} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">Confirm Password *</Label>

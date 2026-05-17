@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { db } from "./db";
 import { customers, loans, disbursements, branches, financeOfficers, installments, fundingSources as fundingSourcesTable, collaterals, customerBusinesses, businessLicenses, loanApprovals, guarantors, userRoles, fadReviews, riskComplianceReviews, accounts, journalEntries, journalLines, clientOccupations, productCycleLimits, loanTransfers, collectionRecords, activityLogs, getMainAccountType } from "@shared/schema";
 import { users, trustedDevices } from "@shared/models/auth";
+import { validatePassword } from "@shared/password";
 import {
   generateSecret,
   buildOtpAuthUrl,
@@ -425,8 +426,9 @@ export async function registerRoutes(
         return res.status(400).json({ message: "All required fields must be provided" });
       }
 
-      if (password.length < 6) {
-        return res.status(400).json({ message: "Password must be at least 6 characters" });
+      const pwCheck = validatePassword(password);
+      if (!pwCheck.ok) {
+        return res.status(400).json({ message: pwCheck.message });
       }
 
       // Check if username already exists
@@ -692,8 +694,9 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Current password and new password are required" });
       }
       
-      if (newPassword.length < 6) {
-        return res.status(400).json({ message: "New password must be at least 6 characters" });
+      const pwCheck = validatePassword(newPassword);
+      if (!pwCheck.ok) {
+        return res.status(400).json({ message: pwCheck.message });
       }
       
       const success = await storage.changeUserPassword(userId, currentPassword, newPassword);
@@ -5494,8 +5497,9 @@ export async function registerRoutes(
       if (email !== undefined) updateData.email = email || null;
       if (branchId !== undefined) updateData.branchId = branchId || null;
       if (password) {
-        if (password.length < 6) {
-          return res.status(400).json({ message: "Password must be at least 6 characters" });
+        const pwCheck = validatePassword(password);
+        if (!pwCheck.ok) {
+          return res.status(400).json({ message: pwCheck.message });
         }
         updateData.password = await bcrypt.hash(password, 10);
       }
