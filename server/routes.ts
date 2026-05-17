@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { db } from "./db";
 import { customers, loans, disbursements, branches, financeOfficers, installments, fundingSources as fundingSourcesTable, collaterals, customerBusinesses, businessLicenses, loanApprovals, guarantors, userRoles, fadReviews, riskComplianceReviews, accounts, journalEntries, journalLines, clientOccupations, productCycleLimits, loanTransfers, collectionRecords, activityLogs, getMainAccountType } from "@shared/schema";
 import { users, trustedDevices } from "@shared/models/auth";
-import { validatePassword } from "@shared/password";
+import { validatePassword, PASSWORD_EXPIRY_DAYS } from "@shared/password";
 import {
   generateSecret,
   buildOtpAuthUrl,
@@ -76,7 +76,21 @@ declare module "express-session" {
     userId?: string;
     pendingMfaUserId?: string;
     pendingMfaSecret?: string;
+    passwordChangeRequired?: boolean;
   }
+}
+
+const PASSWORD_CHANGE_ALLOWED_PATHS = new Set([
+  "/api/auth/user",
+  "/api/auth/logout",
+  "/api/user/change-password",
+  "/api/user/role",
+]);
+
+function isPasswordExpired(passwordChangedAt: Date | null | undefined): boolean {
+  if (!passwordChangedAt) return true;
+  const ageMs = Date.now() - new Date(passwordChangedAt).getTime();
+  return ageMs > PASSWORD_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
 }
 
 // In-memory replay guard: maps `${userId}:${code}` -> expiry epoch ms.
@@ -136,10 +150,27 @@ export async function registerRoutes(
 
   // Auth middleware
   const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
-    if (req.session.userId) {
-      return next();
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Unauthorized" });
     }
-    return res.status(401).json({ message: "Unauthorized" });
+    if (req.session.passwordChangeRequired && !PASSWORD_CHANGE_ALLOWED_PATHS.has(req.path)) {
+      return res.status(403).json({ message: "Password change required", passwordChangeRequired: true });
+    }
+    return next();
+  };
+
+  // Helper: finalize a successful login by setting userId and flagging password change if needed.
+  const finalizeLogin = (req: Request, user: { id: string; mustChangePassword?: boolean | null; passwordChangedAt?: Date | null }) => {
+    req.session.userId = user.id;
+    delete req.session.pendingMfaUserId;
+    delete req.session.pendingMfaSecret;
+    const mustChange = !!user.mustChangePassword || isPasswordExpired(user.passwordChangedAt);
+    if (mustChange) {
+      req.session.passwordChangeRequired = true;
+    } else {
+      delete req.session.passwordChangeRequired;
+    }
+    return mustChange;
   };
 
   // Helper: check trusted device cookie for a given user.
@@ -189,12 +220,11 @@ export async function registerRoutes(
       if (user.mfaEnabled) {
         // Trusted device shortcut
         if (await hasValidTrustedDevice(req, user.id)) {
-          req.session.userId = user.id;
-          delete req.session.pendingMfaUserId;
-          delete req.session.pendingMfaSecret;
+          const mustChange = finalizeLogin(req, user);
           return res.json({
             id: user.id, username: user.username, firstName: user.firstName,
             lastName: user.lastName, email: user.email,
+            passwordChangeRequired: mustChange,
           });
         }
         // Otherwise require code
@@ -262,8 +292,13 @@ export async function registerRoutes(
       }).where(eq(users.id, uid));
 
       delete req.session.pendingMfaSecret;
-      req.session.userId = uid;
-      delete req.session.pendingMfaUserId;
+      const userForLogin = await storage.getUserById(uid);
+      if (userForLogin) {
+        finalizeLogin(req, userForLogin);
+      } else {
+        req.session.userId = uid;
+        delete req.session.pendingMfaUserId;
+      }
 
       await storage.createActivityLog({
         userId: uid, action: "MFA_ENABLED", entityType: "user", entityId: uid,
@@ -316,8 +351,7 @@ export async function registerRoutes(
         await db.update(users).set({ mfaBackupCodes: codes }).where(eq(users.id, uid));
       }
 
-      req.session.userId = uid;
-      delete req.session.pendingMfaUserId;
+      finalizeLogin(req, user);
 
       // Trust this device for 7 days
       if (trustDevice) {
@@ -380,9 +414,8 @@ export async function registerRoutes(
   });
 
   // Admin: reset another user's MFA (so they can re-enroll on next login)
-  app.post("/api/mfa/admin-reset/:userId", async (req, res) => {
-    if (!req.session.userId) return res.status(401).json({ message: "Unauthorized" });
-    const actor = await storage.getUserRole(req.session.userId);
+  app.post("/api/mfa/admin-reset/:userId", isAuthenticated, async (req, res) => {
+    const actor = await storage.getUserRole(req.session.userId!);
     const actorRoleValue = actor?.role || "";
     let isAdmin = actorRoleValue === "admin";
     if (!isAdmin) {
@@ -404,9 +437,8 @@ export async function registerRoutes(
   });
 
   // Self: revoke all trusted devices
-  app.post("/api/mfa/revoke-trusted-devices", async (req, res) => {
-    if (!req.session.userId) return res.status(401).json({ message: "Unauthorized" });
-    await db.delete(trustedDevices).where(eq(trustedDevices.userId, req.session.userId));
+  app.post("/api/mfa/revoke-trusted-devices", isAuthenticated, async (req, res) => {
+    await db.delete(trustedDevices).where(eq(trustedDevices.userId, req.session.userId!));
     res.clearCookie(TRUST_COOKIE_NAME, { path: "/" });
     res.json({ ok: true });
   });
@@ -440,13 +472,15 @@ export async function registerRoutes(
       // Hash password
       const hashedPassword = await bcrypt.hash(password, 10);
 
-      // Create first user as admin
+      // Create first user as admin (they chose this password, so no force-change needed).
       const user = await storage.createUser({
         username,
         password: hashedPassword,
         firstName,
         lastName,
         email: email || null,
+        mustChangePassword: false,
+        passwordChangedAt: new Date(),
       });
 
       await storage.setUserRole({ userId: user.id, role: "admin" });
@@ -514,6 +548,9 @@ export async function registerRoutes(
       branchId: officerBranchId || user.branchId || null,
       financeOfficerId: financeOfficerId || null,
       mfaEnabled: !!user.mfaEnabled,
+      passwordChangeRequired: !!req.session.passwordChangeRequired,
+      passwordChangedAt: user.passwordChangedAt,
+      passwordExpiryDays: PASSWORD_EXPIRY_DAYS,
     });
   });
 
@@ -699,12 +736,16 @@ export async function registerRoutes(
         return res.status(400).json({ message: pwCheck.message });
       }
       
-      const success = await storage.changeUserPassword(userId, currentPassword, newPassword);
-      
-      if (!success) {
+      const result = await storage.changeUserPassword(userId, currentPassword, newPassword);
+
+      if (!result.ok) {
+        if (result.reason === "reused") {
+          return res.status(400).json({ message: "You cannot reuse one of your last 5 passwords." });
+        }
         return res.status(400).json({ message: "Current password is incorrect" });
       }
-      
+
+      delete req.session.passwordChangeRequired;
       await logActivity(req, "change_password", "user", userId, "Changed password");
       res.json({ message: "Password changed successfully" });
     } catch (error) {
@@ -5439,6 +5480,9 @@ export async function registerRoutes(
         lastName,
         email: email || null,
         branchId: branchId || null,
+        // Admin-created accounts must change their password on first login.
+        mustChangePassword: true,
+        passwordChangedAt: new Date(),
       });
 
       await storage.setUserRole({ userId: user.id, role: role || "user" });
@@ -5496,16 +5540,21 @@ export async function registerRoutes(
       if (lastName) updateData.lastName = lastName;
       if (email !== undefined) updateData.email = email || null;
       if (branchId !== undefined) updateData.branchId = branchId || null;
+      // Password reset by an admin — handled separately so we record history & force-change.
+      let adminPasswordToSet: string | null = null;
       if (password) {
         const pwCheck = validatePassword(password);
         if (!pwCheck.ok) {
           return res.status(400).json({ message: pwCheck.message });
         }
-        updateData.password = await bcrypt.hash(password, 10);
+        adminPasswordToSet = await bcrypt.hash(password, 10);
       }
 
       if (Object.keys(updateData).length > 0) {
         await storage.updateUser(userId, updateData);
+      }
+      if (adminPasswordToSet) {
+        await storage.adminSetUserPassword(userId, adminPasswordToSet, true);
       }
 
       if (role) {

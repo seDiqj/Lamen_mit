@@ -16,6 +16,7 @@ import { useEffect } from "react";
 import LoginPage from "@/pages/login";
 import MfaChallengePage from "@/pages/mfa-challenge";
 import MfaSetupPage from "@/pages/mfa-setup";
+import ForceChangePasswordPage from "@/pages/force-change-password";
 import Dashboard from "@/pages/dashboard";
 import AdminDashboardPage from "@/pages/admin-dashboard";
 import LoansPage from "@/pages/loans";
@@ -119,11 +120,16 @@ function AppRoutes() {
 
   // Force users without MFA to complete setup before using the app.
   const mfaEnabled = !!(user && (user as any).mfaEnabled);
+  const passwordChangeRequired = !!(user && (user as any).passwordChangeRequired);
   useEffect(() => {
     if (user && !mfaEnabled && location !== "/mfa-setup") {
       setLocation("/mfa-setup");
+      return;
     }
-  }, [user, mfaEnabled, location, setLocation]);
+    if (user && mfaEnabled && passwordChangeRequired && location !== "/force-change-password") {
+      setLocation("/force-change-password");
+    }
+  }, [user, mfaEnabled, passwordChangeRequired, location, setLocation]);
 
   if (isLoading) {
     return (
@@ -154,6 +160,10 @@ function AppRoutes() {
     );
   }
 
+  if (passwordChangeRequired) {
+    return <ForceChangePasswordPage />;
+  }
+
   if (location.startsWith("/mobile")) {
     return (
       <MobileLayout>
@@ -173,6 +183,7 @@ function AppRoutes() {
     <AuthenticatedLayout>
       <Switch>
         <Route path="/mfa-setup" component={MfaSetupPage} />
+        <Route path="/force-change-password" component={ForceChangePasswordPage} />
         <Route path="/" component={Dashboard} />
         <Route path="/admin-dashboard" component={AdminDashboardPage} />
         <Route path="/loans" component={LoansPage} />

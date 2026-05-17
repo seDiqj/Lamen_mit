@@ -152,7 +152,8 @@ export interface IStorage {
   getUserRole(userId: string): Promise<UserRole | undefined>;
   setUserRole(data: InsertUserRole): Promise<UserRole>;
   updateUserProfile(userId: string, data: { firstName?: string | null; lastName?: string | null; email?: string | null }): Promise<User>;
-  changeUserPassword(userId: string, currentPassword: string, newPassword: string): Promise<boolean>;
+  changeUserPassword(userId: string, currentPassword: string, newPassword: string): Promise<{ ok: boolean; reason?: "current" | "reused" }>;
+  adminSetUserPassword(userId: string, newHashedPassword: string, forceChange: boolean): Promise<void>;
   
   // Branches
   getBranches(search?: string): Promise<Branch[]>;
@@ -468,19 +469,57 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async changeUserPassword(userId: string, currentPassword: string, newPassword: string): Promise<boolean> {
+  async changeUserPassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string
+  ): Promise<{ ok: boolean; reason?: "current" | "reused" }> {
     const [user] = await db.select().from(users).where(eq(users.id, userId));
-    if (!user) return false;
+    if (!user) return { ok: false, reason: "current" };
 
     const isValid = await bcrypt.compare(currentPassword, user.password);
-    if (!isValid) return false;
+    if (!isValid) return { ok: false, reason: "current" };
+
+    const { PASSWORD_HISTORY_DEPTH } = await import("@shared/password");
+    const history: string[] = user.passwordHistory || [];
+    const recent = [user.password, ...history].slice(0, PASSWORD_HISTORY_DEPTH);
+    for (const oldHash of recent) {
+      if (oldHash && (await bcrypt.compare(newPassword, oldHash))) {
+        return { ok: false, reason: "reused" };
+      }
+    }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const newHistory = [user.password, ...history].slice(0, PASSWORD_HISTORY_DEPTH);
     await db
       .update(users)
-      .set({ password: hashedPassword, updatedAt: new Date() })
+      .set({
+        password: hashedPassword,
+        passwordChangedAt: new Date(),
+        mustChangePassword: false,
+        passwordHistory: newHistory,
+        updatedAt: new Date(),
+      })
       .where(eq(users.id, userId));
-    return true;
+    return { ok: true };
+  }
+
+  async adminSetUserPassword(userId: string, newHashedPassword: string, forceChange: boolean): Promise<void> {
+    const [user] = await db.select().from(users).where(eq(users.id, userId));
+    if (!user) return;
+    const { PASSWORD_HISTORY_DEPTH } = await import("@shared/password");
+    const history: string[] = user.passwordHistory || [];
+    const newHistory = [user.password, ...history].slice(0, PASSWORD_HISTORY_DEPTH);
+    await db
+      .update(users)
+      .set({
+        password: newHashedPassword,
+        passwordChangedAt: new Date(),
+        mustChangePassword: forceChange,
+        passwordHistory: newHistory,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId));
   }
 
   // Branches

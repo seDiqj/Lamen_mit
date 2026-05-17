@@ -1,3 +1,6 @@
+export const PASSWORD_EXPIRY_DAYS = 60;
+export const PASSWORD_HISTORY_DEPTH = 5;
+
 export const PASSWORD_RULES = {
   minLength: 8,
   requireUppercase: true,

@@ -28,6 +28,9 @@ export const users = pgTable("users", {
   mfaSecret: text("mfa_secret"),
   mfaBackupCodes: text("mfa_backup_codes").array(),
   mfaEnrolledAt: timestamp("mfa_enrolled_at"),
+  mustChangePassword: boolean("must_change_password").default(true).notNull(),
+  passwordChangedAt: timestamp("password_changed_at").defaultNow().notNull(),
+  passwordHistory: text("password_history").array().default(sql`'{}'::text[]`).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
