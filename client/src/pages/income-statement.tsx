@@ -1,9 +1,11 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ChevronDown, ChevronRight, Eye, EyeOff, FileSpreadsheet, FileText, TrendingUp } from "lucide-react";
 import { formatDate } from "@/lib/date-utils";
 import * as XLSX from "xlsx";
@@ -212,11 +214,18 @@ export default function IncomeStatement() {
   const [data, setData] = useState<IncomeStatementData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showZeroBalances, setShowZeroBalances] = useState(false);
+  const [classBranchId, setClassBranchId] = useState<string>("all");
+
+  const { data: branches = [] } = useQuery<Array<{ id: string; name: string; code?: string }>>({
+    queryKey: ["/api/branches"],
+  });
 
   const fetchReport = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/reports/income-statement?startDate=${startDate}&endDate=${endDate}`, { credentials: "include" });
+      const params = new URLSearchParams({ startDate, endDate });
+      if (classBranchId && classBranchId !== "all") params.set("classBranchId", classBranchId);
+      const res = await fetch(`/api/reports/income-statement?${params}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch");
       const result = await res.json();
       setData(result);
@@ -419,6 +428,20 @@ export default function IncomeStatement() {
               <div className="space-y-2">
                 <Label>End Date</Label>
                 <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} data-testid="input-end-date" />
+              </div>
+              <div className="space-y-2">
+                <Label>Class (Branch)</Label>
+                <Select value={classBranchId} onValueChange={setClassBranchId}>
+                  <SelectTrigger className="w-[220px]" data-testid="filter-class-branch">
+                    <SelectValue placeholder="All Classes" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Classes</SelectItem>
+                    {branches.map((b) => (
+                      <SelectItem key={b.id} value={b.id}>{b.code ? `${b.code} - ${b.name}` : b.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <Button onClick={fetchReport} disabled={isLoading} data-testid="button-generate">
                 {isLoading ? "Loading..." : "Generate Report"}

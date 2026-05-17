@@ -660,6 +660,7 @@ export const journalLines = pgTable("journal_lines", {
   debitAmount: decimal("debit_amount", { precision: 15, scale: 2 }).default("0"),
   creditAmount: decimal("credit_amount", { precision: 15, scale: 2 }).default("0"),
   fundingSourceId: varchar("funding_source_id").references(() => fundingSources.id),
+  classBranchId: varchar("class_branch_id").references(() => branches.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

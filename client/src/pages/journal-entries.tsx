@@ -59,12 +59,31 @@ type JournalLine = {
   debitAmount: string;
   creditAmount: string;
   fundingSourceId: string;
+  classBranchId: string;
 };
 
 type FundingSource = {
   id: string;
   name: string;
   code: string;
+};
+
+type Branch = {
+  id: string;
+  name: string;
+  code?: string;
+};
+
+const EXPENSE_TYPES = new Set([
+  "expense",
+  "operating_expense",
+  "non_operating_expense",
+  "cost_of_financing",
+]);
+const isExpenseAccount = (accounts: Account[], accountId: string): boolean => {
+  if (!accountId) return false;
+  const acc = accounts.find(a => a.id === accountId);
+  return !!acc && EXPENSE_TYPES.has(acc.accountType);
 };
 
 type JournalEntry = {
@@ -118,8 +137,8 @@ export default function JournalEntries() {
   });
 
   const [lines, setLines] = useState<JournalLine[]>([
-    { accountId: "", description: "", debitAmount: "", creditAmount: "", fundingSourceId: "" },
-    { accountId: "", description: "", debitAmount: "", creditAmount: "", fundingSourceId: "" },
+    { accountId: "", description: "", debitAmount: "", creditAmount: "", fundingSourceId: "", classBranchId: "" },
+    { accountId: "", description: "", debitAmount: "", creditAmount: "", fundingSourceId: "", classBranchId: "" },
   ]);
 
   const { data: paginatedData, isLoading } = useQuery<PaginatedResponse>({
@@ -146,6 +165,10 @@ export default function JournalEntries() {
 
   const { data: fundingSources = [] } = useQuery<FundingSource[]>({
     queryKey: ["/api/funding-sources"],
+  });
+
+  const { data: branches = [] } = useQuery<Branch[]>({
+    queryKey: ["/api/branches"],
   });
 
   const createMutation = useMutation({
@@ -232,9 +255,10 @@ export default function JournalEntries() {
           debitAmount: line.debitAmount || "",
           creditAmount: line.creditAmount || "",
           fundingSourceId: line.fundingSourceId || "",
+          classBranchId: line.classBranchId || "",
         })) || [
-          { accountId: "", description: "", debitAmount: "", creditAmount: "", fundingSourceId: "" },
-          { accountId: "", description: "", debitAmount: "", creditAmount: "", fundingSourceId: "" },
+          { accountId: "", description: "", debitAmount: "", creditAmount: "", fundingSourceId: "", classBranchId: "" },
+          { accountId: "", description: "", debitAmount: "", creditAmount: "", fundingSourceId: "", classBranchId: "" },
         ]
       );
       setDialogOpen(true);
@@ -246,13 +270,13 @@ export default function JournalEntries() {
   const resetForm = () => {
     setFormData({ entryDate: new Date().toISOString().split("T")[0], description: "", reference: "", referenceType: "manual" });
     setLines([
-      { accountId: "", description: "", debitAmount: "", creditAmount: "", fundingSourceId: "" },
-      { accountId: "", description: "", debitAmount: "", creditAmount: "", fundingSourceId: "" },
+      { accountId: "", description: "", debitAmount: "", creditAmount: "", fundingSourceId: "", classBranchId: "" },
+      { accountId: "", description: "", debitAmount: "", creditAmount: "", fundingSourceId: "", classBranchId: "" },
     ]);
   };
 
   const addLine = () => {
-    setLines([...lines, { accountId: "", description: "", debitAmount: "", creditAmount: "", fundingSourceId: "" }]);
+    setLines([...lines, { accountId: "", description: "", debitAmount: "", creditAmount: "", fundingSourceId: "", classBranchId: "" }]);
   };
 
   const removeLine = (index: number) => {
@@ -271,10 +295,17 @@ export default function JournalEntries() {
     const defaultFundingSourceId = shareholderFs?.id || "";
     const validLines = lines
       .filter(l => l.accountId && (Number(l.debitAmount) > 0 || Number(l.creditAmount) > 0))
-      .map(l => ({ ...l, fundingSourceId: l.fundingSourceId || defaultFundingSourceId }));
+      .map(l => ({ ...l, fundingSourceId: l.fundingSourceId || defaultFundingSourceId, classBranchId: l.classBranchId || "" }));
     if (validLines.length < 2) {
       toast({ title: "Error", description: "At least two valid lines are required", variant: "destructive" });
       return;
+    }
+    // Class required on expense lines
+    for (const l of validLines) {
+      if (isExpenseAccount(accounts, l.accountId) && !l.classBranchId) {
+        toast({ title: "Class required", description: "Pick a Class (branch) for every expense account line", variant: "destructive" });
+        return;
+      }
     }
     if (editingEntry) {
       updateMutation.mutate({ id: editingEntry.id, ...formData, lines: validLines });
@@ -370,9 +401,10 @@ export default function JournalEntries() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[300px]">Account</TableHead>
-                      <TableHead className="min-w-[200px]">Description</TableHead>
-                      <TableHead className="w-[160px]">Fund</TableHead>
+                      <TableHead className="w-[280px]">Account</TableHead>
+                      <TableHead className="min-w-[180px]">Description</TableHead>
+                      <TableHead className="w-[150px]">Fund</TableHead>
+                      <TableHead className="w-[160px]">Class (Branch)</TableHead>
                       <TableHead className="w-32 text-right">Debit</TableHead>
                       <TableHead className="w-32 text-right">Credit</TableHead>
                       <TableHead className="w-12"></TableHead>
@@ -408,6 +440,22 @@ export default function JournalEntries() {
                           </Select>
                         </TableCell>
                         <TableCell>
+                          {isExpenseAccount(accounts, line.accountId) ? (
+                            <Select value={line.classBranchId || ""} onValueChange={(val) => updateLine(index, "classBranchId", val)}>
+                              <SelectTrigger className={`h-9 text-xs ${!line.classBranchId ? "border-red-400" : ""}`} data-testid={`select-class-${index}`}>
+                                <SelectValue placeholder="Pick class..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {branches.map((b) => (
+                                  <SelectItem key={b.id} value={b.id}>{b.code ? `${b.code} - ${b.name}` : b.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <span className="text-xs text-muted-foreground" data-testid={`text-class-na-${index}`}>—</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
                           <Input type="number" step="0.01" min="0" value={line.debitAmount} onChange={(e) => updateLine(index, "debitAmount", e.target.value)} className="text-right" data-testid={`input-debit-${index}`} />
                         </TableCell>
                         <TableCell>
@@ -421,7 +469,7 @@ export default function JournalEntries() {
                       </TableRow>
                     ))}
                     <TableRow className="font-semibold bg-muted/50">
-                      <TableCell colSpan={3} className="text-right">Totals:</TableCell>
+                      <TableCell colSpan={4} className="text-right">Totals:</TableCell>
                       <TableCell className="text-right">{formatCurrency(totalDebit.toString())}</TableCell>
                       <TableCell className="text-right">{formatCurrency(totalCredit.toString())}</TableCell>
                       <TableCell />
@@ -610,6 +658,7 @@ export default function JournalEntries() {
                     <TableHead>Account</TableHead>
                     <TableHead>Description</TableHead>
                     <TableHead>Fund</TableHead>
+                    <TableHead>Class</TableHead>
                     <TableHead className="text-right">Debit</TableHead>
                     <TableHead className="text-right">Credit</TableHead>
                   </TableRow>
@@ -620,12 +669,13 @@ export default function JournalEntries() {
                       <TableCell>{line.accountCode} - {line.accountName}</TableCell>
                       <TableCell>{line.description || "-"}</TableCell>
                       <TableCell className="text-sm">{(line as any).fundingSourceName || "-"}</TableCell>
+                      <TableCell className="text-sm">{(line as any).classBranchName || "-"}</TableCell>
                       <TableCell className="text-right font-mono">{Number(line.debitAmount) > 0 ? formatCurrency(line.debitAmount) : "-"}</TableCell>
                       <TableCell className="text-right font-mono">{Number(line.creditAmount) > 0 ? formatCurrency(line.creditAmount) : "-"}</TableCell>
                     </TableRow>
                   ))}
                   <TableRow className="font-semibold bg-muted/50">
-                    <TableCell colSpan={3} className="text-right">Totals:</TableCell>
+                    <TableCell colSpan={4} className="text-right">Totals:</TableCell>
                     <TableCell className="text-right">{formatCurrency(selectedEntry.totalDebit)}</TableCell>
                     <TableCell className="text-right">{formatCurrency(selectedEntry.totalCredit)}</TableCell>
                   </TableRow>

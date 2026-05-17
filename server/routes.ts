@@ -6454,6 +6454,17 @@ export async function registerRoutes(
         }
       }
       
+      // Validate Class required on expense account lines
+      const lineAccountIds = Array.from(new Set(lines.map((l: any) => l.accountId)));
+      const accountRows = await db.select().from(accounts).where(inArray(accounts.id, lineAccountIds));
+      const accountTypeMap = new Map(accountRows.map(a => [a.id, a.accountType]));
+      for (const line of lines) {
+        const accType = accountTypeMap.get(line.accountId);
+        if (accType && getMainAccountType(accType) === 'expense' && !line.classBranchId) {
+          return res.status(400).json({ message: "Class (branch) is required for expense account lines" });
+        }
+      }
+      
       // Validate debit = credit
       const totalDebit = lines.reduce((sum: number, line: any) => sum + Number(line.debitAmount || 0), 0);
       const totalCredit = lines.reduce((sum: number, line: any) => sum + Number(line.creditAmount || 0), 0);
@@ -6503,6 +6514,19 @@ export async function registerRoutes(
       // Validate lines
       if (!lines || lines.length < 2) {
         return res.status(400).json({ message: "At least two lines are required" });
+      }
+      
+      // Validate Class required on expense account lines
+      const lineAccountIds = Array.from(new Set(lines.map((l: any) => l.accountId).filter(Boolean)));
+      if (lineAccountIds.length > 0) {
+        const accountRows = await db.select().from(accounts).where(inArray(accounts.id, lineAccountIds));
+        const accountTypeMap = new Map(accountRows.map(a => [a.id, a.accountType]));
+        for (const line of lines) {
+          const accType = accountTypeMap.get(line.accountId);
+          if (accType && getMainAccountType(accType) === 'expense' && !line.classBranchId) {
+            return res.status(400).json({ message: "Class (branch) is required for expense account lines" });
+          }
+        }
       }
       
       // Calculate totals
@@ -6615,11 +6639,12 @@ export async function registerRoutes(
 
   app.get("/api/reports/income-statement", isAuthenticated, async (req, res) => {
     try {
-      const { startDate, endDate } = req.query;
+      const { startDate, endDate, classBranchId } = req.query;
       if (!startDate || !endDate) {
         return res.status(400).json({ message: "startDate and endDate are required" });
       }
-      const incomeStatement = await storage.getIncomeStatement(startDate as string, endDate as string);
+      const classFilter = classBranchId && classBranchId !== "all" ? (classBranchId as string) : undefined;
+      const incomeStatement = await storage.getIncomeStatement(startDate as string, endDate as string, classFilter);
       res.json(incomeStatement);
     } catch (error) {
       console.error("Error fetching income statement:", error);

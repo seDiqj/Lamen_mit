@@ -397,7 +397,7 @@ export interface IStorage {
   
   // Accounting - Reports
   getTrialBalance(asOfDate?: string): Promise<any[]>;
-  getIncomeStatement(startDate: string, endDate: string): Promise<any>;
+  getIncomeStatement(startDate: string, endDate: string, classBranchId?: string): Promise<any>;
   getBalanceSheet(asOfDate: string): Promise<any>;
   getAccountStatement(accountId: string, startDate?: string, endDate?: string, fundingSourceId?: string, includeChildren?: boolean): Promise<any>;
   getFundingSourceStatement(fundingSourceId: string, startDate?: string, endDate?: string): Promise<any>;
@@ -5474,10 +5474,13 @@ export class DatabaseStorage implements IStorage {
         creditAmount: journalLines.creditAmount,
         fundingSourceId: journalLines.fundingSourceId,
         fundingSourceName: fundingSources.name,
+        classBranchId: journalLines.classBranchId,
+        classBranchName: branches.name,
       })
       .from(journalLines)
       .leftJoin(accounts, eq(journalLines.accountId, accounts.id))
       .leftJoin(fundingSources, eq(journalLines.fundingSourceId, fundingSources.id))
+      .leftJoin(branches, eq(journalLines.classBranchId, branches.id))
       .where(eq(journalLines.journalEntryId, id));
     
     return { ...entry, lines };
@@ -5500,6 +5503,7 @@ export class DatabaseStorage implements IStorage {
           journalEntryId: entry.id,
           debitAmount: String(line.debitAmount || "0"),
           creditAmount: String(line.creditAmount || "0"),
+          classBranchId: (line as any).classBranchId || null,
         });
       }
 
@@ -5550,6 +5554,7 @@ export class DatabaseStorage implements IStorage {
           debitAmount: String(line.debitAmount || "0"),
           creditAmount: String(line.creditAmount || "0"),
           fundingSourceId: line.fundingSourceId || null,
+          classBranchId: line.classBranchId || null,
         });
       }
       
@@ -5624,6 +5629,7 @@ export class DatabaseStorage implements IStorage {
       debitAmount: line.creditAmount,
       creditAmount: line.debitAmount,
       fundingSourceId: line.fundingSourceId || null,
+      classBranchId: line.classBranchId || null,
     }));
     
     const reversalEntry = await this.createJournalEntry({
@@ -5885,15 +5891,24 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async getIncomeStatement(startDate: string, endDate: string): Promise<any> {
+  async getIncomeStatement(startDate: string, endDate: string, classBranchId?: string): Promise<any> {
     const allIncomeAccounts = await db.select().from(accounts).where(inArray(accounts.accountType, ['operating_income','non_operating_income','other_income','income']));
     const allExpenseAccounts = await db.select().from(accounts).where(inArray(accounts.accountType, ['operating_expense','non_operating_expense','cost_of_financing','expense']));
 
     const allAccountIds = [...allIncomeAccounts, ...allExpenseAccounts].map(a => a.id);
+    const expenseAccountIds = allExpenseAccounts.map(a => a.id);
 
     const periodBalances: Record<string, number> = {};
 
     if (allAccountIds.length > 0) {
+      // When a class filter is set, it only constrains expense lines.
+      // Income lines are not tagged with class, so they remain unfiltered.
+      const classFilter = classBranchId && expenseAccountIds.length > 0
+        ? or(
+            eq(journalLines.classBranchId, classBranchId),
+            sql`${journalLines.accountId} NOT IN (${sql.join(expenseAccountIds.map(id => sql`${id}`), sql`, `)})`
+          )
+        : undefined;
       const balanceRows = await db
         .select({
           accountId: journalLines.accountId,
@@ -5907,7 +5922,8 @@ export class DatabaseStorage implements IStorage {
             eq(journalEntries.isPosted, true),
             inArray(journalLines.accountId, allAccountIds),
             gte(journalEntries.entryDate, startDate),
-            lte(journalEntries.entryDate, endDate)
+            lte(journalEntries.entryDate, endDate),
+            classFilter,
           )
         )
         .groupBy(journalLines.accountId);
