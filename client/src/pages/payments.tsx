@@ -213,7 +213,9 @@ export default function PaymentsPage() {
   const allInstallments = allInstallmentsData?.installments || [];
 
   const getLoanRepayment = (loan: LoanItem) => {
-    const loanInstallments = allInstallments.filter((i) => i.loanId === loan.id);
+    const directInstallments = selectedLoanInstallments && selectedLoan?.id === loan.id ? selectedLoanInstallments : [];
+    const fallbackInstallments = allInstallments.filter((i) => i.loanId === loan.id);
+    const loanInstallments = directInstallments.length > 0 ? directInstallments : fallbackInstallments;
     const paidInstallments = loanInstallments.filter((i) => i.isPaid);
     const totalRepaid = paidInstallments.reduce((sum, i) => sum + parseFloat(i.paidAmount || i.totalAmount || "0"), 0);
     const { financingAmount } = calcFinancing(loan);
