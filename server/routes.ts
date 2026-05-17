@@ -130,10 +130,11 @@ export async function registerRoutes(
       }),
       secret: process.env.SESSION_SECRET!,
       resave: false,
+      rolling: true, // reset the cookie expiry on every request (idle timeout)
       saveUninitialized: false,
       proxy: true,
       cookie: {
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        maxAge: 15 * 60 * 1000, // 15 minutes of inactivity
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",

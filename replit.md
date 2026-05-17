@@ -64,7 +64,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Authentication & Authorization
 - **Authentication**: Replit Auth integration via OpenID Connect
-- **Session Storage**: PostgreSQL-backed sessions with 30-minute idle timeout (rolling sessions reset on activity)
+- **Session Storage**: PostgreSQL-backed sessions with 15-minute idle timeout (rolling sessions reset on activity)
 - **Authorization**: Role-based access control with two layers:
   - `user_roles.role` (varchar) stores the specific role value (e.g., "cfo", "finance_officer", "admin")
   - `lookup_roles` table defines each role with a `role_type` (user/manager/admin) for access level
