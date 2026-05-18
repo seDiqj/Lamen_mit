@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { customers, loans, disbursements, branches, financeOfficers, installments, fundingSources as fundingSourcesTable, collaterals, customerBusinesses, businessLicenses, loanApprovals, guarantors, userRoles, fadReviews, riskComplianceReviews, accounts, journalEntries, journalLines, clientOccupations, productCycleLimits, loanTransfers, collectionRecords, activityLogs, getMainAccountType } from "@shared/schema";
+import { customers, loans, disbursements, branches, financeOfficers, installments, fundingSources as fundingSourcesTable, collaterals, customerBusinesses, businessLicenses, loanApprovals, guarantors, userRoles, fadReviews, riskComplianceReviews, accounts, journalEntries, journalLines, clientOccupations, productCycleLimits, loanTransfers, collectionRecords, activityLogs, classes, insertClassSchema, getMainAccountType } from "@shared/schema";
 import { users, trustedDevices } from "@shared/models/auth";
 import { validatePassword, PASSWORD_EXPIRY_DAYS } from "@shared/password";
 import {
@@ -1670,6 +1670,70 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting collateral type:", error);
       res.status(500).json({ message: "Failed to delete collateral type" });
+    }
+  });
+
+  // ===== CLASSES (Accounting dimension) =====
+  app.get("/api/classes", isAuthenticated, async (req, res) => {
+    try {
+      const activeOnly = req.query.activeOnly === "true";
+      const list = await storage.getClasses(activeOnly);
+      res.json(list);
+    } catch (error) {
+      console.error("Error fetching classes:", error);
+      res.status(500).json({ message: "Failed to fetch classes" });
+    }
+  });
+
+  app.post("/api/classes", isAuthenticated, requirePageAccess("classes"), async (req: any, res) => {
+    try {
+      const parsed = insertClassSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid class data", errors: parsed.error.flatten() });
+      }
+      const created = await storage.createClass(parsed.data);
+      await logActivity(req, "create_class", "class", created.id, `Created class: ${created.name}`);
+      res.status(201).json(created);
+    } catch (error) {
+      console.error("Error creating class:", error);
+      res.status(500).json({ message: "Failed to create class" });
+    }
+  });
+
+  app.patch("/api/classes/:id", isAuthenticated, requirePageAccess("classes"), async (req: any, res) => {
+    try {
+      const parsed = insertClassSchema.partial().safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid class data", errors: parsed.error.flatten() });
+      }
+      const existing = await storage.getClass(req.params.id);
+      if (!existing) {
+        return res.status(404).json({ message: "Class not found" });
+      }
+      const updated = await storage.updateClass(req.params.id, parsed.data);
+      await logActivity(req, "update_class", "class", req.params.id, `Updated class: ${updated.name}`);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating class:", error);
+      res.status(500).json({ message: "Failed to update class" });
+    }
+  });
+
+  app.delete("/api/classes/:id", isAuthenticated, requirePageAccess("classes"), async (req: any, res) => {
+    try {
+      const existing = await storage.getClass(req.params.id);
+      if (!existing) {
+        return res.status(404).json({ message: "Class not found" });
+      }
+      await storage.deleteClass(req.params.id);
+      await logActivity(req, "delete_class", "class", req.params.id, `Deleted class: ${existing.name}`);
+      res.status(204).send();
+    } catch (error: any) {
+      console.error("Error deleting class:", error);
+      if (error?.code === '23503') {
+        return res.status(400).json({ message: "Cannot delete class - it is referenced by journal lines" });
+      }
+      res.status(500).json({ message: "Failed to delete class" });
     }
   });
 
@@ -6460,8 +6524,8 @@ export async function registerRoutes(
       const accountTypeMap = new Map(accountRows.map(a => [a.id, a.accountType]));
       for (const line of lines) {
         const accType = accountTypeMap.get(line.accountId);
-        if (accType && getMainAccountType(accType) === 'expense' && !line.classBranchId) {
-          return res.status(400).json({ message: "Class (branch) is required for expense account lines" });
+        if (accType && getMainAccountType(accType) === 'expense' && !line.classId) {
+          return res.status(400).json({ message: "Class is required for expense account lines" });
         }
       }
       
@@ -6523,8 +6587,8 @@ export async function registerRoutes(
         const accountTypeMap = new Map(accountRows.map(a => [a.id, a.accountType]));
         for (const line of lines) {
           const accType = accountTypeMap.get(line.accountId);
-          if (accType && getMainAccountType(accType) === 'expense' && !line.classBranchId) {
-            return res.status(400).json({ message: "Class (branch) is required for expense account lines" });
+          if (accType && getMainAccountType(accType) === 'expense' && !line.classId) {
+            return res.status(400).json({ message: "Class is required for expense account lines" });
           }
         }
       }
@@ -6639,11 +6703,11 @@ export async function registerRoutes(
 
   app.get("/api/reports/income-statement", isAuthenticated, async (req, res) => {
     try {
-      const { startDate, endDate, classBranchId } = req.query;
+      const { startDate, endDate, classId } = req.query;
       if (!startDate || !endDate) {
         return res.status(400).json({ message: "startDate and endDate are required" });
       }
-      const classFilter = classBranchId && classBranchId !== "all" ? (classBranchId as string) : undefined;
+      const classFilter = classId && classId !== "all" ? (classId as string) : undefined;
       const incomeStatement = await storage.getIncomeStatement(startDate as string, endDate as string, classFilter);
       res.json(incomeStatement);
     } catch (error) {

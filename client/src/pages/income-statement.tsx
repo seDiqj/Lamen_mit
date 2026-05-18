@@ -214,17 +214,22 @@ export default function IncomeStatement() {
   const [data, setData] = useState<IncomeStatementData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showZeroBalances, setShowZeroBalances] = useState(false);
-  const [classBranchId, setClassBranchId] = useState<string>("all");
+  const [classId, setClassId] = useState<string>("all");
 
-  const { data: branches = [] } = useQuery<Array<{ id: string; name: string; code?: string }>>({
-    queryKey: ["/api/branches"],
+  const { data: classList = [] } = useQuery<Array<{ id: string; name: string; code?: string | null }>>({
+    queryKey: ["/api/classes", { activeOnly: true }],
+    queryFn: async () => {
+      const res = await fetch("/api/classes?activeOnly=true", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load classes");
+      return res.json();
+    },
   });
 
   const fetchReport = async () => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams({ startDate, endDate });
-      if (classBranchId && classBranchId !== "all") params.set("classBranchId", classBranchId);
+      if (classId && classId !== "all") params.set("classId", classId);
       const res = await fetch(`/api/reports/income-statement?${params}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch");
       const result = await res.json();
@@ -430,15 +435,15 @@ export default function IncomeStatement() {
                 <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} data-testid="input-end-date" />
               </div>
               <div className="space-y-2">
-                <Label>Class (Branch)</Label>
-                <Select value={classBranchId} onValueChange={setClassBranchId}>
-                  <SelectTrigger className="w-[220px]" data-testid="filter-class-branch">
+                <Label>Class</Label>
+                <Select value={classId} onValueChange={setClassId}>
+                  <SelectTrigger className="w-[220px]" data-testid="filter-class">
                     <SelectValue placeholder="All Classes" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Classes</SelectItem>
-                    {branches.map((b) => (
-                      <SelectItem key={b.id} value={b.id}>{b.code ? `${b.code} - ${b.name}` : b.name}</SelectItem>
+                    {classList.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.code ? `${c.code} - ${c.name}` : c.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

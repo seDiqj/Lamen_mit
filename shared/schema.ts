@@ -95,6 +95,16 @@ export const licenseTypes = pgTable("license_types", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Classes (Accounting dimension - tag expense journal lines by class/cost-center)
+export const classes = pgTable("classes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(),
+  code: varchar("code", { length: 50 }),
+  description: text("description"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Financing Purposes
 export const financingPurposes = pgTable("financing_purposes", {
   id: serial("id").primaryKey(),
@@ -660,7 +670,7 @@ export const journalLines = pgTable("journal_lines", {
   debitAmount: decimal("debit_amount", { precision: 15, scale: 2 }).default("0"),
   creditAmount: decimal("credit_amount", { precision: 15, scale: 2 }).default("0"),
   fundingSourceId: varchar("funding_source_id").references(() => fundingSources.id),
-  classBranchId: varchar("class_branch_id").references(() => branches.id),
+  classId: varchar("class_id").references(() => classes.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -669,6 +679,7 @@ export const insertAccountSchema = createInsertSchema(accounts).omit({ id: true,
 export const insertFiscalPeriodSchema = createInsertSchema(fiscalPeriods).omit({ id: true, createdAt: true });
 export const insertJournalEntrySchema = createInsertSchema(journalEntries).omit({ id: true, createdAt: true });
 export const insertJournalLineSchema = createInsertSchema(journalLines).omit({ id: true, createdAt: true });
+export const insertClassSchema = createInsertSchema(classes).omit({ id: true, createdAt: true });
 
 // Types for Accounting
 export type InsertAccount = z.infer<typeof insertAccountSchema>;
@@ -679,6 +690,8 @@ export type InsertJournalEntry = z.infer<typeof insertJournalEntrySchema>;
 export type JournalEntry = typeof journalEntries.$inferSelect;
 export type InsertJournalLine = z.infer<typeof insertJournalLineSchema>;
 export type JournalLine = typeof journalLines.$inferSelect;
+export type InsertClass = z.infer<typeof insertClassSchema>;
+export type Class = typeof classes.$inferSelect;
 
 // Insert Schema and Types for License Types
 export const insertLicenseTypeSchema = createInsertSchema(licenseTypes).omit({ id: true, createdAt: true });

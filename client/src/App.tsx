@@ -26,6 +26,7 @@ import DisbursementsPage from "@/pages/disbursements";
 import ReportsPage from "@/pages/reports";
 import ParReportPage from "@/pages/par-report";
 import BranchesPage from "@/pages/branches";
+import ClassesPage from "@/pages/classes";
 import OfficersPage from "@/pages/officers";
 import ActivityPage from "@/pages/activity";
 import SettingsPage from "@/pages/settings";
@@ -221,6 +222,7 @@ function AppRoutes() {
         <Route path="/page-permissions" component={PagePermissionsPage} />
         <Route path="/activity" component={ActivityPage} />
         <Route path="/settings" component={SettingsPage} />
+        <Route path="/classes" component={ClassesPage} />
         <Route path="/chart-of-accounts" component={ChartOfAccountsPage} />
         <Route path="/journal-entries" component={JournalEntriesPage} />
         <Route path="/account-statement" component={AccountStatementPage} />

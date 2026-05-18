@@ -49,6 +49,7 @@ import {
   Package,
   ArrowRightLeft,
   SlidersHorizontal,
+  Tag,
 } from "lucide-react";
 import lamenLogo from "@assets/LamenLogo_1769936371528.jpeg";
 
@@ -109,6 +110,7 @@ const PAGE_URL_TO_NAME: Record<string, string> = {
   "/risk-compliance": "risk-compliance",
   "/committee-voting": "committee-voting",
   "/chart-of-accounts": "chart-of-accounts",
+  "/classes": "classes",
   "/journal-entries": "journal-entries",
   "/account-statement": "account-statement",
   "/trial-balance": "trial-balance",
@@ -233,6 +235,7 @@ export function IconRailNav({ children }: IconRailNavProps) {
         { title: "Accounting Dashboard", url: "/accounting-dashboard", icon: LayoutDashboard, iconColor: "text-purple-500" },
         { title: "Collection Approvals", url: "/collection-approvals", icon: ClipboardCheck, iconColor: "text-purple-600" },
         { title: "Chart of Accounts", url: "/chart-of-accounts", icon: BookOpen, iconColor: "text-emerald-500" },
+        { title: "Classes", url: "/classes", icon: Tag, iconColor: "text-purple-500" },
         { title: "Journal Entries", url: "/journal-entries", icon: Receipt, iconColor: "text-blue-500" },
         { title: "Account Statement", url: "/account-statement", icon: FileSpreadsheet, iconColor: "text-violet-500" },
         { title: "Trial Balance", url: "/trial-balance", icon: Scale, iconColor: "text-amber-500" },

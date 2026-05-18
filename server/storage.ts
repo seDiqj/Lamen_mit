@@ -13,6 +13,9 @@ import {
   districts,
   licenseTypes,
   financingPurposes,
+  classes,
+  type Class,
+  type InsertClass,
   collateralTypes,
   customers,
   customerBusinesses,
@@ -397,7 +400,14 @@ export interface IStorage {
   
   // Accounting - Reports
   getTrialBalance(asOfDate?: string): Promise<any[]>;
-  getIncomeStatement(startDate: string, endDate: string, classBranchId?: string): Promise<any>;
+  getIncomeStatement(startDate: string, endDate: string, classId?: string): Promise<any>;
+
+  // Classes (Accounting dimension)
+  getClasses(activeOnly?: boolean): Promise<Class[]>;
+  getClass(id: string): Promise<Class | undefined>;
+  createClass(data: InsertClass): Promise<Class>;
+  updateClass(id: string, data: Partial<InsertClass>): Promise<Class>;
+  deleteClass(id: string): Promise<void>;
   getBalanceSheet(asOfDate: string): Promise<any>;
   getAccountStatement(accountId: string, startDate?: string, endDate?: string, fundingSourceId?: string, includeChildren?: boolean): Promise<any>;
   getFundingSourceStatement(fundingSourceId: string, startDate?: string, endDate?: string): Promise<any>;
@@ -859,6 +869,29 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Financing Purposes
+  // Classes (Accounting dimension)
+  async getClasses(activeOnly?: boolean): Promise<Class[]> {
+    if (activeOnly) {
+      return db.select().from(classes).where(eq(classes.isActive, true)).orderBy(asc(classes.name));
+    }
+    return db.select().from(classes).orderBy(asc(classes.name));
+  }
+  async getClass(id: string): Promise<Class | undefined> {
+    const [c] = await db.select().from(classes).where(eq(classes.id, id));
+    return c;
+  }
+  async createClass(data: InsertClass): Promise<Class> {
+    const [c] = await db.insert(classes).values(data).returning();
+    return c;
+  }
+  async updateClass(id: string, data: Partial<InsertClass>): Promise<Class> {
+    const [c] = await db.update(classes).set(data).where(eq(classes.id, id)).returning();
+    return c;
+  }
+  async deleteClass(id: string): Promise<void> {
+    await db.delete(classes).where(eq(classes.id, id));
+  }
+
   async getFinancingPurposes(search?: string): Promise<FinancingPurpose[]> {
     if (search) {
       return db.select().from(financingPurposes).where(like(financingPurposes.name, `%${search}%`)).orderBy(asc(financingPurposes.id));
@@ -4793,6 +4826,7 @@ export class DatabaseStorage implements IStorage {
       "users",
       "page-permissions",
       "chart-of-accounts",
+      "classes",
       "journal-entries",
       "account-statement",
       "trial-balance",
@@ -5474,13 +5508,13 @@ export class DatabaseStorage implements IStorage {
         creditAmount: journalLines.creditAmount,
         fundingSourceId: journalLines.fundingSourceId,
         fundingSourceName: fundingSources.name,
-        classBranchId: journalLines.classBranchId,
-        classBranchName: branches.name,
+        classId: journalLines.classId,
+        className: classes.name,
       })
       .from(journalLines)
       .leftJoin(accounts, eq(journalLines.accountId, accounts.id))
       .leftJoin(fundingSources, eq(journalLines.fundingSourceId, fundingSources.id))
-      .leftJoin(branches, eq(journalLines.classBranchId, branches.id))
+      .leftJoin(classes, eq(journalLines.classId, classes.id))
       .where(eq(journalLines.journalEntryId, id));
     
     return { ...entry, lines };
@@ -5503,7 +5537,7 @@ export class DatabaseStorage implements IStorage {
           journalEntryId: entry.id,
           debitAmount: String(line.debitAmount || "0"),
           creditAmount: String(line.creditAmount || "0"),
-          classBranchId: (line as any).classBranchId || null,
+          classId: (line as any).classId || null,
         });
       }
 
@@ -5554,7 +5588,7 @@ export class DatabaseStorage implements IStorage {
           debitAmount: String(line.debitAmount || "0"),
           creditAmount: String(line.creditAmount || "0"),
           fundingSourceId: line.fundingSourceId || null,
-          classBranchId: line.classBranchId || null,
+          classId: line.classId || null,
         });
       }
       
@@ -5629,7 +5663,7 @@ export class DatabaseStorage implements IStorage {
       debitAmount: line.creditAmount,
       creditAmount: line.debitAmount,
       fundingSourceId: line.fundingSourceId || null,
-      classBranchId: line.classBranchId || null,
+      classId: line.classId || null,
     }));
     
     const reversalEntry = await this.createJournalEntry({
@@ -5891,7 +5925,7 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async getIncomeStatement(startDate: string, endDate: string, classBranchId?: string): Promise<any> {
+  async getIncomeStatement(startDate: string, endDate: string, classId?: string): Promise<any> {
     const allIncomeAccounts = await db.select().from(accounts).where(inArray(accounts.accountType, ['operating_income','non_operating_income','other_income','income']));
     const allExpenseAccounts = await db.select().from(accounts).where(inArray(accounts.accountType, ['operating_expense','non_operating_expense','cost_of_financing','expense']));
 
@@ -5903,9 +5937,9 @@ export class DatabaseStorage implements IStorage {
     if (allAccountIds.length > 0) {
       // When a class filter is set, it only constrains expense lines.
       // Income lines are not tagged with class, so they remain unfiltered.
-      const classFilter = classBranchId && expenseAccountIds.length > 0
+      const classFilter = classId && expenseAccountIds.length > 0
         ? or(
-            eq(journalLines.classBranchId, classBranchId),
+            eq(journalLines.classId, classId),
             sql`${journalLines.accountId} NOT IN (${sql.join(expenseAccountIds.map(id => sql`${id}`), sql`, `)})`
           )
         : undefined;

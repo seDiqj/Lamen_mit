@@ -59,13 +59,19 @@ type JournalLine = {
   debitAmount: string;
   creditAmount: string;
   fundingSourceId: string;
-  classBranchId: string;
+  classId: string;
 };
 
 type FundingSource = {
   id: string;
   name: string;
   code: string;
+};
+
+type ClassItem = {
+  id: string;
+  name: string;
+  code?: string | null;
 };
 
 type Branch = {
@@ -137,8 +143,8 @@ export default function JournalEntries() {
   });
 
   const [lines, setLines] = useState<JournalLine[]>([
-    { accountId: "", description: "", debitAmount: "", creditAmount: "", fundingSourceId: "", classBranchId: "" },
-    { accountId: "", description: "", debitAmount: "", creditAmount: "", fundingSourceId: "", classBranchId: "" },
+    { accountId: "", description: "", debitAmount: "", creditAmount: "", fundingSourceId: "", classId: "" },
+    { accountId: "", description: "", debitAmount: "", creditAmount: "", fundingSourceId: "", classId: "" },
   ]);
 
   const { data: paginatedData, isLoading } = useQuery<PaginatedResponse>({
@@ -167,8 +173,13 @@ export default function JournalEntries() {
     queryKey: ["/api/funding-sources"],
   });
 
-  const { data: branches = [] } = useQuery<Branch[]>({
-    queryKey: ["/api/branches"],
+  const { data: classList = [] } = useQuery<ClassItem[]>({
+    queryKey: ["/api/classes", { activeOnly: true }],
+    queryFn: async () => {
+      const res = await fetch("/api/classes?activeOnly=true", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load classes");
+      return res.json();
+    },
   });
 
   const createMutation = useMutation({
@@ -255,10 +266,10 @@ export default function JournalEntries() {
           debitAmount: line.debitAmount || "",
           creditAmount: line.creditAmount || "",
           fundingSourceId: line.fundingSourceId || "",
-          classBranchId: line.classBranchId || "",
+          classId: line.classId || "",
         })) || [
-          { accountId: "", description: "", debitAmount: "", creditAmount: "", fundingSourceId: "", classBranchId: "" },
-          { accountId: "", description: "", debitAmount: "", creditAmount: "", fundingSourceId: "", classBranchId: "" },
+          { accountId: "", description: "", debitAmount: "", creditAmount: "", fundingSourceId: "", classId: "" },
+          { accountId: "", description: "", debitAmount: "", creditAmount: "", fundingSourceId: "", classId: "" },
         ]
       );
       setDialogOpen(true);
@@ -270,13 +281,13 @@ export default function JournalEntries() {
   const resetForm = () => {
     setFormData({ entryDate: new Date().toISOString().split("T")[0], description: "", reference: "", referenceType: "manual" });
     setLines([
-      { accountId: "", description: "", debitAmount: "", creditAmount: "", fundingSourceId: "", classBranchId: "" },
-      { accountId: "", description: "", debitAmount: "", creditAmount: "", fundingSourceId: "", classBranchId: "" },
+      { accountId: "", description: "", debitAmount: "", creditAmount: "", fundingSourceId: "", classId: "" },
+      { accountId: "", description: "", debitAmount: "", creditAmount: "", fundingSourceId: "", classId: "" },
     ]);
   };
 
   const addLine = () => {
-    setLines([...lines, { accountId: "", description: "", debitAmount: "", creditAmount: "", fundingSourceId: "", classBranchId: "" }]);
+    setLines([...lines, { accountId: "", description: "", debitAmount: "", creditAmount: "", fundingSourceId: "", classId: "" }]);
   };
 
   const removeLine = (index: number) => {
@@ -295,14 +306,14 @@ export default function JournalEntries() {
     const defaultFundingSourceId = shareholderFs?.id || "";
     const validLines = lines
       .filter(l => l.accountId && (Number(l.debitAmount) > 0 || Number(l.creditAmount) > 0))
-      .map(l => ({ ...l, fundingSourceId: l.fundingSourceId || defaultFundingSourceId, classBranchId: l.classBranchId || "" }));
+      .map(l => ({ ...l, fundingSourceId: l.fundingSourceId || defaultFundingSourceId, classId: l.classId || "" }));
     if (validLines.length < 2) {
       toast({ title: "Error", description: "At least two valid lines are required", variant: "destructive" });
       return;
     }
     // Class required on expense lines
     for (const l of validLines) {
-      if (isExpenseAccount(accounts, l.accountId) && !l.classBranchId) {
+      if (isExpenseAccount(accounts, l.accountId) && !l.classId) {
         toast({ title: "Class required", description: "Pick a Class (branch) for every expense account line", variant: "destructive" });
         return;
       }
@@ -404,7 +415,7 @@ export default function JournalEntries() {
                       <TableHead className="w-[280px]">Account</TableHead>
                       <TableHead className="min-w-[180px]">Description</TableHead>
                       <TableHead className="w-[150px]">Fund</TableHead>
-                      <TableHead className="w-[160px]">Class (Branch)</TableHead>
+                      <TableHead className="w-[160px]">Class</TableHead>
                       <TableHead className="w-32 text-right">Debit</TableHead>
                       <TableHead className="w-32 text-right">Credit</TableHead>
                       <TableHead className="w-12"></TableHead>
@@ -441,13 +452,13 @@ export default function JournalEntries() {
                         </TableCell>
                         <TableCell>
                           {isExpenseAccount(accounts, line.accountId) ? (
-                            <Select value={line.classBranchId || ""} onValueChange={(val) => updateLine(index, "classBranchId", val)}>
-                              <SelectTrigger className={`h-9 text-xs ${!line.classBranchId ? "border-red-400" : ""}`} data-testid={`select-class-${index}`}>
+                            <Select value={line.classId || ""} onValueChange={(val) => updateLine(index, "classId", val)}>
+                              <SelectTrigger className={`h-9 text-xs ${!line.classId ? "border-red-400" : ""}`} data-testid={`select-class-${index}`}>
                                 <SelectValue placeholder="Pick class..." />
                               </SelectTrigger>
                               <SelectContent>
-                                {branches.map((b) => (
-                                  <SelectItem key={b.id} value={b.id}>{b.code ? `${b.code} - ${b.name}` : b.name}</SelectItem>
+                                {classList.map((c) => (
+                                  <SelectItem key={c.id} value={c.id}>{c.code ? `${c.code} - ${c.name}` : c.name}</SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
@@ -669,7 +680,7 @@ export default function JournalEntries() {
                       <TableCell>{line.accountCode} - {line.accountName}</TableCell>
                       <TableCell>{line.description || "-"}</TableCell>
                       <TableCell className="text-sm">{(line as any).fundingSourceName || "-"}</TableCell>
-                      <TableCell className="text-sm">{(line as any).classBranchName || "-"}</TableCell>
+                      <TableCell className="text-sm">{(line as any).className || "-"}</TableCell>
                       <TableCell className="text-right font-mono">{Number(line.debitAmount) > 0 ? formatCurrency(line.debitAmount) : "-"}</TableCell>
                       <TableCell className="text-right font-mono">{Number(line.creditAmount) > 0 ? formatCurrency(line.creditAmount) : "-"}</TableCell>
                     </TableRow>
