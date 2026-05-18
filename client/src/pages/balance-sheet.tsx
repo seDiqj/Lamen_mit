@@ -111,9 +111,9 @@ function AccountTreeRow({
           </div>
         </td>
         <td className="py-1.5 text-right pr-4 tabular-nums text-sm whitespace-nowrap">
-          {node.isLeaf ? (
+          {node.isLeaf || !hasChildren ? (
             <span>{formatAmountNum(node.amount)}</span>
-          ) : hasChildren && !isExpanded ? (
+          ) : !isExpanded ? (
             <span className="font-medium">{formatAmount(node.amount)}</span>
           ) : null}
         </td>
