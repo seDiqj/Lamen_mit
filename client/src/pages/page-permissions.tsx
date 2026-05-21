@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Shield, Users, Lock, Unlock, LayoutDashboard, UserCircle, FileText, BarChart3, AlertTriangle, Activity, Settings, Building2, UserCheck, Banknote, CreditCard, CheckCircle, Vote, ClipboardCheck, BookOpen, Receipt, Scale, FileSpreadsheet, Layers, GitBranch, Clock, CalendarOff, Plane, Calendar, Briefcase } from "lucide-react";
+import { Shield, Users, Lock, Unlock } from "lucide-react";
+import { getPageIcon, getPageLabel } from "@/lib/page-registry";
 
 interface UserWithPermissions {
   id: string;
@@ -18,90 +19,6 @@ interface UserWithPermissions {
   role: string | null;
   permissions: Record<string, boolean>;
 }
-
-const PAGE_ICONS: Record<string, any> = {
-  dashboard: LayoutDashboard,
-  customers: UserCircle,
-  "customer-registration": UserCircle,
-  loans: FileText,
-  "loan-application": FileText,
-  "fad-review": ClipboardCheck,
-  "risk-compliance": CheckCircle,
-  "committee-voting": Vote,
-  approvals: CheckCircle,
-  disbursements: Banknote,
-  payments: CreditCard,
-  reports: BarChart3,
-  "par-report": AlertTriangle,
-  "collection-report": Receipt,
-  "approval-rejection-report": Vote,
-  settings: Settings,
-  branches: Building2,
-  officers: UserCheck,
-  "funding-sources": Banknote,
-  lookup: Layers,
-  "activity-logs": Activity,
-  users: Users,
-  "page-permissions": Shield,
-  "chart-of-accounts": BookOpen,
-  "classes": Layers,
-  "journal-entries": Receipt,
-  "account-statement": FileSpreadsheet,
-  "trial-balance": Scale,
-  "income-statement": BarChart3,
-  "balance-sheet": FileSpreadsheet,
-  "hr-dashboard": LayoutDashboard,
-  "hr-employees": Users,
-  "hr-departments": Building2,
-  "hr-positions": Briefcase,
-  "hr-org-structure": GitBranch,
-  "hr-attendance": Clock,
-  "hr-leave-types": CalendarOff,
-  "hr-leave-requests": Plane,
-  "hr-holidays": Calendar,
-};
-
-const PAGE_LABELS: Record<string, string> = {
-  dashboard: "Dashboard",
-  customers: "Customers",
-  "customer-registration": "Customer Registration",
-  loans: "All Financings",
-  "loan-application": "Financing Application",
-  "fad-review": "FAD Review",
-  "risk-compliance": "Risk Compliance",
-  "committee-voting": "Committee Voting",
-  approvals: "Approvals",
-  disbursements: "Disbursements",
-  payments: "Payments",
-  reports: "Reports",
-  "par-report": "PAR Report",
-  "collection-report": "Collection Report",
-  "approval-rejection-report": "Approval & Rejection Report",
-  settings: "Settings",
-  branches: "Branches",
-  officers: "Officers",
-  "funding-sources": "Funding Sources",
-  lookup: "Lookup",
-  "activity-logs": "Activity Logs",
-  users: "Users",
-  "page-permissions": "Page Permissions",
-  "chart-of-accounts": "Chart of Accounts",
-  "classes": "Classes",
-  "journal-entries": "Journal Entries",
-  "account-statement": "Account Statement",
-  "trial-balance": "Trial Balance",
-  "income-statement": "Income Statement",
-  "balance-sheet": "Balance Sheet",
-  "hr-dashboard": "HR Dashboard",
-  "hr-employees": "Employees",
-  "hr-departments": "Departments",
-  "hr-positions": "Positions",
-  "hr-org-structure": "Org Structure",
-  "hr-attendance": "Attendance",
-  "hr-leave-types": "Leave Types",
-  "hr-leave-requests": "Leave Requests",
-  "hr-holidays": "Holidays",
-};
 
 export default function PagePermissionsPage() {
   const { toast } = useToast();
@@ -211,7 +128,7 @@ export default function PagePermissionsPage() {
               <CardContent>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                   {allPages.map((pageName) => {
-                    const IconComponent = PAGE_ICONS[pageName] || FileText;
+                    const IconComponent = getPageIcon(pageName);
                     const hasAccess = user.permissions[pageName] === true;
                     
                     return (
@@ -233,7 +150,7 @@ export default function PagePermissionsPage() {
                           )}
                         </div>
                         <Label className="text-sm font-medium block mb-2">
-                          {PAGE_LABELS[pageName] || pageName}
+                          {getPageLabel(pageName)}
                         </Label>
                         <Switch
                           checked={hasAccess}

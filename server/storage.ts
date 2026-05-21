@@ -1,5 +1,6 @@
 import { db } from "./db";
 import bcrypt from "bcrypt";
+import { getAllPageKeys } from "@shared/pages";
 import { eq, and, like, ilike, or, desc, asc, sql, count, gt, gte, lte, isNull, isNotNull, inArray } from "drizzle-orm";
 import {
   users,
@@ -4786,68 +4787,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   getAllPages(): string[] {
-    return [
-      "dashboard",
-      "customers",
-      "customer-registration",
-      "loans",
-      "loan-application",
-      "financing-products",
-      "fad-review",
-      "risk-compliance",
-      "committee-voting",
-      "approvals",
-      "disbursements",
-      "payments",
-      "collections",
-      "collection-approvals",
-      "installment-management",
-      "loan-transfers",
-      "loan-classification",
-      "reports",
-      "citizen-balance-statement",
-      "loan-disbursement-report",
-      "par-report",
-      "shareholder-report",
-      "custom-reports",
-      "dab-report",
-      "collection-report",
-      "approval-rejection-report",
-      "accounting-dashboard",
-      "profitability-analysis",
-      "activity-logs",
-      "settings",
-      "branches",
-      "officers",
-      "funding-sources",
-      "lookup",
-      "par-categories",
-      "disbursement-targets",
-      "users",
-      "page-permissions",
-      "chart-of-accounts",
-      "classes",
-      "journal-entries",
-      "account-statement",
-      "trial-balance",
-      "income-statement",
-      "balance-sheet",
-      "cash-flow-statement",
-      "hr-dashboard",
-      "hr-employees",
-      "hr-departments",
-      "hr-positions",
-      "hr-org-structure",
-      "hr-attendance",
-      "hr-leave-types",
-      "hr-leave-requests",
-      "hr-holidays",
-      "hr-payroll",
-      "hr-recruitment",
-      "hr-performance",
-      "hr-training",
-      "hr-benefits",
-    ];
+    return getAllPageKeys();
   }
 
   // Role Page Permissions
