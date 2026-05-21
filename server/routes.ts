@@ -648,16 +648,8 @@ export async function registerRoutes(
       }
       
       const permissions = await storage.getPagePermissions(userId);
-      
-      if (permissions.length > 0) {
-        const hasAccess = permissions.some(p => p.pageName === pageName && p.canAccess);
-        if (hasAccess) return next();
-        return res.status(403).json({ message: "Forbidden" });
-      }
-      
-      if (await hasRole(userId, ["manager"])) {
-        return next();
-      }
+      const hasAccess = permissions.some(p => p.pageName === pageName && p.canAccess);
+      if (hasAccess) return next();
       
       return res.status(403).json({ message: "Forbidden" });
     };
@@ -5846,26 +5838,8 @@ export async function registerRoutes(
       const roleValue = userRole?.role || "user";
       
       const isAdminRole = await hasRole(req.session.userId, ["admin"]);
-      const isManagerRole = !isAdminRole && await hasRole(req.session.userId, ["manager"]);
       
       if (isAdminRole) {
-        const allPages = storage.getAllPages();
-        const fullAccess = allPages.reduce((acc, page) => {
-          acc[page] = true;
-          return acc;
-        }, {} as Record<string, boolean>);
-        return res.json({ role: roleValue, permissions: fullAccess });
-      }
-      
-      if (isManagerRole && permissions.length > 0) {
-        const permissionMap: Record<string, boolean> = {};
-        permissions.forEach(p => {
-          permissionMap[p.pageName] = p.canAccess;
-        });
-        return res.json({ role: roleValue, permissions: permissionMap });
-      }
-      
-      if (isManagerRole) {
         const allPages = storage.getAllPages();
         const fullAccess = allPages.reduce((acc, page) => {
           acc[page] = true;

@@ -44,6 +44,7 @@ const PAGE_ICONS: Record<string, any> = {
   users: Users,
   "page-permissions": Shield,
   "chart-of-accounts": BookOpen,
+  "classes": Layers,
   "journal-entries": Receipt,
   "account-statement": FileSpreadsheet,
   "trial-balance": Scale,
@@ -85,6 +86,7 @@ const PAGE_LABELS: Record<string, string> = {
   users: "Users",
   "page-permissions": "Page Permissions",
   "chart-of-accounts": "Chart of Accounts",
+  "classes": "Classes",
   "journal-entries": "Journal Entries",
   "account-statement": "Account Statement",
   "trial-balance": "Trial Balance",
@@ -152,7 +154,7 @@ export default function PagePermissionsPage() {
     }
   };
 
-  const regularUsers = usersWithPermissions.filter(u => u.role === "user" || !u.role);
+  const regularUsers = usersWithPermissions.filter(u => u.role !== "admin");
 
   return (
     <div className="space-y-6">
@@ -162,7 +164,7 @@ export default function PagePermissionsPage() {
           Page Permissions
         </h1>
         <p className="text-muted-foreground">
-          Control which pages each user can access. Admins and Managers have full access by default.
+          Control which pages each user can access. Only Admins have full access by default; Managers and Users require explicit grants.
         </p>
       </div>
 
@@ -176,9 +178,9 @@ export default function PagePermissionsPage() {
         <Card>
           <CardContent className="p-8 text-center">
             <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold">No Regular Users</h3>
+            <h3 className="text-lg font-semibold">No Users to Manage</h3>
             <p className="text-muted-foreground">
-              Only regular users need page permissions. Admins and Managers have full access.
+              Only Admins have automatic full access. Managers and Users will appear here once added.
             </p>
           </CardContent>
         </Card>
