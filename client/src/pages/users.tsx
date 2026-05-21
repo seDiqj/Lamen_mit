@@ -50,7 +50,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Switch } from "@/components/ui/switch";
-import { Search, Plus, Pencil, Trash2, Users, Shield, UserCheck, UserX, Crown, Lock, Unlock, LayoutDashboard, FileText, BarChart3, AlertTriangle, Activity, Settings, CreditCard, ClipboardList, PiggyBank, ChevronDown, ChevronRight, Building2, UserPlus, Briefcase, Gavel, FileCheck, Banknote, BookOpen, FolderOpen, Layers, Receipt, Scale, FileSpreadsheet, UserCog, Network, Calendar, Clock, Plane, CalendarOff, GitBranch, Check, ChevronsUpDown, Package, ArrowLeftRight, CheckSquare, TrendingUp, DollarSign, Target, ListChecks, Wallet, PieChart, Landmark, GraduationCap, Award, Heart, LineChart } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, Users, Shield, UserCheck, UserX, Crown, Lock, Unlock, LayoutDashboard, FileText, BarChart3, AlertTriangle, Activity, Settings, CreditCard, ClipboardList, PiggyBank, ChevronDown, ChevronRight, Building2, UserPlus, Briefcase, Gavel, FileCheck, Banknote, Vote, BookOpen, FolderOpen, Layers, Receipt, Scale, FileSpreadsheet, UserCog, Network, Calendar, Clock, Plane, CalendarOff, GitBranch, Check, ChevronsUpDown, Package, ArrowLeftRight, CheckSquare, TrendingUp, DollarSign, Target, ListChecks, Wallet, PieChart, Landmark, GraduationCap, Award, Heart, LineChart } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { format } from "date-fns";
