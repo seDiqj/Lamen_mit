@@ -467,10 +467,17 @@ export default function ParReportPage() {
     fetchLoans();
   }, [dialogOpen, selectedItem, dialogType]);
 
+  const [parStartDate, setParStartDate] = useState("");
+  const [parEndDate, setParEndDate] = useState("");
+
   const { data: parData, isLoading: parLoading } = useQuery<ParAnalysisData>({
-    queryKey: ["/api/reports/par-analysis"],
+    queryKey: ["/api/reports/par-analysis", parStartDate, parEndDate],
     queryFn: async () => {
-      const res = await fetch("/api/reports/par-analysis", { credentials: "include" });
+      const params = new URLSearchParams();
+      if (parStartDate) params.set("startDate", parStartDate);
+      if (parEndDate) params.set("endDate", parEndDate);
+      const qs = params.toString();
+      const res = await fetch(`/api/reports/par-analysis${qs ? `?${qs}` : ""}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch PAR analysis");
       return res.json();
     },
@@ -589,6 +596,51 @@ export default function ParReportPage() {
         </Card>
       </div>
 
+      {/* Date Period Criteria */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            Date Period Criteria
+          </CardTitle>
+          <CardDescription>Filter PAR analysis by installment due date range</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="par-start-date">From Date</Label>
+              <Input
+                id="par-start-date"
+                type="date"
+                value={parStartDate}
+                onChange={(e) => setParStartDate(e.target.value)}
+                className="w-44"
+                data-testid="input-par-start-date"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="par-end-date">To Date</Label>
+              <Input
+                id="par-end-date"
+                type="date"
+                value={parEndDate}
+                onChange={(e) => setParEndDate(e.target.value)}
+                className="w-44"
+                data-testid="input-par-end-date"
+              />
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => { setParStartDate(""); setParEndDate(""); }}
+              disabled={!parStartDate && !parEndDate}
+              data-testid="button-par-clear-dates"
+            >
+              Clear
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* PAR by Category */}
       <Card>
         <CardHeader>
@@ -596,7 +648,14 @@ export default function ParReportPage() {
             <AlertTriangle className="h-5 w-5 text-red-500" />
             PAR Analysis by Category
           </CardTitle>
-          <CardDescription>Financing classification by days past due with provision requirements</CardDescription>
+          <CardDescription>
+            Financing classification by days past due with provision requirements
+            {(parStartDate || parEndDate) && (
+              <span className="ml-1 font-medium text-foreground">
+                {" "}— {parStartDate || "…"} to {parEndDate || "…"}
+              </span>
+            )}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {parLoading ? (

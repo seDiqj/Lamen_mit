@@ -334,7 +334,7 @@ export interface IStorage {
 
   // Reports
   getReportData(period: string): Promise<any>;
-  getParAnalysis(): Promise<any>;
+  getParAnalysis(startDate?: string, endDate?: string): Promise<any>;
   getParByBranch(): Promise<any>;
   getParByOfficer(): Promise<any>;
   getParByProduct(): Promise<any>;
@@ -3888,9 +3888,14 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getParAnalysis(): Promise<any> {
+  async getParAnalysis(startDate?: string, endDate?: string): Promise<any> {
     const categories = await db.select().from(parCategories).orderBy(parCategories.startDay);
-    
+
+    const startCond = startDate ? sql` AND i.due_date::date >= ${startDate}::date` : sql``;
+    const endCond = endDate ? sql` AND i.due_date::date <= ${endDate}::date` : sql``;
+    const startCond2 = startDate ? sql` AND i2.due_date::date >= ${startDate}::date` : sql``;
+    const endCond2 = endDate ? sql` AND i2.due_date::date <= ${endDate}::date` : sql``;
+
     const overdueInstallments = await db.execute(sql`
       SELECT 
         i.id as installment_id,
@@ -3922,7 +3927,7 @@ export class DatabaseStorage implements IStorage {
         AND i.due_date IS NOT NULL
         AND i.due_date::date < CURRENT_DATE
         AND (COALESCE(i.total_amount::numeric, 0) - COALESCE(i.paid_amount::numeric, 0)) > 0
-        AND COALESCE(i.principle_amount::numeric, 0) > 0
+        AND COALESCE(i.principle_amount::numeric, 0) > 0${startCond}${endCond}
       ORDER BY days_past_due DESC
     `);
     
@@ -4030,7 +4035,7 @@ export class DatabaseStorage implements IStorage {
             AND i2.due_date IS NOT NULL
             AND i2.due_date::date < CURRENT_DATE
             AND (COALESCE(i2.total_amount::numeric, 0) - COALESCE(i2.paid_amount::numeric, 0)) > 0
-            AND COALESCE(i2.principle_amount::numeric, 0) > 0
+            AND COALESCE(i2.principle_amount::numeric, 0) > 0${startCond2}${endCond2}
         )
     `);
     currentCategory.loanCount = parseInt((currentLoansResult.rows[0] as any)?.count) || 0;

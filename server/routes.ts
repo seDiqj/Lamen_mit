@@ -5373,7 +5373,19 @@ export async function registerRoutes(
   // ===== PAR ANALYSIS =====
   app.get("/api/reports/par-analysis", isAuthenticated, requirePageAccess("reports"), async (req, res) => {
     try {
-      const data = await storage.getParAnalysis();
+      const startDate = typeof req.query.startDate === "string" && req.query.startDate ? req.query.startDate : undefined;
+      const endDate = typeof req.query.endDate === "string" && req.query.endDate ? req.query.endDate : undefined;
+      const isValidDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(Date.parse(s));
+      if (startDate && !isValidDate(startDate)) {
+        return res.status(400).json({ message: "Invalid startDate. Expected YYYY-MM-DD." });
+      }
+      if (endDate && !isValidDate(endDate)) {
+        return res.status(400).json({ message: "Invalid endDate. Expected YYYY-MM-DD." });
+      }
+      if (startDate && endDate && startDate > endDate) {
+        return res.status(400).json({ message: "startDate must be on or before endDate." });
+      }
+      const data = await storage.getParAnalysis(startDate, endDate);
       res.json(data);
     } catch (error) {
       console.error("Error fetching PAR analysis:", error);
