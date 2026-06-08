@@ -61,6 +61,7 @@ type ContractDataRow = {
   totalPaid: number;
   principalOutstanding: number;
   outstandingInstallments: number;
+  dueInstallments: number;
   lastPaymentDate: string;
   numberOfDaysInArrears: number;
   overdueAmount: number;
@@ -114,14 +115,36 @@ const DAB_HEADERS = [
 
 function mapRow(row: ContractDataRow) {
   const ccy = row.currency || "AFN";
+  const isClosed = row.loanStatus === "closed";
+  const isPastDue = (row.overdueAmount || 0) > 0 || (row.numberOfDaysInArrears || 0) > 0;
+
+  let contractStatus: string;
+  if (isClosed) {
+    const real = row.lastPaymentDate ? String(row.lastPaymentDate).slice(0, 10) : "";
+    const expected = row.maturityDate ? String(row.maturityDate).slice(0, 10) : "";
+    if (real && expected) {
+      if (real < expected) contractStatus = "SettledInAdvance";
+      else if (real > expected) contractStatus = "SettledInLate";
+      else contractStatus = "SettledInOnTime";
+    } else {
+      contractStatus = "SettledInOnTime";
+    }
+  } else {
+    contractStatus = "GrantedAndActivated";
+  }
+
+  const periodicity = (row.paymentFrequency || "Monthly").toLowerCase() === "monthly"
+    ? "Days30"
+    : row.paymentFrequency || "Days30";
+
   return {
     "ContractCode": row.applicationId || "",
     "Branch": row.branchName || "",
-    "PhaseOfContract": row.loanStatus === "disbursed" ? "Active" : row.loanStatus === "closed" ? "Closed" : row.loanStatus || "",
-    "ContractStatus": row.loanStatus || "",
-    "TypeOfContract": row.productName || "",
-    "PurposeOfFinancing": row.sector || "",
-    "InterestRate": row.marginRate || 0,
+    "PhaseOfContract": isClosed ? "Closed" : "Open",
+    "ContractStatus": contractStatus,
+    "TypeOfContract": "IslamicFinance",
+    "PurposeOfFinancing": row.productName || "",
+    "InterestRate": row.marginRate ? row.marginRate / 100 : 0,
     "CurrencyOfContract": ccy,
     "TotalAmount.Value": row.totalReceivable || 0,
     "TotalAmount.Currency": ccy,
@@ -134,17 +157,17 @@ function mapRow(row: ContractDataRow) {
     "PastDueAmount.Value": row.overdueAmount || 0,
     "PastDueAmount.Currency": ccy,
     "PastDueDays": row.numberOfDaysInArrears || 0,
-    "NumberOfDueInstallments": row.outstandingInstallments || 0,
-    "DateOfLastPayment": row.lastPaymentDate ? formatDate(row.lastPaymentDate) : "",
+    "NumberOfDueInstallments": row.dueInstallments || 0,
+    "DateOfLastPayment": "",
     "TotalMonthlyPayment.Value": row.installmentAmount || 0,
     "TotalMonthlyPayment.Currency": ccy,
-    "PaymentPeriodicity": row.paymentFrequency || "Monthly",
-    "CreditUsageInLast30Days.Value": 0,
-    "CreditUsageInLast30Days.Currency": ccy,
+    "PaymentPeriodicity": periodicity,
+    "CreditUsageInLast30Days.Value": "",
+    "CreditUsageInLast30Days.Currency": "",
     "StartDate": row.disbursementDate ? formatDate(row.disbursementDate) : row.requestDate ? formatDate(row.requestDate) : "",
     "ExpectedEndDate": row.maturityDate ? formatDate(row.maturityDate) : "",
-    "RealEndDate": row.loanStatus === "closed" ? (row.lastPaymentDate ? formatDate(row.lastPaymentDate) : "") : "",
-    "NegativeStatusOfContract": row.restructured || "",
+    "RealEndDate": isClosed ? (row.lastPaymentDate ? formatDate(row.lastPaymentDate) : "") : "",
+    "NegativeStatusOfContract": isPastDue ? "IncreasedRisk" : "NoNegativeStatus",
   };
 }
 

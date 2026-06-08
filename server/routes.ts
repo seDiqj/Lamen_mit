@@ -8361,7 +8361,7 @@ export async function registerRoutes(
         .orderBy(branches.name, desc(disbursements.disbursementDate));
 
       const loanIds = results.map(r => r.loanId).filter(Boolean);
-      const installmentMap: Record<string, { totalPaid: number; principalPaid: number; outstandingInstallments: number; lastPaymentDate: string | null; maxDelayDays: number; overdueAmount: number; overdueDate: string | null }> = {};
+      const installmentMap: Record<string, { totalPaid: number; principalPaid: number; outstandingInstallments: number; dueInstallments: number; lastPaymentDate: string | null; maxDelayDays: number; overdueAmount: number; overdueDate: string | null }> = {};
 
       if (loanIds.length > 0) {
         const today = new Date().toISOString().split("T")[0];
@@ -8371,10 +8371,11 @@ export async function registerRoutes(
             loan_id as "loanId",
             COALESCE(SUM(paid_amount), 0) as "totalPaid",
             COUNT(CASE WHEN is_paid = false THEN 1 END) as "outstandingInstallments",
+            COUNT(CASE WHEN is_paid = false AND due_date <= '${today}'::date THEN 1 END) as "dueInstallments",
             MAX(CASE WHEN is_paid = true THEN payment_date::text END) as "lastPaymentDate",
-            MAX(CASE WHEN is_paid = false AND due_date < '${today}'::date THEN ('${today}'::date - due_date::date) ELSE 0 END) as "maxDelayDays",
-            COALESCE(SUM(CASE WHEN is_paid = false AND due_date < '${today}'::date THEN total_amount ELSE 0 END), 0) as "overdueAmount",
-            MIN(CASE WHEN is_paid = false AND due_date < '${today}'::date THEN due_date::text END) as "overdueDate"
+            MAX(CASE WHEN is_paid = false AND due_date <= '${today}'::date THEN ('${today}'::date - due_date::date) ELSE 0 END) as "maxDelayDays",
+            COALESCE(SUM(CASE WHEN is_paid = false AND due_date <= '${today}'::date THEN (total_amount - COALESCE(paid_amount, 0)) ELSE 0 END), 0) as "overdueAmount",
+            MIN(CASE WHEN is_paid = false AND due_date <= '${today}'::date THEN due_date::text END) as "overdueDate"
           FROM installments
           WHERE loan_id IN (${escapedIds})
           GROUP BY loan_id
@@ -8387,6 +8388,7 @@ export async function registerRoutes(
             totalPaid: Number(r.totalPaid || 0),
             principalPaid: Number(r.totalPaid || 0),
             outstandingInstallments: Number(r.outstandingInstallments || 0),
+            dueInstallments: Number(r.dueInstallments || 0),
             lastPaymentDate: r.lastPaymentDate || null,
             maxDelayDays: Number(r.maxDelayDays || 0),
             overdueAmount: Number(r.overdueAmount || 0),
@@ -8396,11 +8398,16 @@ export async function registerRoutes(
       }
 
       const enriched = results.map(row => {
-        const inst = installmentMap[row.loanId] || { totalPaid: 0, principalPaid: 0, outstandingInstallments: 0, lastPaymentDate: null, maxDelayDays: 0, overdueAmount: 0, overdueDate: null };
+        const inst = installmentMap[row.loanId] || { totalPaid: 0, principalPaid: 0, outstandingInstallments: 0, dueInstallments: 0, lastPaymentDate: null, maxDelayDays: 0, overdueAmount: 0, overdueDate: null };
         const totalReceivable = Number(row.totalReceivable || 0);
         const outstanding = Math.max(totalReceivable - inst.totalPaid, 0);
         const principalAmt = Number(row.principleAmount || 0);
         const marginAmt = Number(row.profit || 0);
+        const numInst = Number(row.numberOfInstallments || 0) || Number(row.financingDurationMonths || 0);
+        let installmentAmount = Number(row.installmentAmount || 0);
+        if (installmentAmount <= 0 && numInst > 0) {
+          installmentAmount = Math.round((totalReceivable / numInst) * 100) / 100;
+        }
 
         return {
           applicationId: row.applicationId || "",
@@ -8419,7 +8426,7 @@ export async function registerRoutes(
           marginRate: Number(row.marginRate || 0),
           marginAmount: marginAmt,
           totalReceivable,
-          installmentAmount: Number(row.installmentAmount || 0),
+          installmentAmount,
           numberOfInstallments: Number(row.numberOfInstallments || 0),
           financingDurationMonths: Number(row.financingDurationMonths || 0),
           firstInstallmentDate: row.firstInstallmentDate || "",
@@ -8437,6 +8444,7 @@ export async function registerRoutes(
           totalPaid: inst.totalPaid,
           principalOutstanding: outstanding,
           outstandingInstallments: inst.outstandingInstallments,
+          dueInstallments: inst.dueInstallments,
           lastPaymentDate: inst.lastPaymentDate || "",
           numberOfDaysInArrears: inst.maxDelayDays,
           overdueAmount: inst.overdueAmount,
