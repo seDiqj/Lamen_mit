@@ -36,6 +36,7 @@ type OutstandingRow = {
   disbursementDate: string;
   financingAmount: number;
   balanceOutstanding: number;
+  outstanding: number;
   totalInstallments: number;
   installmentsPaid: number;
   installmentsUnpaid: number;
@@ -94,6 +95,7 @@ export default function ActiveCustomerOutstandingReport() {
   const totals = data ? {
     financingAmount: data.reduce((s, r) => s + r.financingAmount, 0),
     balanceOutstanding: data.reduce((s, r) => s + r.balanceOutstanding, 0),
+    outstanding: data.reduce((s, r) => s + r.outstanding, 0),
     totalPrincipalReceived: data.reduce((s, r) => s + r.totalPrincipalReceived, 0),
     totalMarkupReceived: data.reduce((s, r) => s + r.totalMarkupReceived, 0),
     totalAmountReceived: data.reduce((s, r) => s + r.totalAmountReceived, 0),
@@ -121,7 +123,7 @@ export default function ActiveCustomerOutstandingReport() {
       "Total Principal Received": row.totalPrincipalReceived,
       "Total Markup Received": row.totalMarkupReceived,
       "Total Amount Received": row.totalAmountReceived,
-      "Outstanding": row.balanceOutstanding,
+      "Outstanding": row.outstanding,
       "Principal This Year": row.principalThisYear,
       "Markup This Year": row.markupThisYear,
     }));
@@ -145,7 +147,7 @@ export default function ActiveCustomerOutstandingReport() {
         "Total Principal Received": totals.totalPrincipalReceived,
         "Total Markup Received": totals.totalMarkupReceived,
         "Total Amount Received": totals.totalAmountReceived,
-        "Outstanding": totals.balanceOutstanding,
+        "Outstanding": totals.outstanding,
         "Principal This Year": totals.principalThisYear,
         "Markup This Year": totals.markupThisYear,
       });
@@ -202,7 +204,7 @@ export default function ActiveCustomerOutstandingReport() {
       row.totalPrincipalReceived.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
       row.totalMarkupReceived.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
       row.totalAmountReceived.toLocaleString(undefined, { minimumFractionDigits: 3, maximumFractionDigits: 3 }),
-      row.balanceOutstanding.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      row.outstanding.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
       row.principalThisYear.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
       row.markupThisYear.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
     ]);
@@ -215,7 +217,7 @@ export default function ActiveCustomerOutstandingReport() {
         totals.totalPrincipalReceived.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
         totals.totalMarkupReceived.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
         totals.totalAmountReceived.toLocaleString(undefined, { minimumFractionDigits: 3, maximumFractionDigits: 3 }),
-        totals.balanceOutstanding.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+        totals.outstanding.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
         totals.principalThisYear.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
         totals.markupThisYear.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
       ]);
@@ -377,7 +379,7 @@ export default function ActiveCustomerOutstandingReport() {
                       <TableCell className="text-right font-mono text-xs">{formatCurrency(row.totalPrincipalReceived.toFixed(2))}</TableCell>
                       <TableCell className="text-right font-mono text-xs">{formatCurrency(row.totalMarkupReceived.toFixed(2))}</TableCell>
                       <TableCell className="text-right font-mono text-xs">{formatCurrency(row.totalAmountReceived.toFixed(2))}</TableCell>
-                      <TableCell className="text-right font-mono text-xs" data-testid={`text-outstanding-${idx}`}>{formatCurrency(row.balanceOutstanding.toFixed(2))}</TableCell>
+                      <TableCell className="text-right font-mono text-xs" data-testid={`text-outstanding-${idx}`}>{formatCurrency(row.outstanding.toFixed(2))}</TableCell>
                       <TableCell className="text-right font-mono text-xs">{formatCurrency(row.principalThisYear.toFixed(2))}</TableCell>
                       <TableCell className="text-right font-mono text-xs">{formatCurrency(row.markupThisYear.toFixed(2))}</TableCell>
                     </TableRow>
@@ -391,7 +393,7 @@ export default function ActiveCustomerOutstandingReport() {
                       <TableCell className="text-right font-mono text-xs">{formatCurrency(totals.totalPrincipalReceived.toFixed(2))}</TableCell>
                       <TableCell className="text-right font-mono text-xs">{formatCurrency(totals.totalMarkupReceived.toFixed(2))}</TableCell>
                       <TableCell className="text-right font-mono text-xs">{formatCurrency(totals.totalAmountReceived.toFixed(2))}</TableCell>
-                      <TableCell className="text-right font-mono text-xs">{formatCurrency(totals.balanceOutstanding.toFixed(2))}</TableCell>
+                      <TableCell className="text-right font-mono text-xs">{formatCurrency(totals.outstanding.toFixed(2))}</TableCell>
                       <TableCell className="text-right font-mono text-xs">{formatCurrency(totals.principalThisYear.toFixed(2))}</TableCell>
                       <TableCell className="text-right font-mono text-xs">{formatCurrency(totals.markupThisYear.toFixed(2))}</TableCell>
                     </TableRow>
