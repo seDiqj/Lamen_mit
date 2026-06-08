@@ -8069,10 +8069,10 @@ export async function registerRoutes(
           uniqueMap.set(key, {
             ContractCode: row.contractCode || "",
             CustomerCode: row.customerCode || "",
-            PresentSurname: row.lastName || "",
+            PresentSurname: fullName,
             BirthSurname: "",
             FirstName: fullName,
-            FirstNameLocal: row.firstNameDari || "",
+            FirstNameLocal: "",
             MiddleNames: fullName,
             MiddleNamesLocal: "",
             FullName: fullName,
