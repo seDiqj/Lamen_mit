@@ -7962,20 +7962,17 @@ export async function registerRoutes(
         .where(and(...conditions))
         .orderBy(branches.name, loans.applicationId);
 
-      const enriched = results.map(row => {
-        const isPersonalGuarantee = String(row.collateralType || "").replace(/\s+/g, "").toLowerCase() === "personalguarantees";
-        return {
+      const enriched = results.map(row => ({
         contractCode: row.contractCode || "",
         collateralCode: row.collateralCode || "",
         collateralType: row.collateralType || "",
-        collateralDescription: isPersonalGuarantee ? "" : (row.collateralDescription || "NA"),
+        collateralDescription: "",
         collateralValue: Number(row.purchasePrice || 0),
         collateralCurrency: "AFN",
         valuationDate: row.createdAt ? new Date(row.createdAt).toISOString().split("T")[0] : "",
         branchName: row.branchName || "",
         ownerName: row.ownerName || "",
-        };
-      });
+      }));
 
       res.json(enriched);
     } catch (error) {
