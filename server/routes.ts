@@ -8362,7 +8362,7 @@ export async function registerRoutes(
         .orderBy(branches.name, desc(disbursements.disbursementDate));
 
       const loanIds = results.map(r => r.loanId).filter(Boolean);
-      const installmentMap: Record<string, { totalPaid: number; principalPaid: number; outstandingInstallments: number; dueInstallments: number; lastPaymentDate: string | null; maxDelayDays: number; overdueAmount: number; overdueDate: string | null }> = {};
+      const installmentMap: Record<string, { totalPaid: number; principalPaid: number; outstandingInstallments: number; dueInstallments: number; lastPaymentDate: string | null; maxDelayDays: number; overdueAmount: number; overdueDate: string | null; monthlyInstallment: number }> = {};
 
       if (loanIds.length > 0) {
         const today = new Date().toISOString().split("T")[0];
@@ -8376,7 +8376,8 @@ export async function registerRoutes(
             MAX(CASE WHEN is_paid = true THEN payment_date::text END) as "lastPaymentDate",
             MAX(CASE WHEN is_paid = false AND due_date <= '${today}'::date THEN ('${today}'::date - due_date::date) ELSE 0 END) as "maxDelayDays",
             COALESCE(SUM(CASE WHEN is_paid = false AND due_date <= '${today}'::date THEN (total_amount - COALESCE(paid_amount, 0)) ELSE 0 END), 0) as "overdueAmount",
-            MIN(CASE WHEN is_paid = false AND due_date <= '${today}'::date THEN due_date::text END) as "overdueDate"
+            MIN(CASE WHEN is_paid = false AND due_date <= '${today}'::date THEN due_date::text END) as "overdueDate",
+            MODE() WITHIN GROUP (ORDER BY total_amount) FILTER (WHERE total_amount > 0) as "monthlyInstallment"
           FROM installments
           WHERE loan_id IN (${escapedIds})
           GROUP BY loan_id
@@ -8394,18 +8395,21 @@ export async function registerRoutes(
             maxDelayDays: Number(r.maxDelayDays || 0),
             overdueAmount: Number(r.overdueAmount || 0),
             overdueDate: r.overdueDate || null,
+            monthlyInstallment: Number(r.monthlyInstallment || 0),
           };
         }
       }
 
       const enriched = results.map(row => {
-        const inst = installmentMap[row.loanId] || { totalPaid: 0, principalPaid: 0, outstandingInstallments: 0, dueInstallments: 0, lastPaymentDate: null, maxDelayDays: 0, overdueAmount: 0, overdueDate: null };
+        const inst = installmentMap[row.loanId] || { totalPaid: 0, principalPaid: 0, outstandingInstallments: 0, dueInstallments: 0, lastPaymentDate: null, maxDelayDays: 0, overdueAmount: 0, overdueDate: null, monthlyInstallment: 0 };
         const totalReceivable = Number(row.totalReceivable || 0);
         const outstanding = Math.max(totalReceivable - inst.totalPaid, 0);
         const principalAmt = Number(row.principleAmount || 0);
         const marginAmt = Number(row.profit || 0);
         const numInst = Number(row.numberOfInstallments || 0) || Number(row.financingDurationMonths || 0);
-        let installmentAmount = Number(row.installmentAmount || 0);
+        let installmentAmount = inst.monthlyInstallment > 0
+          ? inst.monthlyInstallment
+          : Number(row.installmentAmount || 0);
         if (installmentAmount <= 0 && numInst > 0) {
           installmentAmount = Math.round((totalReceivable / numInst) * 100) / 100;
         }
