@@ -115,7 +115,8 @@ const DAB_HEADERS = [
 
 function mapRow(row: ContractDataRow) {
   const ccy = row.currency || "AFN";
-  const isClosed = row.loanStatus === "closed";
+  const isFullyPaid = Number(row.totalReceivable || 0) > 0 && Number(row.principalOutstanding || 0) < 0.01;
+  const isClosed = row.loanStatus === "closed" || isFullyPaid;
   const isPastDue = (row.overdueAmount || 0) > 0 || (row.numberOfDaysInArrears || 0) > 0;
 
   let contractStatus: string;
