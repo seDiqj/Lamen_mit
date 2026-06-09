@@ -144,7 +144,7 @@ function mapRow(row: ContractDataRow) {
     "ContractStatus": contractStatus,
     "TypeOfContract": "IslamicFinance",
     "PurposeOfFinancing": row.productName || "",
-    "InterestRate": row.marginRate ? row.marginRate / 100 : 0,
+    "InterestRate": row.marginRate ? (row.marginRate > 1 ? row.marginRate / 100 : row.marginRate) : 0,
     "CurrencyOfContract": ccy,
     "TotalAmount.Value": row.totalReceivable || 0,
     "TotalAmount.Currency": ccy,
