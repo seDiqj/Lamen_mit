@@ -11410,15 +11410,6 @@ export async function registerRoutes(
       { key: "i_is_paid", label: "Is Paid", type: "text", source: "installments" },
       { key: "i_late_days", label: "Days Overdue", type: "number", source: "installments" },
     ],
-    collections: [
-      { key: "cr_amount", label: "Collection Amount", type: "number", source: "collections" },
-      { key: "cr_collection_date", label: "Collection Date", type: "date", source: "collections" },
-      { key: "cr_collection_status", label: "Collection Status", type: "text", source: "collections" },
-      { key: "cr_reviewed_by", label: "Reviewed By", type: "text", source: "collections" },
-      { key: "cr_reviewed_at", label: "Reviewed At", type: "date", source: "collections" },
-      { key: "cr_rejection_reason", label: "Rejection Reason", type: "text", source: "collections" },
-      { key: "cr_created_at", label: "Collection Created At", type: "date", source: "collections" },
-    ],
     guarantors: [
       { key: "g_guarantor_type", label: "Guarantor Type", type: "text", source: "guarantors" },
       { key: "g_full_name", label: "Guarantor Name", type: "text", source: "guarantors" },
@@ -11474,14 +11465,6 @@ export async function registerRoutes(
       allFields.push(...(customReportFieldDefs.installments || []).map(f => f.key));
     }
 
-    if (sources.has("collections")) {
-      selectParts.push(`cr.amount AS cr_amount, cr.payment_date AS cr_collection_date,
-        cr.status AS cr_collection_status, cr.reviewed_by AS cr_reviewed_by,
-        cr.reviewed_at AS cr_reviewed_at, cr.rejection_reason AS cr_rejection_reason,
-        cr.created_at AS cr_created_at`);
-      allFields.push(...(customReportFieldDefs.collections || []).map(f => f.key));
-    }
-
     if (sources.has("guarantors")) {
       selectParts.push(`g.guarantor_type AS g_guarantor_type, g.full_name AS g_full_name,
         g.father_name AS g_father_name, g.national_id AS g_national_id,
@@ -11501,8 +11484,8 @@ export async function registerRoutes(
     const selectClause = `SELECT ${selectParts.join(", ")}`;
 
     let fromClause = "";
-    const needsLoans = sources.has("loans") || sources.has("installments") || sources.has("collections") || sources.has("guarantors") || sources.has("disbursements");
-    const needsInstallments = sources.has("installments") || sources.has("collections");
+    const needsLoans = sources.has("loans") || sources.has("installments") || sources.has("guarantors") || sources.has("disbursements");
+    const needsInstallments = sources.has("installments");
 
     if (sources.has("customers") && !needsLoans) {
       fromClause = " FROM customers c";
@@ -11530,14 +11513,6 @@ export async function registerRoutes(
 
     if (needsInstallments && !fromClause.includes("installments i")) {
       fromClause += " LEFT JOIN installments i ON i.loan_id = l.id";
-    }
-
-    if (sources.has("collections") && !fromClause.includes("collection_records cr")) {
-      if (needsInstallments) {
-        fromClause += " LEFT JOIN collection_records cr ON cr.installment_id = i.id";
-      } else {
-        fromClause += " LEFT JOIN installments i ON i.loan_id = l.id LEFT JOIN collection_records cr ON cr.installment_id = i.id";
-      }
     }
 
     if (sources.has("guarantors") && !fromClause.includes("guarantors g")) {
@@ -11598,24 +11573,6 @@ export async function registerRoutes(
       LEFT JOIN branches b ON l.branch_id = b.id
       LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
     `,
-    collections: `
-      SELECT cr.amount AS cr_amount, cr.payment_date AS cr_collection_date,
-        cr.status AS cr_collection_status, cr.reviewed_by AS cr_reviewed_by,
-        cr.reviewed_at AS cr_reviewed_at, cr.rejection_reason AS cr_rejection_reason,
-        cr.created_at AS cr_created_at,
-        i.installment_number AS i_installment_number, i.due_date AS i_due_date,
-        i.total_amount AS i_total_amount,
-        l.application_id AS l_application_id, l.product_name AS l_product_name,
-        COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, '') AS c_customer_name,
-        c.customer_no AS c_customer_no,
-        b.name AS l_branch_name, fo.name AS l_officer_name
-      FROM collection_records cr
-      LEFT JOIN installments i ON cr.installment_id = i.id
-      LEFT JOIN loans l ON i.loan_id = l.id
-      LEFT JOIN customers c ON l.customer_id = c.id
-      LEFT JOIN branches b ON l.branch_id = b.id
-      LEFT JOIN finance_officers fo ON l.finance_officer_id = fo.id
-    `,
     guarantors: `
       SELECT g.guarantor_type AS g_guarantor_type, g.full_name AS g_full_name,
         g.father_name AS g_father_name, g.national_id AS g_national_id,
@@ -11671,10 +11628,6 @@ export async function registerRoutes(
     i_principle_amount: "i.principle_amount", i_margin_amount: "i.margin_amount",
     i_total_amount: "i.total_amount", i_paid_amount: "i.paid_amount", i_payment_date: "i.payment_date",
     i_is_paid: "i.is_paid", i_late_days: "i.late_days",
-    // collections
-    cr_amount: "cr.amount", cr_collection_date: "cr.payment_date", cr_collection_status: "cr.status",
-    cr_reviewed_by: "cr.reviewed_by", cr_reviewed_at: "cr.reviewed_at", cr_rejection_reason: "cr.rejection_reason",
-    cr_created_at: "cr.created_at",
     // guarantors
     g_guarantor_type: "g.guarantor_type", g_full_name: "g.full_name", g_father_name: "g.father_name",
     g_national_id: "g.national_id", g_phone_number: "g.phone_number", g_home_address: "g.home_address",
@@ -11696,7 +11649,7 @@ export async function registerRoutes(
         ? dataSources
         : (dataSource ? [dataSource] : []);
 
-      const validSources = ["customers","loans","installments","collections","guarantors","disbursements"];
+      const validSources = ["customers","loans","installments","guarantors","disbursements"];
       const filteredSources = sources.filter(s => validSources.includes(s));
       if (filteredSources.length === 0) {
         return res.status(400).json({ message: "Select at least one data source" });
@@ -11814,7 +11767,7 @@ export async function registerRoutes(
   app.get("/api/custom-reports/fields/:dataSource", isAuthenticated, async (req, res) => {
     const source = req.params.dataSource;
     const sources = source.includes(",") ? source.split(",").filter(Boolean) : [source];
-    const validSources = ["customers","loans","installments","collections","guarantors","disbursements"];
+    const validSources = ["customers","loans","installments","guarantors","disbursements"];
     const filteredSources = sources.filter(s => validSources.includes(s));
 
     if (filteredSources.length === 0) {

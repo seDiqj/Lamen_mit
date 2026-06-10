@@ -70,7 +70,6 @@ const DATA_SOURCES = [
   { value: "customers", label: "Customers", icon: "👤" },
   { value: "loans", label: "Loans / Financing", icon: "💰" },
   { value: "installments", label: "Installments / Payments", icon: "📅" },
-  { value: "collections", label: "Collections", icon: "📋" },
   { value: "guarantors", label: "Guarantors", icon: "🤝" },
   { value: "disbursements", label: "Disbursements", icon: "🏦" },
 ];
@@ -224,7 +223,23 @@ export default function CustomReportsPage() {
   };
 
   const loadSavedReport = (report: SavedReport) => {
-    const sources = report.dataSource.includes(",") ? report.dataSource.split(",") : [report.dataSource];
+    const rawSources = report.dataSource.includes(",") ? report.dataSource.split(",") : [report.dataSource];
+    const validValues = new Set(DATA_SOURCES.map(s => s.value));
+    const sources = rawSources.filter(s => validValues.has(s));
+    if (sources.length === 0) {
+      toast({
+        title: "Template can't be loaded",
+        description: "This template only uses data sources that are no longer available. Please build a new report.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (sources.length < rawSources.length) {
+      toast({
+        title: "Some data sources removed",
+        description: "This template referenced data sources that are no longer available; they were skipped.",
+      });
+    }
     setSelectedSources(sources);
     try {
       setSelectedColumns(JSON.parse(report.columns));
@@ -316,7 +331,6 @@ export default function CustomReportsPage() {
     customers: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
     loans: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
     installments: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
-    collections: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
     guarantors: "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300",
     disbursements: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300",
   };
