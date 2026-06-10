@@ -72,6 +72,7 @@ const PAGE_ICONS: Record<string, IconType> = {
   disbursements: Banknote,
   payments: CreditCard,
   collections: Wallet,
+  "collection-entry": Banknote,
   "collection-approvals": CheckSquare,
   "installment-management": ListChecks,
   "loan-transfers": ArrowLeftRight,

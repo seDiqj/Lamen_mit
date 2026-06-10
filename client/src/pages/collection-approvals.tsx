@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Search, CheckCircle, XCircle, Loader2, ClipboardCheck, HourglassIcon, Clock } from "lucide-react";
+import { Search, CheckCircle, XCircle, Loader2, ClipboardCheck, HourglassIcon, Clock, Undo2 } from "lucide-react";
 import { format } from "date-fns";
 
 const formatCurrency = (amount: string | number | undefined) => {
@@ -32,6 +32,13 @@ export default function CollectionApprovalsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [rejectDialog, setRejectDialog] = useState<any>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [reverseDialog, setReverseDialog] = useState<any>(null);
+  const [reverseReason, setReverseReason] = useState("");
+
+  const { data: roleData } = useQuery<{ role: string; roleType: string }>({
+    queryKey: ["/api/user/role"],
+  });
+  const canReverse = roleData?.roleType === "admin" || roleData?.role === "ceo" || roleData?.role === "admin";
 
   const { data: records = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/collection-records", activeTab],
@@ -75,6 +82,37 @@ export default function CollectionApprovalsPage() {
       toast({ title: "Error", description: error.message || "Failed to reject", variant: "destructive" });
     },
   });
+
+  const reverseMutation = useMutation({
+    mutationFn: async ({ installmentId, reason }: { installmentId: string; reason: string }) => {
+      const res = await apiRequest("POST", `/api/collections/${installmentId}/reverse`, { reason });
+      return res.json();
+    },
+    onSuccess: (result: any) => {
+      toast({
+        title: "Payment Reversed",
+        description: `AFN ${parseFloat(result.reversedAmount || "0").toLocaleString()} reversed. The journal entry was reversed and the installment reset to unpaid.`,
+      });
+      setReverseDialog(null);
+      setReverseReason("");
+      queryClient.invalidateQueries({ queryKey: ["/api/collection-records"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/collections"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/journal-entries"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/payment-transactions"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to reverse payment", variant: "destructive" });
+    },
+  });
+
+  const confirmReverse = () => {
+    if (!reverseDialog) return;
+    if (!reverseReason.trim()) {
+      toast({ title: "Reason required", description: "Please enter a reason for reversing this collection.", variant: "destructive" });
+      return;
+    }
+    reverseMutation.mutate({ installmentId: reverseDialog.installment_id, reason: reverseReason.trim() });
+  };
 
   const filtered = records.filter((r: any) => {
     if (!searchTerm) return true;
@@ -164,6 +202,7 @@ export default function CollectionApprovalsPage() {
                         <TableHead>Status</TableHead>
                         {activeTab === "rejected" && <TableHead>Reason</TableHead>}
                         {activeTab === "approved" && <TableHead>Approved By</TableHead>}
+                        {activeTab === "approved" && canReverse && <TableHead className="text-center">Actions</TableHead>}
                         {activeTab === "pending" && <TableHead className="text-center">Actions</TableHead>}
                       </TableRow>
                     </TableHeader>
@@ -190,6 +229,21 @@ export default function CollectionApprovalsPage() {
                           <TableCell>{getStatusBadge(record.status)}</TableCell>
                           {activeTab === "rejected" && <TableCell className="max-w-[150px] truncate text-xs">{record.rejection_reason || "—"}</TableCell>}
                           {activeTab === "approved" && <TableCell>{record.reviewed_by_name || "—"}</TableCell>}
+                          {activeTab === "approved" && canReverse && (
+                            <TableCell>
+                              <div className="flex items-center justify-center">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 text-xs text-red-600 border-red-300 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                  onClick={() => { setReverseDialog(record); setReverseReason(""); }}
+                                  data-testid={`button-reverse-${record.id}`}
+                                >
+                                  <Undo2 className="h-3 w-3 mr-1" /> Reverse
+                                </Button>
+                              </div>
+                            </TableCell>
+                          )}
                           {activeTab === "pending" && (
                             <TableCell>
                               <div className="flex items-center gap-1 justify-center">
@@ -261,6 +315,48 @@ export default function CollectionApprovalsPage() {
             >
               {rejectMutation.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <XCircle className="h-4 w-4 mr-1" />}
               Reject
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!reverseDialog} onOpenChange={(open) => { if (!open) setReverseDialog(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reverse Approved Collection</DialogTitle>
+          </DialogHeader>
+          {reverseDialog && (
+            <div className="space-y-3">
+              <div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-900 p-3 text-sm text-red-800 dark:text-red-300">
+                This will reverse the journal entry and reset the installment to unpaid. Use this only to undo a collection that was approved by mistake.
+              </div>
+              <div className="bg-muted/50 rounded-lg p-3 text-sm space-y-1">
+                <p><span className="text-muted-foreground">Customer:</span> {reverseDialog.customer_full_name || reverseDialog.customer_name}</p>
+                <p><span className="text-muted-foreground">Loan:</span> {reverseDialog.application_id || reverseDialog.loan_application_id}</p>
+                <p><span className="text-muted-foreground">Amount:</span> {formatCurrency(reverseDialog.amount)} AFN</p>
+              </div>
+              <div className="space-y-2">
+                <Label>Reason for Reversal</Label>
+                <Textarea
+                  value={reverseReason}
+                  onChange={(e) => setReverseReason(e.target.value)}
+                  placeholder="Enter reason for reversing this collection..."
+                  rows={3}
+                  data-testid="input-reverse-reason"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReverseDialog(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={confirmReverse}
+              disabled={reverseMutation.isPending}
+              data-testid="button-confirm-reverse"
+            >
+              {reverseMutation.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Undo2 className="h-4 w-4 mr-1" />}
+              Reverse
             </Button>
           </DialogFooter>
         </DialogContent>

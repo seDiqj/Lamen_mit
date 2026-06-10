@@ -636,7 +636,8 @@ export async function registerRoutes(
     };
   };
 
-  const requirePageAccess = (pageName: string) => {
+  const requirePageAccess = (pageName: string | string[]) => {
+    const allowedPages = Array.isArray(pageName) ? pageName : [pageName];
     return async (req: Request, res: Response, next: NextFunction) => {
       const userId = req.session.userId;
       if (!userId) {
@@ -648,7 +649,7 @@ export async function registerRoutes(
       }
       
       const permissions = await storage.getPagePermissions(userId);
-      const hasAccess = permissions.some(p => p.pageName === pageName && p.canAccess);
+      const hasAccess = permissions.some(p => allowedPages.includes(p.pageName) && p.canAccess);
       if (hasAccess) return next();
       
       return res.status(403).json({ message: "Forbidden" });
@@ -10974,7 +10975,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/collection-records", isAuthenticated, requirePageAccess("collection-approvals"), async (req, res) => {
+  app.get("/api/collection-records", isAuthenticated, requirePageAccess(["collection-approvals", "collection-entry"]), async (req, res) => {
     try {
       const status = req.query.status as string || "pending";
       let statusFilter = sql`cr.status = ${status}`;
@@ -11009,7 +11010,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/collection-records/pending-count", isAuthenticated, requirePageAccess("collection-approvals"), async (req, res) => {
+  app.get("/api/collection-records/pending-count", isAuthenticated, requirePageAccess(["collection-approvals", "collection-entry"]), async (req, res) => {
     try {
       const result = await db.execute(sql`
         SELECT COUNT(*) as count FROM collection_records WHERE status = 'pending'

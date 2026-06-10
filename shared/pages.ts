@@ -44,6 +44,7 @@ export const PAGES: PageDef[] = [
   { key: "disbursements", label: "Disbursements", route: "/disbursements", group: "loans" },
   { key: "payments", label: "Payments", route: "/payments", group: "loans" },
   { key: "collections", label: "Collections", route: "/collections", group: "loans" },
+  { key: "collection-entry", label: "Collection Entry", route: "/collection-entry", group: "loans" },
   { key: "collection-approvals", label: "Collection Approvals", route: "/collection-approvals", group: "loans" },
   { key: "installment-management", label: "Installment Management", route: "/installment-management", group: "loans" },
   { key: "loan-transfers", label: "Loan Transfers", route: "/loan-transfers", group: "loans" },

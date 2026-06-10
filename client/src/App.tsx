@@ -77,6 +77,7 @@ import InstallmentManagementPage from "@/pages/installment-management";
 import FinancingProductsPage from "@/pages/financing-products";
 import LoanTransfersPage from "@/pages/loan-transfers";
 import CollectionApprovalsPage from "@/pages/collection-approvals";
+import CollectionEntryPage from "@/pages/collection-entry";
 import CustomReportsPage from "@/pages/custom-reports";
 import MobileLogin from "@/pages/mobile/mobile-login";
 import MobileCustomers from "@/pages/mobile/mobile-customers";
@@ -194,6 +195,7 @@ function AppRoutes() {
         <Route path="/customers" component={CustomersPage} />
         <Route path="/payments" component={PaymentsPage} />
         <Route path="/collections" component={CollectionsPage} />
+        <Route path="/collection-entry" component={CollectionEntryPage} />
         <Route path="/installment-management" component={InstallmentManagementPage} />
         <Route path="/loan-transfers" component={LoanTransfersPage} />
         <Route path="/collection-approvals" component={CollectionApprovalsPage} />
