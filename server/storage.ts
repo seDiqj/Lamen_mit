@@ -5954,7 +5954,7 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async getIncomeStatement(startDate: string, endDate: string, _classId?: string): Promise<any> {
+  async getIncomeStatement(startDate: string, endDate: string, classId?: string): Promise<any> {
     const allIncomeAccounts = await db.select().from(accounts).where(inArray(accounts.accountType, ['operating_income','non_operating_income','other_income','income']));
     const allExpenseAccounts = await db.select().from(accounts).where(inArray(accounts.accountType, ['operating_expense','non_operating_expense','cost_of_financing','expense']));
 
@@ -5984,6 +5984,9 @@ export class DatabaseStorage implements IStorage {
             inArray(journalLines.accountId, allAccountIds),
             gte(journalEntries.entryDate, startDate),
             lte(journalEntries.entryDate, endDate),
+            classId
+              ? (classId === UNASSIGNED ? isNull(journalLines.classId) : eq(journalLines.classId, classId))
+              : undefined,
           )
         )
         .groupBy(journalLines.accountId, journalLines.classId);

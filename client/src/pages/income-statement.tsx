@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ChevronDown, ChevronRight, Eye, EyeOff, FileSpreadsheet, FileText, TrendingUp } from "lucide-react";
 import { formatDate } from "@/lib/date-utils";
 import * as XLSX from "xlsx";
@@ -89,10 +90,23 @@ export default function IncomeStatement() {
     return d.toISOString().split("T")[0];
   });
   const [endDate, setEndDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [classId, setClassId] = useState("all");
+  const [classOptions, setClassOptions] = useState<{ id: string; name: string; code: string | null }[]>([]);
   const [data, setData] = useState<IncomeStatementData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showZeroBalances, setShowZeroBalances] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    fetch("/api/classes", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((rows) => {
+        if (Array.isArray(rows)) {
+          setClassOptions(rows.map((c: any) => ({ id: c.id, name: c.name, code: c.code ?? null })));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const toggle = (id: string) => {
     setCollapsed((prev) => {
@@ -107,6 +121,7 @@ export default function IncomeStatement() {
     setIsLoading(true);
     try {
       const params = new URLSearchParams({ startDate, endDate });
+      if (classId && classId !== "all") params.set("classId", classId);
       const res = await fetch(`/api/reports/income-statement?${params}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch");
       const result = await res.json();
@@ -444,6 +459,22 @@ export default function IncomeStatement() {
               <div className="space-y-2">
                 <Label>End Date</Label>
                 <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} data-testid="input-end-date" />
+              </div>
+              <div className="space-y-2">
+                <Label>Class</Label>
+                <Select value={classId} onValueChange={setClassId}>
+                  <SelectTrigger className="w-[200px]" data-testid="select-class">
+                    <SelectValue placeholder="All Classes" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" data-testid="option-class-all">All Classes</SelectItem>
+                    {classOptions.map((c) => (
+                      <SelectItem key={c.id} value={c.id} data-testid={`option-class-${c.id}`}>
+                        {c.code ? `${c.code} - ${c.name}` : c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <Button onClick={fetchReport} disabled={isLoading} data-testid="button-generate">
                 {isLoading ? "Loading..." : "Generate Report"}
