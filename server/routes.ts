@@ -11524,6 +11524,45 @@ export async function registerRoutes(
     `,
   };
 
+  const customReportColumnMap: Record<string, string> = {
+    // customers
+    c_customer_no: "c.customer_no", c_first_name: "c.first_name", c_last_name: "c.last_name",
+    c_father_name: "c.father_name", c_full_name_dari: "c.full_name_dari", c_gender: "c.gender",
+    c_marital_status: "c.marital_status", c_national_id: "c.national_id", c_date_of_birth: "c.date_of_birth",
+    c_place_of_birth: "c.place_of_birth", c_home_address: "c.home_address", c_province: "c.province",
+    c_district: "c.district", c_area_type: "c.area_type", c_phone_number: "c.phone_number",
+    c_second_phone_number: "c.second_phone_number", c_number_of_dependents: "c.number_of_dependents",
+    c_nid_expiry_date: "c.nid_expiry_date", c_created_at: "c.created_at",
+    // loans
+    l_application_id: "l.application_id", l_product_name: "l.product_name", l_product_code: "l.product_code",
+    l_status: "l.status", l_request_amount: "l.request_amount", l_principle_amount: "l.principle_amount",
+    l_margin_rate: "l.margin_rate", l_financing_duration_months: "l.financing_duration_months",
+    l_grace_period: "l.grace_period", l_number_of_installments: "l.number_of_installments",
+    l_request_date: "l.request_date", l_sector: "l.sector", l_business_description: "l.business_description",
+    l_financing_purpose: "l.financing_purpose", l_client_occupation: "l.client_occupation",
+    l_branch_name: "b.name", l_officer_name: "fo.name", l_funding_source: "fs.name",
+    // installments
+    i_installment_number: "i.installment_number", i_due_date: "i.due_date",
+    i_principle_amount: "i.principle_amount", i_margin_amount: "i.margin_amount",
+    i_total_amount: "i.total_amount", i_paid_amount: "i.paid_amount", i_payment_date: "i.payment_date",
+    i_is_paid: "i.is_paid", i_late_days: "i.late_days",
+    // collections
+    cr_amount: "cr.amount", cr_collection_date: "cr.payment_date", cr_collection_status: "cr.status",
+    cr_reviewed_by: "cr.reviewed_by", cr_reviewed_at: "cr.reviewed_at", cr_rejection_reason: "cr.rejection_reason",
+    cr_created_at: "cr.created_at",
+    // guarantors
+    g_guarantor_type: "g.guarantor_type", g_full_name: "g.full_name", g_father_name: "g.father_name",
+    g_national_id: "g.national_id", g_phone_number: "g.phone_number", g_home_address: "g.home_address",
+    g_province: "g.province", g_district: "g.district", g_relationship_with_customer: "g.relationship_with_customer",
+    g_monthly_income: "g.monthly_income", g_inventory: "g.inventory",
+    // disbursements
+    d_disbursement_date: "d.disbursement_date", d_disbursed_by_id: "d.disbursed_by_id",
+  };
+
+  const customReportTypeMap: Record<string, string> = Object.fromEntries(
+    Object.values(customReportFieldDefs).flat().map(f => [f.key, f.type])
+  );
+
   app.post("/api/custom-reports/generate", isAuthenticated, requirePageAccess("custom-reports"), async (req: any, res) => {
     try {
       const { dataSource, dataSources, columns, filters, groupBy, sortBy, sortOrder } = req.body;
@@ -11563,35 +11602,46 @@ export async function registerRoutes(
           const { field, operator, value } = filter;
           if (!allowedFields.has(field) || !validOperators.has(operator)) continue;
 
+          // WHERE cannot reference SELECT aliases, so map the alias to the real column expression.
+          const col = customReportColumnMap[field];
+          if (!col) continue;
+          const colSql = sql.raw(col);
+          const isDate = customReportTypeMap[field] === "date";
+
           switch (operator) {
             case "equals":
-              whereFragments.push(sql`${sql.raw(field)} = ${value}`);
+              if (isDate) whereFragments.push(sql`CAST(${colSql} AS DATE) = CAST(${value} AS DATE)`);
+              else whereFragments.push(sql`${colSql} = ${value}`);
               break;
             case "not_equals":
-              whereFragments.push(sql`${sql.raw(field)} != ${value}`);
+              if (isDate) whereFragments.push(sql`CAST(${colSql} AS DATE) <> CAST(${value} AS DATE)`);
+              else whereFragments.push(sql`${colSql} != ${value}`);
               break;
             case "contains":
-              whereFragments.push(sql`${sql.raw(field)} ILIKE ${'%' + value + '%'}`);
+              whereFragments.push(sql`CAST(${colSql} AS TEXT) ILIKE ${'%' + value + '%'}`);
               break;
             case "starts_with":
-              whereFragments.push(sql`${sql.raw(field)} ILIKE ${value + '%'}`);
+              whereFragments.push(sql`CAST(${colSql} AS TEXT) ILIKE ${value + '%'}`);
               break;
             case "greater_than":
-              whereFragments.push(sql`CAST(${sql.raw(field)} AS NUMERIC) > ${Number(value)}`);
+              if (isDate) whereFragments.push(sql`CAST(${colSql} AS DATE) > CAST(${value} AS DATE)`);
+              else whereFragments.push(sql`CAST(${colSql} AS NUMERIC) > ${Number(value)}`);
               break;
             case "less_than":
-              whereFragments.push(sql`CAST(${sql.raw(field)} AS NUMERIC) < ${Number(value)}`);
+              if (isDate) whereFragments.push(sql`CAST(${colSql} AS DATE) < CAST(${value} AS DATE)`);
+              else whereFragments.push(sql`CAST(${colSql} AS NUMERIC) < ${Number(value)}`);
               break;
             case "between":
               if (filter.value2) {
-                whereFragments.push(sql`${sql.raw(field)} >= ${value} AND ${sql.raw(field)} <= ${filter.value2}`);
+                if (isDate) whereFragments.push(sql`CAST(${colSql} AS DATE) >= CAST(${value} AS DATE) AND CAST(${colSql} AS DATE) <= CAST(${filter.value2} AS DATE)`);
+                else whereFragments.push(sql`${colSql} >= ${value} AND ${colSql} <= ${filter.value2}`);
               }
               break;
             case "is_null":
-              whereFragments.push(sql`${sql.raw(field)} IS NULL`);
+              whereFragments.push(sql`${colSql} IS NULL`);
               break;
             case "is_not_null":
-              whereFragments.push(sql`${sql.raw(field)} IS NOT NULL`);
+              whereFragments.push(sql`${colSql} IS NOT NULL`);
               break;
           }
         }
