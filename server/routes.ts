@@ -4546,6 +4546,7 @@ export async function registerRoutes(
       );
 
       let journalEntryError: string | null = null;
+      let createdJournalEntryId: string | null = null;
       try {
         const loan = firstInstallment.loanId ? await storage.getLoan(firstInstallment.loanId) : null;
         const customer = loan?.customerId ? await storage.getCustomer(loan.customerId) : null;
@@ -4634,7 +4635,7 @@ export async function registerRoutes(
             );
           }
 
-          await storage.createJournalEntry(
+          const createdJe = await storage.createJournalEntry(
             {
               entryNumber,
               entryDate,
@@ -4650,10 +4651,39 @@ export async function registerRoutes(
             },
             lines
           );
+          createdJournalEntryId = createdJe?.id || null;
         }
       } catch (journalError: any) {
         console.error("Warning: Failed to create journal entry for collection:", journalError);
         journalEntryError = journalError?.message || "Unknown error creating journal entry";
+      }
+
+      try {
+        const affected = result.paidInstallments.map((inst: any) => ({
+          installmentId: inst.id,
+          installmentNumber: inst.installmentNumber,
+          appliedAmount: inst.appliedAmount,
+          prev: inst.previousState,
+        }));
+        const loanForTxn = firstInstallment.loanId ? await storage.getLoan(firstInstallment.loanId) : null;
+        await storage.createPaymentTransaction({
+          loanId: firstInstallment.loanId || null,
+          customerId: loanForTxn?.customerId || null,
+          customerName: null,
+          primaryInstallmentId: firstInstallment.id,
+          amount: parsed.amount.toFixed(2),
+          totalApplied: result.totalApplied.toFixed(2),
+          overflow: result.overflow.toFixed(2),
+          paymentDate: parsed.paymentDate || new Date().toISOString().split("T")[0],
+          source: "direct",
+          collectionRecordId: null,
+          journalEntryId: createdJournalEntryId,
+          affectedInstallments: JSON.stringify(affected),
+          status: "active",
+          recordedBy: req.session.userId,
+        } as any);
+      } catch (txnError: any) {
+        console.error("Warning: Failed to record payment transaction:", txnError);
       }
 
       res.json({
@@ -4670,20 +4700,73 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/collections/:id/reverse", isAuthenticated, requirePageAccess("collection-approvals"), async (req: any, res) => {
+  app.post("/api/collections/:id/reverse", isAuthenticated, requireRole("admin", "ceo"), async (req: any, res) => {
     try {
       const installmentId = req.params.id;
+      const reason = (req.body?.reason || "").toString().trim();
+      if (!reason) return res.status(400).json({ message: "A reason is required to reverse a payment" });
+
       const installment = await storage.getInstallmentById(installmentId);
       if (!installment) return res.status(404).json({ message: "Installment not found" });
 
       const paidAmount = parseFloat(installment.paidAmount || "0");
       if (paidAmount <= 0) return res.status(400).json({ message: "No payment to reverse on this installment" });
 
-      const journalEntries = await storage.getJournalEntriesByReference("collection", installmentId);
+      const loan = installment.loanId ? await storage.getLoan(installment.loanId) : null;
+      const customer = loan?.customerId ? await storage.getCustomer(loan.customerId) : null;
+      const customerName = customer ? `${customer.firstName} ${customer.lastName}` : "Unknown";
 
+      // Preferred path: reverse via recorded payment transactions (exact restore, handles overflow)
+      const txns = await storage.getActivePaymentTransactionsByInstallment(installmentId);
+
+      if (txns.length > 0) {
+        for (const txn of txns) {
+          // Guard against double-reverse: re-check the transaction is still active
+          const fresh = await storage.getPaymentTransaction(txn.id);
+          if (!fresh || fresh.status !== "active") continue;
+
+          let reversalJeId: string | null = null;
+          if (txn.journalEntryId) {
+            // Do NOT swallow errors here: if the reversing journal entry fails,
+            // abort the whole request so books and installment state cannot diverge.
+            const reversalEntry = await storage.reverseJournalEntry(txn.journalEntryId, req.session.userId);
+            reversalJeId = reversalEntry?.id || null;
+            await logActivity(req, "reverse", "journal_entry", txn.journalEntryId, `Reversed collection journal entry for payment reversal — reason: ${reason}`);
+          }
+
+          let affected: any[] = [];
+          try { affected = JSON.parse(txn.affectedInstallments || "[]"); } catch { affected = []; }
+          for (const a of affected) {
+            if (a?.prev && a.installmentId) {
+              await storage.restoreInstallmentState(a.installmentId, {
+                paidAmount: a.prev.paidAmount ?? "0",
+                isPaid: !!a.prev.isPaid,
+                paymentDate: a.prev.paymentDate ?? null,
+                lateDays: a.prev.lateDays ?? null,
+                installmentVariance: a.prev.installmentVariance ?? null,
+              });
+            }
+          }
+
+          await storage.markPaymentTransactionReversed(txn.id, {
+            reversedBy: req.session.userId,
+            reversalReason: reason,
+            reversalJournalEntryId: reversalJeId,
+          });
+        }
+
+        await logActivity(req, "reverse_payment", "installment", installmentId,
+          `Reversed payment of AFN ${paidAmount.toLocaleString()} for ${customerName} - Installment #${installment.installmentNumber}. Reason: ${reason}`
+        );
+
+        return res.json({ message: "Payment reversed successfully", reversedAmount: paidAmount, exact: true });
+      }
+
+      // Legacy fallback: no recorded transaction (payment made before this feature)
+      const journalEntries = await storage.getJournalEntriesByReference("collection", installmentId);
       for (const journalEntry of journalEntries) {
         await storage.reverseJournalEntry(journalEntry.id, req.session.userId);
-        await logActivity(req, "reverse", "journal_entry", journalEntry.id, `Auto-reversed collection journal entry ${journalEntry.entryNumber} for installment reversal`);
+        await logActivity(req, "reverse", "journal_entry", journalEntry.id, `Auto-reversed collection journal entry ${journalEntry.entryNumber} for installment reversal — reason: ${reason}`);
       }
 
       await storage.updateInstallmentAmounts(installmentId, {
@@ -4700,17 +4783,32 @@ export async function registerRoutes(
         [installmentId]
       );
 
-      const loan = installment.loanId ? await storage.getLoan(installment.loanId) : null;
-      const customer = loan?.customerId ? await storage.getCustomer(loan.customerId) : null;
-      const customerName = customer ? `${customer.firstName} ${customer.lastName}` : "Unknown";
       await logActivity(req, "reverse_payment", "installment", installmentId,
-        `Reversed payment of AFN ${paidAmount.toLocaleString()} for ${customerName} - Installment #${installment.installmentNumber}`
+        `Reversed payment of AFN ${paidAmount.toLocaleString()} for ${customerName} - Installment #${installment.installmentNumber} (legacy). Reason: ${reason}`
       );
 
-      res.json({ message: "Payment reversed successfully", reversedAmount: paidAmount });
+      res.json({ message: "Payment reversed successfully", reversedAmount: paidAmount, exact: false });
     } catch (error: any) {
       console.error("Error reversing collection payment:", error);
       res.status(500).json({ message: error.message || "Failed to reverse payment" });
+    }
+  });
+
+  app.get("/api/payment-transactions", requireRole("admin", "ceo"), async (req: any, res) => {
+    try {
+      const { loanId, installmentId, status } = req.query;
+      const txns = await storage.getPaymentTransactions({
+        loanId: loanId as string | undefined,
+        installmentId: installmentId as string | undefined,
+        status: status as string | undefined,
+      });
+      res.json(txns.map((t) => ({
+        ...t,
+        affectedInstallments: (() => { try { return JSON.parse(t.affectedInstallments || "[]"); } catch { return []; } })(),
+      })));
+    } catch (error: any) {
+      console.error("Error fetching payment transactions:", error);
+      res.status(500).json({ message: error.message || "Failed to fetch payment transactions" });
     }
   });
 
@@ -11039,6 +11137,33 @@ export async function registerRoutes(
         SET status = 'approved', reviewed_by = ${userId}, reviewed_at = NOW(), journal_entry_id = ${je.id}
         WHERE id = ${req.params.id}
       `);
+
+      try {
+        const affected = payResult.paidInstallments.map((inst: any) => ({
+          installmentId: inst.id,
+          installmentNumber: inst.installmentNumber,
+          appliedAmount: inst.appliedAmount,
+          prev: inst.previousState,
+        }));
+        await storage.createPaymentTransaction({
+          loanId: record.loan_id || null,
+          customerId: record.customer_id || null,
+          customerName: record.customer_name || null,
+          primaryInstallmentId: record.installment_id,
+          amount: amount.toFixed(2),
+          totalApplied: payResult.totalApplied.toFixed(2),
+          overflow: payResult.overflow.toFixed(2),
+          paymentDate: record.payment_date,
+          source: "approval",
+          collectionRecordId: req.params.id,
+          journalEntryId: je.id,
+          affectedInstallments: JSON.stringify(affected),
+          status: "active",
+          recordedBy: userId,
+        } as any);
+      } catch (txnError: any) {
+        console.error("Warning: Failed to record payment transaction:", txnError);
+      }
 
       await logActivity(req, "approve_collection", "collection_record", req.params.id,
         `Approved collection: AFN ${amount.toLocaleString()} for ${record.customer_name} (${record.loan_application_id})`

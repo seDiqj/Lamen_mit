@@ -429,6 +429,32 @@ export const collectionRecords = pgTable("collection_records", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Payment Transactions (ledger of each recorded collection payment, enables exact reversal)
+export const paymentTransactionStatusEnum = pgEnum("payment_transaction_status", ["active", "reversed"]);
+
+export const paymentTransactions = pgTable("payment_transactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  loanId: varchar("loan_id"),
+  customerId: varchar("customer_id"),
+  customerName: varchar("customer_name", { length: 500 }),
+  primaryInstallmentId: varchar("primary_installment_id"),
+  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
+  totalApplied: decimal("total_applied", { precision: 15, scale: 2 }).notNull(),
+  overflow: decimal("overflow", { precision: 15, scale: 2 }).default("0"),
+  paymentDate: varchar("payment_date", { length: 20 }),
+  source: varchar("source", { length: 20 }).default("direct"),
+  collectionRecordId: varchar("collection_record_id"),
+  journalEntryId: varchar("journal_entry_id"),
+  affectedInstallments: text("affected_installments").notNull(),
+  status: paymentTransactionStatusEnum("status").default("active"),
+  recordedBy: varchar("recorded_by"),
+  reversedBy: varchar("reversed_by"),
+  reversedAt: timestamp("reversed_at"),
+  reversalReason: text("reversal_reason"),
+  reversalJournalEntryId: varchar("reversal_journal_entry_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Activity Logs
 export const activityLogs = pgTable("activity_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -466,6 +492,9 @@ export const insertInstallmentSchema = createInsertSchema(installments).omit({ i
 export const insertLoanTransferSchema = createInsertSchema(loanTransfers).omit({ id: true, createdAt: true });
 export const insertCollectionRecordSchema = createInsertSchema(collectionRecords).omit({ id: true, createdAt: true });
 export const insertActivityLogSchema = createInsertSchema(activityLogs).omit({ id: true, createdAt: true });
+export const insertPaymentTransactionSchema = createInsertSchema(paymentTransactions).omit({ id: true, createdAt: true });
+export type InsertPaymentTransaction = z.infer<typeof insertPaymentTransactionSchema>;
+export type PaymentTransaction = typeof paymentTransactions.$inferSelect;
 export const insertParCategorySchema = createInsertSchema(parCategories).omit({ id: true });
 export const insertLookupRoleSchema = createInsertSchema(lookupRoles).omit({ id: true, createdAt: true });
 export type InsertLookupRole = z.infer<typeof insertLookupRoleSchema>;

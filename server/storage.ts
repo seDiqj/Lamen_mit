@@ -3,6 +3,9 @@ import bcrypt from "bcrypt";
 import { getAllPageKeys } from "@shared/pages";
 import { eq, and, like, ilike, or, desc, asc, sql, count, gt, gte, lte, isNull, isNotNull, inArray } from "drizzle-orm";
 import {
+  paymentTransactions,
+  type PaymentTransaction,
+  type InsertPaymentTransaction,
   users,
   userRoles,
   branches,
@@ -396,7 +399,14 @@ export interface IStorage {
   unpostJournalEntry(id: string): Promise<void>;
   reverseJournalEntry(id: string, createdBy: string): Promise<any>;
   undoReversalJournalEntry(id: string): Promise<void>;
-  
+
+  createPaymentTransaction(data: InsertPaymentTransaction): Promise<PaymentTransaction>;
+  getPaymentTransaction(id: string): Promise<PaymentTransaction | undefined>;
+  getPaymentTransactions(filter?: { loanId?: string; installmentId?: string; status?: string }): Promise<PaymentTransaction[]>;
+  getActivePaymentTransactionsByInstallment(installmentId: string): Promise<PaymentTransaction[]>;
+  restoreInstallmentState(installmentId: string, prev: { paidAmount: string; isPaid: boolean; paymentDate: string | null; lateDays: number | null; installmentVariance: string | null }): Promise<void>;
+  markPaymentTransactionReversed(id: string, data: { reversedBy: string; reversalReason: string; reversalJournalEntryId: string | null }): Promise<void>;
+
   recalculateAllAccountBalances(): Promise<{ updated: number }>;
   
   // Accounting - Reports
@@ -2087,6 +2097,13 @@ export class DatabaseStorage implements IStorage {
         .returning();
 
       (updated as any).appliedAmount = applyToCurrent.toFixed(2);
+      (updated as any).previousState = {
+        paidAmount: existing.paidAmount || "0",
+        isPaid: existing.isPaid || false,
+        paymentDate: existing.paymentDate || null,
+        lateDays: existing.lateDays ?? null,
+        installmentVariance: existing.installmentVariance ?? null,
+      };
       paidInstallments.push(updated);
       remainingPayment -= applyToCurrent;
 
@@ -2135,6 +2152,13 @@ export class DatabaseStorage implements IStorage {
             .returning();
 
           (nextUpdated as any).appliedAmount = applyToNext.toFixed(2);
+          (nextUpdated as any).previousState = {
+            paidAmount: nextInst.paidAmount || "0",
+            isPaid: nextInst.isPaid || false,
+            paymentDate: nextInst.paymentDate || null,
+            lateDays: nextInst.lateDays ?? null,
+            installmentVariance: nextInst.installmentVariance ?? null,
+          };
           paidInstallments.push(nextUpdated);
           remainingPayment -= applyToNext;
         }
@@ -5620,6 +5644,9 @@ export class DatabaseStorage implements IStorage {
       referenceId: original.id,
       fundingSourceId: original.fundingSourceId,
       createdBy,
+      isPosted: true,
+      postedBy: createdBy,
+      postedAt: new Date(),
     }, reversedLines);
     
     await db.update(journalEntries).set({ isReversed: true, reversedEntryId: reversalEntry.id }).where(eq(journalEntries.id, id));
@@ -5655,6 +5682,63 @@ export class DatabaseStorage implements IStorage {
     }
 
     await db.update(journalEntries).set({ isReversed: false, reversedEntryId: null }).where(eq(journalEntries.id, id));
+  }
+
+  async createPaymentTransaction(data: InsertPaymentTransaction): Promise<PaymentTransaction> {
+    const [row] = await db.insert(paymentTransactions).values(data).returning();
+    return row;
+  }
+
+  async getPaymentTransaction(id: string): Promise<PaymentTransaction | undefined> {
+    const [row] = await db.select().from(paymentTransactions).where(eq(paymentTransactions.id, id));
+    return row;
+  }
+
+  async getPaymentTransactions(filter?: { loanId?: string; installmentId?: string; status?: string }): Promise<PaymentTransaction[]> {
+    const conditions: any[] = [];
+    if (filter?.loanId) conditions.push(eq(paymentTransactions.loanId, filter.loanId));
+    if (filter?.status) conditions.push(eq(paymentTransactions.status, filter.status as any));
+    let rows: PaymentTransaction[];
+    if (conditions.length > 0) {
+      rows = await db.select().from(paymentTransactions).where(and(...conditions)).orderBy(desc(paymentTransactions.createdAt));
+    } else {
+      rows = await db.select().from(paymentTransactions).orderBy(desc(paymentTransactions.createdAt));
+    }
+    if (filter?.installmentId) {
+      rows = rows.filter((r) => {
+        try {
+          const affected = JSON.parse(r.affectedInstallments || "[]");
+          return Array.isArray(affected) && affected.some((a: any) => a.installmentId === filter.installmentId);
+        } catch {
+          return false;
+        }
+      });
+    }
+    return rows;
+  }
+
+  async getActivePaymentTransactionsByInstallment(installmentId: string): Promise<PaymentTransaction[]> {
+    return await this.getPaymentTransactions({ installmentId, status: "active" });
+  }
+
+  async restoreInstallmentState(installmentId: string, prev: { paidAmount: string; isPaid: boolean; paymentDate: string | null; lateDays: number | null; installmentVariance: string | null }): Promise<void> {
+    await db.update(installments).set({
+      paidAmount: prev.paidAmount,
+      isPaid: prev.isPaid,
+      paymentDate: prev.paymentDate,
+      lateDays: prev.lateDays,
+      installmentVariance: prev.installmentVariance,
+    }).where(eq(installments.id, installmentId));
+  }
+
+  async markPaymentTransactionReversed(id: string, data: { reversedBy: string; reversalReason: string; reversalJournalEntryId: string | null }): Promise<void> {
+    await db.update(paymentTransactions).set({
+      status: "reversed",
+      reversedBy: data.reversedBy,
+      reversedAt: new Date(),
+      reversalReason: data.reversalReason,
+      reversalJournalEntryId: data.reversalJournalEntryId,
+    }).where(eq(paymentTransactions.id, id));
   }
 
   async recalculateAllAccountBalances(): Promise<{ updated: number }> {

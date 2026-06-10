@@ -31,6 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { formatCurrency } from "@/lib/utils";
@@ -339,10 +340,16 @@ export default function CollectionsPage() {
 
   const [showReverseDialog, setShowReverseDialog] = useState(false);
   const [reverseInstallment, setReverseInstallment] = useState<CollectionInstallment | null>(null);
+  const [reverseReason, setReverseReason] = useState("");
+
+  const { data: roleData } = useQuery<{ role: string; roleType: string }>({
+    queryKey: ["/api/user/role"],
+  });
+  const canReverse = roleData?.roleType === "admin" || roleData?.role === "ceo" || roleData?.role === "admin";
 
   const reverseMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await apiRequest("POST", `/api/collections/${id}/reverse`);
+    mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
+      const res = await apiRequest("POST", `/api/collections/${id}/reverse`, { reason });
       return res.json();
     },
     onSuccess: (result) => {
@@ -351,12 +358,14 @@ export default function CollectionsPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["/api/journal-entries"] });
       queryClient.invalidateQueries({ queryKey: ["/api/payment-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/payment-transactions"] });
       toast({
         title: "Payment Reversed",
         description: `AFN ${parseFloat(result.reversedAmount).toLocaleString()} has been reversed. Journal entry has been reversed automatically.`,
       });
       setShowReverseDialog(false);
       setReverseInstallment(null);
+      setReverseReason("");
     },
     onError: (error: any) => {
       toast({
@@ -369,12 +378,17 @@ export default function CollectionsPage() {
 
   const handleReverse = (inst: CollectionInstallment) => {
     setReverseInstallment(inst);
+    setReverseReason("");
     setShowReverseDialog(true);
   };
 
   const confirmReverse = () => {
     if (!reverseInstallment) return;
-    reverseMutation.mutate(reverseInstallment.id);
+    if (!reverseReason.trim()) {
+      toast({ title: "Reason required", description: "Please enter a reason for reversing this payment.", variant: "destructive" });
+      return;
+    }
+    reverseMutation.mutate({ id: reverseInstallment.id, reason: reverseReason.trim() });
   };
 
   const handlePay = (inst: CollectionInstallment) => {
@@ -764,15 +778,19 @@ export default function CollectionsPage() {
                         </TableCell>
                         <TableCell className="text-center">
                           {inst.isPaid ? (
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => handleReverse(inst)}
-                              data-testid={`button-reverse-${inst.id}`}
-                            >
-                              <Undo2 className="h-4 w-4 mr-1" />
-                              Reverse
-                            </Button>
+                            canReverse ? (
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => handleReverse(inst)}
+                                data-testid={`button-reverse-${inst.id}`}
+                              >
+                                <Undo2 className="h-4 w-4 mr-1" />
+                                Reverse
+                              </Button>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">Paid</span>
+                            )
                           ) : (
                             <Button
                               size="sm"
@@ -1071,6 +1089,17 @@ export default function CollectionsPage() {
                   <span className="text-muted-foreground">Payment Date</span>
                   <p className="font-medium">{reverseInstallment.paymentDate ? formatDate(reverseInstallment.paymentDate) : "N/A"}</p>
                 </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="reverse-reason">Reason for reversal <span className="text-red-600">*</span></Label>
+                <Textarea
+                  id="reverse-reason"
+                  value={reverseReason}
+                  onChange={(e) => setReverseReason(e.target.value)}
+                  placeholder="e.g. Wrong customer / wrong installment selected"
+                  rows={3}
+                  data-testid="input-reverse-reason"
+                />
               </div>
             </div>
           )}
