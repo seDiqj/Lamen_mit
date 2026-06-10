@@ -5954,27 +5954,25 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async getIncomeStatement(startDate: string, endDate: string, classId?: string): Promise<any> {
+  async getIncomeStatement(startDate: string, endDate: string, _classId?: string): Promise<any> {
     const allIncomeAccounts = await db.select().from(accounts).where(inArray(accounts.accountType, ['operating_income','non_operating_income','other_income','income']));
     const allExpenseAccounts = await db.select().from(accounts).where(inArray(accounts.accountType, ['operating_expense','non_operating_expense','cost_of_financing','expense']));
 
     const allAccountIds = [...allIncomeAccounts, ...allExpenseAccounts].map(a => a.id);
-    const expenseAccountIds = allExpenseAccounts.map(a => a.id);
 
-    const periodBalances: Record<string, number> = {};
+    const UNASSIGNED = "__unassigned__";
+
+    // periodBalances[accountId][classKey] = net (credit - debit) for that account/class
+    const periodBalances: Record<string, Record<string, number>> = {};
+    const activeClassKeys = new Set<string>();
 
     if (allAccountIds.length > 0) {
-      // When a class filter is set, it only constrains expense lines.
-      // Income lines are not tagged with class, so they remain unfiltered.
-      const classFilter = classId && expenseAccountIds.length > 0
-        ? or(
-            eq(journalLines.classId, classId),
-            sql`${journalLines.accountId} NOT IN (${sql.join(expenseAccountIds.map(id => sql`${id}`), sql`, `)})`
-          )
-        : undefined;
+      // Aggregate posted journal lines grouped by both account and class so we can
+      // present the income statement as a crosstab (one column per class).
       const balanceRows = await db
         .select({
           accountId: journalLines.accountId,
+          classId: journalLines.classId,
           totalDebit: sql<string>`COALESCE(SUM(CAST(${journalLines.debitAmount} AS numeric)), 0)`,
           totalCredit: sql<string>`COALESCE(SUM(CAST(${journalLines.creditAmount} AS numeric)), 0)`,
         })
@@ -5986,26 +5984,65 @@ export class DatabaseStorage implements IStorage {
             inArray(journalLines.accountId, allAccountIds),
             gte(journalEntries.entryDate, startDate),
             lte(journalEntries.entryDate, endDate),
-            classFilter,
           )
         )
-        .groupBy(journalLines.accountId);
+        .groupBy(journalLines.accountId, journalLines.classId);
 
       for (const row of balanceRows) {
         const debit = Number(row.totalDebit || 0);
         const credit = Number(row.totalCredit || 0);
-        periodBalances[row.accountId] = credit - debit;
+        const classKey = row.classId || UNASSIGNED;
+        // Treat any postings (even net-zero offsetting ones) as activity for the
+        // purpose of which class columns appear.
+        if (debit !== 0 || credit !== 0) activeClassKeys.add(classKey);
+        const net = credit - debit;
+        if (net === 0) continue;
+        if (!periodBalances[row.accountId]) periodBalances[row.accountId] = {};
+        periodBalances[row.accountId][classKey] = (periodBalances[row.accountId][classKey] || 0) + net;
       }
     }
 
-    const getBalance = (accountId: string, accountType: string) => {
-      const net = periodBalances[accountId] || 0;
-      const incomeTypes = ['operating_income', 'non_operating_income', 'other_income', 'income'];
-      const expenseTypes = ['operating_expense', 'non_operating_expense', 'cost_of_financing', 'expense'];
-      if (incomeTypes.includes(accountType)) return net;
-      if (expenseTypes.includes(accountType)) return -net;
-      return net;
+    // Build the ordered list of class columns that actually have activity.
+    const allClasses = await db.select().from(classes);
+    const classMeta = new Map(allClasses.map(c => [c.id, c]));
+    const classColumns: Array<{ key: string; name: string; code: string | null }> = allClasses
+      .filter(c => activeClassKeys.has(c.id))
+      .map(c => ({ key: c.id, name: c.name, code: c.code ?? null }))
+      .sort((a, b) => (a.code || a.name || "").localeCompare(b.code || b.name || "", undefined, { numeric: true }));
+    if (activeClassKeys.has(UNASSIGNED)) {
+      classColumns.push({ key: UNASSIGNED, name: "Unassigned", code: null });
+    }
+    // Guard against orphaned class ids (class deleted but lines remain).
+    for (const key of Array.from(activeClassKeys)) {
+      if (key !== UNASSIGNED && !classMeta.has(key) && !classColumns.find(c => c.key === key)) {
+        classColumns.push({ key, name: "Unknown", code: null });
+      }
+    }
+
+    const incomeTypes = ['operating_income', 'non_operating_income', 'other_income', 'income'];
+    const expenseTypes = ['operating_expense', 'non_operating_expense', 'cost_of_financing', 'expense'];
+
+    // Per-class amounts for a single account, with income/expense sign applied.
+    const getAmounts = (accountId: string, accountType: string): Record<string, number> => {
+      const byClass = periodBalances[accountId] || {};
+      const sign = expenseTypes.includes(accountType) ? -1 : (incomeTypes.includes(accountType) ? 1 : 1);
+      const result: Record<string, number> = {};
+      for (const [k, v] of Object.entries(byClass)) {
+        if (v === 0) continue;
+        result[k] = v * sign;
+      }
+      return result;
     };
+
+    const addInto = (target: Record<string, number>, src: Record<string, number>) => {
+      for (const [k, v] of Object.entries(src)) target[k] = (target[k] || 0) + v;
+    };
+    const subFrom = (a: Record<string, number>, b: Record<string, number>): Record<string, number> => {
+      const r: Record<string, number> = { ...a };
+      for (const [k, v] of Object.entries(b)) r[k] = (r[k] || 0) - v;
+      return r;
+    };
+    const totalOf = (amts: Record<string, number>) => Object.values(amts).reduce((s, v) => s + v, 0);
 
     const sortByCode = (a: any, b: any) => (a.accountCode || "").localeCompare(b.accountCode || "", undefined, { numeric: true });
 
@@ -6015,23 +6052,36 @@ export class DatabaseStorage implements IStorage {
 
       const groups = parentAccounts.map(parent => {
         const children = childAccounts.filter(c => c.parentId === parent.id);
-        const childrenWithAmounts = children.map(c => ({
-          accountCode: c.accountCode,
-          accountName: c.accountName,
-          amount: getBalance(c.id, c.accountType),
-        })).sort(sortByCode);
-        const parentOwnAmount = getBalance(parent.id, parent.accountType);
-        const childrenTotal = childrenWithAmounts.reduce((s, c) => s + c.amount, 0);
-        const total = children.length > 0 ? childrenTotal + parentOwnAmount : parentOwnAmount;
+        const childrenWithAmounts = children.map(c => {
+          const amounts = getAmounts(c.id, c.accountType);
+          return {
+            accountCode: c.accountCode,
+            accountName: c.accountName,
+            amounts,
+            amount: totalOf(amounts),
+          };
+        }).sort(sortByCode);
+        const parentAmounts = getAmounts(parent.id, parent.accountType);
+        const groupAmounts: Record<string, number> = {};
+        addInto(groupAmounts, parentAmounts);
+        for (const c of childrenWithAmounts) addInto(groupAmounts, c.amounts);
         return {
           accountCode: parent.accountCode,
           accountName: parent.accountName,
-          parentAmount: parentOwnAmount,
-          total,
+          parentAmount: totalOf(parentAmounts),
+          parentAmounts,
+          amounts: groupAmounts,
+          total: totalOf(groupAmounts),
           children: childrenWithAmounts,
         };
       });
       return groups.sort(sortByCode);
+    };
+
+    const sumGroups = (groups: ReturnType<typeof buildGroup>) => {
+      const amounts: Record<string, number> = {};
+      for (const g of groups) addInto(amounts, g.amounts);
+      return amounts;
     };
 
     const operatingIncomeAccounts = allIncomeAccounts.filter(a => a.accountType === 'operating_income' || a.accountType === 'income');
@@ -6046,17 +6096,36 @@ export class DatabaseStorage implements IStorage {
     const operatingExpenseGroups = buildGroup(operatingExpenseAccounts);
     const nonOperatingExpenseGroups = buildGroup(nonOperatingExpenseAccounts);
 
-    const totalOperatingIncome = operatingIncomeGroups.reduce((s, g) => s + g.total, 0);
-    const totalNonOperatingIncome = nonOperatingIncomeGroups.reduce((s, g) => s + g.total, 0);
-    const totalIncome = totalOperatingIncome + totalNonOperatingIncome;
-    const totalCostOfFinancing = costOfFinancingGroups.reduce((s, g) => s + g.total, 0);
-    const grossProfit = totalOperatingIncome - totalCostOfFinancing;
-    const totalOperatingExpenses = operatingExpenseGroups.reduce((s, g) => s + g.total, 0);
-    const totalNonOperatingExpenses = nonOperatingExpenseGroups.reduce((s, g) => s + g.total, 0);
-    const totalExpenses = totalOperatingExpenses + totalNonOperatingExpenses;
-    const netIncome = grossProfit + totalNonOperatingIncome - totalExpenses;
+    const totalOperatingIncomeAmounts = sumGroups(operatingIncomeGroups);
+    const totalNonOperatingIncomeAmounts = sumGroups(nonOperatingIncomeGroups);
+    const totalIncomeAmounts: Record<string, number> = {};
+    addInto(totalIncomeAmounts, totalOperatingIncomeAmounts);
+    addInto(totalIncomeAmounts, totalNonOperatingIncomeAmounts);
+    const totalCostOfFinancingAmounts = sumGroups(costOfFinancingGroups);
+    const grossProfitAmounts = subFrom(totalOperatingIncomeAmounts, totalCostOfFinancingAmounts);
+    const totalOperatingExpensesAmounts = sumGroups(operatingExpenseGroups);
+    const totalNonOperatingExpensesAmounts = sumGroups(nonOperatingExpenseGroups);
+    const totalExpensesAmounts: Record<string, number> = {};
+    addInto(totalExpensesAmounts, totalOperatingExpensesAmounts);
+    addInto(totalExpensesAmounts, totalNonOperatingExpensesAmounts);
+    // Net income = Gross Profit + Non-Operating Income - Total Expenses
+    let netIncomeAmounts: Record<string, number> = {};
+    addInto(netIncomeAmounts, grossProfitAmounts);
+    addInto(netIncomeAmounts, totalNonOperatingIncomeAmounts);
+    netIncomeAmounts = subFrom(netIncomeAmounts, totalExpensesAmounts);
+
+    const totalOperatingIncome = totalOf(totalOperatingIncomeAmounts);
+    const totalNonOperatingIncome = totalOf(totalNonOperatingIncomeAmounts);
+    const totalIncome = totalOf(totalIncomeAmounts);
+    const totalCostOfFinancing = totalOf(totalCostOfFinancingAmounts);
+    const grossProfit = totalOf(grossProfitAmounts);
+    const totalOperatingExpenses = totalOf(totalOperatingExpensesAmounts);
+    const totalNonOperatingExpenses = totalOf(totalNonOperatingExpensesAmounts);
+    const totalExpenses = totalOf(totalExpensesAmounts);
+    const netIncome = totalOf(netIncomeAmounts);
 
     return {
+      classColumns,
       operatingIncomeGroups,
       nonOperatingIncomeGroups,
       costOfFinancingGroups,
@@ -6071,6 +6140,15 @@ export class DatabaseStorage implements IStorage {
       totalNonOperatingExpenses,
       totalExpenses,
       netIncome,
+      totalOperatingIncomeAmounts,
+      totalNonOperatingIncomeAmounts,
+      totalIncomeAmounts,
+      totalCostOfFinancingAmounts,
+      grossProfitAmounts,
+      totalOperatingExpensesAmounts,
+      totalNonOperatingExpensesAmounts,
+      totalExpensesAmounts,
+      netIncomeAmounts,
       period: { startDate, endDate },
       // legacy aliases for any older clients
       incomeGroups: operatingIncomeGroups,

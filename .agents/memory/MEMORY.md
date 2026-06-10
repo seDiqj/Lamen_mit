@@ -1,1 +1,2 @@
 - [Reversal journal entries must be posted](reversal-journal-entries.md) — createJournalEntry only moves balances when isPosted; reversals/counter entries must be created posted or the books never change.
+- [Journal line class tagging](journal-line-class-tagging.md) — in prod, income lines carry NO classId (all "Unassigned"); only expense lines are partly class-tagged.
