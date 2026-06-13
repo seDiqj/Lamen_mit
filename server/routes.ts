@@ -10842,7 +10842,7 @@ export async function registerRoutes(
       const instResult = await db.execute(sql`
         SELECT i.id, i.loan_id, i.total_amount, i.paid_amount, i.is_paid, i.installment_number,
           l.application_id, l.customer_id,
-          c.first_name || ' ' || c.last_name as customer_name
+          CONCAT(c.first_name, ' ', c.last_name) as customer_name
         FROM installments i
         LEFT JOIN loans l ON i.loan_id = l.id
         LEFT JOIN customers c ON l.customer_id = c.id
@@ -10987,7 +10987,7 @@ export async function registerRoutes(
           i.paid_amount as installment_paid, i.is_paid,
           l.application_id, l.product_name,
           l.funding_source_id,
-          c.first_name || ' ' || c.last_name as customer_full_name,
+          CONCAT(c.first_name, ' ', c.last_name) as customer_full_name,
           fo.name as finance_officer_name,
           b.name as branch_name,
           u_sub.username as submitted_by_name,
@@ -11216,7 +11216,7 @@ export async function registerRoutes(
           fo_from.name as from_officer_name,
           fo_to.name as to_officer_name,
           l.application_id,
-          c.first_name || ' ' || c.last_name as customer_name,
+          CONCAT(c.first_name, ' ', c.last_name) as customer_name,
           l.product_name,
           l.request_amount,
           l.status as loan_status,
@@ -11242,7 +11242,7 @@ export async function registerRoutes(
       const statusFilter = req.query.status as string | undefined;
       let query = sql`
         SELECT l.id, l.application_id, l.request_amount, l.status, l.product_name,
-          c.first_name || ' ' || c.last_name as customer_name
+          CONCAT(c.first_name, ' ', c.last_name) as customer_name
         FROM loans l
         LEFT JOIN customers c ON l.customer_id = c.id
         WHERE l.finance_officer_id = ${officerId}
