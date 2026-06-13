@@ -2067,7 +2067,7 @@ export default function CitizenBalanceStatementPage() {
                   <div style={{ flexGrow: 1 }} />
                   <div style={{ textAlign: "center", marginBottom: "40px" }}>
                     <p style={{ fontSize: "0.9rem", fontWeight: 600 }}>
-                      {cd.disbursement.disbursementDate ? `${new Date(cd.disbursement.disbursementDate).getFullYear()} - 1404` : ""}
+                      {cd.disbursement.disbursementDate ? `${new Date(cd.disbursement.disbursementDate).getFullYear()} - ${new Intl.DateTimeFormat("en-US-u-ca-persian", { year: "numeric" }).format(new Date(cd.disbursement.disbursementDate)).replace(/[^0-9]/g, "")}` : ""}
                     </p>
                   </div>
                 </div>
