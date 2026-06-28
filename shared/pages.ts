@@ -56,6 +56,7 @@ export const PAGES: PageDef[] = [
   { key: "par-report", label: "PAR Report", route: "/par-report", group: "reports" },
   { key: "collection-report", label: "Collection Report", route: "/collection-report", group: "reports" },
   { key: "approval-rejection-report", label: "Approval & Rejection Report", route: "/approval-rejection-report", group: "reports" },
+  { key: "officer-performance-report", label: "Officer Performance Report", route: "/officer-performance-report", group: "reports" },
   { key: "shareholder-report", label: "Shareholder Report", route: "/shareholder-report", group: "reports" },
   { key: "custom-reports", label: "Custom Reports", route: "/custom-reports", group: "reports" },
   { key: "activity-logs", label: "Activity Log", route: "/activity", group: "reports" },

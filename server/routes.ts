@@ -1225,6 +1225,25 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/reports/officer-performance", isAuthenticated, requirePageAccess("officer-performance-report"), async (req, res) => {
+    try {
+      const now = new Date();
+      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+      const monthRe = /^\d{4}-(0[1-9]|1[0-2])$/;
+      let fromMonth = (req.query.fromMonth as string) || currentMonth;
+      let toMonth = (req.query.toMonth as string) || fromMonth;
+      if (!monthRe.test(fromMonth)) fromMonth = currentMonth;
+      if (!monthRe.test(toMonth)) toMonth = fromMonth;
+      if (fromMonth > toMonth) { const tmp = fromMonth; fromMonth = toMonth; toMonth = tmp; }
+      const effectiveBranch = await getEffectiveBranchId(req);
+      const rows = await storage.getOfficerMonthlyPerformance(effectiveBranch, fromMonth, toMonth);
+      res.json(rows);
+    } catch (error) {
+      console.error("Error fetching officer performance:", error);
+      res.status(500).json({ message: "Failed to fetch officer performance" });
+    }
+  });
+
   app.get("/api/disbursement-targets/:id/officer-splits", isAuthenticated, requirePageAccess("disbursement-targets"), async (req: any, res) => {
     try {
       const target = await storage.getDisbursementTarget(parseInt(req.params.id));

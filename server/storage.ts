@@ -356,6 +356,7 @@ export interface IStorage {
   getDisbursementTargetProgress(): Promise<any[]>;
   getOfficerTargets(branchId: string, monthYear: string): Promise<any[]>;
   saveOfficerTargets(branchId: string, monthYear: string, splits: { financeOfficerId: string; targetDisbursementAmount: string; targetNoOfCustomer: number }[]): Promise<void>;
+  getOfficerMonthlyPerformance(branchId: string | null, fromMonth: string, toMonth: string): Promise<any[]>;
   
   // Admin Users
   getUsers(search?: string): Promise<any[]>;
@@ -4669,6 +4670,61 @@ export class DatabaseStorage implements IStorage {
       LEFT JOIN actual_data a ON a.branch_id = dt.branch_id AND a.month_year = dt.target_month_year
       WHERE dt.finance_officer_id IS NULL
       ORDER BY dt.target_month_year DESC, b.name
+    `);
+    return result.rows as any[];
+  }
+
+  async getOfficerMonthlyPerformance(branchId: string | null, fromMonth: string, toMonth: string): Promise<any[]> {
+    const targetBranchFilter = branchId ? sql`AND dt.branch_id = ${branchId}` : sql``;
+    const actualBranchFilter = branchId ? sql`AND l.branch_id = ${branchId}` : sql``;
+    const officerBranchFilter = branchId ? sql`AND fo.branch_id = ${branchId}` : sql``;
+    const result = await db.execute(sql`
+      WITH target_agg AS (
+        SELECT
+          dt.finance_officer_id,
+          SUM(dt.target_disbursement_amount::numeric) AS target_amount,
+          SUM(dt.target_no_of_customer) AS target_customers
+        FROM disbursement_targets dt
+        WHERE dt.finance_officer_id IS NOT NULL
+          AND dt.target_month_year >= ${fromMonth}
+          AND dt.target_month_year <= ${toMonth}
+          ${targetBranchFilter}
+        GROUP BY dt.finance_officer_id
+      ),
+      disbursed_loans AS (
+        SELECT DISTINCT l.id, l.finance_officer_id, l.principle_amount
+        FROM disbursements d
+        JOIN loans l ON l.id = d.loan_id
+        WHERE l.finance_officer_id IS NOT NULL
+          AND l.status IN ('disbursed', 'active', 'completed')
+          AND d.disbursement_date IS NOT NULL
+          AND TO_CHAR(d.disbursement_date, 'YYYY-MM') >= ${fromMonth}
+          AND TO_CHAR(d.disbursement_date, 'YYYY-MM') <= ${toMonth}
+          ${actualBranchFilter}
+      ),
+      actual_agg AS (
+        SELECT
+          finance_officer_id,
+          COALESCE(SUM(principle_amount::numeric), 0) AS actual_amount,
+          COUNT(DISTINCT id) AS actual_customers
+        FROM disbursed_loans
+        GROUP BY finance_officer_id
+      )
+      SELECT
+        fo.id AS officer_id,
+        fo.name AS officer_name,
+        COALESCE(b.name, '') AS branch_name,
+        COALESCE(t.target_amount, 0) AS target_amount,
+        COALESCE(t.target_customers, 0) AS target_customers,
+        COALESCE(a.actual_amount, 0) AS actual_amount,
+        COALESCE(a.actual_customers, 0) AS actual_customers
+      FROM finance_officers fo
+      LEFT JOIN target_agg t ON t.finance_officer_id = fo.id
+      LEFT JOIN actual_agg a ON a.finance_officer_id = fo.id
+      LEFT JOIN branches b ON fo.branch_id = b.id
+      WHERE (t.finance_officer_id IS NOT NULL OR a.finance_officer_id IS NOT NULL)
+        ${officerBranchFilter}
+      ORDER BY fo.name
     `);
     return result.rows as any[];
   }

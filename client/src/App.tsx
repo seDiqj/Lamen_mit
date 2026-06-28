@@ -87,6 +87,7 @@ import { MobileLayout } from "@/pages/mobile/mobile-layout";
 import MonthlyDueSummaryPage from "@/pages/monthly-due-summary";
 import CollectionReportPage from "@/pages/collection-report";
 import ApprovalRejectionReportPage from "@/pages/approval-rejection-report";
+import OfficerPerformanceReportPage from "@/pages/officer-performance-report";
 import NotFound from "@/pages/not-found";
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
@@ -214,6 +215,7 @@ function AppRoutes() {
         <Route path="/monthly-due-summary" component={MonthlyDueSummaryPage} />
         <Route path="/collection-report" component={CollectionReportPage} />
         <Route path="/approval-rejection-report" component={ApprovalRejectionReportPage} />
+        <Route path="/officer-performance-report" component={OfficerPerformanceReportPage} />
         <Route path="/branches" component={BranchesPage} />
         <Route path="/officers" component={OfficersPage} />
         <Route path="/funding-sources" component={FundingSourcesPage} />
