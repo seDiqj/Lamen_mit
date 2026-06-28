@@ -1352,11 +1352,14 @@ export class DatabaseStorage implements IStorage {
         branchName: branches.name,
         approvedAmount: loanApprovals.approvedAmount,
         approvedDate: loanApprovals.approvedDate,
+        fundingSourceId: loans.fundingSourceId,
+        fundingSourceName: fundingSources.name,
       })
       .from(loans)
       .leftJoin(customers, eq(loans.customerId, customers.id))
       .leftJoin(branches, eq(loans.branchId, branches.id))
       .leftJoin(loanApprovals, eq(loans.id, loanApprovals.loanId))
+      .leftJoin(fundingSources, eq(loans.fundingSourceId, fundingSources.id))
       .where(and(...conditions));
   }
 

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useBranch } from "@/contexts/branch-context";
@@ -41,6 +41,7 @@ import {
   Loader2,
   AlertTriangle,
   QrCode,
+  Wallet,
 } from "lucide-react";
 import { Link } from "wouter";
 import type { Loan } from "@shared/schema";
@@ -181,6 +182,8 @@ type ApprovedLoan = Loan & {
   branchName?: string;
   approvedAmount?: string;
   approvedDate?: string;
+  fundingSourceId?: string;
+  fundingSourceName?: string;
 };
 
 type BulkResult = {
@@ -243,6 +246,23 @@ export default function DisbursementsPage() {
       return res.json();
     },
   });
+
+  const fundingSummary = useMemo(() => {
+    const map = new Map<string, { key: string; name: string; count: number; amount: number }>();
+    for (const loan of loans || []) {
+      const key = loan.fundingSourceId || "unassigned";
+      const name = loan.fundingSourceName || "Unassigned";
+      const amount = parseFloat((loan.approvedAmount as string) || (loan.requestAmount as string) || "0") || 0;
+      const existing = map.get(key);
+      if (existing) {
+        existing.count += 1;
+        existing.amount += amount;
+      } else {
+        map.set(key, { key, name, count: 1, amount });
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => b.amount - a.amount);
+  }, [loans]);
 
   const disburseMutation = useMutation({
     mutationFn: async (loanId: string) => {
@@ -697,7 +717,29 @@ export default function DisbursementsPage() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="individual" className="mt-4">
+        <TabsContent value="individual" className="mt-4 space-y-4">
+          {fundingSummary.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" data-testid="funding-summary-cards">
+              {fundingSummary.map((fs) => (
+                <Card key={fs.key} data-testid={`card-funding-${fs.key}`}>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground truncate" title={fs.name}>
+                      {fs.name}
+                    </CardTitle>
+                    <Wallet className="h-4 w-4 text-muted-foreground shrink-0" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold" data-testid={`text-funding-amount-${fs.key}`}>
+                      {formatCurrency(fs.amount)}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {fs.count} {fs.count === 1 ? "loan" : "loans"}
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
           <Card>
             <CardHeader>
               <div className="relative">
@@ -720,6 +762,7 @@ export default function DisbursementsPage() {
                       <TableHead>Customer</TableHead>
                       <TableHead>Branch</TableHead>
                       <TableHead>Product</TableHead>
+                      <TableHead>Funding Source</TableHead>
                       <TableHead className="text-right">Approved Amount</TableHead>
                       <TableHead>Duration</TableHead>
                       <TableHead>Approved Date</TableHead>
@@ -730,7 +773,7 @@ export default function DisbursementsPage() {
                     {isLoading ? (
                       Array.from({ length: 5 }).map((_, i) => (
                         <TableRow key={i}>
-                          {Array.from({ length: 8 }).map((_, j) => (
+                          {Array.from({ length: 9 }).map((_, j) => (
                             <TableCell key={j}>
                               <Skeleton className="h-4 w-full" />
                             </TableCell>
@@ -748,6 +791,9 @@ export default function DisbursementsPage() {
                           </TableCell>
                           <TableCell>{loan.branchName || "-"}</TableCell>
                           <TableCell>{loan.productName || "-"}</TableCell>
+                          <TableCell data-testid={`text-funding-source-${loan.id}`}>
+                            {loan.fundingSourceName || "-"}
+                          </TableCell>
                           <TableCell className="text-right font-medium">
                             {formatCurrency(loan.approvedAmount || loan.requestAmount)}
                           </TableCell>
@@ -779,7 +825,7 @@ export default function DisbursementsPage() {
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center py-12">
+                        <TableCell colSpan={9} className="text-center py-12">
                           <PiggyBank className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
                           <p className="text-muted-foreground">No approved loans ready for disbursement</p>
                         </TableCell>
