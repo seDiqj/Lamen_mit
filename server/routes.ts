@@ -6787,8 +6787,12 @@ export async function registerRoutes(
       const reversalEntry = await storage.reverseJournalEntry(req.params.id, req.session.userId);
       await logActivity(req, "reverse", "journal_entry", req.params.id, `Reversed journal entry, created ${reversalEntry.entryNumber}`);
       res.json(reversalEntry);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error reversing journal entry:", error);
+      const msg = error?.message || "Failed to reverse journal entry";
+      if (msg.includes("already been reversed") || msg.includes("cannot itself be reversed")) {
+        return res.status(400).json({ message: msg });
+      }
       res.status(500).json({ message: "Failed to reverse journal entry" });
     }
   });

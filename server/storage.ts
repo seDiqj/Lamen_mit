@@ -5683,34 +5683,52 @@ export class DatabaseStorage implements IStorage {
   async reverseJournalEntry(id: string, createdBy: string): Promise<JournalEntry> {
     const original = await this.getJournalEntry(id);
     if (!original) throw new Error("Entry not found");
-    
-    const entryNumber = await this.getNextEntryNumber();
-    const reversedLines = original.lines.map((line: any) => ({
-      accountId: line.accountId,
-      description: `Reversal: ${line.description || ''}`,
-      debitAmount: line.creditAmount,
-      creditAmount: line.debitAmount,
-      fundingSourceId: line.fundingSourceId || null,
-      classId: line.classId || null,
-    }));
-    
-    const reversalEntry = await this.createJournalEntry({
-      entryNumber,
-      entryDate: new Date().toISOString().split('T')[0],
-      description: `Reversal of ${original.entryNumber}`,
-      reference: original.reference,
-      referenceType: 'reversal',
-      referenceId: original.id,
-      fundingSourceId: original.fundingSourceId,
-      createdBy,
-      isPosted: true,
-      postedBy: createdBy,
-      postedAt: new Date(),
-    }, reversedLines);
-    
-    await db.update(journalEntries).set({ isReversed: true, reversedEntryId: reversalEntry.id }).where(eq(journalEntries.id, id));
-    
-    return reversalEntry;
+    if (original.referenceType === 'reversal') throw new Error("A reversal entry cannot itself be reversed");
+
+    // Atomically claim the reversal: flip is_reversed false -> true in a single
+    // conditional update so two concurrent requests can't both proceed (prevents
+    // the double-reversal that corrupts account balances).
+    const claimed = await db
+      .update(journalEntries)
+      .set({ isReversed: true })
+      .where(and(eq(journalEntries.id, id), eq(journalEntries.isReversed, false)))
+      .returning({ id: journalEntries.id });
+    if (claimed.length === 0) throw new Error("This entry has already been reversed");
+
+    try {
+      const entryNumber = await this.getNextEntryNumber();
+      const reversedLines = original.lines.map((line: any) => ({
+        accountId: line.accountId,
+        description: `Reversal: ${line.description || ''}`,
+        debitAmount: line.creditAmount,
+        creditAmount: line.debitAmount,
+        fundingSourceId: line.fundingSourceId || null,
+        classId: line.classId || null,
+      }));
+
+      const reversalEntry = await this.createJournalEntry({
+        entryNumber,
+        entryDate: new Date().toISOString().split('T')[0],
+        description: `Reversal of ${original.entryNumber}`,
+        reference: original.reference,
+        referenceType: 'reversal',
+        referenceId: original.id,
+        fundingSourceId: original.fundingSourceId,
+        createdBy,
+        isPosted: true,
+        postedBy: createdBy,
+        postedAt: new Date(),
+      }, reversedLines);
+
+      await db.update(journalEntries).set({ reversedEntryId: reversalEntry.id }).where(eq(journalEntries.id, id));
+
+      return reversalEntry;
+    } catch (err) {
+      // Building the reversal failed after we claimed it — release the claim so
+      // the entry can be reversed again later.
+      await db.update(journalEntries).set({ isReversed: false, reversedEntryId: null }).where(eq(journalEntries.id, id));
+      throw err;
+    }
   }
 
   async undoReversalJournalEntry(id: string): Promise<void> {

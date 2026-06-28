@@ -211,7 +211,7 @@ export default function JournalEntries() {
       queryClient.invalidateQueries({ queryKey: ["/api/accounts"] });
       toast({ title: "Success", description: "Journal entry reversed successfully" });
     },
-    onError: () => toast({ title: "Error", description: "Failed to reverse journal entry", variant: "destructive" }),
+    onError: (error: any) => toast({ title: "Error", description: error?.message || "Failed to reverse journal entry", variant: "destructive" }),
   });
 
   const unpostMutation = useMutation({
@@ -592,7 +592,7 @@ export default function JournalEntries() {
                                 <Unlock className="h-4 w-4 text-amber-500" />
                               </Button>
                             )}
-                            <Button variant="ghost" size="icon" onClick={() => reverseMutation.mutate(entry.id)} data-testid={`button-reverse-${entry.id}`}>
+                            <Button variant="ghost" size="icon" title="Reverse" disabled={reverseMutation.isPending} onClick={() => reverseMutation.mutate(entry.id)} data-testid={`button-reverse-${entry.id}`}>
                               <RotateCcw className="h-4 w-4 text-orange-500" />
                             </Button>
                           </>
