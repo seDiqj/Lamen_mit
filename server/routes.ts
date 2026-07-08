@@ -7837,9 +7837,10 @@ export async function registerRoutes(
 
         const totalPrincipalReceived = paidInsts.reduce((s, i) => s + parseFloat(i.principleAmount || "0"), 0);
         const totalMarkupReceived = paidInsts.reduce((s, i) => s + parseFloat(i.marginAmount || "0"), 0);
-        const totalAmountReceived = paidInsts.reduce((s, i) => s + parseFloat(i.paidAmount || i.totalAmount || "0"), 0);
+        const partialOnUnpaid = unpaidInsts.reduce((s, i) => s + parseFloat(i.paidAmount || "0"), 0);
+        const totalAmountReceived = paidInsts.reduce((s, i) => s + parseFloat(i.paidAmount || i.totalAmount || "0"), 0) + partialOnUnpaid;
 
-        const balanceOutstanding = totalReceivable - totalAmountReceived;
+        const balanceOutstanding = Math.round((totalReceivable - totalAmountReceived) * 100) / 100;
 
         const lastPaidInst = paidInsts.length > 0
           ? paidInsts.sort((a, b) => (a.paymentDate || "").localeCompare(b.paymentDate || "")).pop()

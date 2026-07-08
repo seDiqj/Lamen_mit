@@ -1,2 +1,3 @@
 - [Reversal journal entries must be posted](reversal-journal-entries.md) — createJournalEntry only moves balances when isPosted; reversals/counter entries must be created posted or the books never change.
 - [Journal line class tagging](journal-line-class-tagging.md) — in prod, income lines carry NO classId (all "Unassigned"); only expense lines are partly class-tagged.
+- [Partial payments on unpaid installments](partial-payments-on-unpaid-installments.md) — installments can hold paid_amount with is_paid=false; received/outstanding calcs must include them.
