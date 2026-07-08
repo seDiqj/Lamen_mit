@@ -33,6 +33,7 @@ type OutstandingRow = {
   financeOfficerName: string;
   customerNo: string;
   customerName: string;
+  loanId: string;
   disbursementDate: string;
   financingAmount: number;
   balanceOutstanding: number;
@@ -119,6 +120,7 @@ export default function ActiveCustomerOutstandingReport() {
       "Financing Officer": row.financeOfficerName,
       "Customer No": row.customerNo,
       "Customer Name": row.customerName,
+      "Loan ID": row.loanId,
       "Disbursed Date": row.disbursementDate ? formatDate(row.disbursementDate) : "",
       "Financing Amount": row.financingAmount,
       "Balance Outstanding Last": row.balanceOutstanding,
@@ -144,6 +146,7 @@ export default function ActiveCustomerOutstandingReport() {
         "Financing Officer": "",
         "Customer No": "",
         "Customer Name": "",
+        "Loan ID": "",
         "Disbursed Date": "",
         "Financing Amount": "" as any,
         "Balance Outstanding Last": "Total Balance" as any,
@@ -165,7 +168,7 @@ export default function ActiveCustomerOutstandingReport() {
     if (statusSummary) {
       rows.push({
         "#": "" as any, "Branch": "", "Product": "", "Financing Officer": "", "Customer No": "",
-        "Customer Name": "", "Disbursed Date": "", "Financing Amount": "" as any,
+        "Customer Name": "", "Loan ID": "", "Disbursed Date": "", "Financing Amount": "" as any,
         "Balance Outstanding Last": "" as any, "Total Install.": "" as any, "No Install Paid": "" as any,
         "No. Install. unpaid": "" as any, "Last Repayment Date": "", "No of Late Days": "" as any,
         "Total Principal Received": "" as any, "Total Markup Received": "" as any,
@@ -177,7 +180,7 @@ export default function ActiveCustomerOutstandingReport() {
 
     const ws = XLSX.utils.json_to_sheet(rows);
     ws["!cols"] = [
-      { wch: 5 }, { wch: 12 }, { wch: 12 }, { wch: 18 }, { wch: 14 }, { wch: 20 },
+      { wch: 5 }, { wch: 12 }, { wch: 12 }, { wch: 18 }, { wch: 14 }, { wch: 20 }, { wch: 14 },
       { wch: 14 }, { wch: 16 }, { wch: 18 }, { wch: 10 }, { wch: 12 }, { wch: 12 },
       { wch: 14 }, { wch: 10 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 10 }, { wch: 16 }, { wch: 14 },
     ];
@@ -215,6 +218,7 @@ export default function ActiveCustomerOutstandingReport() {
       row.financeOfficerName,
       row.customerNo,
       row.customerName,
+      row.loanId,
       row.disbursementDate ? formatDate(row.disbursementDate) : "",
       row.financingAmount.toLocaleString(),
       row.balanceOutstanding.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
@@ -234,7 +238,7 @@ export default function ActiveCustomerOutstandingReport() {
 
     if (totals) {
       tableData.push([
-        "", "", "", "", "", "", "",
+        "", "", "", "", "", "", "", "",
         "Total Balance",
         "", "", "", "", "",
         totals.totalPrincipalReceived.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
@@ -249,25 +253,25 @@ export default function ActiveCustomerOutstandingReport() {
 
     autoTable(doc, {
       startY: 35,
-      head: [["Branch", "Product", "Financing Officer", "Customer No", "Customer Name", "Disbursed Date", "Financing Amount", "Balance Outstanding Last", "Total Install.", "No Install Paid", "No. Install. unpaid", "Last Repayment Date", "No of Late Days", "Total Principal Received", "Total Markup Received", "Total Amount Received", "Outstanding", "Status", "Principal This Year", "Markup This Year"]],
+      head: [["Branch", "Product", "Financing Officer", "Customer No", "Customer Name", "Loan ID", "Disbursed Date", "Financing Amount", "Balance Outstanding Last", "Total Install.", "No Install Paid", "No. Install. unpaid", "Last Repayment Date", "No of Late Days", "Total Principal Received", "Total Markup Received", "Total Amount Received", "Outstanding", "Status", "Principal This Year", "Markup This Year"]],
       body: tableData,
       theme: "grid",
       headStyles: { fillColor: [34, 87, 122], textColor: [255, 255, 255], fontStyle: "bold", halign: "center", fontSize: 5.5 },
       styles: { fontSize: 5.5, cellPadding: 1 },
       columnStyles: {
-        6: { halign: "right" },
         7: { halign: "right" },
-        8: { halign: "center" },
+        8: { halign: "right" },
         9: { halign: "center" },
         10: { halign: "center" },
-        12: { halign: "center" },
-        13: { halign: "right" },
+        11: { halign: "center" },
+        13: { halign: "center" },
         14: { halign: "right" },
         15: { halign: "right" },
         16: { halign: "right" },
-        17: { halign: "center" },
-        18: { halign: "right" },
+        17: { halign: "right" },
+        18: { halign: "center" },
         19: { halign: "right" },
+        20: { halign: "right" },
       },
     });
 
@@ -376,6 +380,7 @@ export default function ActiveCustomerOutstandingReport() {
                     <TableHead className="text-primary-foreground font-semibold text-xs">Financing Officer</TableHead>
                     <TableHead className="text-primary-foreground font-semibold text-xs">Customer No</TableHead>
                     <TableHead className="text-primary-foreground font-semibold text-xs">Customer Name</TableHead>
+                    <TableHead className="text-primary-foreground font-semibold text-xs">Loan ID</TableHead>
                     <TableHead className="text-primary-foreground font-semibold text-xs">Disbursed Date</TableHead>
                     <TableHead className="text-right text-primary-foreground font-semibold text-xs">Financing Amount</TableHead>
                     <TableHead className="text-right text-primary-foreground font-semibold text-xs">Balance Outstanding Last</TableHead>
@@ -402,6 +407,7 @@ export default function ActiveCustomerOutstandingReport() {
                       <TableCell className="text-xs">{row.financeOfficerName}</TableCell>
                       <TableCell className="font-mono text-xs">{row.customerNo}</TableCell>
                       <TableCell className="text-xs">{row.customerName}</TableCell>
+                      <TableCell className="font-mono text-xs" data-testid={`text-loan-id-${idx}`}>{row.loanId}</TableCell>
                       <TableCell className="text-xs">{row.disbursementDate ? formatDate(row.disbursementDate) : ""}</TableCell>
                       <TableCell className="text-right font-mono text-xs">{formatCurrency(row.financingAmount.toString())}</TableCell>
                       <TableCell className="text-right font-mono text-xs">{formatCurrency(row.balanceOutstanding.toFixed(2))}</TableCell>
@@ -427,7 +433,7 @@ export default function ActiveCustomerOutstandingReport() {
                   ))}
                   {totals && (
                     <TableRow className="bg-muted font-bold border-t-2">
-                      <TableCell colSpan={7} className="text-right text-xs font-bold">Total Balance</TableCell>
+                      <TableCell colSpan={8} className="text-right text-xs font-bold">Total Balance</TableCell>
                       <TableCell className="text-right font-mono text-xs">{formatCurrency(totals.financingAmount.toFixed(2))}</TableCell>
                       <TableCell className="text-right font-mono text-xs">{formatCurrency(totals.balanceOutstanding.toFixed(2))}</TableCell>
                       <TableCell colSpan={5}></TableCell>
