@@ -92,6 +92,13 @@ export default function ActiveCustomerOutstandingReport() {
 
   const selectedBranchName = branchId === "all" ? "All Branches" : branchesData?.find(b => b.id === branchId)?.name || "";
 
+  const statusOf = (row: OutstandingRow) => (row.outstanding > 0 ? "Active" : "Closed");
+
+  const statusSummary = data ? {
+    active: data.filter((r) => r.outstanding > 0).length,
+    closed: data.filter((r) => r.outstanding <= 0).length,
+  } : null;
+
   const totals = data ? {
     financingAmount: data.reduce((s, r) => s + r.financingAmount, 0),
     balanceOutstanding: data.reduce((s, r) => s + r.balanceOutstanding, 0),
@@ -124,6 +131,7 @@ export default function ActiveCustomerOutstandingReport() {
       "Total Markup Received": row.totalMarkupReceived,
       "Total Amount Received": row.totalAmountReceived,
       "Outstanding": row.outstanding,
+      "Status": statusOf(row),
       "Principal This Year": row.principalThisYear,
       "Markup This Year": row.markupThisYear,
     }));
@@ -148,8 +156,22 @@ export default function ActiveCustomerOutstandingReport() {
         "Total Markup Received": totals.totalMarkupReceived,
         "Total Amount Received": totals.totalAmountReceived,
         "Outstanding": totals.outstanding,
+        "Status": "",
         "Principal This Year": totals.principalThisYear,
         "Markup This Year": totals.markupThisYear,
+      });
+    }
+
+    if (statusSummary) {
+      rows.push({
+        "#": "" as any, "Branch": "", "Product": "", "Financing Officer": "", "Customer No": "",
+        "Customer Name": "", "Disbursed Date": "", "Financing Amount": "" as any,
+        "Balance Outstanding Last": "" as any, "Total Install.": "" as any, "No Install Paid": "" as any,
+        "No. Install. unpaid": "" as any, "Last Repayment Date": "", "No of Late Days": "" as any,
+        "Total Principal Received": "" as any, "Total Markup Received": "" as any,
+        "Total Amount Received": "" as any, "Outstanding": "" as any,
+        "Status": `Active: ${statusSummary.active} / Closed: ${statusSummary.closed}` as any,
+        "Principal This Year": "" as any, "Markup This Year": "" as any,
       });
     }
 
@@ -157,7 +179,7 @@ export default function ActiveCustomerOutstandingReport() {
     ws["!cols"] = [
       { wch: 5 }, { wch: 12 }, { wch: 12 }, { wch: 18 }, { wch: 14 }, { wch: 20 },
       { wch: 14 }, { wch: 16 }, { wch: 18 }, { wch: 10 }, { wch: 12 }, { wch: 12 },
-      { wch: 14 }, { wch: 10 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 14 },
+      { wch: 14 }, { wch: 10 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 10 }, { wch: 16 }, { wch: 14 },
     ];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Active Customer Outstanding");
@@ -205,6 +227,7 @@ export default function ActiveCustomerOutstandingReport() {
       row.totalMarkupReceived.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
       row.totalAmountReceived.toLocaleString(undefined, { minimumFractionDigits: 3, maximumFractionDigits: 3 }),
       row.outstanding.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      statusOf(row),
       row.principalThisYear.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
       row.markupThisYear.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
     ]);
@@ -218,6 +241,7 @@ export default function ActiveCustomerOutstandingReport() {
         totals.totalMarkupReceived.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
         totals.totalAmountReceived.toLocaleString(undefined, { minimumFractionDigits: 3, maximumFractionDigits: 3 }),
         totals.outstanding.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+        "",
         totals.principalThisYear.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
         totals.markupThisYear.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
       ]);
@@ -225,7 +249,7 @@ export default function ActiveCustomerOutstandingReport() {
 
     autoTable(doc, {
       startY: 35,
-      head: [["Branch", "Product", "Financing Officer", "Customer No", "Customer Name", "Disbursed Date", "Financing Amount", "Balance Outstanding Last", "Total Install.", "No Install Paid", "No. Install. unpaid", "Last Repayment Date", "No of Late Days", "Total Principal Received", "Total Markup Received", "Total Amount Received", "Outstanding", "Principal This Year", "Markup This Year"]],
+      head: [["Branch", "Product", "Financing Officer", "Customer No", "Customer Name", "Disbursed Date", "Financing Amount", "Balance Outstanding Last", "Total Install.", "No Install Paid", "No. Install. unpaid", "Last Repayment Date", "No of Late Days", "Total Principal Received", "Total Markup Received", "Total Amount Received", "Outstanding", "Status", "Principal This Year", "Markup This Year"]],
       body: tableData,
       theme: "grid",
       headStyles: { fillColor: [34, 87, 122], textColor: [255, 255, 255], fontStyle: "bold", halign: "center", fontSize: 5.5 },
@@ -241,10 +265,19 @@ export default function ActiveCustomerOutstandingReport() {
         14: { halign: "right" },
         15: { halign: "right" },
         16: { halign: "right" },
-        17: { halign: "right" },
+        17: { halign: "center" },
         18: { halign: "right" },
+        19: { halign: "right" },
       },
     });
+
+    if (statusSummary) {
+      const finalY = (doc as any).lastAutoTable?.finalY || 190;
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(0, 0, 0);
+      doc.text(`Loans by Status:  Active: ${statusSummary.active}    Closed: ${statusSummary.closed}    Total: ${statusSummary.active + statusSummary.closed}`, 14, Math.min(finalY + 6, 195));
+    }
 
     const pageCount = doc.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
@@ -355,6 +388,7 @@ export default function ActiveCustomerOutstandingReport() {
                     <TableHead className="text-right text-primary-foreground font-semibold text-xs">Total Markup Received</TableHead>
                     <TableHead className="text-right text-primary-foreground font-semibold text-xs">Total Amount Received</TableHead>
                     <TableHead className="text-right text-primary-foreground font-semibold text-xs">Outstanding</TableHead>
+                    <TableHead className="text-center text-primary-foreground font-semibold text-xs">Status</TableHead>
                     <TableHead className="text-right text-primary-foreground font-semibold text-xs">Principal This Year</TableHead>
                     <TableHead className="text-right text-primary-foreground font-semibold text-xs">Markup This Year</TableHead>
                   </TableRow>
@@ -380,6 +414,13 @@ export default function ActiveCustomerOutstandingReport() {
                       <TableCell className="text-right font-mono text-xs">{formatCurrency(row.totalMarkupReceived.toFixed(2))}</TableCell>
                       <TableCell className="text-right font-mono text-xs">{formatCurrency(row.totalAmountReceived.toFixed(2))}</TableCell>
                       <TableCell className="text-right font-mono text-xs" data-testid={`text-outstanding-${idx}`}>{formatCurrency(row.outstanding.toFixed(2))}</TableCell>
+                      <TableCell className="text-center text-xs" data-testid={`text-status-${idx}`}>
+                        <span className={row.outstanding > 0
+                          ? "inline-block rounded-full px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300"
+                          : "inline-block rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"}>
+                          {statusOf(row)}
+                        </span>
+                      </TableCell>
                       <TableCell className="text-right font-mono text-xs">{formatCurrency(row.principalThisYear.toFixed(2))}</TableCell>
                       <TableCell className="text-right font-mono text-xs">{formatCurrency(row.markupThisYear.toFixed(2))}</TableCell>
                     </TableRow>
@@ -394,12 +435,30 @@ export default function ActiveCustomerOutstandingReport() {
                       <TableCell className="text-right font-mono text-xs">{formatCurrency(totals.totalMarkupReceived.toFixed(2))}</TableCell>
                       <TableCell className="text-right font-mono text-xs">{formatCurrency(totals.totalAmountReceived.toFixed(2))}</TableCell>
                       <TableCell className="text-right font-mono text-xs">{formatCurrency(totals.outstanding.toFixed(2))}</TableCell>
+                      <TableCell></TableCell>
                       <TableCell className="text-right font-mono text-xs">{formatCurrency(totals.principalThisYear.toFixed(2))}</TableCell>
                       <TableCell className="text-right font-mono text-xs">{formatCurrency(totals.markupThisYear.toFixed(2))}</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
               </Table>
+            )}
+            {statusSummary && data.length > 0 && (
+              <div className="mt-4 border-t pt-4 flex flex-wrap items-center gap-6" data-testid="status-summary">
+                <span className="text-sm font-semibold">Loans by Status:</span>
+                <div className="flex items-center gap-2">
+                  <span className="inline-block rounded-full px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300">Active</span>
+                  <span className="text-sm font-mono font-semibold" data-testid="text-status-active-count">{statusSummary.active}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-block rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300">Closed</span>
+                  <span className="text-sm font-mono font-semibold" data-testid="text-status-closed-count">{statusSummary.closed}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span>Total:</span>
+                  <span className="font-mono font-semibold" data-testid="text-status-total-count">{statusSummary.active + statusSummary.closed}</span>
+                </div>
+              </div>
             )}
           </CardContent>
         </Card>
