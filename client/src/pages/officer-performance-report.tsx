@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Fragment } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useBranch } from "@/contexts/branch-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,10 +25,18 @@ interface OfficerRow {
   officer_id: string;
   officer_name: string;
   branch_name: string;
+  month: string;
   target_amount: string | number;
   target_customers: string | number;
   actual_amount: string | number;
   actual_customers: string | number;
+}
+
+interface MonthData {
+  target: number;
+  actual: number;
+  targetCustomers: number;
+  actualCustomers: number;
 }
 
 function currentMonth(): string {
@@ -73,24 +81,85 @@ export default function OfficerPerformanceReport() {
     },
   });
 
+  const months = useMemo(() => {
+    const list: string[] = [];
+    let [y, m] = effFrom.split("-").map(Number);
+    const [ey, em] = effTo.split("-").map(Number);
+    while ((y < ey || (y === ey && m <= em)) && list.length < 60) {
+      list.push(`${y}-${String(m).padStart(2, "0")}`);
+      m++;
+      if (m > 12) { m = 1; y++; }
+    }
+    return list;
+  }, [effFrom, effTo]);
+
+  const multiMonth = months.length > 1;
+
   const data = useMemo(() => {
-    return rows.map((r) => {
-      const targetAmount = Number(r.target_amount) || 0;
-      const actualAmount = Number(r.actual_amount) || 0;
-      const targetCustomers = Number(r.target_customers) || 0;
-      const actualCustomers = Number(r.actual_customers) || 0;
-      return {
-        ...r,
-        targetAmount,
-        actualAmount,
-        targetCustomers,
-        actualCustomers,
-        amountPct: pct(actualAmount, targetAmount),
-        customerPct: pct(actualCustomers, targetCustomers),
-        hasTarget: targetAmount > 0 || targetCustomers > 0,
-      };
-    });
+    const map = new Map<string, {
+      officer_id: string;
+      officer_name: string;
+      branch_name: string;
+      months: Record<string, MonthData>;
+      targetAmount: number;
+      actualAmount: number;
+      targetCustomers: number;
+      actualCustomers: number;
+    }>();
+    for (const r of rows) {
+      let o = map.get(r.officer_id);
+      if (!o) {
+        o = {
+          officer_id: r.officer_id,
+          officer_name: r.officer_name,
+          branch_name: r.branch_name,
+          months: {},
+          targetAmount: 0,
+          actualAmount: 0,
+          targetCustomers: 0,
+          actualCustomers: 0,
+        };
+        map.set(r.officer_id, o);
+      }
+      const t = Number(r.target_amount) || 0;
+      const a = Number(r.actual_amount) || 0;
+      const tc = Number(r.target_customers) || 0;
+      const ac = Number(r.actual_customers) || 0;
+      const md = o.months[r.month] || { target: 0, actual: 0, targetCustomers: 0, actualCustomers: 0 };
+      md.target += t;
+      md.actual += a;
+      md.targetCustomers += tc;
+      md.actualCustomers += ac;
+      o.months[r.month] = md;
+      o.targetAmount += t;
+      o.actualAmount += a;
+      o.targetCustomers += tc;
+      o.actualCustomers += ac;
+    }
+    return Array.from(map.values()).map((o) => ({
+      ...o,
+      amountPct: pct(o.actualAmount, o.targetAmount),
+      customerPct: pct(o.actualCustomers, o.targetCustomers),
+      hasTarget: o.targetAmount > 0 || o.targetCustomers > 0,
+    }));
   }, [rows]);
+
+  const monthTotals = useMemo(() => {
+    const mt: Record<string, MonthData> = {};
+    for (const m of months) mt[m] = { target: 0, actual: 0, targetCustomers: 0, actualCustomers: 0 };
+    for (const o of data) {
+      for (const m of months) {
+        const md = o.months[m];
+        if (md) {
+          mt[m].target += md.target;
+          mt[m].actual += md.actual;
+          mt[m].targetCustomers += md.targetCustomers;
+          mt[m].actualCustomers += md.actualCustomers;
+        }
+      }
+    }
+    return mt;
+  }, [data, months]);
 
   const totals = useMemo(() => {
     const t = {
@@ -125,32 +194,48 @@ export default function OfficerPerformanceReport() {
   };
 
   const exportExcel = () => {
-    const out = data.map((r, i) => ({
-      "#": i + 1,
-      "Officer": r.officer_name,
-      "Branch": r.branch_name,
-      "Target Amount": r.targetAmount,
-      "Disbursed Amount": r.actualAmount,
-      "Amount %": r.hasTarget ? r.amountPct : "",
-      "Target Customers": r.targetCustomers,
-      "Actual Customers": r.actualCustomers,
-      "Customers %": r.targetCustomers > 0 ? r.customerPct : "",
-      "Status": !r.hasTarget ? "No Target" : r.targetAmount > 0 && r.actualAmount >= r.targetAmount ? "On Target" : "Below Target",
-    }));
-    out.push({
-      "#": "" as any,
-      "Officer": "TOTAL",
-      "Branch": "",
-      "Target Amount": totals.targetAmount,
-      "Disbursed Amount": totals.actualAmount,
-      "Amount %": overallPct as any,
-      "Target Customers": totals.targetCustomers,
-      "Actual Customers": totals.actualCustomers,
-      "Customers %": pct(totals.actualCustomers, totals.targetCustomers) as any,
-      "Status": "",
+    const out = data.map((r, i) => {
+      const row: Record<string, any> = {
+        "#": i + 1,
+        "Officer": r.officer_name,
+        "Branch": r.branch_name,
+      };
+      if (multiMonth) {
+        for (const m of months) {
+          const md = r.months[m];
+          row[`${monthLabel(m)} Target`] = md?.target || 0;
+          row[`${monthLabel(m)} Disbursed`] = md?.actual || 0;
+        }
+      }
+      row["Target Amount"] = r.targetAmount;
+      row["Disbursed Amount"] = r.actualAmount;
+      row["Amount %"] = r.hasTarget ? r.amountPct : "";
+      row["Target Customers"] = r.targetCustomers;
+      row["Actual Customers"] = r.actualCustomers;
+      row["Customers %"] = r.targetCustomers > 0 ? r.customerPct : "";
+      row["Status"] = !r.hasTarget ? "No Target" : r.targetAmount > 0 && r.actualAmount >= r.targetAmount ? "On Target" : "Below Target";
+      return row;
     });
+    const totalRow: Record<string, any> = { "#": "", "Officer": "TOTAL", "Branch": "" };
+    if (multiMonth) {
+      for (const m of months) {
+        totalRow[`${monthLabel(m)} Target`] = monthTotals[m]?.target || 0;
+        totalRow[`${monthLabel(m)} Disbursed`] = monthTotals[m]?.actual || 0;
+      }
+    }
+    totalRow["Target Amount"] = totals.targetAmount;
+    totalRow["Disbursed Amount"] = totals.actualAmount;
+    totalRow["Amount %"] = overallPct;
+    totalRow["Target Customers"] = totals.targetCustomers;
+    totalRow["Actual Customers"] = totals.actualCustomers;
+    totalRow["Customers %"] = pct(totals.actualCustomers, totals.targetCustomers);
+    totalRow["Status"] = "";
+    out.push(totalRow);
     const ws = XLSX.utils.json_to_sheet(out);
-    ws["!cols"] = [{ wch: 5 }, { wch: 24 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 10 }, { wch: 16 }, { wch: 16 }, { wch: 12 }, { wch: 14 }];
+    const cols = [{ wch: 5 }, { wch: 24 }, { wch: 16 }];
+    if (multiMonth) for (const _ of months) { cols.push({ wch: 14 }, { wch: 14 }); }
+    cols.push({ wch: 16 }, { wch: 16 }, { wch: 10 }, { wch: 16 }, { wch: 16 }, { wch: 12 }, { wch: 14 });
+    ws["!cols"] = cols;
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Officer Performance");
     XLSX.writeFile(wb, `Officer_Performance_${effFrom}_${effTo}.xlsx`);
@@ -171,22 +256,35 @@ export default function OfficerPerformanceReport() {
       { align: "center" }
     );
 
-    const body = data.map((r, i) => [
-      i + 1,
-      r.officer_name,
-      r.branch_name,
-      formatCurrency(r.targetAmount),
-      formatCurrency(r.actualAmount),
-      r.hasTarget ? `${r.amountPct}%` : "-",
-      r.targetCustomers,
-      r.actualCustomers,
-      r.targetCustomers > 0 ? `${r.customerPct}%` : "-",
-      !r.hasTarget ? "No Target" : r.targetAmount > 0 && r.actualAmount >= r.targetAmount ? "On Target" : "Below Target",
-    ]);
-    body.push([
-      "" as any,
-      "TOTAL",
-      "",
+    const monthCols = multiMonth ? months : [];
+    const head = ["#", "Officer", "Branch"];
+    for (const m of monthCols) {
+      head.push(`${monthLabel(m)} Target`, `${monthLabel(m)} Disb.`);
+    }
+    head.push("Target Amount", "Disbursed", "Amt %", "Tgt Cust", "Act Cust", "Cust %", "Status");
+
+    const body = data.map((r, i) => {
+      const row: any[] = [i + 1, r.officer_name, r.branch_name];
+      for (const m of monthCols) {
+        const md = r.months[m];
+        row.push(formatCurrency(md?.target || 0), formatCurrency(md?.actual || 0));
+      }
+      row.push(
+        formatCurrency(r.targetAmount),
+        formatCurrency(r.actualAmount),
+        r.hasTarget ? `${r.amountPct}%` : "-",
+        r.targetCustomers,
+        r.actualCustomers,
+        r.targetCustomers > 0 ? `${r.customerPct}%` : "-",
+        !r.hasTarget ? "No Target" : r.targetAmount > 0 && r.actualAmount >= r.targetAmount ? "On Target" : "Below Target",
+      );
+      return row;
+    });
+    const totalRow: any[] = ["", "TOTAL", ""];
+    for (const m of monthCols) {
+      totalRow.push(formatCurrency(monthTotals[m]?.target || 0), formatCurrency(monthTotals[m]?.actual || 0));
+    }
+    totalRow.push(
       formatCurrency(totals.targetAmount),
       formatCurrency(totals.actualAmount),
       `${overallPct}%`,
@@ -194,24 +292,31 @@ export default function OfficerPerformanceReport() {
       totals.actualCustomers,
       `${pct(totals.actualCustomers, totals.targetCustomers)}%`,
       "",
-    ]);
+    );
+    body.push(totalRow);
 
+    const columnStyles: Record<number, any> = { 0: { cellWidth: 8, halign: "center" } };
+    let ci = 3;
+    for (const _ of monthCols) {
+      columnStyles[ci++] = { halign: "right" };
+      columnStyles[ci++] = { halign: "right" };
+    }
+    columnStyles[ci] = { halign: "right" };
+    columnStyles[ci + 1] = { halign: "right" };
+    columnStyles[ci + 2] = { halign: "right" };
+    columnStyles[ci + 3] = { halign: "center" };
+    columnStyles[ci + 4] = { halign: "center" };
+    columnStyles[ci + 5] = { halign: "right" };
+
+    const fontSize = monthCols.length > 4 ? 6 : monthCols.length > 0 ? 7 : 8;
     autoTable(doc, {
       startY: 32,
-      head: [["#", "Officer", "Branch", "Target Amount", "Disbursed", "Amt %", "Tgt Cust", "Act Cust", "Cust %", "Status"]],
+      head: [head],
       body,
       theme: "grid",
-      headStyles: { fillColor: [34, 87, 122], textColor: 255, fontStyle: "bold", fontSize: 8 },
-      styles: { fontSize: 8, cellPadding: 1.5, overflow: "linebreak" },
-      columnStyles: {
-        0: { cellWidth: 8, halign: "center" },
-        3: { halign: "right" },
-        4: { halign: "right" },
-        5: { halign: "right" },
-        6: { halign: "center" },
-        7: { halign: "center" },
-        8: { halign: "right" },
-      },
+      headStyles: { fillColor: [34, 87, 122], textColor: 255, fontStyle: "bold", fontSize },
+      styles: { fontSize, cellPadding: 1.5, overflow: "linebreak" },
+      columnStyles,
     });
     doc.save(`Officer_Performance_${effFrom}_${effTo}.pdf`);
   };
@@ -328,64 +433,135 @@ export default function OfficerPerformanceReport() {
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Officer</TableHead>
-                    <TableHead>Branch</TableHead>
-                    <TableHead className="text-right">Target Amount</TableHead>
-                    <TableHead className="text-right">Disbursed</TableHead>
-                    <TableHead className="w-44">Amount Achieved</TableHead>
-                    <TableHead className="text-center">Target Cust.</TableHead>
-                    <TableHead className="text-center">Actual Cust.</TableHead>
-                    <TableHead className="w-44">Customers Achieved</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
+                  {multiMonth ? (
+                    <>
+                      <TableRow>
+                        <TableHead rowSpan={2} className="align-bottom">Officer</TableHead>
+                        <TableHead rowSpan={2} className="align-bottom">Branch</TableHead>
+                        {months.map((m) => (
+                          <TableHead key={m} colSpan={2} className="text-center border-l">{monthLabel(m)}</TableHead>
+                        ))}
+                        <TableHead rowSpan={2} className="text-right align-bottom border-l">Total Target</TableHead>
+                        <TableHead rowSpan={2} className="text-right align-bottom">Total Disbursed</TableHead>
+                        <TableHead rowSpan={2} className="text-right align-bottom">Amt %</TableHead>
+                        <TableHead rowSpan={2} className="text-center align-bottom">Target Cust.</TableHead>
+                        <TableHead rowSpan={2} className="text-center align-bottom">Actual Cust.</TableHead>
+                        <TableHead rowSpan={2} className="align-bottom">Status</TableHead>
+                      </TableRow>
+                      <TableRow>
+                        {months.map((m) => (
+                          <Fragment key={m}>
+                            <TableHead className="text-right text-xs border-l">Target</TableHead>
+                            <TableHead className="text-right text-xs">Disbursed</TableHead>
+                          </Fragment>
+                        ))}
+                      </TableRow>
+                    </>
+                  ) : (
+                    <TableRow>
+                      <TableHead>Officer</TableHead>
+                      <TableHead>Branch</TableHead>
+                      <TableHead className="text-right">Target Amount</TableHead>
+                      <TableHead className="text-right">Disbursed</TableHead>
+                      <TableHead className="w-44">Amount Achieved</TableHead>
+                      <TableHead className="text-center">Target Cust.</TableHead>
+                      <TableHead className="text-center">Actual Cust.</TableHead>
+                      <TableHead className="w-44">Customers Achieved</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  )}
                 </TableHeader>
                 <TableBody>
                   {data.map((r) => (
                     <TableRow key={r.officer_id} data-testid={`row-officer-${r.officer_id}`}>
                       <TableCell className="font-medium" data-testid={`text-officer-name-${r.officer_id}`}>{r.officer_name}</TableCell>
                       <TableCell className="text-muted-foreground">{r.branch_name || "-"}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(r.targetAmount)}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(r.actualAmount)}</TableCell>
-                      <TableCell>
-                        {r.targetAmount > 0 ? (
-                          <div className="flex items-center gap-2">
-                            <Progress value={Math.min(r.amountPct, 100)} className="h-2" />
-                            <span className={`text-xs font-semibold w-12 text-right ${pctColor(r.amountPct, true)}`}>{r.amountPct}%</span>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">No target</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-center">{r.targetCustomers}</TableCell>
-                      <TableCell className="text-center">{r.actualCustomers}</TableCell>
-                      <TableCell>
-                        {r.targetCustomers > 0 ? (
-                          <div className="flex items-center gap-2">
-                            <Progress value={Math.min(r.customerPct, 100)} className="h-2" />
-                            <span className={`text-xs font-semibold w-12 text-right ${pctColor(r.customerPct, true)}`}>{r.customerPct}%</span>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">No target</span>
-                        )}
-                      </TableCell>
-                      <TableCell>{statusBadge(r)}</TableCell>
+                      {multiMonth ? (
+                        <>
+                          {months.map((m) => {
+                            const md = r.months[m];
+                            return (
+                              <Fragment key={m}>
+                                <TableCell className="text-right text-xs font-mono border-l">{formatCurrency(md?.target || 0)}</TableCell>
+                                <TableCell className="text-right text-xs font-mono">{formatCurrency(md?.actual || 0)}</TableCell>
+                              </Fragment>
+                            );
+                          })}
+                          <TableCell className="text-right font-mono border-l">{formatCurrency(r.targetAmount)}</TableCell>
+                          <TableCell className="text-right font-mono">{formatCurrency(r.actualAmount)}</TableCell>
+                          <TableCell className={`text-right text-xs font-semibold ${pctColor(r.amountPct, r.targetAmount > 0)}`}>
+                            {r.targetAmount > 0 ? `${r.amountPct}%` : "-"}
+                          </TableCell>
+                          <TableCell className="text-center">{r.targetCustomers}</TableCell>
+                          <TableCell className="text-center">{r.actualCustomers}</TableCell>
+                          <TableCell>{statusBadge(r)}</TableCell>
+                        </>
+                      ) : (
+                        <>
+                          <TableCell className="text-right">{formatCurrency(r.targetAmount)}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(r.actualAmount)}</TableCell>
+                          <TableCell>
+                            {r.targetAmount > 0 ? (
+                              <div className="flex items-center gap-2">
+                                <Progress value={Math.min(r.amountPct, 100)} className="h-2" />
+                                <span className={`text-xs font-semibold w-12 text-right ${pctColor(r.amountPct, true)}`}>{r.amountPct}%</span>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">No target</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-center">{r.targetCustomers}</TableCell>
+                          <TableCell className="text-center">{r.actualCustomers}</TableCell>
+                          <TableCell>
+                            {r.targetCustomers > 0 ? (
+                              <div className="flex items-center gap-2">
+                                <Progress value={Math.min(r.customerPct, 100)} className="h-2" />
+                                <span className={`text-xs font-semibold w-12 text-right ${pctColor(r.customerPct, true)}`}>{r.customerPct}%</span>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">No target</span>
+                            )}
+                          </TableCell>
+                          <TableCell>{statusBadge(r)}</TableCell>
+                        </>
+                      )}
                     </TableRow>
                   ))}
                   <TableRow className="font-bold bg-muted/50">
                     <TableCell>TOTAL</TableCell>
                     <TableCell></TableCell>
-                    <TableCell className="text-right">{formatCurrency(totals.targetAmount)}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(totals.actualAmount)}</TableCell>
-                    <TableCell className={pctColor(overallPct, totals.targetAmount > 0)}>
-                      {totals.targetAmount > 0 ? `${overallPct}%` : "-"}
-                    </TableCell>
-                    <TableCell className="text-center">{totals.targetCustomers}</TableCell>
-                    <TableCell className="text-center">{totals.actualCustomers}</TableCell>
-                    <TableCell className={pctColor(pct(totals.actualCustomers, totals.targetCustomers), totals.targetCustomers > 0)}>
-                      {totals.targetCustomers > 0 ? `${pct(totals.actualCustomers, totals.targetCustomers)}%` : "-"}
-                    </TableCell>
-                    <TableCell></TableCell>
+                    {multiMonth ? (
+                      <>
+                        {months.map((m) => (
+                          <Fragment key={m}>
+                            <TableCell className="text-right text-xs font-mono border-l">{formatCurrency(monthTotals[m]?.target || 0)}</TableCell>
+                            <TableCell className="text-right text-xs font-mono">{formatCurrency(monthTotals[m]?.actual || 0)}</TableCell>
+                          </Fragment>
+                        ))}
+                        <TableCell className="text-right font-mono border-l">{formatCurrency(totals.targetAmount)}</TableCell>
+                        <TableCell className="text-right font-mono">{formatCurrency(totals.actualAmount)}</TableCell>
+                        <TableCell className={`text-right text-xs ${pctColor(overallPct, totals.targetAmount > 0)}`}>
+                          {totals.targetAmount > 0 ? `${overallPct}%` : "-"}
+                        </TableCell>
+                        <TableCell className="text-center">{totals.targetCustomers}</TableCell>
+                        <TableCell className="text-center">{totals.actualCustomers}</TableCell>
+                        <TableCell></TableCell>
+                      </>
+                    ) : (
+                      <>
+                        <TableCell className="text-right">{formatCurrency(totals.targetAmount)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(totals.actualAmount)}</TableCell>
+                        <TableCell className={pctColor(overallPct, totals.targetAmount > 0)}>
+                          {totals.targetAmount > 0 ? `${overallPct}%` : "-"}
+                        </TableCell>
+                        <TableCell className="text-center">{totals.targetCustomers}</TableCell>
+                        <TableCell className="text-center">{totals.actualCustomers}</TableCell>
+                        <TableCell className={pctColor(pct(totals.actualCustomers, totals.targetCustomers), totals.targetCustomers > 0)}>
+                          {totals.targetCustomers > 0 ? `${pct(totals.actualCustomers, totals.targetCustomers)}%` : "-"}
+                        </TableCell>
+                        <TableCell></TableCell>
+                      </>
+                    )}
                   </TableRow>
                 </TableBody>
               </Table>

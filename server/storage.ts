@@ -4685,6 +4685,7 @@ export class DatabaseStorage implements IStorage {
       WITH target_agg AS (
         SELECT
           dt.finance_officer_id,
+          dt.target_month_year AS month,
           SUM(dt.target_disbursement_amount::numeric) AS target_amount,
           SUM(dt.target_no_of_customer) AS target_customers
         FROM disbursement_targets dt
@@ -4692,10 +4693,10 @@ export class DatabaseStorage implements IStorage {
           AND dt.target_month_year >= ${fromMonth}
           AND dt.target_month_year <= ${toMonth}
           ${targetBranchFilter}
-        GROUP BY dt.finance_officer_id
+        GROUP BY dt.finance_officer_id, dt.target_month_year
       ),
       disbursed_loans AS (
-        SELECT DISTINCT l.id, l.finance_officer_id, l.principle_amount
+        SELECT DISTINCT l.id, l.finance_officer_id, l.principle_amount, TO_CHAR(d.disbursement_date, 'YYYY-MM') AS month
         FROM disbursements d
         JOIN loans l ON l.id = d.loan_id
         WHERE l.finance_officer_id IS NOT NULL
@@ -4708,26 +4709,39 @@ export class DatabaseStorage implements IStorage {
       actual_agg AS (
         SELECT
           finance_officer_id,
+          month,
           COALESCE(SUM(principle_amount::numeric), 0) AS actual_amount,
           COUNT(DISTINCT id) AS actual_customers
         FROM disbursed_loans
-        GROUP BY finance_officer_id
+        GROUP BY finance_officer_id, month
+      ),
+      combined AS (
+        SELECT
+          COALESCE(t.finance_officer_id, a.finance_officer_id) AS finance_officer_id,
+          COALESCE(t.month, a.month) AS month,
+          COALESCE(t.target_amount, 0) AS target_amount,
+          COALESCE(t.target_customers, 0) AS target_customers,
+          COALESCE(a.actual_amount, 0) AS actual_amount,
+          COALESCE(a.actual_customers, 0) AS actual_customers
+        FROM target_agg t
+        FULL OUTER JOIN actual_agg a
+          ON a.finance_officer_id = t.finance_officer_id AND a.month = t.month
       )
       SELECT
         fo.id AS officer_id,
         fo.name AS officer_name,
         COALESCE(b.name, '') AS branch_name,
-        COALESCE(t.target_amount, 0) AS target_amount,
-        COALESCE(t.target_customers, 0) AS target_customers,
-        COALESCE(a.actual_amount, 0) AS actual_amount,
-        COALESCE(a.actual_customers, 0) AS actual_customers
-      FROM finance_officers fo
-      LEFT JOIN target_agg t ON t.finance_officer_id = fo.id
-      LEFT JOIN actual_agg a ON a.finance_officer_id = fo.id
+        c.month,
+        c.target_amount,
+        c.target_customers,
+        c.actual_amount,
+        c.actual_customers
+      FROM combined c
+      JOIN finance_officers fo ON fo.id = c.finance_officer_id
       LEFT JOIN branches b ON fo.branch_id = b.id
-      WHERE (t.finance_officer_id IS NOT NULL OR a.finance_officer_id IS NOT NULL)
+      WHERE 1=1
         ${officerBranchFilter}
-      ORDER BY fo.name
+      ORDER BY fo.name, c.month
     `);
     return result.rows as any[];
   }
