@@ -205,6 +205,8 @@ export default function OfficerPerformanceReport() {
           const md = r.months[m];
           row[`${monthLabel(m)} Target`] = md?.target || 0;
           row[`${monthLabel(m)} Disbursed`] = md?.actual || 0;
+          row[`${monthLabel(m)} Tgt Cust`] = md?.targetCustomers || 0;
+          row[`${monthLabel(m)} Act Cust`] = md?.actualCustomers || 0;
         }
       }
       row["Target Amount"] = r.targetAmount;
@@ -221,6 +223,8 @@ export default function OfficerPerformanceReport() {
       for (const m of months) {
         totalRow[`${monthLabel(m)} Target`] = monthTotals[m]?.target || 0;
         totalRow[`${monthLabel(m)} Disbursed`] = monthTotals[m]?.actual || 0;
+        totalRow[`${monthLabel(m)} Tgt Cust`] = monthTotals[m]?.targetCustomers || 0;
+        totalRow[`${monthLabel(m)} Act Cust`] = monthTotals[m]?.actualCustomers || 0;
       }
     }
     totalRow["Target Amount"] = totals.targetAmount;
@@ -233,7 +237,7 @@ export default function OfficerPerformanceReport() {
     out.push(totalRow);
     const ws = XLSX.utils.json_to_sheet(out);
     const cols = [{ wch: 5 }, { wch: 24 }, { wch: 16 }];
-    if (multiMonth) for (const _ of months) { cols.push({ wch: 14 }, { wch: 14 }); }
+    if (multiMonth) for (const _ of months) { cols.push({ wch: 14 }, { wch: 14 }, { wch: 9 }, { wch: 9 }); }
     cols.push({ wch: 16 }, { wch: 16 }, { wch: 10 }, { wch: 16 }, { wch: 16 }, { wch: 12 }, { wch: 14 });
     ws["!cols"] = cols;
     const wb = XLSX.utils.book_new();
@@ -259,7 +263,7 @@ export default function OfficerPerformanceReport() {
     const monthCols = multiMonth ? months : [];
     const head = ["#", "Officer", "Branch"];
     for (const m of monthCols) {
-      head.push(`${monthLabel(m)} Target`, `${monthLabel(m)} Disb.`);
+      head.push(`${monthLabel(m)} Target`, `${monthLabel(m)} Disb.`, `${monthLabel(m)} Tgt Cust`, `${monthLabel(m)} Act Cust`);
     }
     head.push("Target Amount", "Disbursed", "Amt %", "Tgt Cust", "Act Cust", "Cust %", "Status");
 
@@ -267,7 +271,7 @@ export default function OfficerPerformanceReport() {
       const row: any[] = [i + 1, r.officer_name, r.branch_name];
       for (const m of monthCols) {
         const md = r.months[m];
-        row.push(formatCurrency(md?.target || 0), formatCurrency(md?.actual || 0));
+        row.push(formatCurrency(md?.target || 0), formatCurrency(md?.actual || 0), md?.targetCustomers || 0, md?.actualCustomers || 0);
       }
       row.push(
         formatCurrency(r.targetAmount),
@@ -282,7 +286,12 @@ export default function OfficerPerformanceReport() {
     });
     const totalRow: any[] = ["", "TOTAL", ""];
     for (const m of monthCols) {
-      totalRow.push(formatCurrency(monthTotals[m]?.target || 0), formatCurrency(monthTotals[m]?.actual || 0));
+      totalRow.push(
+        formatCurrency(monthTotals[m]?.target || 0),
+        formatCurrency(monthTotals[m]?.actual || 0),
+        monthTotals[m]?.targetCustomers || 0,
+        monthTotals[m]?.actualCustomers || 0,
+      );
     }
     totalRow.push(
       formatCurrency(totals.targetAmount),
@@ -300,6 +309,8 @@ export default function OfficerPerformanceReport() {
     for (const _ of monthCols) {
       columnStyles[ci++] = { halign: "right" };
       columnStyles[ci++] = { halign: "right" };
+      columnStyles[ci++] = { halign: "center" };
+      columnStyles[ci++] = { halign: "center" };
     }
     columnStyles[ci] = { halign: "right" };
     columnStyles[ci + 1] = { halign: "right" };
@@ -308,7 +319,7 @@ export default function OfficerPerformanceReport() {
     columnStyles[ci + 4] = { halign: "center" };
     columnStyles[ci + 5] = { halign: "right" };
 
-    const fontSize = monthCols.length > 4 ? 6 : monthCols.length > 0 ? 7 : 8;
+    const fontSize = monthCols.length > 2 ? 5.5 : monthCols.length > 0 ? 7 : 8;
     autoTable(doc, {
       startY: 32,
       head: [head],
@@ -439,7 +450,7 @@ export default function OfficerPerformanceReport() {
                         <TableHead rowSpan={2} className="align-bottom">Officer</TableHead>
                         <TableHead rowSpan={2} className="align-bottom">Branch</TableHead>
                         {months.map((m) => (
-                          <TableHead key={m} colSpan={2} className="text-center border-l">{monthLabel(m)}</TableHead>
+                          <TableHead key={m} colSpan={4} className="text-center border-l">{monthLabel(m)}</TableHead>
                         ))}
                         <TableHead rowSpan={2} className="text-right align-bottom border-l">Total Target</TableHead>
                         <TableHead rowSpan={2} className="text-right align-bottom">Total Disbursed</TableHead>
@@ -453,6 +464,8 @@ export default function OfficerPerformanceReport() {
                           <Fragment key={m}>
                             <TableHead className="text-right text-xs border-l">Target</TableHead>
                             <TableHead className="text-right text-xs">Disbursed</TableHead>
+                            <TableHead className="text-center text-xs">Tgt Cust</TableHead>
+                            <TableHead className="text-center text-xs">Act Cust</TableHead>
                           </Fragment>
                         ))}
                       </TableRow>
@@ -484,6 +497,8 @@ export default function OfficerPerformanceReport() {
                               <Fragment key={m}>
                                 <TableCell className="text-right text-xs font-mono border-l">{formatCurrency(md?.target || 0)}</TableCell>
                                 <TableCell className="text-right text-xs font-mono">{formatCurrency(md?.actual || 0)}</TableCell>
+                                <TableCell className="text-center text-xs">{md?.targetCustomers || 0}</TableCell>
+                                <TableCell className="text-center text-xs">{md?.actualCustomers || 0}</TableCell>
                               </Fragment>
                             );
                           })}
@@ -536,6 +551,8 @@ export default function OfficerPerformanceReport() {
                           <Fragment key={m}>
                             <TableCell className="text-right text-xs font-mono border-l">{formatCurrency(monthTotals[m]?.target || 0)}</TableCell>
                             <TableCell className="text-right text-xs font-mono">{formatCurrency(monthTotals[m]?.actual || 0)}</TableCell>
+                            <TableCell className="text-center text-xs">{monthTotals[m]?.targetCustomers || 0}</TableCell>
+                            <TableCell className="text-center text-xs">{monthTotals[m]?.actualCustomers || 0}</TableCell>
                           </Fragment>
                         ))}
                         <TableCell className="text-right font-mono border-l">{formatCurrency(totals.targetAmount)}</TableCell>
