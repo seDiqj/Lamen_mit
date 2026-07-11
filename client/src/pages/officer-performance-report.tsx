@@ -254,7 +254,7 @@ export default function OfficerPerformanceReport() {
     doc.setFont("helvetica", "normal");
     doc.text(`Period: ${rangeLabel}`, 148, 21, { align: "center" });
     doc.text(
-      `Total Target: ${formatCurrency(totals.targetAmount)}    Total Disbursed: ${formatCurrency(totals.actualAmount)}    Achievement: ${overallPct}%    On Target: ${totals.onTarget}/${totals.withTarget}`,
+      `Total Target: ${formatCurrency(totals.targetAmount)}    Total Disbursed: ${formatCurrency(totals.actualAmount)}    Achievement: ${overallPct}%    Target Cust: ${totals.targetCustomers}    Actual Cust: ${totals.actualCustomers}    On Target: ${totals.onTarget}/${totals.withTarget}`,
       148,
       27,
       { align: "center" }
@@ -394,6 +394,7 @@ export default function OfficerPerformanceReport() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-total-target">{formatCurrency(totals.targetAmount)}</div>
+            <p className="text-xs text-muted-foreground mt-1" data-testid="text-total-target-customers">{totals.targetCustomers} target customers</p>
           </CardContent>
         </Card>
         <Card>
@@ -403,6 +404,7 @@ export default function OfficerPerformanceReport() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-total-disbursed">{formatCurrency(totals.actualAmount)}</div>
+            <p className="text-xs text-muted-foreground mt-1" data-testid="text-total-actual-customers">{totals.actualCustomers} actual customers</p>
           </CardContent>
         </Card>
         <Card>
