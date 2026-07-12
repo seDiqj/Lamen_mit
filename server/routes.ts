@@ -4481,6 +4481,17 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/installments/repayment-summary", isAuthenticated, async (req, res) => {
+    try {
+      const effectiveBranch = await getEffectiveBranchId(req);
+      const result = await storage.getLoanRepaymentSummary(effectiveBranch || undefined);
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching repayment summary:", error);
+      res.status(500).json({ message: "Failed to fetch repayment summary" });
+    }
+  });
+
   app.get("/api/installments", isAuthenticated, async (req, res) => {
     try {
       const { search, page, limit, currentMonthOnly, paidOnly, customerName, applicationId, branchId, startDate, endDate } = req.query;

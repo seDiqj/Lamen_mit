@@ -199,8 +199,17 @@ export default function PaymentsPage() {
     queryKey: ["/api/payment-stats"],
   });
 
-  const { data: allInstallmentsData, isLoading: installmentsLoading } = useQuery<{ installments: SummaryInstallment[]; total: number }>({
-    queryKey: ["/api/installments?page=1&limit=2000"],
+  const { data: repaymentSummaryData, isLoading: installmentsLoading } = useQuery<{
+    byLoan: { loan_id: string; total_repaid: string; paid_count: string; total_count: string }[];
+    totalPrincipalRepaid: number;
+    totalMarginRepaid: number;
+  }>({
+    queryKey: ["/api/installments", "repayment-summary"],
+    queryFn: async () => {
+      const res = await fetch(`/api/installments/repayment-summary`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch repayment summary");
+      return res.json();
+    },
     enabled: activeTab === "summary",
   });
 
@@ -210,18 +219,34 @@ export default function PaymentsPage() {
   });
 
   const allLoans = loansData?.loans || [];
-  const allInstallments = allInstallmentsData?.installments || [];
+  const repaymentByLoan = new Map<string, { totalRepaid: number; paidCount: number; totalCount: number }>();
+  (repaymentSummaryData?.byLoan || []).forEach((r) => {
+    repaymentByLoan.set(r.loan_id, {
+      totalRepaid: Number(r.total_repaid || 0),
+      paidCount: Number(r.paid_count || 0),
+      totalCount: Number(r.total_count || 0),
+    });
+  });
 
   const getLoanRepayment = (loan: LoanItem) => {
     const directInstallments = selectedLoanInstallments && selectedLoan?.id === loan.id ? selectedLoanInstallments : [];
-    const fallbackInstallments = allInstallments.filter((i) => i.loanId === loan.id);
-    const loanInstallments = directInstallments.length > 0 ? directInstallments : fallbackInstallments;
-    const paidInstallments = loanInstallments.filter((i) => i.isPaid);
-    const totalRepaid = paidInstallments.reduce((sum, i) => sum + parseFloat(i.paidAmount || i.totalAmount || "0"), 0);
+    let totalRepaid: number;
+    let paidCount: number;
+    let totalCount: number;
+    if (directInstallments.length > 0) {
+      totalRepaid = directInstallments.reduce((sum, i) => sum + parseFloat(i.paidAmount || (i.isPaid ? i.totalAmount || "0" : "0")), 0);
+      paidCount = directInstallments.filter((i) => i.isPaid).length;
+      totalCount = directInstallments.length;
+    } else {
+      const agg = repaymentByLoan.get(loan.id);
+      totalRepaid = agg?.totalRepaid || 0;
+      paidCount = agg?.paidCount || 0;
+      totalCount = agg?.totalCount || 0;
+    }
     const { financingAmount } = calcFinancing(loan);
     const totalTarget = parseFloat(loan.totalReceivable || "0") || financingAmount;
     const progress = totalTarget > 0 ? Math.min((totalRepaid / totalTarget) * 100, 100) : 0;
-    return { totalRepaid, totalTarget, progress, paidCount: paidInstallments.length, totalCount: loanInstallments.length };
+    return { totalRepaid, totalTarget, progress, paidCount, totalCount };
   };
 
   const filteredLoans = allLoans.filter((loan) => {
@@ -240,9 +265,8 @@ export default function PaymentsPage() {
   const totalDisbursed = filteredLoans.reduce((sum, l) => sum + calcFinancing(l).principal, 0);
   const totalProfit = filteredLoans.reduce((sum, l) => sum + parseFloat(l.profit || "0"), 0);
 
-  const paidInstallmentsAll = allInstallments.filter((i) => i.isPaid);
-  const totalPrincipalRepaid = paidInstallmentsAll.reduce((sum, i) => sum + parseFloat(i.principleAmount || "0"), 0);
-  const totalMarginRepaid = paidInstallmentsAll.reduce((sum, i) => sum + parseFloat(i.marginAmount || "0"), 0);
+  const totalPrincipalRepaid = repaymentSummaryData?.totalPrincipalRepaid || 0;
+  const totalMarginRepaid = repaymentSummaryData?.totalMarginRepaid || 0;
 
   const markPaidMutation = useMutation({
     mutationFn: async (installmentId: string) => {
@@ -315,9 +339,7 @@ export default function PaymentsPage() {
 
   const getStatementData = (loan: LoanItem) => {
     const directInstallments = selectedLoanInstallments && selectedLoan?.id === loan.id ? selectedLoanInstallments : [];
-    const fallbackInstallments = allInstallments.filter((i) => i.loanId === loan.id);
-    const loanInstallments = (directInstallments.length > 0 ? directInstallments : fallbackInstallments)
-      .sort((a, b) => a.installmentNumber - b.installmentNumber);
+    const loanInstallments = [...directInstallments].sort((a, b) => a.installmentNumber - b.installmentNumber);
     const fc = calcFinancing(loan);
     const totalFinancing = parseFloat(loan.totalReceivable || "0") || fc.financingAmount;
     let runningBalance = totalFinancing;

@@ -303,6 +303,7 @@ export interface IStorage {
   getLoansByCustomer(customerId: string): Promise<any[]>;
   getDisbursementByLoan(loanId: string): Promise<any>;
   getInstallmentsByLoan(loanId: string): Promise<any[]>;
+  getLoanRepaymentSummary(branchId?: string): Promise<{ byLoan: any[]; totalPrincipalRepaid: number; totalMarginRepaid: number }>;
   getFinanceOfficersByBranch(branchId: string): Promise<any[]>;
   getFinanceOfficer(id: string): Promise<any>;
 
@@ -1797,6 +1798,35 @@ export class DatabaseStorage implements IStorage {
 
   async getInstallmentsByLoan(loanId: string): Promise<any[]> {
     return db.select().from(installments).where(eq(installments.loanId, loanId)).orderBy(installments.installmentNumber);
+  }
+
+  async getLoanRepaymentSummary(branchId?: string): Promise<{ byLoan: any[]; totalPrincipalRepaid: number; totalMarginRepaid: number }> {
+    const branchFilter = branchId ? sql`WHERE l.branch_id = ${branchId}` : sql``;
+    const byLoanResult = await db.execute(sql`
+      SELECT
+        i.loan_id,
+        COALESCE(SUM(COALESCE(i.paid_amount::numeric, CASE WHEN i.is_paid THEN i.total_amount::numeric ELSE 0 END)), 0) AS total_repaid,
+        COUNT(*) FILTER (WHERE i.is_paid) AS paid_count,
+        COUNT(*) AS total_count
+      FROM installments i
+      JOIN loans l ON i.loan_id = l.id
+      ${branchFilter}
+      GROUP BY i.loan_id
+    `);
+    const globalResult = await db.execute(sql`
+      SELECT
+        COALESCE(SUM(i.principle_amount::numeric) FILTER (WHERE i.is_paid), 0) AS total_principal_repaid,
+        COALESCE(SUM(i.margin_amount::numeric) FILTER (WHERE i.is_paid), 0) AS total_margin_repaid
+      FROM installments i
+      JOIN loans l ON i.loan_id = l.id
+      ${branchFilter}
+    `);
+    const g = globalResult.rows[0] as any;
+    return {
+      byLoan: byLoanResult.rows as any[],
+      totalPrincipalRepaid: Number(g?.total_principal_repaid || 0),
+      totalMarginRepaid: Number(g?.total_margin_repaid || 0),
+    };
   }
 
   async getFinanceOfficersByBranch(branchId: string): Promise<any[]> {
