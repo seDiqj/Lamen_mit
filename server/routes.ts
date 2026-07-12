@@ -5500,7 +5500,7 @@ export async function registerRoutes(
   });
 
   // ===== PAR ANALYSIS =====
-  app.get("/api/reports/par-analysis", isAuthenticated, requirePageAccess("reports"), async (req, res) => {
+  app.get("/api/reports/par-analysis", isAuthenticated, requirePageAccess(["reports", "par-report"]), async (req, res) => {
     try {
       const startDate = typeof req.query.startDate === "string" && req.query.startDate ? req.query.startDate : undefined;
       const endDate = typeof req.query.endDate === "string" && req.query.endDate ? req.query.endDate : undefined;
@@ -5522,7 +5522,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/reports/par-by-branch", isAuthenticated, requirePageAccess("reports"), async (req, res) => {
+  app.get("/api/reports/par-by-branch", isAuthenticated, requirePageAccess(["reports", "par-report"]), async (req, res) => {
     try {
       const data = await storage.getParByBranch();
       res.json(data);
@@ -5532,7 +5532,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/reports/par-by-officer", isAuthenticated, requirePageAccess("reports"), async (req, res) => {
+  app.get("/api/reports/par-by-officer", isAuthenticated, requirePageAccess(["reports", "par-report"]), async (req, res) => {
     try {
       const data = await storage.getParByOfficer();
       res.json(data);
@@ -5542,7 +5542,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/reports/par-by-product", isAuthenticated, requirePageAccess("reports"), async (req, res) => {
+  app.get("/api/reports/par-by-product", isAuthenticated, requirePageAccess(["reports", "par-report"]), async (req, res) => {
     try {
       const data = await storage.getParByProduct();
       res.json(data);
@@ -5552,7 +5552,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/reports/aging", isAuthenticated, requirePageAccess("reports"), async (req, res) => {
+  app.get("/api/reports/aging", isAuthenticated, requirePageAccess(["reports", "par-report"]), async (req, res) => {
     try {
       const data = await storage.getAgingReport();
       res.json(data);
@@ -5563,7 +5563,7 @@ export async function registerRoutes(
   });
 
   // PAR Loans Detail Endpoints
-  app.get("/api/reports/par-loans/category/:categoryId", isAuthenticated, requirePageAccess("reports"), async (req, res) => {
+  app.get("/api/reports/par-loans/category/:categoryId", isAuthenticated, requirePageAccess(["reports", "par-report"]), async (req, res) => {
     try {
       const categoryId = parseInt(req.params.categoryId);
       const loans = await storage.getLoansByParCategory(categoryId);
@@ -5574,7 +5574,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/reports/par-loans/branch/:branchName", isAuthenticated, requirePageAccess("reports"), async (req, res) => {
+  app.get("/api/reports/par-loans/branch/:branchName", isAuthenticated, requirePageAccess(["reports", "par-report"]), async (req, res) => {
     try {
       const branchName = decodeURIComponent(req.params.branchName);
       const loans = await storage.getLoansByBranch(branchName);
@@ -5585,7 +5585,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/reports/par-loans/officer/:officerName", isAuthenticated, requirePageAccess("reports"), async (req, res) => {
+  app.get("/api/reports/par-loans/officer/:officerName", isAuthenticated, requirePageAccess(["reports", "par-report"]), async (req, res) => {
     try {
       const officerName = decodeURIComponent(req.params.officerName);
       const loans = await storage.getLoansByOfficer(officerName);
@@ -5596,7 +5596,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/reports/par-loans/product/:productName", isAuthenticated, requirePageAccess("reports"), async (req, res) => {
+  app.get("/api/reports/par-loans/product/:productName", isAuthenticated, requirePageAccess(["reports", "par-report"]), async (req, res) => {
     try {
       const productName = decodeURIComponent(req.params.productName);
       const loans = await storage.getLoansByProduct(productName);
