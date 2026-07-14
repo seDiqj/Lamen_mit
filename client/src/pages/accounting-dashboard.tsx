@@ -21,6 +21,17 @@ import {
   Scale,
 } from "lucide-react";
 
+type UnbalancedEntry = {
+  id: string;
+  entryNumber: string;
+  entryDate: string;
+  description: string;
+  isPosted: boolean;
+  lineDebit: string;
+  lineCredit: string;
+  difference: string;
+};
+
 type DashboardData = {
   totalAccounts: number;
   activeAccounts: number;
@@ -132,6 +143,10 @@ export default function AccountingDashboard() {
       if (!response.ok) throw new Error("Failed to fetch");
       return response.json();
     },
+  });
+
+  const { data: unbalancedEntries } = useQuery<UnbalancedEntry[]>({
+    queryKey: ["/api/journal-entries", "unbalanced"],
   });
 
   if (isLoading) {
@@ -390,6 +405,47 @@ export default function AccountingDashboard() {
               <Link href="/trial-balance" className="text-xs text-blue-600 hover:underline flex items-center gap-1">
                 View Trial Balance <ArrowRight className="h-3 w-3" />
               </Link>
+            </CardContent>
+          </Card>
+
+          <Card className="border shadow-sm" data-testid="card-unbalanced-entries">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className={`h-5 w-5 ${(unbalancedEntries?.length || 0) > 0 ? "text-red-500" : "text-emerald-500"}`} />
+                <CardTitle className="text-base font-semibold">Unbalanced Entries</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {!unbalancedEntries || unbalancedEntries.length === 0 ? (
+                <div className="flex items-center gap-2 text-sm text-emerald-700" data-testid="text-no-unbalanced">
+                  <CheckCircle2 className="h-4 w-4" /> All journal entries are balanced
+                </div>
+              ) : (
+                <>
+                  <p className="text-xs text-red-600 font-medium" data-testid="text-unbalanced-count">
+                    {unbalancedEntries.length} entr{unbalancedEntries.length === 1 ? "y" : "ies"} where debits do not equal credits
+                  </p>
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {unbalancedEntries.map((e) => (
+                      <div key={e.id} className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20 p-2.5" data-testid={`row-unbalanced-${e.id}`}>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-semibold">{e.entryNumber}</span>
+                          <Badge variant="outline" className="text-red-700 border-red-300">
+                            Diff {formatCurrency(Number(e.difference))}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate">{e.description}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {new Date(e.entryDate).toLocaleDateString()} · Dr {formatCurrency(Number(e.lineDebit))} / Cr {formatCurrency(Number(e.lineCredit))} · {e.isPosted ? "Posted" : "Draft"}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  <Link href="/journal-entries" className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+                    Open Journal Entries <ArrowRight className="h-3 w-3" />
+                  </Link>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>

@@ -5595,7 +5595,11 @@ export class DatabaseStorage implements IStorage {
   async createJournalEntry(header: InsertJournalEntry, lines: InsertJournalLine[]): Promise<JournalEntry> {
     const totalDebit = lines.reduce((sum, line) => sum + Number(line.debitAmount || 0), 0);
     const totalCredit = lines.reduce((sum, line) => sum + Number(line.creditAmount || 0), 0);
-    
+
+    if (Math.round(totalDebit * 100) !== Math.round(totalCredit * 100)) {
+      throw new Error(`Journal entry is not balanced: debits ${totalDebit.toFixed(2)} do not equal credits ${totalCredit.toFixed(2)}`);
+    }
+
     return await db.transaction(async (tx) => {
       const [entry] = await tx.insert(journalEntries).values({
         ...header,

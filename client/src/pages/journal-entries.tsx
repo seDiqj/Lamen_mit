@@ -347,7 +347,7 @@ export default function JournalEntries() {
 
   const totalDebit = lines.reduce((sum, l) => sum + Number(l.debitAmount || 0), 0);
   const totalCredit = lines.reduce((sum, l) => sum + Number(l.creditAmount || 0), 0);
-  const isBalanced = Math.abs(totalDebit - totalCredit) < 0.01;
+  const isBalanced = Math.round(totalDebit * 100) === Math.round(totalCredit * 100);
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -651,7 +651,7 @@ export default function JournalEntries() {
       </Card>
 
       <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Journal Entry: {selectedEntry?.entryNumber}</DialogTitle>
           </DialogHeader>

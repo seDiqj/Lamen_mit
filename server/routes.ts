@@ -6594,6 +6594,30 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/journal-entries/unbalanced", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
+    try {
+      const rows = await db.execute(sql`
+        SELECT je.id, je.entry_number AS "entryNumber", je.entry_date AS "entryDate",
+               je.description, je.is_posted AS "isPosted",
+               COALESCE(SUM(CAST(jl.debit_amount AS numeric)), 0) AS "lineDebit",
+               COALESCE(SUM(CAST(jl.credit_amount AS numeric)), 0) AS "lineCredit"
+        FROM journal_entries je
+        LEFT JOIN journal_lines jl ON jl.journal_entry_id = je.id
+        GROUP BY je.id, je.entry_number, je.entry_date, je.description, je.is_posted
+        HAVING ROUND(COALESCE(SUM(CAST(jl.debit_amount AS numeric)), 0) * 100) <> ROUND(COALESCE(SUM(CAST(jl.credit_amount AS numeric)), 0) * 100)
+        ORDER BY je.entry_date DESC
+      `);
+      const entries = (rows.rows as any[]).map(r => ({
+        ...r,
+        difference: (Number(r.lineDebit) - Number(r.lineCredit)).toFixed(2),
+      }));
+      res.json(entries);
+    } catch (error) {
+      console.error("Error fetching unbalanced journal entries:", error);
+      res.status(500).json({ message: "Failed to fetch unbalanced journal entries" });
+    }
+  });
+
   app.get("/api/journal-entries/:id", isAuthenticated, async (req, res) => {
     try {
       const entry = await storage.getJournalEntry(req.params.id);
@@ -6648,8 +6672,8 @@ export async function registerRoutes(
       const totalDebit = lines.reduce((sum: number, line: any) => sum + Number(line.debitAmount || 0), 0);
       const totalCredit = lines.reduce((sum: number, line: any) => sum + Number(line.creditAmount || 0), 0);
       
-      if (Math.abs(totalDebit - totalCredit) > 0.01) {
-        return res.status(400).json({ message: "Total debits must equal total credits" });
+      if (Math.round(totalDebit * 100) !== Math.round(totalCredit * 100)) {
+        return res.status(400).json({ message: "Total debits must equal total credits (to the exact cent)" });
       }
       
       if (totalDebit === 0) {
@@ -6713,8 +6737,8 @@ export async function registerRoutes(
       const totalCredit = lines.reduce((sum: number, l: any) => sum + Number(l.creditAmount || 0), 0);
       
       // Check balance
-      if (Math.abs(totalDebit - totalCredit) > 0.01) {
-        return res.status(400).json({ message: "Debits must equal credits" });
+      if (Math.round(totalDebit * 100) !== Math.round(totalCredit * 100)) {
+        return res.status(400).json({ message: "Debits must equal credits (to the exact cent)" });
       }
       
       // Update entry
