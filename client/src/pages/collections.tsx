@@ -554,7 +554,7 @@ export default function CollectionsPage() {
           <CardContent className="pt-4 pb-3">
             <div className="flex items-center justify-between gap-2">
               <div>
-                <p className="text-xs text-muted-foreground">Upcoming (3 days)</p>
+                <p className="text-xs text-muted-foreground">Upcoming (5 days)</p>
                 <p className="text-2xl font-bold" data-testid="text-upcoming-count">{summary?.upcomingCount || 0}</p>
               </div>
               <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center shadow-lg">
@@ -621,7 +621,7 @@ export default function CollectionsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="due_soon">Due Soon & Overdue</SelectItem>
-                <SelectItem value="upcoming">Upcoming (3 days)</SelectItem>
+                <SelectItem value="upcoming">Upcoming (5 days)</SelectItem>
                 <SelectItem value="overdue">Overdue Only</SelectItem>
                 <SelectItem value="partial">Partial Payments</SelectItem>
                 <SelectItem value="all_unpaid">All Unpaid</SelectItem>

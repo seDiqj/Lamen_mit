@@ -1957,16 +1957,16 @@ export class DatabaseStorage implements IStorage {
     const { filter = "upcoming", branch, officer, search, startDate, endDate, page = 1, limit = 20 } = filters;
     const offset = (page - 1) * limit;
     const today = new Date().toISOString().split("T")[0];
-    const threeDaysLater = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    const fiveDaysLater = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
     const conditions: any[] = [];
 
     conditions.push(sql`COALESCE(${installments.totalAmount}::numeric, 0) > 0`);
 
     if (filter === "upcoming") {
-      conditions.push(sql`${installments.isPaid} = false AND ${installments.dueDate}::date > ${today}::date AND ${installments.dueDate}::date <= ${threeDaysLater}::date`);
+      conditions.push(sql`${installments.isPaid} = false AND ${installments.dueDate}::date > ${today}::date AND ${installments.dueDate}::date <= ${fiveDaysLater}::date`);
     } else if (filter === "due_soon") {
-      conditions.push(sql`${installments.isPaid} = false AND ${installments.dueDate}::date <= ${threeDaysLater}::date`);
+      conditions.push(sql`${installments.isPaid} = false AND ${installments.dueDate}::date <= ${fiveDaysLater}::date`);
     } else if (filter === "overdue") {
       conditions.push(sql`${installments.isPaid} = false AND ${installments.dueDate}::date <= ${today}::date`);
     } else if (filter === "partial") {
@@ -2057,11 +2057,11 @@ export class DatabaseStorage implements IStorage {
 
     const summaryResults = await db
       .select({
-        totalDue: sql<string>`COALESCE(SUM(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate}::date <= ${threeDaysLater}::date THEN ${installments.totalAmount}::numeric ELSE 0 END), 0)`,
-        totalCollected: sql<string>`COALESCE(SUM(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate}::date <= ${threeDaysLater}::date THEN COALESCE(${installments.paidAmount}::numeric, 0) ELSE 0 END), 0)`,
-        totalRemaining: sql<string>`COALESCE(SUM(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate}::date <= ${threeDaysLater}::date THEN (${installments.totalAmount}::numeric - COALESCE(${installments.paidAmount}::numeric, 0)) ELSE 0 END), 0)`,
+        totalDue: sql<string>`COALESCE(SUM(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate}::date <= ${fiveDaysLater}::date THEN ${installments.totalAmount}::numeric ELSE 0 END), 0)`,
+        totalCollected: sql<string>`COALESCE(SUM(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate}::date <= ${fiveDaysLater}::date THEN COALESCE(${installments.paidAmount}::numeric, 0) ELSE 0 END), 0)`,
+        totalRemaining: sql<string>`COALESCE(SUM(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate}::date <= ${fiveDaysLater}::date THEN (${installments.totalAmount}::numeric - COALESCE(${installments.paidAmount}::numeric, 0)) ELSE 0 END), 0)`,
         overdueCount: sql<number>`COUNT(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate}::date <= ${today}::date AND COALESCE(${installments.principleAmount}::numeric, 0) > 0 THEN 1 END)`,
-        upcomingCount: sql<number>`COUNT(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate}::date > ${today}::date AND ${installments.dueDate}::date <= ${threeDaysLater}::date THEN 1 END)`,
+        upcomingCount: sql<number>`COUNT(CASE WHEN ${installments.isPaid} = false AND ${installments.dueDate}::date > ${today}::date AND ${installments.dueDate}::date <= ${fiveDaysLater}::date THEN 1 END)`,
         partialCount: sql<number>`COUNT(CASE WHEN ${installments.isPaid} = false AND COALESCE(${installments.paidAmount}::numeric, 0) > 0 THEN 1 END)`,
       })
       .from(installments)
