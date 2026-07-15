@@ -6594,6 +6594,21 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/management/dashboard", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
+    try {
+      const period = (req.query.period as string) || "monthly";
+      if (!["monthly", "quarterly", "yearly"].includes(period)) {
+        return res.status(400).json({ message: "Invalid period. Use monthly, quarterly, or yearly." });
+      }
+      const effectiveBranchId = await getEffectiveBranchId(req);
+      const data = await storage.getManagementDashboard(period, effectiveBranchId);
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching management dashboard:", error);
+      res.status(500).json({ message: "Failed to fetch management dashboard" });
+    }
+  });
+
   app.get("/api/journal-entries/unbalanced", isAuthenticated, requireRole("manager", "admin"), async (req, res) => {
     try {
       const rows = await db.execute(sql`

@@ -30,6 +30,7 @@ export const PAGE_GROUP_LABELS: Record<PageGroupId, string> = {
 export const PAGES: PageDef[] = [
   { key: "dashboard", label: "Overview Dashboard", route: "/", group: "dashboard" },
   { key: "admin-dashboard", label: "Admin Dashboard", route: "/admin-dashboard", group: "dashboard" },
+  { key: "management-dashboard", label: "Management Dashboard", route: "/management-dashboard", group: "dashboard" },
 
   { key: "customers", label: "Customers", route: "/customers", group: "customers" },
   { key: "customer-registration", label: "Customer Registration", route: "/customer-registration", group: "customers" },

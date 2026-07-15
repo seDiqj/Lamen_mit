@@ -51,6 +51,7 @@ import LookupPage from "@/pages/lookup";
 import ParCategoriesPage from "@/pages/par-categories";
 import DisbursementTargetsPage from "@/pages/disbursement-targets";
 import AccountingDashboardPage from "@/pages/accounting-dashboard";
+import ManagementDashboardPage from "@/pages/management-dashboard";
 import ProfitabilityAnalysisPage from "@/pages/profitability-analysis";
 import HRDashboardPage from "@/pages/hr/dashboard";
 import HROrgStructurePage from "@/pages/hr/org-structure";
@@ -237,6 +238,7 @@ function AppRoutes() {
         <Route path="/loan-classification" component={LoanClassificationPage} />
         <Route path="/dab-report" component={DABReportPage} />
         <Route path="/accounting-dashboard" component={AccountingDashboardPage} />
+        <Route path="/management-dashboard" component={ManagementDashboardPage} />
         <Route path="/profitability-analysis" component={ProfitabilityAnalysisPage} />
         <Route path="/hr/dashboard" component={HRDashboardPage} />
         <Route path="/hr/org-structure" component={HROrgStructurePage} />

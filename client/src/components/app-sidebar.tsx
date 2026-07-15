@@ -133,6 +133,7 @@ const PAGE_URL_TO_NAME: Record<string, string> = {
   "/loan-classification": "loan-classification",
   "/dab-report": "dab-report",
   "/accounting-dashboard": "accounting-dashboard",
+  "/management-dashboard": "management-dashboard",
   "/profitability-analysis": "profitability-analysis",
   "/hr/dashboard": "hr-dashboard",
   "/hr/org-structure": "hr-org-structure",
@@ -182,6 +183,7 @@ export function AppSidebar() {
       defaultOpen: true,
       items: [
         { title: "Overview", url: "/", icon: LayoutDashboard, iconColor: "text-blue-500" },
+        { title: "Management Dashboard", url: "/management-dashboard", icon: BarChart3, iconColor: "text-indigo-500" },
         { title: "Profitability Analysis", url: "/profitability-analysis", icon: PieChart, iconColor: "text-purple-500" },
       ],
     },
@@ -274,6 +276,7 @@ export function AppSidebar() {
       defaultOpen: true,
       items: [
         { title: "Overview", url: "/", icon: LayoutDashboard, iconColor: "text-blue-500" },
+        { title: "Management Dashboard", url: "/management-dashboard", icon: BarChart3, iconColor: "text-indigo-500" },
         { title: "Profitability Analysis", url: "/profitability-analysis", icon: PieChart, iconColor: "text-purple-500" },
       ],
     },
@@ -362,6 +365,7 @@ export function AppSidebar() {
       defaultOpen: true,
       items: [
         { title: "Overview", url: "/", icon: LayoutDashboard, iconColor: "text-blue-500" },
+        { title: "Management Dashboard", url: "/management-dashboard", icon: BarChart3, iconColor: "text-indigo-500" },
         { title: "Profitability Analysis", url: "/profitability-analysis", icon: PieChart, iconColor: "text-purple-500" },
       ],
     },

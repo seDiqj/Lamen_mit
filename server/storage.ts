@@ -339,6 +339,7 @@ export interface IStorage {
   // Reports
   getReportData(period: string): Promise<any>;
   getParAnalysis(startDate?: string, endDate?: string): Promise<any>;
+  getManagementDashboard(period: string, branchId?: string | null): Promise<any>;
   getParByBranch(): Promise<any>;
   getParByOfficer(): Promise<any>;
   getParByProduct(): Promise<any>;
@@ -3943,6 +3944,258 @@ export class DatabaseStorage implements IStorage {
         { category: "31-60 days", amount: 40000, percentage: 4.5 },
         { category: "60+ days", amount: 20000, percentage: 2.2 },
       ],
+    };
+  }
+
+  async getManagementDashboard(period: string = "monthly", branchId: string | null = null): Promise<any> {
+    const today = new Date().toISOString().split("T")[0];
+    const activeStatuses = sql`l.status IN ('disbursed', 'active')`;
+    const portfolioStatuses = sql`l.status IN ('disbursed', 'active', 'completed', 'defaulted')`;
+    const branchFilter = branchId ? sql` AND l.branch_id = ${branchId}` : sql``;
+    const custBranchFilter = branchId
+      ? sql` AND EXISTS (SELECT 1 FROM loans lb WHERE lb.customer_id = customers.id AND lb.branch_id = ${branchId})`
+      : sql``;
+
+    // Per-loan outstanding + max overdue days (basis for portfolio & PAR)
+    const loanAgg = await db.execute(sql`
+      SELECT l.id, l.branch_id AS "branchId", l.finance_officer_id AS "officerId", l.customer_id AS "customerId",
+             l.sector, CAST(l.principle_amount AS numeric) AS principal, l.status,
+             COALESCE(SUM(CASE WHEN i.is_paid = false THEN CAST(i.total_amount AS numeric) - COALESCE(CAST(i.paid_amount AS numeric), 0) ELSE 0 END), 0) AS outstanding,
+             COALESCE(MAX(CASE WHEN i.is_paid = false AND i.due_date::date < ${today}::date THEN (${today}::date - i.due_date::date) ELSE 0 END), 0) AS "maxOverdueDays"
+      FROM loans l
+      LEFT JOIN installments i ON i.loan_id = l.id
+      WHERE ${portfolioStatuses}${branchFilter}
+      GROUP BY l.id
+    `);
+    const loanRows = loanAgg.rows as any[];
+
+    const num = (v: any) => Number(v) || 0;
+    const outstandingPortfolio = loanRows.reduce((s, r) => s + num(r.outstanding), 0);
+    const par30Outstanding = loanRows.filter(r => num(r.maxOverdueDays) > 30).reduce((s, r) => s + num(r.outstanding), 0);
+    const par90Outstanding = loanRows.filter(r => num(r.maxOverdueDays) > 90).reduce((s, r) => s + num(r.outstanding), 0);
+
+    const [grossRow] = (await db.execute(sql`
+      SELECT COALESCE(SUM(CAST(l.total_receivable AS numeric)), 0) AS gross
+      FROM loans l WHERE ${portfolioStatuses}${branchFilter}
+    `)).rows as any[];
+
+    // Client demographics among active loans
+    const [clientsRow] = (await db.execute(sql`
+      SELECT COUNT(DISTINCT l.customer_id) AS "activeClients",
+             COUNT(DISTINCT CASE WHEN c.gender = 'female' THEN l.customer_id END) AS "womenClients",
+             COUNT(DISTINCT CASE WHEN COALESCE(c.age, EXTRACT(YEAR FROM AGE(c.date_of_birth))) BETWEEN 18 AND 35 THEN l.customer_id END) AS "youthClients",
+             COUNT(DISTINCT CASE WHEN LOWER(COALESCE(c.area_type, '')) = 'rural' THEN l.customer_id END) AS "ruralClients",
+             COUNT(DISTINCT CASE WHEN LOWER(COALESCE(c.area_type, '')) = 'urban' THEN l.customer_id END) AS "urbanClients"
+      FROM loans l JOIN customers c ON c.id = l.customer_id
+      WHERE ${activeStatuses}${branchFilter}
+    `)).rows as any[];
+
+    const activeBorrowers = new Set(loanRows.filter(r => num(r.outstanding) > 0).map(r => r.customerId)).size;
+
+    // Sector / size-based portfolio
+    const agriculturePortfolio = loanRows.filter(r => (r.sector || "").toLowerCase().includes("agri")).reduce((s, r) => s + num(r.outstanding), 0);
+    const MSME_THRESHOLD = 500000;
+    const msmePortfolio = loanRows.filter(r => num(r.principal) <= MSME_THRESHOLD).reduce((s, r) => s + num(r.outstanding), 0);
+    const smePortfolio = loanRows.filter(r => num(r.principal) > MSME_THRESHOLD).reduce((s, r) => s + num(r.outstanding), 0);
+
+    // Collection rate: collected vs due to date
+    const [collRow] = (await db.execute(sql`
+      SELECT COALESCE(SUM(CASE WHEN i.is_paid THEN CAST(i.total_amount AS numeric) ELSE COALESCE(CAST(i.paid_amount AS numeric), 0) END), 0) AS collected,
+             COALESCE(SUM(CAST(i.total_amount AS numeric)), 0) AS due
+      FROM installments i JOIN loans l ON l.id = i.loan_id
+      WHERE i.due_date::date <= ${today}::date AND ${portfolioStatuses}${branchFilter}
+    `)).rows as any[];
+    const collectionRate = num(collRow?.due) > 0 ? (num(collRow?.collected) / num(collRow.due)) * 100 : 0;
+
+    // Write-offs: defaulted loan outstanding + bad debt expense account balance
+    const defaultedOutstanding = loanRows.filter(r => r.status === "defaulted").reduce((s, r) => s + num(r.outstanding), 0);
+    const [badDebtRow] = (await db.execute(sql`
+      SELECT COALESCE(SUM(ABS(CAST(current_balance AS numeric))), 0) AS bal
+      FROM accounts WHERE account_code = '5303' OR LOWER(account_name) LIKE '%bad debt%' OR LOWER(account_name) LIKE '%write%off%'
+    `)).rows as any[];
+    const writeOffs = defaultedOutstanding + num(badDebtRow?.bal);
+
+    // Finance from chart of accounts (both naming conventions)
+    const [finRow] = (await db.execute(sql`
+      SELECT COALESCE(SUM(CASE WHEN account_type IN ('income', 'operating_income', 'non_operating_income', 'other_income') THEN ABS(CAST(current_balance AS numeric)) ELSE 0 END), 0) AS income,
+             COALESCE(SUM(CASE WHEN account_type IN ('expense', 'operating_expense', 'non_operating_expense', 'cost_of_financing') THEN ABS(CAST(current_balance AS numeric)) ELSE 0 END), 0) AS expenses
+      FROM accounts WHERE COALESCE(is_active, true) = true
+    `)).rows as any[];
+    const income = num(finRow?.income);
+    const expenses = num(finRow?.expenses);
+    const profit = income - expenses;
+    const oss = expenses > 0 ? (income / expenses) * 100 : 0;
+    // FSS: adds a cost-of-capital adjustment (5% of outstanding portfolio) to expenses
+    const fssDenominator = expenses + outstandingPortfolio * 0.05;
+    const fss = fssDenominator > 0 ? (income / fssDenominator) * 100 : 0;
+
+    // Operations: current month
+    const monthStart = today.slice(0, 8) + "01";
+    const [opsRow] = (await db.execute(sql`
+      SELECT (SELECT COUNT(*) FROM customers WHERE created_at::date >= ${monthStart}::date${custBranchFilter}) AS "newClients",
+             (SELECT COUNT(*) FROM disbursements d JOIN loans l ON l.id = d.loan_id WHERE d.disbursement_date::date >= ${monthStart}::date${branchFilter}) AS "loansDisbursedCount",
+             (SELECT COALESCE(SUM(CAST(l.principle_amount AS numeric)), 0) FROM disbursements d JOIN loans l ON l.id = d.loan_id WHERE d.disbursement_date::date >= ${monthStart}::date${branchFilter}) AS "loansDisbursedAmount",
+             (SELECT COALESCE(AVG(CAST(principle_amount AS numeric)), 0) FROM loans l WHERE l.status IN ('disbursed', 'active', 'completed')${branchFilter}) AS "avgLoanSize"
+    `)).rows as any[];
+
+    // Officer productivity
+    const officerRows = (await db.execute(sql`
+      SELECT fo.id, fo.name, b.name AS "branchName",
+             COUNT(DISTINCT l.id) AS "activeLoans",
+             COUNT(DISTINCT l.customer_id) AS clients,
+             COALESCE(SUM(CASE WHEN i.is_paid = false THEN CAST(i.total_amount AS numeric) - COALESCE(CAST(i.paid_amount AS numeric), 0) ELSE 0 END), 0) AS portfolio
+      FROM finance_officers fo
+      LEFT JOIN branches b ON b.id = fo.branch_id
+      LEFT JOIN loans l ON l.finance_officer_id = fo.id AND l.status IN ('disbursed', 'active')
+      LEFT JOIN installments i ON i.loan_id = l.id
+      WHERE COALESCE(fo.is_active, true) = true${branchId ? sql` AND fo.branch_id = ${branchId}` : sql``}
+      GROUP BY fo.id, fo.name, b.name
+      ORDER BY portfolio DESC
+    `)).rows as any[];
+
+    // Branch ranking
+    const branchRows = (await db.execute(sql`
+      SELECT b.id, b.name,
+             COUNT(DISTINCT CASE WHEN l.status IN ('disbursed', 'active') THEN l.customer_id END) AS clients,
+             COUNT(DISTINCT CASE WHEN l.status IN ('disbursed', 'active') THEN l.id END) AS "activeLoans",
+             COALESCE(SUM(CASE WHEN i.is_paid = false THEN CAST(i.total_amount AS numeric) - COALESCE(CAST(i.paid_amount AS numeric), 0) ELSE 0 END), 0) AS portfolio,
+             COALESCE(SUM(CASE WHEN i.due_date::date <= ${today}::date THEN CASE WHEN i.is_paid THEN CAST(i.total_amount AS numeric) ELSE COALESCE(CAST(i.paid_amount AS numeric), 0) END ELSE 0 END), 0) AS collected,
+             COALESCE(SUM(CASE WHEN i.due_date::date <= ${today}::date THEN CAST(i.total_amount AS numeric) ELSE 0 END), 0) AS "dueToDate"
+      FROM branches b
+      LEFT JOIN loans l ON l.branch_id = b.id AND l.status IN ('disbursed', 'active', 'completed', 'defaulted')
+      LEFT JOIN installments i ON i.loan_id = l.id
+      ${branchId ? sql`WHERE b.id = ${branchId}` : sql``}
+      GROUP BY b.id, b.name
+    `)).rows as any[];
+
+    // Branch PAR30
+    const branchPar = new Map<string, { par: number; total: number }>();
+    for (const r of loanRows) {
+      const e = branchPar.get(r.branchId) || { par: 0, total: 0 };
+      e.total += num(r.outstanding);
+      if (num(r.maxOverdueDays) > 30) e.par += num(r.outstanding);
+      branchPar.set(r.branchId, e);
+    }
+    const branchRanking = branchRows.map((b: any) => {
+      const p = branchPar.get(b.id) || { par: 0, total: 0 };
+      return {
+        id: b.id, name: b.name,
+        clients: num(b.clients), activeLoans: num(b.activeLoans),
+        portfolio: num(b.portfolio),
+        collectionRate: num(b.dueToDate) > 0 ? (num(b.collected) / num(b.dueToDate)) * 100 : 0,
+        par30: p.total > 0 ? (p.par / p.total) * 100 : 0,
+      };
+    }).sort((a: any, b: any) => b.portfolio - a.portfolio);
+
+    // Province ranking (customer province; branch name as fallback grouping)
+    const provinceRows = (await db.execute(sql`
+      SELECT COALESCE(NULLIF(TRIM(c.province), ''), 'Not specified') AS province,
+             COUNT(DISTINCT l.customer_id) AS clients,
+             COUNT(DISTINCT l.id) AS loans,
+             COALESCE(SUM(CASE WHEN i.is_paid = false THEN CAST(i.total_amount AS numeric) - COALESCE(CAST(i.paid_amount AS numeric), 0) ELSE 0 END), 0) AS portfolio
+      FROM loans l
+      JOIN customers c ON c.id = l.customer_id
+      LEFT JOIN installments i ON i.loan_id = l.id
+      WHERE ${portfolioStatuses}${branchFilter}
+      GROUP BY 1
+      ORDER BY portfolio DESC
+    `)).rows as any[];
+
+    // Trends
+    const trunc = period === "yearly" ? "year" : period === "quarterly" ? "quarter" : "month";
+    const lookback = period === "yearly" ? "5 years" : period === "quarterly" ? "24 months" : "12 months";
+    const trendRows = (await db.execute(sql`
+      WITH disb AS (
+        SELECT DATE_TRUNC(${trunc}, d.disbursement_date::date) AS bucket, COALESCE(SUM(CAST(l.principle_amount AS numeric)), 0) AS disbursed, COUNT(*) AS "disbursedCount"
+        FROM disbursements d JOIN loans l ON l.id = d.loan_id
+        WHERE d.disbursement_date::date >= ${today}::date - INTERVAL '${sql.raw(lookback)}'${branchFilter}
+        GROUP BY 1
+      ), coll AS (
+        SELECT DATE_TRUNC(${trunc}, i.payment_date::date) AS bucket, COALESCE(SUM(COALESCE(CAST(i.paid_amount AS numeric), CAST(i.total_amount AS numeric))), 0) AS collected
+        FROM installments i JOIN loans l ON l.id = i.loan_id
+        WHERE i.is_paid = true AND i.payment_date IS NOT NULL AND i.payment_date::date >= ${today}::date - INTERVAL '${sql.raw(lookback)}'${branchFilter}
+        GROUP BY 1
+      ), cust AS (
+        SELECT DATE_TRUNC(${trunc}, created_at::date) AS bucket, COUNT(*) AS "newClients"
+        FROM customers WHERE created_at::date >= ${today}::date - INTERVAL '${sql.raw(lookback)}'${custBranchFilter}
+        GROUP BY 1
+      )
+      SELECT COALESCE(disb.bucket, coll.bucket, cust.bucket) AS bucket,
+             COALESCE(disb.disbursed, 0) AS disbursed,
+             COALESCE(disb."disbursedCount", 0) AS "disbursedCount",
+             COALESCE(coll.collected, 0) AS collected,
+             COALESCE(cust."newClients", 0) AS "newClients"
+      FROM disb
+      FULL OUTER JOIN coll ON coll.bucket = disb.bucket
+      FULL OUTER JOIN cust ON cust.bucket = COALESCE(disb.bucket, coll.bucket)
+      ORDER BY bucket
+    `)).rows as any[];
+
+    // Sector and gender disbursements
+    const sectorRows = (await db.execute(sql`
+      SELECT COALESCE(NULLIF(TRIM(l.sector), ''), 'Not specified') AS sector, COALESCE(SUM(CAST(l.principle_amount AS numeric)), 0) AS amount, COUNT(*) AS count
+      FROM loans l WHERE ${portfolioStatuses}${branchFilter} GROUP BY 1 ORDER BY amount DESC
+    `)).rows as any[];
+    const genderRows = (await db.execute(sql`
+      SELECT COALESCE(c.gender::text, 'unknown') AS gender, COALESCE(SUM(CAST(l.principle_amount AS numeric)), 0) AS amount, COUNT(*) AS count
+      FROM loans l JOIN customers c ON c.id = l.customer_id WHERE ${portfolioStatuses}${branchFilter} GROUP BY 1
+    `)).rows as any[];
+
+    // PAR aging buckets (DAB style)
+    const agingBuckets = [
+      { label: "Current", min: 0, max: 0 },
+      { label: "1-30 days", min: 1, max: 30 },
+      { label: "31-60 days", min: 31, max: 60 },
+      { label: "61-90 days", min: 61, max: 90 },
+      { label: "91-180 days", min: 91, max: 180 },
+      { label: "180+ days", min: 181, max: Infinity },
+    ].map(b => {
+      const rows = loanRows.filter(r => {
+        const d = num(r.maxOverdueDays);
+        return b.max === 0 ? d === 0 : d >= b.min && d <= b.max;
+      });
+      const amount = rows.reduce((s, r) => s + num(r.outstanding), 0);
+      return { label: b.label, amount, loans: rows.length, percentage: outstandingPortfolio > 0 ? (amount / outstandingPortfolio) * 100 : 0 };
+    });
+
+    return {
+      portfolio: {
+        grossPortfolio: num(grossRow?.gross),
+        outstandingPortfolio,
+        activeClients: num(clientsRow?.activeClients),
+        activeBorrowers,
+        womenClients: num(clientsRow?.womenClients),
+        youthClients: num(clientsRow?.youthClients),
+        ruralClients: num(clientsRow?.ruralClients),
+        urbanClients: num(clientsRow?.urbanClients),
+        agriculturePortfolio,
+        msmePortfolio,
+        smePortfolio,
+      },
+      quality: {
+        par30: outstandingPortfolio > 0 ? (par30Outstanding / outstandingPortfolio) * 100 : 0,
+        par30Amount: par30Outstanding,
+        par90: outstandingPortfolio > 0 ? (par90Outstanding / outstandingPortfolio) * 100 : 0,
+        par90Amount: par90Outstanding,
+        collectionRate,
+        writeOffs,
+      },
+      finance: { income, expenses, profit, oss, fss },
+      operations: {
+        newClients: num(opsRow?.newClients),
+        loansDisbursedCount: num(opsRow?.loansDisbursedCount),
+        loansDisbursedAmount: num(opsRow?.loansDisbursedAmount),
+        avgLoanSize: num(opsRow?.avgLoanSize),
+        officerProductivity: officerRows.map((o: any) => ({ ...o, activeLoans: num(o.activeLoans), clients: num(o.clients), portfolio: num(o.portfolio) })),
+        branchRanking,
+        provinceRanking: provinceRows.map((p: any) => ({ ...p, clients: num(p.clients), loans: num(p.loans), portfolio: num(p.portfolio) })),
+      },
+      charts: {
+        trends: trendRows.map((t: any) => ({ ...t, disbursed: num(t.disbursed), collected: num(t.collected), disbursedCount: num(t.disbursedCount), newClients: num(t.newClients) })),
+        sectorDisbursements: sectorRows.map((s: any) => ({ ...s, amount: num(s.amount), count: num(s.count) })),
+        genderDisbursements: genderRows.map((g: any) => ({ ...g, amount: num(g.amount), count: num(g.count) })),
+        parAging: agingBuckets,
+      },
     };
   }
 
