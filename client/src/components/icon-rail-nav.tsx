@@ -77,6 +77,7 @@ type Module = {
 const PAGE_URL_TO_NAME: Record<string, string> = {
   "/": "dashboard",
   "/admin-dashboard": "admin-dashboard",
+  "/management-dashboard": "management-dashboard",
   "/customers": "customers",
   "/customer-registration": "customer-registration",
   "/loans": "loans",
@@ -203,6 +204,7 @@ export function IconRailNav({ children }: IconRailNavProps) {
       items: [
         { title: "Overview", url: "/", icon: LayoutDashboard, iconColor: "text-blue-500" },
         { title: "Admin Dashboard", url: "/admin-dashboard", icon: Users, iconColor: "text-indigo-500" },
+        { title: "Management Dashboard", url: "/management-dashboard", icon: BarChart3, iconColor: "text-indigo-500" },
         { title: "Profitability Analysis", url: "/profitability-analysis", icon: PieChart, iconColor: "text-purple-500" },
       ],
     },
