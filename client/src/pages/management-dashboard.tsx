@@ -19,6 +19,7 @@ import {
   Sprout,
   Store,
   Factory,
+  CalendarDays,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -92,18 +93,35 @@ function compactCurrency(v: number) {
   return String(Math.round(v));
 }
 
-function KpiCard({ label, value, sub, icon: Icon, color, testId }: { label: string; value: string; sub?: string; icon: any; color: string; testId: string }) {
+function KpiCard({
+  label,
+  value,
+  sub,
+  icon: Icon,
+  gradient,
+  iconBg,
+  testId,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  icon: any;
+  gradient: string;
+  iconBg: string;
+  testId: string;
+}) {
   return (
-    <Card className="border shadow-sm" data-testid={testId}>
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between gap-2">
+    <Card className="overflow-hidden border-0 shadow-lg" data-testid={testId}>
+      <div className={`h-1 ${gradient}`} />
+      <CardContent className="p-5">
+        <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
-            <p className="text-xs text-muted-foreground truncate">{label}</p>
-            <p className="text-lg font-bold truncate">{value}</p>
-            {sub && <p className="text-[10px] text-muted-foreground">{sub}</p>}
+            <p className="text-sm text-muted-foreground font-medium truncate">{label}</p>
+            <p className="text-2xl font-bold mt-1 truncate">{value}</p>
+            {sub && <p className="text-xs text-muted-foreground mt-1">{sub}</p>}
           </div>
-          <div className={`rounded-lg p-2 ${color}`}>
-            <Icon className="h-4 w-4" />
+          <div className={`h-14 w-14 shrink-0 rounded-xl ${iconBg} flex items-center justify-center shadow-lg`}>
+            <Icon className="h-7 w-7 text-white" />
           </div>
         </div>
       </CardContent>
@@ -111,17 +129,32 @@ function KpiCard({ label, value, sub, icon: Icon, color, testId }: { label: stri
   );
 }
 
-function SectionTitle({ title, icon: Icon }: { title: string; icon: any }) {
+function SectionTitle({ title, icon: Icon, gradient }: { title: string; icon: any; gradient: string }) {
   return (
-    <div className="flex items-center gap-2 mt-2">
-      <Icon className="h-5 w-5 text-primary" />
-      <h2 className="text-lg font-semibold">{title}</h2>
+    <div className="flex items-center gap-3 mt-2">
+      <div className={`h-9 w-9 rounded-lg ${gradient} flex items-center justify-center shadow-md`}>
+        <Icon className="h-5 w-5 text-white" />
+      </div>
+      <h2 className="text-xl font-semibold">{title}</h2>
     </div>
+  );
+}
+
+function ChartCard({ title, gradient, testId, children }: { title: string; gradient: string; testId: string; children: React.ReactNode }) {
+  return (
+    <Card className="overflow-hidden border-0 shadow-lg" data-testid={testId}>
+      <div className={`h-1 ${gradient}`} />
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base font-semibold">{title}</CardTitle>
+      </CardHeader>
+      <CardContent>{children}</CardContent>
+    </Card>
   );
 }
 
 export default function ManagementDashboard() {
   const [period, setPeriod] = useState("monthly");
+  const today = new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 
   const { data, isLoading, isError, refetch } = useQuery<ManagementData>({
     queryKey: ["/api/management/dashboard", period],
@@ -146,7 +179,7 @@ export default function ManagementDashboard() {
       <div className="p-6 space-y-6">
         <Skeleton className="h-10 w-96" />
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[1, 2, 3, 4, 5, 6, 7, 8].map(i => <Skeleton key={i} className="h-24" />)}
+          {[1, 2, 3, 4, 5, 6, 7, 8].map(i => <Skeleton key={i} className="h-28" />)}
         </div>
         <Skeleton className="h-80" />
       </div>
@@ -157,14 +190,19 @@ export default function ManagementDashboard() {
   const trends = charts.trends.map(t => ({ ...t, label: formatBucket(t.bucket, period) }));
 
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="space-y-6 p-1">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold" data-testid="text-page-title">Management Dashboard</h1>
-          <p className="text-muted-foreground text-sm">Institution-wide KPIs across portfolio, quality, finance, and operations</p>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 dark:from-amber-400 dark:to-yellow-500 bg-clip-text text-transparent" data-testid="text-page-title">
+            Management Dashboard
+          </h1>
+          <p className="text-muted-foreground mt-1">Institution-wide KPIs across portfolio, quality, finance, and operations</p>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Trend period:</span>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-card border">
+            <CalendarDays className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium">{today}</span>
+          </div>
           <Select value={period} onValueChange={setPeriod}>
             <SelectTrigger className="w-36" data-testid="select-period">
               <SelectValue />
@@ -179,157 +217,135 @@ export default function ManagementDashboard() {
       </div>
 
       {/* Portfolio */}
-      <SectionTitle title="Portfolio" icon={Briefcase} />
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KpiCard label="Gross Portfolio" value={formatCurrency(portfolio.grossPortfolio)} icon={Wallet} color="bg-blue-100 text-blue-700 dark:bg-blue-950/40" testId="kpi-gross-portfolio" />
-        <KpiCard label="Outstanding Portfolio" value={formatCurrency(portfolio.outstandingPortfolio)} icon={Briefcase} color="bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40" testId="kpi-outstanding-portfolio" />
-        <KpiCard label="Active Clients" value={String(portfolio.activeClients)} icon={Users} color="bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40" testId="kpi-active-clients" />
-        <KpiCard label="Active Borrowers" value={String(portfolio.activeBorrowers)} sub="With outstanding balance" icon={Users} color="bg-teal-100 text-teal-700 dark:bg-teal-950/40" testId="kpi-active-borrowers" />
-        <KpiCard label="Women Clients" value={String(portfolio.womenClients)} icon={Users} color="bg-pink-100 text-pink-700 dark:bg-pink-950/40" testId="kpi-women-clients" />
-        <KpiCard label="Youth Clients" value={String(portfolio.youthClients)} sub="Age 18-35" icon={Users} color="bg-violet-100 text-violet-700 dark:bg-violet-950/40" testId="kpi-youth-clients" />
-        <KpiCard label="Rural Clients" value={String(portfolio.ruralClients)} icon={Sprout} color="bg-lime-100 text-lime-700 dark:bg-lime-950/40" testId="kpi-rural-clients" />
-        <KpiCard label="Urban Clients" value={String(portfolio.urbanClients)} icon={Building2} color="bg-sky-100 text-sky-700 dark:bg-sky-950/40" testId="kpi-urban-clients" />
-        <KpiCard label="Agriculture Portfolio" value={formatCurrency(portfolio.agriculturePortfolio)} icon={Sprout} color="bg-green-100 text-green-700 dark:bg-green-950/40" testId="kpi-agriculture-portfolio" />
-        <KpiCard label="MSME Portfolio" value={formatCurrency(portfolio.msmePortfolio)} sub="Loans up to AFN 500,000" icon={Store} color="bg-amber-100 text-amber-700 dark:bg-amber-950/40" testId="kpi-msme-portfolio" />
-        <KpiCard label="SME Portfolio" value={formatCurrency(portfolio.smePortfolio)} sub="Loans above AFN 500,000" icon={Factory} color="bg-orange-100 text-orange-700 dark:bg-orange-950/40" testId="kpi-sme-portfolio" />
+      <SectionTitle title="Portfolio" icon={Briefcase} gradient="bg-gradient-to-br from-blue-500 to-indigo-600" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <KpiCard label="Gross Portfolio" value={formatCurrency(portfolio.grossPortfolio)} icon={Wallet} gradient="bg-gradient-to-r from-blue-500 to-cyan-500" iconBg="bg-gradient-to-br from-blue-500 to-cyan-600" testId="kpi-gross-portfolio" />
+        <KpiCard label="Outstanding Portfolio" value={formatCurrency(portfolio.outstandingPortfolio)} icon={Briefcase} gradient="bg-gradient-to-r from-indigo-500 to-blue-500" iconBg="bg-gradient-to-br from-indigo-500 to-blue-600" testId="kpi-outstanding-portfolio" />
+        <KpiCard label="Active Clients" value={String(portfolio.activeClients)} icon={Users} gradient="bg-gradient-to-r from-emerald-500 to-green-500" iconBg="bg-gradient-to-br from-emerald-500 to-green-600" testId="kpi-active-clients" />
+        <KpiCard label="Active Borrowers" value={String(portfolio.activeBorrowers)} sub="With outstanding balance" icon={Users} gradient="bg-gradient-to-r from-teal-500 to-emerald-500" iconBg="bg-gradient-to-br from-teal-500 to-emerald-600" testId="kpi-active-borrowers" />
+        <KpiCard label="Women Clients" value={String(portfolio.womenClients)} icon={Users} gradient="bg-gradient-to-r from-pink-500 to-rose-500" iconBg="bg-gradient-to-br from-pink-500 to-rose-600" testId="kpi-women-clients" />
+        <KpiCard label="Youth Clients" value={String(portfolio.youthClients)} sub="Age 18-35" icon={Users} gradient="bg-gradient-to-r from-violet-500 to-purple-500" iconBg="bg-gradient-to-br from-violet-500 to-purple-600" testId="kpi-youth-clients" />
+        <KpiCard label="Rural Clients" value={String(portfolio.ruralClients)} icon={Sprout} gradient="bg-gradient-to-r from-lime-500 to-green-500" iconBg="bg-gradient-to-br from-lime-500 to-green-600" testId="kpi-rural-clients" />
+        <KpiCard label="Urban Clients" value={String(portfolio.urbanClients)} icon={Building2} gradient="bg-gradient-to-r from-sky-500 to-blue-500" iconBg="bg-gradient-to-br from-sky-500 to-blue-600" testId="kpi-urban-clients" />
+        <KpiCard label="Agriculture Portfolio" value={formatCurrency(portfolio.agriculturePortfolio)} icon={Sprout} gradient="bg-gradient-to-r from-green-500 to-lime-500" iconBg="bg-gradient-to-br from-green-500 to-lime-600" testId="kpi-agriculture-portfolio" />
+        <KpiCard label="MSME Portfolio" value={formatCurrency(portfolio.msmePortfolio)} sub="Loans up to AFN 500,000" icon={Store} gradient="bg-gradient-to-r from-amber-500 to-orange-500" iconBg="bg-gradient-to-br from-amber-500 to-orange-600" testId="kpi-msme-portfolio" />
+        <KpiCard label="SME Portfolio" value={formatCurrency(portfolio.smePortfolio)} sub="Loans above AFN 500,000" icon={Factory} gradient="bg-gradient-to-r from-orange-500 to-red-500" iconBg="bg-gradient-to-br from-orange-500 to-red-600" testId="kpi-sme-portfolio" />
       </div>
 
       {/* Quality */}
-      <SectionTitle title="Quality" icon={ShieldAlert} />
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KpiCard label="PAR 30" value={`${quality.par30.toFixed(2)}%`} sub={formatCurrency(quality.par30Amount)} icon={ShieldAlert} color={quality.par30 > 5 ? "bg-red-100 text-red-700 dark:bg-red-950/40" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40"} testId="kpi-par30" />
-        <KpiCard label="PAR 90" value={`${quality.par90.toFixed(2)}%`} sub={formatCurrency(quality.par90Amount)} icon={ShieldAlert} color={quality.par90 > 3 ? "bg-red-100 text-red-700 dark:bg-red-950/40" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40"} testId="kpi-par90" />
-        <KpiCard label="Collection Rate" value={`${quality.collectionRate.toFixed(1)}%`} sub="Collected vs due to date" icon={Activity} color="bg-blue-100 text-blue-700 dark:bg-blue-950/40" testId="kpi-collection-rate" />
-        <KpiCard label="Write-offs" value={formatCurrency(quality.writeOffs)} sub="Defaulted + bad debt expense" icon={ShieldAlert} color="bg-slate-100 text-slate-700 dark:bg-slate-800/60" testId="kpi-writeoffs" />
+      <SectionTitle title="Quality" icon={ShieldAlert} gradient="bg-gradient-to-br from-red-500 to-rose-600" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <KpiCard label="PAR 30" value={`${quality.par30.toFixed(2)}%`} sub={formatCurrency(quality.par30Amount)} icon={ShieldAlert} gradient={quality.par30 > 5 ? "bg-gradient-to-r from-red-500 to-rose-500" : "bg-gradient-to-r from-emerald-500 to-green-500"} iconBg={quality.par30 > 5 ? "bg-gradient-to-br from-red-500 to-rose-600" : "bg-gradient-to-br from-emerald-500 to-green-600"} testId="kpi-par30" />
+        <KpiCard label="PAR 90" value={`${quality.par90.toFixed(2)}%`} sub={formatCurrency(quality.par90Amount)} icon={ShieldAlert} gradient={quality.par90 > 3 ? "bg-gradient-to-r from-red-500 to-rose-500" : "bg-gradient-to-r from-emerald-500 to-green-500"} iconBg={quality.par90 > 3 ? "bg-gradient-to-br from-red-500 to-rose-600" : "bg-gradient-to-br from-emerald-500 to-green-600"} testId="kpi-par90" />
+        <KpiCard label="Collection Rate" value={`${quality.collectionRate.toFixed(1)}%`} sub="Collected vs due to date" icon={Activity} gradient="bg-gradient-to-r from-blue-500 to-indigo-500" iconBg="bg-gradient-to-br from-blue-500 to-indigo-600" testId="kpi-collection-rate" />
+        <KpiCard label="Write-offs" value={formatCurrency(quality.writeOffs)} sub="Defaulted + bad debt expense" icon={ShieldAlert} gradient="bg-gradient-to-r from-slate-500 to-gray-500" iconBg="bg-gradient-to-br from-slate-500 to-gray-600" testId="kpi-writeoffs" />
       </div>
 
       {/* Finance */}
-      <SectionTitle title="Finance" icon={DollarSign} />
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <KpiCard label="Income" value={formatCurrency(finance.income)} icon={TrendingUp} color="bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40" testId="kpi-income" />
-        <KpiCard label="Expenses" value={formatCurrency(finance.expenses)} icon={DollarSign} color="bg-red-100 text-red-700 dark:bg-red-950/40" testId="kpi-expenses" />
-        <KpiCard label="Profit" value={formatCurrency(finance.profit)} icon={TrendingUp} color={finance.profit >= 0 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40" : "bg-red-100 text-red-700 dark:bg-red-950/40"} testId="kpi-profit" />
-        <KpiCard label="OSS" value={`${finance.oss.toFixed(1)}%`} sub="Operating Self Sufficiency" icon={Activity} color={finance.oss >= 100 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40" : "bg-amber-100 text-amber-700 dark:bg-amber-950/40"} testId="kpi-oss" />
-        <KpiCard label="FSS" value={`${finance.fss.toFixed(1)}%`} sub="Adjusted for cost of capital (5%)" icon={Activity} color={finance.fss >= 100 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40" : "bg-amber-100 text-amber-700 dark:bg-amber-950/40"} testId="kpi-fss" />
+      <SectionTitle title="Finance" icon={DollarSign} gradient="bg-gradient-to-br from-emerald-500 to-teal-600" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <KpiCard label="Income" value={formatCurrency(finance.income)} icon={TrendingUp} gradient="bg-gradient-to-r from-emerald-500 to-green-500" iconBg="bg-gradient-to-br from-emerald-500 to-green-600" testId="kpi-income" />
+        <KpiCard label="Expenses" value={formatCurrency(finance.expenses)} icon={DollarSign} gradient="bg-gradient-to-r from-red-500 to-rose-500" iconBg="bg-gradient-to-br from-red-500 to-rose-600" testId="kpi-expenses" />
+        <KpiCard label="Profit" value={formatCurrency(finance.profit)} icon={TrendingUp} gradient={finance.profit >= 0 ? "bg-gradient-to-r from-emerald-500 to-green-500" : "bg-gradient-to-r from-red-500 to-rose-500"} iconBg={finance.profit >= 0 ? "bg-gradient-to-br from-emerald-500 to-green-600" : "bg-gradient-to-br from-red-500 to-rose-600"} testId="kpi-profit" />
+        <KpiCard label="OSS" value={`${finance.oss.toFixed(1)}%`} sub="Operating Self Sufficiency" icon={Activity} gradient={finance.oss >= 100 ? "bg-gradient-to-r from-emerald-500 to-green-500" : "bg-gradient-to-r from-amber-500 to-orange-500"} iconBg={finance.oss >= 100 ? "bg-gradient-to-br from-emerald-500 to-green-600" : "bg-gradient-to-br from-amber-500 to-orange-600"} testId="kpi-oss" />
+        <KpiCard label="FSS" value={`${finance.fss.toFixed(1)}%`} sub="Adjusted for cost of capital (5%)" icon={Activity} gradient={finance.fss >= 100 ? "bg-gradient-to-r from-emerald-500 to-green-500" : "bg-gradient-to-r from-amber-500 to-orange-500"} iconBg={finance.fss >= 100 ? "bg-gradient-to-br from-emerald-500 to-green-600" : "bg-gradient-to-br from-amber-500 to-orange-600"} testId="kpi-fss" />
       </div>
 
       {/* Operations */}
-      <SectionTitle title="Operations" icon={Activity} />
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KpiCard label="New Clients (this month)" value={String(operations.newClients)} icon={Users} color="bg-blue-100 text-blue-700 dark:bg-blue-950/40" testId="kpi-new-clients" />
-        <KpiCard label="Loans Disbursed (this month)" value={String(operations.loansDisbursedCount)} sub={formatCurrency(operations.loansDisbursedAmount)} icon={Wallet} color="bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40" testId="kpi-loans-disbursed" />
-        <KpiCard label="Average Loan Size" value={formatCurrency(operations.avgLoanSize)} icon={DollarSign} color="bg-teal-100 text-teal-700 dark:bg-teal-950/40" testId="kpi-avg-loan-size" />
-        <KpiCard label="Officer Productivity" value={operations.officerProductivity.length > 0 ? (operations.officerProductivity.reduce((s, o) => s + o.activeLoans, 0) / operations.officerProductivity.length).toFixed(1) : "0"} sub="Avg active loans per officer" icon={Users} color="bg-purple-100 text-purple-700 dark:bg-purple-950/40" testId="kpi-officer-productivity" />
+      <SectionTitle title="Operations" icon={Activity} gradient="bg-gradient-to-br from-violet-500 to-purple-600" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <KpiCard label="New Clients (this month)" value={String(operations.newClients)} icon={Users} gradient="bg-gradient-to-r from-blue-500 to-cyan-500" iconBg="bg-gradient-to-br from-blue-500 to-cyan-600" testId="kpi-new-clients" />
+        <KpiCard label="Loans Disbursed (this month)" value={String(operations.loansDisbursedCount)} sub={formatCurrency(operations.loansDisbursedAmount)} icon={Wallet} gradient="bg-gradient-to-r from-indigo-500 to-blue-500" iconBg="bg-gradient-to-br from-indigo-500 to-blue-600" testId="kpi-loans-disbursed" />
+        <KpiCard label="Average Loan Size" value={formatCurrency(operations.avgLoanSize)} icon={DollarSign} gradient="bg-gradient-to-r from-teal-500 to-emerald-500" iconBg="bg-gradient-to-br from-teal-500 to-emerald-600" testId="kpi-avg-loan-size" />
+        <KpiCard label="Officer Productivity" value={operations.officerProductivity.length > 0 ? (operations.officerProductivity.reduce((s, o) => s + o.activeLoans, 0) / operations.officerProductivity.length).toFixed(1) : "0"} sub="Avg active loans per officer" icon={Users} gradient="bg-gradient-to-r from-purple-500 to-violet-500" iconBg="bg-gradient-to-br from-purple-500 to-violet-600" testId="kpi-officer-productivity" />
       </div>
 
       {/* Trend chart */}
-      <Card className="border shadow-sm" data-testid="card-trends">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base font-semibold">Trends — Disbursements, Collections & New Clients ({period})</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={trends}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-              <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-              <YAxis yAxisId="left" tickFormatter={compactCurrency} tick={{ fontSize: 12 }} />
-              <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12 }} />
-              <Tooltip formatter={(v: any, name: string) => name === "New Clients" ? v : formatCurrency(Number(v))} />
-              <Legend />
-              <Line yAxisId="left" type="monotone" dataKey="disbursed" name="Disbursed" stroke="#3b82f6" strokeWidth={2} dot={false} />
-              <Line yAxisId="left" type="monotone" dataKey="collected" name="Collected" stroke="#10b981" strokeWidth={2} dot={false} />
-              <Line yAxisId="right" type="monotone" dataKey="newClients" name="New Clients" stroke="#f59e0b" strokeWidth={2} dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
+      <ChartCard title={`Trends — Disbursements, Collections & New Clients (${period})`} gradient="bg-gradient-to-r from-blue-500 to-cyan-500" testId="card-trends">
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={trends}>
+            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+            <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+            <YAxis yAxisId="left" tickFormatter={compactCurrency} tick={{ fontSize: 12 }} />
+            <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12 }} />
+            <Tooltip formatter={(v: any, name: string) => name === "New Clients" ? v : formatCurrency(Number(v))} />
+            <Legend />
+            <Line yAxisId="left" type="monotone" dataKey="disbursed" name="Disbursed" stroke="#3b82f6" strokeWidth={2.5} dot={false} />
+            <Line yAxisId="left" type="monotone" dataKey="collected" name="Collected" stroke="#10b981" strokeWidth={2.5} dot={false} />
+            <Line yAxisId="right" type="monotone" dataKey="newClients" name="New Clients" stroke="#f59e0b" strokeWidth={2.5} dot={false} />
+          </LineChart>
+        </ResponsiveContainer>
+      </ChartCard>
 
       {/* Branch comparison + PAR aging */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card className="border shadow-sm" data-testid="card-branch-comparison">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold">Branch Comparison — Portfolio</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={operations.branchRanking}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                <YAxis tickFormatter={compactCurrency} tick={{ fontSize: 12 }} />
-                <Tooltip formatter={(v: any) => formatCurrency(Number(v))} />
-                <Bar dataKey="portfolio" name="Outstanding Portfolio" fill="#6366f1" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        <ChartCard title="Branch Comparison — Portfolio" gradient="bg-gradient-to-r from-indigo-500 to-blue-500" testId="card-branch-comparison">
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={operations.branchRanking}>
+              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+              <YAxis tickFormatter={compactCurrency} tick={{ fontSize: 12 }} />
+              <Tooltip formatter={(v: any) => formatCurrency(Number(v))} />
+              <Bar dataKey="portfolio" name="Outstanding Portfolio" fill="#6366f1" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
 
-        <Card className="border shadow-sm" data-testid="card-par-aging">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold">PAR Aging (DAB Buckets)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={charts.parAging}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-                <YAxis tickFormatter={compactCurrency} tick={{ fontSize: 12 }} />
-                <Tooltip formatter={(v: any, name: string) => name === "Amount" ? formatCurrency(Number(v)) : v} />
-                <Bar dataKey="amount" name="Amount" radius={[4, 4, 0, 0]}>
-                  {charts.parAging.map((b, i) => (
-                    <Cell key={i} fill={b.label === "Current" ? "#10b981" : ["#84cc16", "#f59e0b", "#f97316", "#ef4444", "#991b1b"][Math.min(i - 1, 4)] || "#ef4444"} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        <ChartCard title="PAR Aging (DAB Buckets)" gradient="bg-gradient-to-r from-red-500 to-rose-500" testId="card-par-aging">
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={charts.parAging}>
+              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+              <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+              <YAxis tickFormatter={compactCurrency} tick={{ fontSize: 12 }} />
+              <Tooltip formatter={(v: any, name: string) => name === "Amount" ? formatCurrency(Number(v)) : v} />
+              <Bar dataKey="amount" name="Amount" radius={[4, 4, 0, 0]}>
+                {charts.parAging.map((b, i) => (
+                  <Cell key={i} fill={b.label === "Current" ? "#10b981" : ["#84cc16", "#f59e0b", "#f97316", "#ef4444", "#991b1b"][Math.min(i - 1, 4)] || "#ef4444"} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
       </div>
 
       {/* Sector + Gender disbursements */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card className="border shadow-sm" data-testid="card-sector-disbursements">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold">Sector-based Disbursements</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={260}>
-              <PieChart>
-                <Pie data={charts.sectorDisbursements} dataKey="amount" nameKey="sector" cx="50%" cy="50%" outerRadius={90} label={(e: any) => e.sector}>
-                  {charts.sectorDisbursements.map((_, i) => (
-                    <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(v: any) => formatCurrency(Number(v))} />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        <ChartCard title="Sector-based Disbursements" gradient="bg-gradient-to-r from-amber-500 to-orange-500" testId="card-sector-disbursements">
+          <ResponsiveContainer width="100%" height={260}>
+            <PieChart>
+              <Pie data={charts.sectorDisbursements} dataKey="amount" nameKey="sector" cx="50%" cy="50%" outerRadius={90} label={(e: any) => e.sector}>
+                {charts.sectorDisbursements.map((_, i) => (
+                  <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip formatter={(v: any) => formatCurrency(Number(v))} />
+            </PieChart>
+          </ResponsiveContainer>
+        </ChartCard>
 
-        <Card className="border shadow-sm" data-testid="card-gender-disbursements">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold">Gender-based Disbursements</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={260}>
-              <PieChart>
-                <Pie data={charts.genderDisbursements} dataKey="amount" nameKey="gender" cx="50%" cy="50%" outerRadius={90} label={(e: any) => e.gender}>
-                  {charts.genderDisbursements.map((g, i) => (
-                    <Cell key={i} fill={GENDER_COLORS[g.gender] || PIE_COLORS[i % PIE_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(v: any) => formatCurrency(Number(v))} />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        <ChartCard title="Gender-based Disbursements" gradient="bg-gradient-to-r from-pink-500 to-rose-500" testId="card-gender-disbursements">
+          <ResponsiveContainer width="100%" height={260}>
+            <PieChart>
+              <Pie data={charts.genderDisbursements} dataKey="amount" nameKey="gender" cx="50%" cy="50%" outerRadius={90} label={(e: any) => e.gender}>
+                {charts.genderDisbursements.map((g, i) => (
+                  <Cell key={i} fill={GENDER_COLORS[g.gender] || PIE_COLORS[i % PIE_COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip formatter={(v: any) => formatCurrency(Number(v))} />
+            </PieChart>
+          </ResponsiveContainer>
+        </ChartCard>
       </div>
 
       {/* Rankings */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card className="border shadow-sm" data-testid="card-branch-ranking">
+        <Card className="overflow-hidden border-0 shadow-lg" data-testid="card-branch-ranking">
+          <div className="h-1 bg-gradient-to-r from-indigo-500 to-blue-500" />
           <CardHeader className="pb-2">
             <div className="flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-indigo-500" />
+              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md">
+                <Building2 className="h-4 w-4 text-white" />
+              </div>
               <CardTitle className="text-base font-semibold">Branch Ranking</CardTitle>
             </div>
           </CardHeader>
@@ -354,7 +370,7 @@ export default function ManagementDashboard() {
                     <TableCell className="text-right font-mono">{formatCurrency(b.portfolio)}</TableCell>
                     <TableCell className="text-right">{b.collectionRate.toFixed(1)}%</TableCell>
                     <TableCell className="text-right">
-                      <Badge variant="outline" className={b.par30 > 5 ? "text-red-700 border-red-300" : "text-emerald-700 border-emerald-300"}>
+                      <Badge variant="outline" className={b.par30 > 5 ? "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30" : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"}>
                         {b.par30.toFixed(1)}%
                       </Badge>
                     </TableCell>
@@ -365,10 +381,13 @@ export default function ManagementDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="border shadow-sm" data-testid="card-province-ranking">
+        <Card className="overflow-hidden border-0 shadow-lg" data-testid="card-province-ranking">
+          <div className="h-1 bg-gradient-to-r from-emerald-500 to-teal-500" />
           <CardHeader className="pb-2">
             <div className="flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-emerald-500" />
+              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-md">
+                <MapPin className="h-4 w-4 text-white" />
+              </div>
               <CardTitle className="text-base font-semibold">Province Ranking</CardTitle>
             </div>
           </CardHeader>
@@ -400,10 +419,13 @@ export default function ManagementDashboard() {
       </div>
 
       {/* Officer productivity */}
-      <Card className="border shadow-sm" data-testid="card-officer-productivity">
+      <Card className="overflow-hidden border-0 shadow-lg" data-testid="card-officer-productivity">
+        <div className="h-1 bg-gradient-to-r from-purple-500 to-violet-500" />
         <CardHeader className="pb-2">
           <div className="flex items-center gap-2">
-            <Users className="h-4 w-4 text-purple-500" />
+            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-md">
+              <Users className="h-4 w-4 text-white" />
+            </div>
             <CardTitle className="text-base font-semibold">Loan Officer Productivity</CardTitle>
           </div>
         </CardHeader>
