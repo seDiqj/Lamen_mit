@@ -138,6 +138,7 @@ function ExecKpi({
   iconColor,
   change,
   changeUp,
+  changeLabel,
   spark,
   sparkColor,
   testId,
@@ -149,6 +150,7 @@ function ExecKpi({
   iconColor: string;
   change?: string;
   changeUp?: boolean;
+  changeLabel?: string;
   spark?: number[];
   sparkColor?: string;
   testId: string;
@@ -171,7 +173,7 @@ function ExecKpi({
             <div className={`flex items-center gap-1 text-xs font-semibold ${changeUp ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}>
               {changeUp ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
               <span>{change}</span>
-              <span className="text-muted-foreground font-normal">vs prev. month</span>
+              <span className="text-muted-foreground font-normal">vs {changeLabel || "prev. month"}</span>
             </div>
           ) : <span />}
           {sparkData.length > 1 && (
@@ -385,6 +387,9 @@ export default function ExecutiveDashboard() {
   const profitChange = pctChange(kpiCur?.profit, kpiPrev?.profit);
   const fmtChange = (c: number | null) => (c !== null ? `${Math.abs(c).toFixed(1)}%` : undefined);
   const upOf = (c: number | null) => (c !== null ? c >= 0 : undefined);
+  const prevMonthLabel = data.kpis?.previousMonth
+    ? new Date(`${data.kpis.previousMonth}-01T00:00:00Z`).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" })
+    : undefined;
   const maxProvincePortfolio = Math.max(...operations.provinceRanking.map(p => p.portfolio), 1);
   const maxBranchPortfolio = Math.max(...operations.branchRanking.map(b => b.portfolio), 1);
   const maxOfficerLoans = Math.max(...operations.officerProductivity.map(o => o.activeLoans), 1);
@@ -458,12 +463,12 @@ export default function ExecutiveDashboard() {
 
       {/* KPI row */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-        <ExecKpi label="Gross Portfolio" value={compactAFN(kpiCur?.gross ?? portfolio.grossPortfolio)} icon={Wallet} circleBg="bg-emerald-100 dark:bg-emerald-900/40" iconColor="text-emerald-600 dark:text-emerald-400" change={fmtChange(grossChange)} changeUp={upOf(grossChange)} spark={disbursedSpark} sparkColor="#16a34a" testId="kpi-gross-portfolio" />
-        <ExecKpi label="Outstanding Portfolio" value={compactAFN(kpiCur?.outstanding ?? portfolio.outstandingPortfolio)} icon={Briefcase} circleBg="bg-amber-100 dark:bg-amber-900/40" iconColor="text-amber-600 dark:text-amber-400" change={fmtChange(outstandingChange)} changeUp={upOf(outstandingChange)} spark={collectedSpark} sparkColor="#f59e0b" testId="kpi-outstanding-portfolio" />
-        <ExecKpi label="Active Borrowers" value={String(kpiCur?.borrowers ?? portfolio.activeBorrowers)} icon={UserCheck} circleBg="bg-blue-100 dark:bg-blue-900/40" iconColor="text-blue-600 dark:text-blue-400" change={fmtChange(borrowersChange)} changeUp={upOf(borrowersChange)} spark={newClientsSpark} sparkColor="#2563eb" testId="kpi-active-borrowers" />
-        <ExecKpi label="Active Clients" value={String(kpiCur?.clients ?? portfolio.activeClients)} icon={Users} circleBg="bg-sky-100 dark:bg-sky-900/40" iconColor="text-sky-600 dark:text-sky-400" change={fmtChange(clientsChange)} changeUp={upOf(clientsChange)} spark={newClientsSpark} sparkColor="#0ea5e9" testId="kpi-active-clients" />
-        <ExecKpi label="Loans Disbursed (Month)" value={compactAFN(kpiCur?.disbursed ?? operations.loansDisbursedAmount)} icon={HandCoins} circleBg="bg-violet-100 dark:bg-violet-900/40" iconColor="text-violet-600 dark:text-violet-400" change={fmtChange(disbursedChange)} changeUp={upOf(disbursedChange)} spark={disbursedSpark} sparkColor="#8b5cf6" testId="kpi-loans-disbursed-ytd" />
-        <ExecKpi label="Profit (Month)" value={compactAFN(kpiCur?.profit ?? finance.profit)} icon={TrendingUp} circleBg={(kpiCur?.profit ?? finance.profit) >= 0 ? "bg-emerald-100 dark:bg-emerald-900/40" : "bg-red-100 dark:bg-red-900/40"} iconColor={(kpiCur?.profit ?? finance.profit) >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"} change={fmtChange(profitChange)} changeUp={upOf(profitChange)} spark={profitSpark} sparkColor={(kpiCur?.profit ?? finance.profit) >= 0 ? "#16a34a" : "#ef4444"} testId="kpi-profit" />
+        <ExecKpi label="Gross Portfolio" value={compactAFN(kpiCur?.gross ?? portfolio.grossPortfolio)} icon={Wallet} circleBg="bg-emerald-100 dark:bg-emerald-900/40" iconColor="text-emerald-600 dark:text-emerald-400" change={fmtChange(grossChange)} changeUp={upOf(grossChange)} changeLabel={prevMonthLabel} spark={disbursedSpark} sparkColor="#16a34a" testId="kpi-gross-portfolio" />
+        <ExecKpi label="Outstanding Portfolio" value={compactAFN(kpiCur?.outstanding ?? portfolio.outstandingPortfolio)} icon={Briefcase} circleBg="bg-amber-100 dark:bg-amber-900/40" iconColor="text-amber-600 dark:text-amber-400" change={fmtChange(outstandingChange)} changeUp={upOf(outstandingChange)} changeLabel={prevMonthLabel} spark={collectedSpark} sparkColor="#f59e0b" testId="kpi-outstanding-portfolio" />
+        <ExecKpi label="Active Borrowers" value={String(kpiCur?.borrowers ?? portfolio.activeBorrowers)} icon={UserCheck} circleBg="bg-blue-100 dark:bg-blue-900/40" iconColor="text-blue-600 dark:text-blue-400" change={fmtChange(borrowersChange)} changeUp={upOf(borrowersChange)} changeLabel={prevMonthLabel} spark={newClientsSpark} sparkColor="#2563eb" testId="kpi-active-borrowers" />
+        <ExecKpi label="Active Clients" value={String(kpiCur?.clients ?? portfolio.activeClients)} icon={Users} circleBg="bg-sky-100 dark:bg-sky-900/40" iconColor="text-sky-600 dark:text-sky-400" change={fmtChange(clientsChange)} changeUp={upOf(clientsChange)} changeLabel={prevMonthLabel} spark={newClientsSpark} sparkColor="#0ea5e9" testId="kpi-active-clients" />
+        <ExecKpi label="Loans Disbursed (Month)" value={compactAFN(kpiCur?.disbursed ?? operations.loansDisbursedAmount)} icon={HandCoins} circleBg="bg-violet-100 dark:bg-violet-900/40" iconColor="text-violet-600 dark:text-violet-400" change={fmtChange(disbursedChange)} changeUp={upOf(disbursedChange)} changeLabel={prevMonthLabel} spark={disbursedSpark} sparkColor="#8b5cf6" testId="kpi-loans-disbursed-ytd" />
+        <ExecKpi label="Profit (Month)" value={compactAFN(kpiCur?.profit ?? finance.profit)} icon={TrendingUp} circleBg={(kpiCur?.profit ?? finance.profit) >= 0 ? "bg-emerald-100 dark:bg-emerald-900/40" : "bg-red-100 dark:bg-red-900/40"} iconColor={(kpiCur?.profit ?? finance.profit) >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"} change={fmtChange(profitChange)} changeUp={upOf(profitChange)} changeLabel={prevMonthLabel} spark={profitSpark} sparkColor={(kpiCur?.profit ?? finance.profit) >= 0 ? "#16a34a" : "#ef4444"} testId="kpi-profit" />
       </div>
 
       {/* Row 2: sector / gender / rural-urban / composition */}
