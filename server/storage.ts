@@ -4233,8 +4233,28 @@ export class DatabaseStorage implements IStorage {
       previous: { ...prevSnap, ...prevFlow },
     };
 
+    // Impact row: branch network + employment impact
+    const branchNetworkRows = (await db.execute(sql`
+      SELECT b.id, b.name,
+             COUNT(l.id) FILTER (WHERE ${portfolioStatuses}) AS loans,
+             COUNT(DISTINCT l.customer_id) FILTER (WHERE ${portfolioStatuses}) AS clients
+      FROM branches b
+      LEFT JOIN loans l ON l.branch_id = b.id
+      GROUP BY b.id, b.name
+      ORDER BY 3 DESC
+    `)).rows as any[];
+    const staffRow = (await db.execute(sql`
+      SELECT COUNT(*) AS total FROM employees WHERE employment_status = 'active'
+    `)).rows[0] as any;
+    const impact = {
+      branchNetwork: branchNetworkRows.map((b: any) => ({ id: b.id, name: b.name, loans: num(b.loans), clients: num(b.clients) })),
+      directEmployment: num(staffRow?.total),
+      indirectEmployment: activeBorrowers,
+    };
+
     return {
       kpis,
+      impact,
       portfolio: {
         grossPortfolio: num(grossRow?.gross),
         outstandingPortfolio,

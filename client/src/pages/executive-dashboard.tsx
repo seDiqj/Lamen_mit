@@ -21,6 +21,7 @@ import {
   Store,
   Factory,
   CalendarDays,
+  MapPin,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -42,6 +43,11 @@ type KpiSnapshot = { gross: number; outstanding: number; clients: number; borrow
 
 type ManagementData = {
   kpis?: { month: string; previousMonth: string; current: KpiSnapshot; previous: KpiSnapshot };
+  impact?: {
+    branchNetwork: { id: string; name: string; loans: number; clients: number }[];
+    directEmployment: number;
+    indirectEmployment: number;
+  };
   portfolio: {
     grossPortfolio: number;
     outstandingPortfolio: number;
@@ -686,6 +692,46 @@ export default function ExecutiveDashboard() {
           </div>
         </PanelCard>
       </div>
+
+      {/* Row 7: branch network + employment impact */}
+      {data.impact && (
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+          <PanelCard title="Branch Network (Geographic View)" testId="card-branch-network">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 mt-1">
+              {data.impact.branchNetwork.map((b, i) => (
+                <div key={b.id} className="flex items-center justify-between gap-2 py-1.5 border-b border-dashed last:border-0 sm:[&:nth-last-child(2)]:border-0" data-testid={`row-branch-network-${b.id}`}>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <MapPin className="h-4 w-4 shrink-0" style={{ color: PIE_COLORS[i % PIE_COLORS.length] }} />
+                    <span className="text-xs font-medium truncate">{b.name}</span>
+                  </div>
+                  <span className="text-[11px] text-muted-foreground shrink-0">{b.loans} loans · {b.clients} clients</span>
+                </div>
+              ))}
+            </div>
+          </PanelCard>
+
+          <PanelCard title="Employment Impact" testId="card-employment-impact">
+            <div className="grid grid-cols-2 gap-3 mt-1">
+              <div className="rounded-lg border p-4 text-center">
+                <p className="text-xs text-muted-foreground mb-1">Direct Employment</p>
+                <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400" data-testid="text-direct-employment">{data.impact.directEmployment.toLocaleString()}</p>
+                <div className="flex justify-center gap-0.5 mt-2 text-emerald-600 dark:text-emerald-400">
+                  {[1, 2, 3, 4, 5].map(i => <Users key={i} className="h-4 w-4" />)}
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-2">Active institution staff</p>
+              </div>
+              <div className="rounded-lg border p-4 text-center">
+                <p className="text-xs text-muted-foreground mb-1">Indirect Employment</p>
+                <p className="text-2xl font-bold text-amber-600 dark:text-amber-400" data-testid="text-indirect-employment">{data.impact.indirectEmployment.toLocaleString()}</p>
+                <div className="flex justify-center gap-0.5 mt-2 text-amber-600 dark:text-amber-400">
+                  {[1, 2, 3, 4, 5].map(i => <Users key={i} className="h-4 w-4" />)}
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-2">Active borrowers supported</p>
+              </div>
+            </div>
+          </PanelCard>
+        </div>
+      )}
 
       <p className="text-xs text-muted-foreground text-center pb-2">All figures are in AFN | YTD: Year to Date</p>
     </div>
