@@ -38,7 +38,10 @@ import {
   Legend,
 } from "recharts";
 
+type KpiSnapshot = { gross: number; outstanding: number; clients: number; borrowers: number; disbursed: number; profit: number };
+
 type ManagementData = {
+  kpis?: { month: string; previousMonth: string; current: KpiSnapshot; previous: KpiSnapshot };
   portfolio: {
     grossPortfolio: number;
     outstandingPortfolio: number;
@@ -278,10 +281,20 @@ function HBar({ label, pct, value, color }: { label: string; pct: number; value?
 export default function ExecutiveDashboard() {
   const today = new Date().toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" });
 
-  const [draftPeriod, setDraftPeriod] = useState("monthly");
+  const currentYm = new Date().toISOString().slice(0, 7);
+  const monthOptions = Array.from({ length: 24 }, (_, i) => {
+    const d = new Date();
+    d.setUTCDate(1);
+    d.setUTCMonth(d.getUTCMonth() - i);
+    const ym = d.toISOString().slice(0, 7);
+    const label = d.toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+    return { ym, label };
+  });
+
+  const [draftMonth, setDraftMonth] = useState(currentYm);
   const [draftBranch, setDraftBranch] = useState("all");
   const [draftProduct, setDraftProduct] = useState("all");
-  const [applied, setApplied] = useState({ period: "monthly", branch: "all", product: "all" });
+  const [applied, setApplied] = useState({ month: currentYm, branch: "all", product: "all" });
 
   const { data: branches } = useQuery<{ id: string; name: string }[]>({
     queryKey: ["/api/branches"],
@@ -291,9 +304,9 @@ export default function ExecutiveDashboard() {
   });
 
   const { data, isLoading, isError, isFetching, refetch } = useQuery<ManagementData>({
-    queryKey: ["/api/management/dashboard", applied.period, applied.branch, applied.product],
+    queryKey: ["/api/management/dashboard", applied.month, applied.branch, applied.product],
     queryFn: async () => {
-      const params = new URLSearchParams({ period: applied.period });
+      const params = new URLSearchParams({ period: "monthly", month: applied.month });
       if (applied.branch !== "all") params.set("branchId", applied.branch);
       if (applied.product !== "all") params.set("product", applied.product);
       const res = await fetch(`/api/management/dashboard?${params.toString()}`, { credentials: "include" });
@@ -303,10 +316,10 @@ export default function ExecutiveDashboard() {
   });
 
   const applyFilters = () => {
-    if (draftPeriod === applied.period && draftBranch === applied.branch && draftProduct === applied.product) {
+    if (draftMonth === applied.month && draftBranch === applied.branch && draftProduct === applied.product) {
       refetch();
     } else {
-      setApplied({ period: draftPeriod, branch: draftBranch, product: draftProduct });
+      setApplied({ month: draftMonth, branch: draftBranch, product: draftProduct });
     }
   };
 
@@ -352,19 +365,26 @@ export default function ExecutiveDashboard() {
     ...t,
     label: new Date(t.bucket).toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
   }));
-  const disbursedSpark = charts.trends.map(t => t.disbursed);
-  const collectedSpark = charts.trends.map(t => t.collected);
-  const newClientsSpark = charts.trends.map(t => t.newClients);
+  const kpiCur = data.kpis?.current;
+  const kpiPrev = data.kpis?.previous;
+  const pctChange = (cur: number | undefined, prev: number | undefined): number | null => {
+    if (cur === undefined || prev === undefined || prev === 0) return null;
+    return ((cur - prev) / Math.abs(prev)) * 100;
+  };
+  const selMonthEnd = data.kpis?.month ? `${data.kpis.month}-31` : null;
+  const trendsToMonth = selMonthEnd ? charts.trends.filter(t => t.bucket.slice(0, 10) <= selMonthEnd) : charts.trends;
+  const disbursedSpark = trendsToMonth.map(t => t.disbursed);
+  const collectedSpark = trendsToMonth.map(t => t.collected);
+  const newClientsSpark = trendsToMonth.map(t => t.newClients);
   const profitSpark = monthlyTrend.map(m => m.netIncome);
-  const ytdDisbursed = charts.trends.filter(t => new Date(t.bucket).getFullYear() === new Date().getFullYear()).reduce((s, t) => s + t.disbursed, 0);
-  const lastTwoDisbursed = charts.trends.slice(-2);
-  const disbursedChange = lastTwoDisbursed.length === 2 && lastTwoDisbursed[0].disbursed !== 0
-    ? ((lastTwoDisbursed[1].disbursed - lastTwoDisbursed[0].disbursed) / Math.abs(lastTwoDisbursed[0].disbursed)) * 100
-    : null;
-  const lastTwoProfit = monthlyTrend.slice(-2);
-  const profitChange = lastTwoProfit.length === 2 && lastTwoProfit[0].netIncome !== 0
-    ? ((lastTwoProfit[1].netIncome - lastTwoProfit[0].netIncome) / Math.abs(lastTwoProfit[0].netIncome)) * 100
-    : null;
+  const grossChange = pctChange(kpiCur?.gross, kpiPrev?.gross);
+  const outstandingChange = pctChange(kpiCur?.outstanding, kpiPrev?.outstanding);
+  const borrowersChange = pctChange(kpiCur?.borrowers, kpiPrev?.borrowers);
+  const clientsChange = pctChange(kpiCur?.clients, kpiPrev?.clients);
+  const disbursedChange = pctChange(kpiCur?.disbursed, kpiPrev?.disbursed);
+  const profitChange = pctChange(kpiCur?.profit, kpiPrev?.profit);
+  const fmtChange = (c: number | null) => (c !== null ? `${Math.abs(c).toFixed(1)}%` : undefined);
+  const upOf = (c: number | null) => (c !== null ? c >= 0 : undefined);
   const maxProvincePortfolio = Math.max(...operations.provinceRanking.map(p => p.portfolio), 1);
   const maxBranchPortfolio = Math.max(...operations.branchRanking.map(b => b.portfolio), 1);
   const maxOfficerLoans = Math.max(...operations.officerProductivity.map(o => o.activeLoans), 1);
@@ -390,14 +410,14 @@ export default function ExecutiveDashboard() {
         <CardContent className="p-3 flex flex-wrap items-end gap-3">
           <div className="space-y-1">
             <p className="text-xs font-medium text-muted-foreground">Period</p>
-            <Select value={draftPeriod} onValueChange={setDraftPeriod}>
-              <SelectTrigger className="w-[140px] h-9" data-testid="select-period">
+            <Select value={draftMonth} onValueChange={setDraftMonth}>
+              <SelectTrigger className="w-[170px] h-9" data-testid="select-period">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="monthly">Monthly</SelectItem>
-                <SelectItem value="quarterly">Quarterly</SelectItem>
-                <SelectItem value="yearly">Yearly</SelectItem>
+                {monthOptions.map(m => (
+                  <SelectItem key={m.ym} value={m.ym}>{m.label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -438,12 +458,12 @@ export default function ExecutiveDashboard() {
 
       {/* KPI row */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-        <ExecKpi label="Gross Portfolio" value={compactAFN(portfolio.grossPortfolio)} icon={Wallet} circleBg="bg-emerald-100 dark:bg-emerald-900/40" iconColor="text-emerald-600 dark:text-emerald-400" spark={disbursedSpark} sparkColor="#16a34a" testId="kpi-gross-portfolio" />
-        <ExecKpi label="Outstanding Portfolio" value={compactAFN(portfolio.outstandingPortfolio)} icon={Briefcase} circleBg="bg-amber-100 dark:bg-amber-900/40" iconColor="text-amber-600 dark:text-amber-400" spark={collectedSpark} sparkColor="#f59e0b" testId="kpi-outstanding-portfolio" />
-        <ExecKpi label="Active Borrowers" value={String(portfolio.activeBorrowers)} icon={UserCheck} circleBg="bg-blue-100 dark:bg-blue-900/40" iconColor="text-blue-600 dark:text-blue-400" spark={newClientsSpark} sparkColor="#2563eb" testId="kpi-active-borrowers" />
-        <ExecKpi label="Active Clients" value={String(portfolio.activeClients)} icon={Users} circleBg="bg-sky-100 dark:bg-sky-900/40" iconColor="text-sky-600 dark:text-sky-400" spark={newClientsSpark} sparkColor="#0ea5e9" testId="kpi-active-clients" />
-        <ExecKpi label="Loans Disbursed (YTD)" value={compactAFN(ytdDisbursed)} icon={HandCoins} circleBg="bg-violet-100 dark:bg-violet-900/40" iconColor="text-violet-600 dark:text-violet-400" change={disbursedChange !== null ? `${Math.abs(disbursedChange).toFixed(1)}%` : undefined} changeUp={disbursedChange !== null ? disbursedChange >= 0 : undefined} spark={disbursedSpark} sparkColor="#8b5cf6" testId="kpi-loans-disbursed-ytd" />
-        <ExecKpi label="Profit" value={compactAFN(finance.profit)} icon={TrendingUp} circleBg={finance.profit >= 0 ? "bg-emerald-100 dark:bg-emerald-900/40" : "bg-red-100 dark:bg-red-900/40"} iconColor={finance.profit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"} change={profitChange !== null ? `${Math.abs(profitChange).toFixed(1)}%` : undefined} changeUp={profitChange !== null ? profitChange >= 0 : undefined} spark={profitSpark} sparkColor={finance.profit >= 0 ? "#16a34a" : "#ef4444"} testId="kpi-profit" />
+        <ExecKpi label="Gross Portfolio" value={compactAFN(kpiCur?.gross ?? portfolio.grossPortfolio)} icon={Wallet} circleBg="bg-emerald-100 dark:bg-emerald-900/40" iconColor="text-emerald-600 dark:text-emerald-400" change={fmtChange(grossChange)} changeUp={upOf(grossChange)} spark={disbursedSpark} sparkColor="#16a34a" testId="kpi-gross-portfolio" />
+        <ExecKpi label="Outstanding Portfolio" value={compactAFN(kpiCur?.outstanding ?? portfolio.outstandingPortfolio)} icon={Briefcase} circleBg="bg-amber-100 dark:bg-amber-900/40" iconColor="text-amber-600 dark:text-amber-400" change={fmtChange(outstandingChange)} changeUp={upOf(outstandingChange)} spark={collectedSpark} sparkColor="#f59e0b" testId="kpi-outstanding-portfolio" />
+        <ExecKpi label="Active Borrowers" value={String(kpiCur?.borrowers ?? portfolio.activeBorrowers)} icon={UserCheck} circleBg="bg-blue-100 dark:bg-blue-900/40" iconColor="text-blue-600 dark:text-blue-400" change={fmtChange(borrowersChange)} changeUp={upOf(borrowersChange)} spark={newClientsSpark} sparkColor="#2563eb" testId="kpi-active-borrowers" />
+        <ExecKpi label="Active Clients" value={String(kpiCur?.clients ?? portfolio.activeClients)} icon={Users} circleBg="bg-sky-100 dark:bg-sky-900/40" iconColor="text-sky-600 dark:text-sky-400" change={fmtChange(clientsChange)} changeUp={upOf(clientsChange)} spark={newClientsSpark} sparkColor="#0ea5e9" testId="kpi-active-clients" />
+        <ExecKpi label="Loans Disbursed (Month)" value={compactAFN(kpiCur?.disbursed ?? operations.loansDisbursedAmount)} icon={HandCoins} circleBg="bg-violet-100 dark:bg-violet-900/40" iconColor="text-violet-600 dark:text-violet-400" change={fmtChange(disbursedChange)} changeUp={upOf(disbursedChange)} spark={disbursedSpark} sparkColor="#8b5cf6" testId="kpi-loans-disbursed-ytd" />
+        <ExecKpi label="Profit (Month)" value={compactAFN(kpiCur?.profit ?? finance.profit)} icon={TrendingUp} circleBg={(kpiCur?.profit ?? finance.profit) >= 0 ? "bg-emerald-100 dark:bg-emerald-900/40" : "bg-red-100 dark:bg-red-900/40"} iconColor={(kpiCur?.profit ?? finance.profit) >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"} change={fmtChange(profitChange)} changeUp={upOf(profitChange)} spark={profitSpark} sparkColor={(kpiCur?.profit ?? finance.profit) >= 0 ? "#16a34a" : "#ef4444"} testId="kpi-profit" />
       </div>
 
       {/* Row 2: sector / gender / rural-urban / composition */}

@@ -3947,7 +3947,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getManagementDashboard(period: string = "monthly", branchId: string | null = null, productName: string | null = null): Promise<any> {
+  async getManagementDashboard(period: string = "monthly", branchId: string | null = null, productName: string | null = null, month: string | null = null): Promise<any> {
     const today = new Date().toISOString().split("T")[0];
     const activeStatuses = sql`l.status IN ('disbursed', 'active')`;
     const portfolioStatuses = sql`l.status IN ('disbursed', 'active', 'completed', 'defaulted')`;
@@ -4159,7 +4159,82 @@ export class DatabaseStorage implements IStorage {
       return { label: b.label, amount, loans: rows.length, percentage: outstandingPortfolio > 0 ? (amount / outstandingPortfolio) * 100 : 0 };
     });
 
+    // Month-over-month KPI comparison for the selected month (default: current month)
+    const selMonth = month && /^\d{4}-(0[1-9]|1[0-2])$/.test(month) ? month : today.slice(0, 7);
+    const monthEndOf = (ym: string) => {
+      const [y, m] = ym.split("-").map(Number);
+      return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+    };
+    const monthStartOf = (ym: string) => `${ym}-01`;
+    const prevYm = (() => {
+      const [y, m] = selMonth.split("-").map(Number);
+      const d = new Date(Date.UTC(y, m - 2, 1));
+      return d.toISOString().slice(0, 7);
+    })();
+
+    const snapshotAt = async (asOf: string) => {
+      // Prefer immutable payment_transactions history for as-of collected amounts;
+      // fall back to installment payment_date for legacy loans without transaction records.
+      const rows = (await db.execute(sql`
+        SELECT l.id, l.customer_id AS "customerId", CAST(l.total_receivable AS numeric) AS gross,
+               COALESCE(SUM(CASE
+                 WHEN i.is_paid = true AND i.payment_date IS NOT NULL AND i.payment_date::date <= ${asOf}::date THEN CAST(i.total_amount AS numeric)
+                 WHEN i.payment_date IS NOT NULL AND i.payment_date::date <= ${asOf}::date THEN COALESCE(CAST(i.paid_amount AS numeric), 0)
+                 ELSE 0 END), 0) AS "instCollected",
+               (SELECT COUNT(*) FROM payment_transactions pt WHERE pt.loan_id = l.id AND pt.status = 'active') AS "txCount",
+               (SELECT COALESCE(SUM(CAST(pt.total_applied AS numeric)), 0) FROM payment_transactions pt
+                  WHERE pt.loan_id = l.id AND pt.status = 'active' AND pt.payment_date IS NOT NULL AND pt.payment_date::date <= ${asOf}::date) AS "txCollected"
+        FROM loans l
+        LEFT JOIN installments i ON i.loan_id = l.id
+        WHERE ${portfolioStatuses}${branchFilter}
+          AND EXISTS (SELECT 1 FROM disbursements d WHERE d.loan_id = l.id AND d.disbursement_date::date <= ${asOf}::date)
+        GROUP BY l.id
+      `)).rows as any[];
+      const collectedOf = (r: any) => (num(r.txCount) > 0 ? num(r.txCollected) : num(r.instCollected));
+      const gross = rows.reduce((s, r) => s + num(r.gross), 0);
+      const outstanding = rows.reduce((s, r) => s + Math.max(num(r.gross) - collectedOf(r), 0), 0);
+      const clients = new Set(rows.map(r => r.customerId)).size;
+      const borrowers = new Set(rows.filter(r => num(r.gross) - collectedOf(r) > 0.005).map(r => r.customerId)).size;
+      return { gross, outstanding, clients, borrowers };
+    };
+
+    const monthFlow = async (ym: string) => {
+      const start = monthStartOf(ym);
+      const end = monthEndOf(ym);
+      const [dRow] = (await db.execute(sql`
+        SELECT COALESCE(SUM(CAST(l.principle_amount AS numeric)), 0) AS disbursed
+        FROM disbursements d JOIN loans l ON l.id = d.loan_id
+        WHERE d.disbursement_date::date BETWEEN ${start}::date AND ${end}::date${branchFilter}
+      `)).rows as any[];
+      const [pRow] = (await db.execute(sql`
+        SELECT COALESCE(SUM(CASE WHEN a.account_type IN ('income', 'operating_income', 'non_operating_income', 'other_income')
+                 THEN CAST(jl.credit_amount AS numeric) - CAST(jl.debit_amount AS numeric) ELSE 0 END), 0) AS income,
+               COALESCE(SUM(CASE WHEN a.account_type IN ('expense', 'operating_expense', 'non_operating_expense', 'cost_of_financing')
+                 THEN CAST(jl.debit_amount AS numeric) - CAST(jl.credit_amount AS numeric) ELSE 0 END), 0) AS expenses
+        FROM journal_lines jl
+        JOIN journal_entries je ON je.id = jl.journal_entry_id
+        JOIN accounts a ON a.id = jl.account_id
+        WHERE je.is_posted = true AND je.entry_date::date BETWEEN ${start}::date AND ${end}::date
+      `)).rows as any[];
+      return { disbursed: num(dRow?.disbursed), profit: num(pRow?.income) - num(pRow?.expenses) };
+    };
+
+    const [curSnap, prevSnap, curFlow, prevFlow] = await Promise.all([
+      snapshotAt(monthEndOf(selMonth)),
+      snapshotAt(monthEndOf(prevYm)),
+      monthFlow(selMonth),
+      monthFlow(prevYm),
+    ]);
+
+    const kpis = {
+      month: selMonth,
+      previousMonth: prevYm,
+      current: { ...curSnap, ...curFlow },
+      previous: { ...prevSnap, ...prevFlow },
+    };
+
     return {
+      kpis,
       portfolio: {
         grossPortfolio: num(grossRow?.gross),
         outstandingPortfolio,

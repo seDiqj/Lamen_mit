@@ -6603,7 +6603,9 @@ export async function registerRoutes(
       const effectiveBranchId = await getEffectiveBranchId(req);
       const rawProduct = req.query.product;
       const productName = typeof rawProduct === "string" && rawProduct.trim() && rawProduct.length <= 255 ? rawProduct : null;
-      const data = await storage.getManagementDashboard(period, effectiveBranchId, productName);
+      const rawMonth = req.query.month;
+      const monthParam = typeof rawMonth === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(rawMonth) ? rawMonth : null;
+      const data = await storage.getManagementDashboard(period, effectiveBranchId, productName, monthParam);
       res.json(data);
     } catch (error) {
       console.error("Error fetching management dashboard:", error);
