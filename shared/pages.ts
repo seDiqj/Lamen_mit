@@ -31,6 +31,7 @@ export const PAGES: PageDef[] = [
   { key: "dashboard", label: "Overview Dashboard", route: "/", group: "dashboard" },
   { key: "admin-dashboard", label: "Admin Dashboard", route: "/admin-dashboard", group: "dashboard" },
   { key: "management-dashboard", label: "Management Dashboard", route: "/management-dashboard", group: "dashboard" },
+  { key: "executive-dashboard", label: "Executive Dashboard", route: "/executive-dashboard", group: "dashboard" },
 
   { key: "customers", label: "Customers", route: "/customers", group: "customers" },
   { key: "customer-registration", label: "Customer Registration", route: "/customer-registration", group: "customers" },

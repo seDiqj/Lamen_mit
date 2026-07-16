@@ -1,0 +1,504 @@
+import { useQuery } from "@tanstack/react-query";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { formatCurrency } from "@/lib/utils";
+import {
+  Wallet,
+  Briefcase,
+  Users,
+  UserCheck,
+  HandCoins,
+  TrendingUp,
+  Trash2,
+  UserPlus,
+  DollarSign,
+  Sprout,
+  Store,
+  Factory,
+  CalendarDays,
+} from "lucide-react";
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+} from "recharts";
+
+type ManagementData = {
+  portfolio: {
+    grossPortfolio: number;
+    outstandingPortfolio: number;
+    activeClients: number;
+    activeBorrowers: number;
+    womenClients: number;
+    youthClients: number;
+    ruralClients: number;
+    urbanClients: number;
+    agriculturePortfolio: number;
+    msmePortfolio: number;
+    smePortfolio: number;
+  };
+  quality: {
+    par30: number;
+    par30Amount: number;
+    par90: number;
+    par90Amount: number;
+    collectionRate: number;
+    writeOffs: number;
+  };
+  finance: { income: number; expenses: number; profit: number; oss: number; fss: number };
+  operations: {
+    newClients: number;
+    loansDisbursedCount: number;
+    loansDisbursedAmount: number;
+    avgLoanSize: number;
+    officerProductivity: { id: string; name: string; branchName: string | null; activeLoans: number; clients: number; portfolio: number }[];
+    branchRanking: { id: string; name: string; clients: number; activeLoans: number; portfolio: number; collectionRate: number; par30: number }[];
+    provinceRanking: { province: string; clients: number; loans: number; portfolio: number }[];
+  };
+  charts: {
+    trends: { bucket: string; disbursed: number; disbursedCount: number; collected: number; newClients: number }[];
+    sectorDisbursements: { sector: string; amount: number; count: number }[];
+    genderDisbursements: { gender: string; amount: number; count: number }[];
+    parAging: { label: string; amount: number; loans: number; percentage: number }[];
+  };
+};
+
+type FinancialStats = {
+  financialPerformance?: {
+    monthlyTrend: { month: string; income: number; expenses: number; netIncome: number }[];
+    expenseBreakdown: { accountCode: string; accountName: string; amount: number }[];
+  };
+};
+
+const PIE_COLORS = ["#16a34a", "#2563eb", "#f59e0b", "#8b5cf6", "#06b6d4", "#ec4899", "#ef4444", "#84cc16"];
+
+function compactAFN(v: number) {
+  if (Math.abs(v) >= 1_000_000) return `AFN ${(v / 1_000_000).toFixed(1)}M`;
+  if (Math.abs(v) >= 1_000) return `AFN ${(v / 1_000).toFixed(0)}K`;
+  return `AFN ${Math.round(v)}`;
+}
+
+function compactNum(v: number) {
+  if (Math.abs(v) >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+  if (Math.abs(v) >= 1_000) return `${(v / 1_000).toFixed(0)}K`;
+  return String(Math.round(v));
+}
+
+function KpiTile({
+  label,
+  value,
+  icon: Icon,
+  iconBg,
+  testId,
+}: {
+  label: string;
+  value: string;
+  icon: any;
+  iconBg: string;
+  testId: string;
+}) {
+  return (
+    <Card className="overflow-hidden border-0 shadow-lg" data-testid={testId}>
+      <CardContent className="p-4 flex items-center gap-3">
+        <div className={`h-11 w-11 shrink-0 rounded-xl ${iconBg} flex items-center justify-center shadow-md`}>
+          <Icon className="h-5 w-5 text-white" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-xs text-muted-foreground font-medium truncate">{label}</p>
+          <p className="text-xl font-bold truncate">{value}</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function Gauge({
+  value,
+  max = 100,
+  label,
+  display,
+  color,
+  sub,
+  testId,
+}: {
+  value: number;
+  max?: number;
+  label: string;
+  display: string;
+  color: string;
+  sub?: string;
+  testId: string;
+}) {
+  const pct = Math.max(0, Math.min(1, value / max));
+  const data = [
+    { name: "value", value: pct },
+    { name: "rest", value: 1 - pct },
+  ];
+  return (
+    <Card className="overflow-hidden border-0 shadow-lg" data-testid={testId}>
+      <CardContent className="p-4 flex flex-col items-center">
+        <p className="text-sm font-semibold mb-1">{label}</p>
+        <div className="relative h-[110px] w-full">
+          <ResponsiveContainer width="100%" height={200}>
+            <PieChart>
+              <Pie
+                data={data}
+                dataKey="value"
+                startAngle={180}
+                endAngle={0}
+                cx="50%"
+                cy="52%"
+                innerRadius={55}
+                outerRadius={75}
+                stroke="none"
+              >
+                <Cell fill={color} />
+                <Cell fill="hsl(var(--muted))" />
+              </Pie>
+            </PieChart>
+          </ResponsiveContainer>
+          <div className="absolute inset-x-0 top-[62px] text-center">
+            <span className="text-2xl font-bold" style={{ color }}>{display}</span>
+          </div>
+        </div>
+        {sub && <p className="text-xs text-muted-foreground -mt-2">{sub}</p>}
+      </CardContent>
+    </Card>
+  );
+}
+
+function PanelCard({ title, testId, children, className }: { title: string; testId: string; children: React.ReactNode; className?: string }) {
+  return (
+    <Card className={`overflow-hidden border-0 shadow-lg ${className || ""}`} data-testid={testId}>
+      <CardContent className="p-4">
+        <p className="text-sm font-semibold mb-3">{title}</p>
+        {children}
+      </CardContent>
+    </Card>
+  );
+}
+
+function HBar({ label, pct, value, color }: { label: string; pct: number; value?: string; color: string }) {
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-muted-foreground">{label}</span>
+        <span className="font-semibold">{value ? `${value} · ` : ""}{pct.toFixed(1)}%</span>
+      </div>
+      <div className="w-full bg-muted rounded-full h-2.5 overflow-hidden">
+        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, pct)}%`, backgroundColor: color }} />
+      </div>
+    </div>
+  );
+}
+
+export default function ExecutiveDashboard() {
+  const today = new Date().toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" });
+
+  const { data, isLoading, isError, refetch } = useQuery<ManagementData>({
+    queryKey: ["/api/management/dashboard", "monthly"],
+    queryFn: async () => {
+      const res = await fetch(`/api/management/dashboard?period=monthly`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch executive dashboard");
+      return res.json();
+    },
+  });
+
+  const { data: stats, isError: statsError } = useQuery<FinancialStats>({
+    queryKey: ["/api/dashboard/stats"],
+  });
+
+  if (isError) {
+    return (
+      <div className="p-6 flex flex-col items-center gap-3">
+        <p className="text-muted-foreground" data-testid="text-error">Could not load the executive dashboard. You may not have access, or something went wrong.</p>
+        <button className="text-sm text-primary underline" onClick={() => refetch()} data-testid="button-retry">Try again</button>
+      </div>
+    );
+  }
+
+  if (isLoading || !data) {
+    return (
+      <div className="p-6 space-y-6">
+        <Skeleton className="h-10 w-96" />
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+          {[1, 2, 3, 4, 5, 6].map(i => <Skeleton key={i} className="h-20" />)}
+        </div>
+        <Skeleton className="h-72" />
+        <Skeleton className="h-72" />
+      </div>
+    );
+  }
+
+  const { portfolio, quality, finance, operations, charts } = data;
+  const monthlyTrend = stats?.financialPerformance?.monthlyTrend || [];
+  const expenseBreakdown = (stats?.financialPerformance?.expenseBreakdown || []).slice(0, 6);
+
+  const totalClients = portfolio.activeClients || 1;
+  const genderTotal = charts.genderDisbursements.reduce((s, g) => s + g.amount, 0) || 1;
+  const women = charts.genderDisbursements.find(g => g.gender === "female");
+  const men = charts.genderDisbursements.find(g => g.gender === "male");
+  const ruralPct = (portfolio.ruralClients / totalClients) * 100;
+  const urbanPct = (portfolio.urbanClients / totalClients) * 100;
+  const outstanding = portfolio.outstandingPortfolio || 1;
+  const writeOffPct = portfolio.grossPortfolio > 0 ? (quality.writeOffs / portfolio.grossPortfolio) * 100 : 0;
+  const trendData = charts.trends.map(t => ({
+    ...t,
+    label: new Date(t.bucket).toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
+  }));
+  const maxProvincePortfolio = Math.max(...operations.provinceRanking.map(p => p.portfolio), 1);
+  const maxBranchPortfolio = Math.max(...operations.branchRanking.map(b => b.portfolio), 1);
+  const maxOfficerLoans = Math.max(...operations.officerProductivity.map(o => o.activeLoans), 1);
+
+  return (
+    <div className="space-y-4 p-1">
+      {/* Header */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 dark:from-amber-400 dark:to-yellow-500 bg-clip-text text-transparent" data-testid="text-page-title">
+            Executive Dashboard
+          </h1>
+          <p className="text-muted-foreground mt-1">Overview of Institutional Performance</p>
+        </div>
+        <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-card border">
+          <CalendarDays className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-medium">Last updated: {today}</span>
+        </div>
+      </div>
+
+      {/* KPI row */}
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+        <KpiTile label="Gross Portfolio" value={compactAFN(portfolio.grossPortfolio)} icon={Wallet} iconBg="bg-gradient-to-br from-emerald-500 to-green-600" testId="kpi-gross-portfolio" />
+        <KpiTile label="Outstanding Portfolio" value={compactAFN(portfolio.outstandingPortfolio)} icon={Briefcase} iconBg="bg-gradient-to-br from-amber-500 to-orange-600" testId="kpi-outstanding-portfolio" />
+        <KpiTile label="Active Borrowers" value={String(portfolio.activeBorrowers)} icon={UserCheck} iconBg="bg-gradient-to-br from-blue-500 to-indigo-600" testId="kpi-active-borrowers" />
+        <KpiTile label="Active Clients" value={String(portfolio.activeClients)} icon={Users} iconBg="bg-gradient-to-br from-sky-500 to-blue-600" testId="kpi-active-clients" />
+        <KpiTile label="Loans Disbursed (YTD)" value={compactAFN(charts.trends.filter(t => new Date(t.bucket).getFullYear() === new Date().getFullYear()).reduce((s, t) => s + t.disbursed, 0))} icon={HandCoins} iconBg="bg-gradient-to-br from-violet-500 to-purple-600" testId="kpi-loans-disbursed-ytd" />
+        <KpiTile label="Profit" value={compactAFN(finance.profit)} icon={TrendingUp} iconBg={finance.profit >= 0 ? "bg-gradient-to-br from-emerald-500 to-teal-600" : "bg-gradient-to-br from-red-500 to-rose-600"} testId="kpi-profit" />
+      </div>
+
+      {/* Row 2: sector / gender / rural-urban / composition */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+        <PanelCard title="Portfolio by Sector" testId="card-sector">
+          <ResponsiveContainer width="100%" height={210}>
+            <PieChart>
+              <Pie data={charts.sectorDisbursements} dataKey="amount" nameKey="sector" cx="50%" cy="50%" innerRadius={45} outerRadius={75}>
+                {charts.sectorDisbursements.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+              </Pie>
+              <Tooltip formatter={(v: any) => formatCurrency(Number(v))} />
+              <Legend verticalAlign="bottom" height={40} wrapperStyle={{ fontSize: 11 }} />
+            </PieChart>
+          </ResponsiveContainer>
+        </PanelCard>
+
+        <PanelCard title="Gender Distribution (by Disbursement)" testId="card-gender">
+          <div className="flex items-center gap-3">
+            <ResponsiveContainer width="55%" height={180}>
+              <PieChart>
+                <Pie data={charts.genderDisbursements} dataKey="amount" nameKey="gender" cx="50%" cy="50%" innerRadius={40} outerRadius={70}>
+                  {charts.genderDisbursements.map((g, i) => (
+                    <Cell key={i} fill={g.gender === "female" ? "#ec4899" : g.gender === "male" ? "#2563eb" : PIE_COLORS[i % PIE_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(v: any) => formatCurrency(Number(v))} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="space-y-3 text-sm">
+              <div>
+                <p className="text-muted-foreground text-xs">Women</p>
+                <p className="font-bold text-pink-600 dark:text-pink-400">{(((women?.amount || 0) / genderTotal) * 100).toFixed(0)}%</p>
+                <p className="text-xs text-muted-foreground">{compactAFN(women?.amount || 0)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-xs">Men</p>
+                <p className="font-bold text-blue-600 dark:text-blue-400">{(((men?.amount || 0) / genderTotal) * 100).toFixed(0)}%</p>
+                <p className="text-xs text-muted-foreground">{compactAFN(men?.amount || 0)}</p>
+              </div>
+            </div>
+          </div>
+        </PanelCard>
+
+        <PanelCard title="Rural vs Urban (by Clients)" testId="card-rural-urban">
+          <div className="space-y-4 mt-4">
+            <HBar label="Rural" pct={ruralPct} value={String(portfolio.ruralClients)} color="#16a34a" />
+            <HBar label="Urban" pct={urbanPct} value={String(portfolio.urbanClients)} color="#15803d" />
+          </div>
+        </PanelCard>
+
+        <PanelCard title="Portfolio Composition" testId="card-composition">
+          <div className="space-y-3">
+            {[
+              { label: "Agriculture Portfolio", amount: portfolio.agriculturePortfolio, icon: Sprout, color: "text-green-600 dark:text-green-400" },
+              { label: "MSME Portfolio", amount: portfolio.msmePortfolio, icon: Store, color: "text-blue-600 dark:text-blue-400" },
+              { label: "SME Portfolio", amount: portfolio.smePortfolio, icon: Factory, color: "text-amber-600 dark:text-amber-400" },
+            ].map((row, i) => (
+              <div key={i} className="flex items-center justify-between gap-2 py-1.5 border-b border-dashed last:border-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <row.icon className={`h-4 w-4 shrink-0 ${row.color}`} />
+                  <span className="text-xs text-muted-foreground truncate">{row.label}</span>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-sm font-semibold">{compactAFN(row.amount)}</p>
+                  <p className="text-[10px] text-muted-foreground">{((row.amount / outstanding) * 100).toFixed(0)}%</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </PanelCard>
+      </div>
+
+      {/* Row 3: gauges + portfolio aging */}
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
+        <Gauge label="PAR 30" value={quality.par30} max={20} display={`${quality.par30.toFixed(1)}%`} color={quality.par30 > 5 ? "#ef4444" : "#16a34a"} sub={formatCurrency(quality.par30Amount)} testId="gauge-par30" />
+        <Gauge label="PAR 90" value={quality.par90} max={20} display={`${quality.par90.toFixed(1)}%`} color={quality.par90 > 3 ? "#ef4444" : "#16a34a"} sub={formatCurrency(quality.par90Amount)} testId="gauge-par90" />
+        <Gauge label="Collection Rate" value={quality.collectionRate} display={`${quality.collectionRate.toFixed(1)}%`} color="#16a34a" testId="gauge-collection-rate" />
+        <Card className="overflow-hidden border-0 shadow-lg" data-testid="card-writeoffs">
+          <CardContent className="p-4 flex flex-col items-center justify-center h-full">
+            <p className="text-sm font-semibold mb-2">Write-offs</p>
+            <div className="h-11 w-11 rounded-xl bg-red-500/15 flex items-center justify-center mb-2">
+              <Trash2 className="h-5 w-5 text-red-500" />
+            </div>
+            <p className="text-xl font-bold text-red-500">{compactAFN(quality.writeOffs)}</p>
+            <p className="text-xs text-muted-foreground mt-1">{writeOffPct.toFixed(2)}% of gross portfolio</p>
+          </CardContent>
+        </Card>
+        <PanelCard title="Portfolio Aging (DAB Buckets)" testId="card-aging" className="col-span-2 md:col-span-3 xl:col-span-1">
+          <div className="space-y-2.5">
+            {charts.parAging.map((b, i) => (
+              <HBar
+                key={i}
+                label={b.label}
+                pct={b.percentage}
+                color={b.label === "Current" ? "#16a34a" : ["#84cc16", "#f59e0b", "#f97316", "#ef4444", "#991b1b"][Math.min(i - 1, 4)] || "#ef4444"}
+              />
+            ))}
+          </div>
+        </PanelCard>
+      </div>
+
+      {/* Row 4: income vs expense, profit trend, OSS/FSS, expenses breakdown */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+        <PanelCard title="Income vs Expense Trend (Monthly)" testId="card-income-expense">
+          {statsError ? (
+            <p className="text-sm text-muted-foreground py-8 text-center" data-testid="text-stats-error">Could not load financial trend data.</p>
+          ) : (
+          <ResponsiveContainer width="100%" height={200}>
+            <LineChart data={monthlyTrend}>
+              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+              <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+              <YAxis tickFormatter={compactNum} tick={{ fontSize: 10 }} />
+              <Tooltip formatter={(v: any) => formatCurrency(Number(v))} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Line type="monotone" dataKey="income" name="Income" stroke="#16a34a" strokeWidth={2} dot={{ r: 2 }} />
+              <Line type="monotone" dataKey="expenses" name="Expenses" stroke="#ef4444" strokeWidth={2} dot={{ r: 2 }} />
+            </LineChart>
+          </ResponsiveContainer>
+          )}
+        </PanelCard>
+
+        <PanelCard title="Profit Trend (Monthly)" testId="card-profit-trend">
+          <ResponsiveContainer width="100%" height={200}>
+            <LineChart data={monthlyTrend}>
+              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+              <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+              <YAxis tickFormatter={compactNum} tick={{ fontSize: 10 }} />
+              <Tooltip formatter={(v: any) => formatCurrency(Number(v))} />
+              <Line type="monotone" dataKey="netIncome" name="Net Income" stroke="#16a34a" strokeWidth={2} dot={{ r: 3 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </PanelCard>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Gauge label="OSS" value={finance.oss} max={150} display={`${finance.oss.toFixed(0)}%`} color={finance.oss >= 100 ? "#16a34a" : "#f59e0b"} sub="Operating Self Sufficiency" testId="gauge-oss" />
+          <Gauge label="FSS" value={finance.fss} max={150} display={`${finance.fss.toFixed(0)}%`} color={finance.fss >= 100 ? "#16a34a" : "#f59e0b"} sub="Financial Self Sufficiency" testId="gauge-fss" />
+        </div>
+
+        <PanelCard title="Expenses Breakdown" testId="card-expenses-breakdown">
+          {expenseBreakdown.length > 0 ? (
+            <ResponsiveContainer width="100%" height={200}>
+              <PieChart>
+                <Pie data={expenseBreakdown} dataKey="amount" nameKey="accountName" cx="50%" cy="50%" innerRadius={40} outerRadius={70}>
+                  {expenseBreakdown.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                </Pie>
+                <Tooltip formatter={(v: any) => formatCurrency(Number(v))} />
+                <Legend verticalAlign="bottom" height={40} wrapperStyle={{ fontSize: 10 }} />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="text-sm text-muted-foreground py-8 text-center">No expense data available</p>
+          )}
+        </PanelCard>
+      </div>
+
+      {/* Row 5: officer productivity, new clients, loans disbursed, avg loan size, branch & province rankings */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+        <PanelCard title="Loan Officer Productivity (Active Loans)" testId="card-officer-productivity">
+          <div className="space-y-2.5">
+            {operations.officerProductivity.slice(0, 5).map(o => (
+              <HBar key={o.id} label={o.name} pct={(o.activeLoans / maxOfficerLoans) * 100} value={String(o.activeLoans)} color="#2563eb" />
+            ))}
+          </div>
+        </PanelCard>
+
+        <div className="grid grid-cols-1 gap-3">
+          <KpiTile label="New Clients (This Month)" value={String(operations.newClients)} icon={UserPlus} iconBg="bg-gradient-to-br from-emerald-500 to-green-600" testId="kpi-new-clients" />
+          <KpiTile label="Loans Disbursed (This Month)" value={compactAFN(operations.loansDisbursedAmount)} icon={HandCoins} iconBg="bg-gradient-to-br from-teal-500 to-emerald-600" testId="kpi-loans-disbursed-month" />
+          <KpiTile label="Average Loan Size" value={compactAFN(operations.avgLoanSize)} icon={DollarSign} iconBg="bg-gradient-to-br from-blue-500 to-cyan-600" testId="kpi-avg-loan-size" />
+        </div>
+
+        <PanelCard title="Branch Ranking (by Portfolio)" testId="card-branch-ranking">
+          <div className="space-y-2.5">
+            {operations.branchRanking.map(b => (
+              <HBar key={b.id} label={b.name} pct={(b.portfolio / maxBranchPortfolio) * 100} value={compactAFN(b.portfolio)} color="#16a34a" />
+            ))}
+          </div>
+        </PanelCard>
+
+        <PanelCard title="Province Ranking (by Portfolio)" testId="card-province-ranking">
+          <div className="space-y-2.5">
+            {operations.provinceRanking.slice(0, 6).map((p, i) => (
+              <HBar key={i} label={p.province} pct={(p.portfolio / maxProvincePortfolio) * 100} value={compactAFN(p.portfolio)} color="#2563eb" />
+            ))}
+          </div>
+        </PanelCard>
+      </div>
+
+      {/* Row 6: disbursement trend + client demographics */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+        <PanelCard title="Disbursements & Collections Trend (Monthly)" testId="card-disbursement-trend">
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={trendData}>
+              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+              <XAxis dataKey="label" tick={{ fontSize: 10 }} />
+              <YAxis tickFormatter={compactNum} tick={{ fontSize: 10 }} />
+              <Tooltip formatter={(v: any) => formatCurrency(Number(v))} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Bar dataKey="disbursed" name="Disbursed" fill="#2563eb" radius={[3, 3, 0, 0]} />
+              <Bar dataKey="collected" name="Collected" fill="#16a34a" radius={[3, 3, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </PanelCard>
+
+        <PanelCard title="Client Demographics" testId="card-demographics">
+          <div className="space-y-2.5 mt-1">
+            <HBar label="Women Clients" pct={(portfolio.womenClients / totalClients) * 100} value={String(portfolio.womenClients)} color="#ec4899" />
+            <HBar label="Youth Clients (18-35)" pct={(portfolio.youthClients / totalClients) * 100} value={String(portfolio.youthClients)} color="#8b5cf6" />
+            <HBar label="Rural Clients" pct={ruralPct} value={String(portfolio.ruralClients)} color="#16a34a" />
+            <HBar label="Urban Clients" pct={urbanPct} value={String(portfolio.urbanClients)} color="#0ea5e9" />
+          </div>
+        </PanelCard>
+      </div>
+
+      <p className="text-xs text-muted-foreground text-center pb-2">All figures are in AFN | YTD: Year to Date</p>
+    </div>
+  );
+}

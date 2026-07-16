@@ -134,6 +134,7 @@ const PAGE_URL_TO_NAME: Record<string, string> = {
   "/dab-report": "dab-report",
   "/accounting-dashboard": "accounting-dashboard",
   "/management-dashboard": "management-dashboard",
+  "/executive-dashboard": "executive-dashboard",
   "/profitability-analysis": "profitability-analysis",
   "/hr/dashboard": "hr-dashboard",
   "/hr/org-structure": "hr-org-structure",
@@ -184,6 +185,7 @@ export function AppSidebar() {
       items: [
         { title: "Overview", url: "/", icon: LayoutDashboard, iconColor: "text-blue-500" },
         { title: "Management Dashboard", url: "/management-dashboard", icon: BarChart3, iconColor: "text-indigo-500" },
+        { title: "Executive Dashboard", url: "/executive-dashboard", icon: BarChart3, iconColor: "text-emerald-500" },
         { title: "Profitability Analysis", url: "/profitability-analysis", icon: PieChart, iconColor: "text-purple-500" },
       ],
     },
@@ -277,6 +279,7 @@ export function AppSidebar() {
       items: [
         { title: "Overview", url: "/", icon: LayoutDashboard, iconColor: "text-blue-500" },
         { title: "Management Dashboard", url: "/management-dashboard", icon: BarChart3, iconColor: "text-indigo-500" },
+        { title: "Executive Dashboard", url: "/executive-dashboard", icon: BarChart3, iconColor: "text-emerald-500" },
         { title: "Profitability Analysis", url: "/profitability-analysis", icon: PieChart, iconColor: "text-purple-500" },
       ],
     },
@@ -366,6 +369,7 @@ export function AppSidebar() {
       items: [
         { title: "Overview", url: "/", icon: LayoutDashboard, iconColor: "text-blue-500" },
         { title: "Management Dashboard", url: "/management-dashboard", icon: BarChart3, iconColor: "text-indigo-500" },
+        { title: "Executive Dashboard", url: "/executive-dashboard", icon: BarChart3, iconColor: "text-emerald-500" },
         { title: "Profitability Analysis", url: "/profitability-analysis", icon: PieChart, iconColor: "text-purple-500" },
       ],
     },
