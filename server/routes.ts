@@ -6601,7 +6601,9 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Invalid period. Use monthly, quarterly, or yearly." });
       }
       const effectiveBranchId = await getEffectiveBranchId(req);
-      const data = await storage.getManagementDashboard(period, effectiveBranchId);
+      const rawProduct = req.query.product;
+      const productName = typeof rawProduct === "string" && rawProduct.trim() && rawProduct.length <= 255 ? rawProduct : null;
+      const data = await storage.getManagementDashboard(period, effectiveBranchId, productName);
       res.json(data);
     } catch (error) {
       console.error("Error fetching management dashboard:", error);

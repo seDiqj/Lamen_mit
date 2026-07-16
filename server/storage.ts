@@ -3947,13 +3947,14 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getManagementDashboard(period: string = "monthly", branchId: string | null = null): Promise<any> {
+  async getManagementDashboard(period: string = "monthly", branchId: string | null = null, productName: string | null = null): Promise<any> {
     const today = new Date().toISOString().split("T")[0];
     const activeStatuses = sql`l.status IN ('disbursed', 'active')`;
     const portfolioStatuses = sql`l.status IN ('disbursed', 'active', 'completed', 'defaulted')`;
-    const branchFilter = branchId ? sql` AND l.branch_id = ${branchId}` : sql``;
-    const custBranchFilter = branchId
-      ? sql` AND EXISTS (SELECT 1 FROM loans lb WHERE lb.customer_id = customers.id AND lb.branch_id = ${branchId})`
+    const productFilter = productName ? sql` AND l.product_name = ${productName}` : sql``;
+    const branchFilter = sql`${branchId ? sql` AND l.branch_id = ${branchId}` : sql``}${productFilter}`;
+    const custBranchFilter = (branchId || productName)
+      ? sql` AND EXISTS (SELECT 1 FROM loans lb WHERE lb.customer_id = customers.id${branchId ? sql` AND lb.branch_id = ${branchId}` : sql``}${productName ? sql` AND lb.product_name = ${productName}` : sql``})`
       : sql``;
 
     // Per-loan outstanding + max overdue days (basis for portfolio & PAR)
@@ -4046,7 +4047,7 @@ export class DatabaseStorage implements IStorage {
              COALESCE(SUM(CASE WHEN i.is_paid = false THEN CAST(i.total_amount AS numeric) - COALESCE(CAST(i.paid_amount AS numeric), 0) ELSE 0 END), 0) AS portfolio
       FROM finance_officers fo
       LEFT JOIN branches b ON b.id = fo.branch_id
-      LEFT JOIN loans l ON l.finance_officer_id = fo.id AND l.status IN ('disbursed', 'active')
+      LEFT JOIN loans l ON l.finance_officer_id = fo.id AND l.status IN ('disbursed', 'active')${productFilter}
       LEFT JOIN installments i ON i.loan_id = l.id
       WHERE COALESCE(fo.is_active, true) = true${branchId ? sql` AND fo.branch_id = ${branchId}` : sql``}
       GROUP BY fo.id, fo.name, b.name
@@ -4062,7 +4063,7 @@ export class DatabaseStorage implements IStorage {
              COALESCE(SUM(CASE WHEN i.due_date::date <= ${today}::date THEN CASE WHEN i.is_paid THEN CAST(i.total_amount AS numeric) ELSE COALESCE(CAST(i.paid_amount AS numeric), 0) END ELSE 0 END), 0) AS collected,
              COALESCE(SUM(CASE WHEN i.due_date::date <= ${today}::date THEN CAST(i.total_amount AS numeric) ELSE 0 END), 0) AS "dueToDate"
       FROM branches b
-      LEFT JOIN loans l ON l.branch_id = b.id AND l.status IN ('disbursed', 'active', 'completed', 'defaulted')
+      LEFT JOIN loans l ON l.branch_id = b.id AND l.status IN ('disbursed', 'active', 'completed', 'defaulted')${productFilter}
       LEFT JOIN installments i ON i.loan_id = l.id
       ${branchId ? sql`WHERE b.id = ${branchId}` : sql``}
       GROUP BY b.id, b.name

@@ -1,8 +1,12 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatCurrency } from "@/lib/utils";
 import {
+  RefreshCw,
   Wallet,
   Briefcase,
   Users,
@@ -274,14 +278,37 @@ function HBar({ label, pct, value, color }: { label: string; pct: number; value?
 export default function ExecutiveDashboard() {
   const today = new Date().toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" });
 
-  const { data, isLoading, isError, refetch } = useQuery<ManagementData>({
-    queryKey: ["/api/management/dashboard", "monthly"],
+  const [draftPeriod, setDraftPeriod] = useState("monthly");
+  const [draftBranch, setDraftBranch] = useState("all");
+  const [draftProduct, setDraftProduct] = useState("all");
+  const [applied, setApplied] = useState({ period: "monthly", branch: "all", product: "all" });
+
+  const { data: branches } = useQuery<{ id: string; name: string }[]>({
+    queryKey: ["/api/branches"],
+  });
+  const { data: products } = useQuery<{ id: string; productName: string }[]>({
+    queryKey: ["/api/financing-products"],
+  });
+
+  const { data, isLoading, isError, isFetching, refetch } = useQuery<ManagementData>({
+    queryKey: ["/api/management/dashboard", applied.period, applied.branch, applied.product],
     queryFn: async () => {
-      const res = await fetch(`/api/management/dashboard?period=monthly`, { credentials: "include" });
+      const params = new URLSearchParams({ period: applied.period });
+      if (applied.branch !== "all") params.set("branchId", applied.branch);
+      if (applied.product !== "all") params.set("product", applied.product);
+      const res = await fetch(`/api/management/dashboard?${params.toString()}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch executive dashboard");
       return res.json();
     },
   });
+
+  const applyFilters = () => {
+    if (draftPeriod === applied.period && draftBranch === applied.branch && draftProduct === applied.product) {
+      refetch();
+    } else {
+      setApplied({ period: draftPeriod, branch: draftBranch, product: draftProduct });
+    }
+  };
 
   const { data: stats, isError: statsError } = useQuery<FinancialStats>({
     queryKey: ["/api/dashboard/stats"],
@@ -357,6 +384,57 @@ export default function ExecutiveDashboard() {
           <span className="text-sm font-medium">Last updated: {today}</span>
         </div>
       </div>
+
+      {/* Filter bar */}
+      <Card className="border shadow-sm" data-testid="card-filters">
+        <CardContent className="p-3 flex flex-wrap items-end gap-3">
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-muted-foreground">Period</p>
+            <Select value={draftPeriod} onValueChange={setDraftPeriod}>
+              <SelectTrigger className="w-[140px] h-9" data-testid="select-period">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="monthly">Monthly</SelectItem>
+                <SelectItem value="quarterly">Quarterly</SelectItem>
+                <SelectItem value="yearly">Yearly</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-muted-foreground">Branch</p>
+            <Select value={draftBranch} onValueChange={setDraftBranch}>
+              <SelectTrigger className="w-[170px] h-9" data-testid="select-branch">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Branches</SelectItem>
+                {(branches || []).map(b => (
+                  <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-muted-foreground">Product</p>
+            <Select value={draftProduct} onValueChange={setDraftProduct}>
+              <SelectTrigger className="w-[190px] h-9" data-testid="select-product">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Products</SelectItem>
+                {(products || []).map(p => (
+                  <SelectItem key={p.id} value={p.productName}>{p.productName}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button onClick={applyFilters} disabled={isFetching} className="h-9" data-testid="button-refresh">
+            <RefreshCw className={`h-4 w-4 mr-2 ${isFetching ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* KPI row */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
