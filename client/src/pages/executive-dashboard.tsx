@@ -9,6 +9,7 @@ import {
   UserCheck,
   HandCoins,
   TrendingUp,
+  TrendingDown,
   Trash2,
   UserPlus,
   DollarSign,
@@ -122,56 +123,124 @@ function KpiTile({
   );
 }
 
-function Gauge({
+function ExecKpi({
+  label,
+  value,
+  icon: Icon,
+  circleBg,
+  iconColor,
+  change,
+  changeUp,
+  spark,
+  sparkColor,
+  testId,
+}: {
+  label: string;
+  value: string;
+  icon: any;
+  circleBg: string;
+  iconColor: string;
+  change?: string;
+  changeUp?: boolean;
+  spark?: number[];
+  sparkColor?: string;
+  testId: string;
+}) {
+  const sparkData = (spark || []).map((v, i) => ({ i, v }));
+  return (
+    <Card className="border shadow-sm" data-testid={testId}>
+      <CardContent className="p-4">
+        <div className="flex items-start gap-3">
+          <div className={`h-11 w-11 shrink-0 rounded-full ${circleBg} flex items-center justify-center`}>
+            <Icon className={`h-5 w-5 ${iconColor}`} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-muted-foreground font-medium truncate">{label}</p>
+            <p className="text-xl font-bold truncate">{value}</p>
+          </div>
+        </div>
+        <div className="flex items-end justify-between mt-2 h-8">
+          {change ? (
+            <div className={`flex items-center gap-1 text-xs font-semibold ${changeUp ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}>
+              {changeUp ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+              <span>{change}</span>
+              <span className="text-muted-foreground font-normal">vs prev. month</span>
+            </div>
+          ) : <span />}
+          {sparkData.length > 1 && (
+            <div className="w-20 h-8">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={sparkData}>
+                  <Line type="monotone" dataKey="v" stroke={sparkColor || "#16a34a"} strokeWidth={1.5} dot={false} isAnimationActive={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function polar(cx: number, cy: number, r: number, angleDeg: number) {
+  const rad = (Math.PI / 180) * angleDeg;
+  return { x: cx + r * Math.cos(rad), y: cy - r * Math.sin(rad) };
+}
+
+function arcPath(cx: number, cy: number, rOuter: number, rInner: number, startDeg: number, endDeg: number) {
+  const so = polar(cx, cy, rOuter, startDeg);
+  const eo = polar(cx, cy, rOuter, endDeg);
+  const si = polar(cx, cy, rInner, endDeg);
+  const ei = polar(cx, cy, rInner, startDeg);
+  const large = Math.abs(startDeg - endDeg) > 180 ? 1 : 0;
+  return `M ${so.x} ${so.y} A ${rOuter} ${rOuter} 0 ${large} 1 ${eo.x} ${eo.y} L ${si.x} ${si.y} A ${rInner} ${rInner} 0 ${large} 0 ${ei.x} ${ei.y} Z`;
+}
+
+function NeedleGauge({
+  label,
   value,
   max = 100,
-  label,
+  min = 0,
   display,
-  color,
+  displayColor,
+  segments,
   sub,
   testId,
 }: {
+  label: string;
   value: number;
   max?: number;
-  label: string;
+  min?: number;
   display: string;
-  color: string;
+  displayColor: string;
+  segments: { upTo: number; color: string }[];
   sub?: string;
   testId: string;
 }) {
-  const pct = Math.max(0, Math.min(1, value / max));
-  const data = [
-    { name: "value", value: pct },
-    { name: "rest", value: 1 - pct },
-  ];
+  const cx = 90, cy = 80, rOuter = 70, rInner = 48;
+  const frac = Math.max(0, Math.min(1, (value - min) / (max - min)));
+  const needleAngle = 180 - frac * 180;
+  const tip = polar(cx, cy, rInner - 4, needleAngle);
+  let prev = min;
+  const segs = segments.map(s => {
+    const startDeg = 180 - ((prev - min) / (max - min)) * 180;
+    const endDeg = 180 - ((Math.min(s.upTo, max) - min) / (max - min)) * 180;
+    prev = s.upTo;
+    return { startDeg, endDeg, color: s.color };
+  });
   return (
-    <Card className="overflow-hidden border-0 shadow-lg" data-testid={testId}>
+    <Card className="border shadow-sm" data-testid={testId}>
       <CardContent className="p-4 flex flex-col items-center">
         <p className="text-sm font-semibold mb-1">{label}</p>
-        <div className="relative h-[110px] w-full">
-          <ResponsiveContainer width="100%" height={200}>
-            <PieChart>
-              <Pie
-                data={data}
-                dataKey="value"
-                startAngle={180}
-                endAngle={0}
-                cx="50%"
-                cy="52%"
-                innerRadius={55}
-                outerRadius={75}
-                stroke="none"
-              >
-                <Cell fill={color} />
-                <Cell fill="hsl(var(--muted))" />
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="absolute inset-x-0 top-[62px] text-center">
-            <span className="text-2xl font-bold" style={{ color }}>{display}</span>
-          </div>
-        </div>
-        {sub && <p className="text-xs text-muted-foreground -mt-2">{sub}</p>}
+        <svg width="180" height="96" viewBox="0 0 180 96">
+          {segs.map((s, i) => (
+            <path key={i} d={arcPath(cx, cy, rOuter, rInner, s.startDeg, s.endDeg)} fill={s.color} />
+          ))}
+          <line x1={cx} y1={cy} x2={tip.x} y2={tip.y} stroke="currentColor" strokeWidth={3} strokeLinecap="round" className="text-foreground" />
+          <circle cx={cx} cy={cy} r={5} className="fill-foreground" />
+        </svg>
+        <p className="text-2xl font-bold -mt-1" style={{ color: displayColor }}>{display}</p>
+        {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
       </CardContent>
     </Card>
   );
@@ -256,6 +325,19 @@ export default function ExecutiveDashboard() {
     ...t,
     label: new Date(t.bucket).toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
   }));
+  const disbursedSpark = charts.trends.map(t => t.disbursed);
+  const collectedSpark = charts.trends.map(t => t.collected);
+  const newClientsSpark = charts.trends.map(t => t.newClients);
+  const profitSpark = monthlyTrend.map(m => m.netIncome);
+  const ytdDisbursed = charts.trends.filter(t => new Date(t.bucket).getFullYear() === new Date().getFullYear()).reduce((s, t) => s + t.disbursed, 0);
+  const lastTwoDisbursed = charts.trends.slice(-2);
+  const disbursedChange = lastTwoDisbursed.length === 2 && lastTwoDisbursed[0].disbursed !== 0
+    ? ((lastTwoDisbursed[1].disbursed - lastTwoDisbursed[0].disbursed) / Math.abs(lastTwoDisbursed[0].disbursed)) * 100
+    : null;
+  const lastTwoProfit = monthlyTrend.slice(-2);
+  const profitChange = lastTwoProfit.length === 2 && lastTwoProfit[0].netIncome !== 0
+    ? ((lastTwoProfit[1].netIncome - lastTwoProfit[0].netIncome) / Math.abs(lastTwoProfit[0].netIncome)) * 100
+    : null;
   const maxProvincePortfolio = Math.max(...operations.provinceRanking.map(p => p.portfolio), 1);
   const maxBranchPortfolio = Math.max(...operations.branchRanking.map(b => b.portfolio), 1);
   const maxOfficerLoans = Math.max(...operations.officerProductivity.map(o => o.activeLoans), 1);
@@ -278,12 +360,12 @@ export default function ExecutiveDashboard() {
 
       {/* KPI row */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-        <KpiTile label="Gross Portfolio" value={compactAFN(portfolio.grossPortfolio)} icon={Wallet} iconBg="bg-gradient-to-br from-emerald-500 to-green-600" testId="kpi-gross-portfolio" />
-        <KpiTile label="Outstanding Portfolio" value={compactAFN(portfolio.outstandingPortfolio)} icon={Briefcase} iconBg="bg-gradient-to-br from-amber-500 to-orange-600" testId="kpi-outstanding-portfolio" />
-        <KpiTile label="Active Borrowers" value={String(portfolio.activeBorrowers)} icon={UserCheck} iconBg="bg-gradient-to-br from-blue-500 to-indigo-600" testId="kpi-active-borrowers" />
-        <KpiTile label="Active Clients" value={String(portfolio.activeClients)} icon={Users} iconBg="bg-gradient-to-br from-sky-500 to-blue-600" testId="kpi-active-clients" />
-        <KpiTile label="Loans Disbursed (YTD)" value={compactAFN(charts.trends.filter(t => new Date(t.bucket).getFullYear() === new Date().getFullYear()).reduce((s, t) => s + t.disbursed, 0))} icon={HandCoins} iconBg="bg-gradient-to-br from-violet-500 to-purple-600" testId="kpi-loans-disbursed-ytd" />
-        <KpiTile label="Profit" value={compactAFN(finance.profit)} icon={TrendingUp} iconBg={finance.profit >= 0 ? "bg-gradient-to-br from-emerald-500 to-teal-600" : "bg-gradient-to-br from-red-500 to-rose-600"} testId="kpi-profit" />
+        <ExecKpi label="Gross Portfolio" value={compactAFN(portfolio.grossPortfolio)} icon={Wallet} circleBg="bg-emerald-100 dark:bg-emerald-900/40" iconColor="text-emerald-600 dark:text-emerald-400" spark={disbursedSpark} sparkColor="#16a34a" testId="kpi-gross-portfolio" />
+        <ExecKpi label="Outstanding Portfolio" value={compactAFN(portfolio.outstandingPortfolio)} icon={Briefcase} circleBg="bg-amber-100 dark:bg-amber-900/40" iconColor="text-amber-600 dark:text-amber-400" spark={collectedSpark} sparkColor="#f59e0b" testId="kpi-outstanding-portfolio" />
+        <ExecKpi label="Active Borrowers" value={String(portfolio.activeBorrowers)} icon={UserCheck} circleBg="bg-blue-100 dark:bg-blue-900/40" iconColor="text-blue-600 dark:text-blue-400" spark={newClientsSpark} sparkColor="#2563eb" testId="kpi-active-borrowers" />
+        <ExecKpi label="Active Clients" value={String(portfolio.activeClients)} icon={Users} circleBg="bg-sky-100 dark:bg-sky-900/40" iconColor="text-sky-600 dark:text-sky-400" spark={newClientsSpark} sparkColor="#0ea5e9" testId="kpi-active-clients" />
+        <ExecKpi label="Loans Disbursed (YTD)" value={compactAFN(ytdDisbursed)} icon={HandCoins} circleBg="bg-violet-100 dark:bg-violet-900/40" iconColor="text-violet-600 dark:text-violet-400" change={disbursedChange !== null ? `${Math.abs(disbursedChange).toFixed(1)}%` : undefined} changeUp={disbursedChange !== null ? disbursedChange >= 0 : undefined} spark={disbursedSpark} sparkColor="#8b5cf6" testId="kpi-loans-disbursed-ytd" />
+        <ExecKpi label="Profit" value={compactAFN(finance.profit)} icon={TrendingUp} circleBg={finance.profit >= 0 ? "bg-emerald-100 dark:bg-emerald-900/40" : "bg-red-100 dark:bg-red-900/40"} iconColor={finance.profit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"} change={profitChange !== null ? `${Math.abs(profitChange).toFixed(1)}%` : undefined} changeUp={profitChange !== null ? profitChange >= 0 : undefined} spark={profitSpark} sparkColor={finance.profit >= 0 ? "#16a34a" : "#ef4444"} testId="kpi-profit" />
       </div>
 
       {/* Row 2: sector / gender / rural-urban / composition */}
@@ -301,28 +383,32 @@ export default function ExecutiveDashboard() {
         </PanelCard>
 
         <PanelCard title="Gender Distribution (by Disbursement)" testId="card-gender">
-          <div className="flex items-center gap-3">
-            <ResponsiveContainer width="55%" height={180}>
-              <PieChart>
-                <Pie data={charts.genderDisbursements} dataKey="amount" nameKey="gender" cx="50%" cy="50%" innerRadius={40} outerRadius={70}>
-                  {charts.genderDisbursements.map((g, i) => (
-                    <Cell key={i} fill={g.gender === "female" ? "#ec4899" : g.gender === "male" ? "#2563eb" : PIE_COLORS[i % PIE_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(v: any) => formatCurrency(Number(v))} />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="space-y-3 text-sm">
-              <div>
-                <p className="text-muted-foreground text-xs">Women</p>
-                <p className="font-bold text-pink-600 dark:text-pink-400">{(((women?.amount || 0) / genderTotal) * 100).toFixed(0)}%</p>
-                <p className="text-xs text-muted-foreground">{compactAFN(women?.amount || 0)}</p>
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-center shrink-0">
+              <p className="text-xs text-muted-foreground">Women</p>
+              <p className="text-xl font-bold text-pink-600 dark:text-pink-400">{(((women?.amount || 0) / genderTotal) * 100).toFixed(0)}%</p>
+              <p className="text-[11px] text-pink-600 dark:text-pink-400 font-medium">{compactAFN(women?.amount || 0)}</p>
+            </div>
+            <div className="relative flex-1 h-[180px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={charts.genderDisbursements} dataKey="amount" nameKey="gender" cx="50%" cy="50%" innerRadius={44} outerRadius={72}>
+                    {charts.genderDisbursements.map((g, i) => (
+                      <Cell key={i} fill={g.gender === "female" ? "#ec4899" : g.gender === "male" ? "#2563eb" : PIE_COLORS[i % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(v: any) => formatCurrency(Number(v))} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none gap-1">
+                <span className="text-2xl font-bold text-pink-500">&#9792;</span>
+                <span className="text-2xl font-bold text-blue-500">&#9794;</span>
               </div>
-              <div>
-                <p className="text-muted-foreground text-xs">Men</p>
-                <p className="font-bold text-blue-600 dark:text-blue-400">{(((men?.amount || 0) / genderTotal) * 100).toFixed(0)}%</p>
-                <p className="text-xs text-muted-foreground">{compactAFN(men?.amount || 0)}</p>
-              </div>
+            </div>
+            <div className="text-center shrink-0">
+              <p className="text-xs text-muted-foreground">Men</p>
+              <p className="text-xl font-bold text-blue-600 dark:text-blue-400">{(((men?.amount || 0) / genderTotal) * 100).toFixed(0)}%</p>
+              <p className="text-[11px] text-blue-600 dark:text-blue-400 font-medium">{compactAFN(men?.amount || 0)}</p>
             </div>
           </div>
         </PanelCard>
@@ -358,10 +444,10 @@ export default function ExecutiveDashboard() {
 
       {/* Row 3: gauges + portfolio aging */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
-        <Gauge label="PAR 30" value={quality.par30} max={20} display={`${quality.par30.toFixed(1)}%`} color={quality.par30 > 5 ? "#ef4444" : "#16a34a"} sub={formatCurrency(quality.par30Amount)} testId="gauge-par30" />
-        <Gauge label="PAR 90" value={quality.par90} max={20} display={`${quality.par90.toFixed(1)}%`} color={quality.par90 > 3 ? "#ef4444" : "#16a34a"} sub={formatCurrency(quality.par90Amount)} testId="gauge-par90" />
-        <Gauge label="Collection Rate" value={quality.collectionRate} display={`${quality.collectionRate.toFixed(1)}%`} color="#16a34a" testId="gauge-collection-rate" />
-        <Card className="overflow-hidden border-0 shadow-lg" data-testid="card-writeoffs">
+        <NeedleGauge label="PAR 30" value={quality.par30} max={15} display={`${quality.par30.toFixed(1)}%`} displayColor={quality.par30 > 5 ? "#ef4444" : "#16a34a"} segments={[{ upTo: 5, color: "#16a34a" }, { upTo: 10, color: "#f59e0b" }, { upTo: 15, color: "#ef4444" }]} sub={formatCurrency(quality.par30Amount)} testId="gauge-par30" />
+        <NeedleGauge label="PAR 90" value={quality.par90} max={15} display={`${quality.par90.toFixed(1)}%`} displayColor={quality.par90 > 3 ? "#ef4444" : "#16a34a"} segments={[{ upTo: 5, color: "#16a34a" }, { upTo: 10, color: "#f59e0b" }, { upTo: 15, color: "#ef4444" }]} sub={formatCurrency(quality.par90Amount)} testId="gauge-par90" />
+        <NeedleGauge label="Collection Rate" value={quality.collectionRate} min={0} max={100} display={`${quality.collectionRate.toFixed(1)}%`} displayColor={quality.collectionRate >= 90 ? "#16a34a" : quality.collectionRate >= 80 ? "#f59e0b" : "#ef4444"} segments={[{ upTo: 80, color: "#ef4444" }, { upTo: 90, color: "#f59e0b" }, { upTo: 100, color: "#16a34a" }]} testId="gauge-collection-rate" />
+        <Card className="border shadow-sm" data-testid="card-writeoffs">
           <CardContent className="p-4 flex flex-col items-center justify-center h-full">
             <p className="text-sm font-semibold mb-2">Write-offs</p>
             <div className="h-11 w-11 rounded-xl bg-red-500/15 flex items-center justify-center mb-2">
@@ -417,9 +503,9 @@ export default function ExecutiveDashboard() {
           </ResponsiveContainer>
         </PanelCard>
 
-        <div className="grid grid-cols-2 gap-3">
-          <Gauge label="OSS" value={finance.oss} max={150} display={`${finance.oss.toFixed(0)}%`} color={finance.oss >= 100 ? "#16a34a" : "#f59e0b"} sub="Operating Self Sufficiency" testId="gauge-oss" />
-          <Gauge label="FSS" value={finance.fss} max={150} display={`${finance.fss.toFixed(0)}%`} color={finance.fss >= 100 ? "#16a34a" : "#f59e0b"} sub="Financial Self Sufficiency" testId="gauge-fss" />
+        <div className="grid grid-cols-1 gap-3">
+          <NeedleGauge label="Operating Self Sufficiency (OSS)" value={finance.oss} max={150} display={`${finance.oss.toFixed(0)}%`} displayColor={finance.oss >= 100 ? "#16a34a" : "#f59e0b"} segments={[{ upTo: 80, color: "#ef4444" }, { upTo: 100, color: "#f59e0b" }, { upTo: 150, color: "#16a34a" }]} testId="gauge-oss" />
+          <NeedleGauge label="Financial Self Sufficiency (FSS)" value={finance.fss} max={150} display={`${finance.fss.toFixed(0)}%`} displayColor={finance.fss >= 100 ? "#16a34a" : "#f59e0b"} segments={[{ upTo: 80, color: "#ef4444" }, { upTo: 100, color: "#f59e0b" }, { upTo: 150, color: "#16a34a" }]} testId="gauge-fss" />
         </div>
 
         <PanelCard title="Expenses Breakdown" testId="card-expenses-breakdown">
