@@ -667,8 +667,8 @@ export default function ExecutiveDashboard() {
         </PanelCard>
       </div>
 
-      {/* Row 6: disbursement trend + client demographics */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+      {/* Row 6: disbursement trend + client demographics + branch network + employment impact */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
         <PanelCard title="Disbursements & Collections Trend (Monthly)" testId="card-disbursement-trend">
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={trendData}>
@@ -691,15 +691,13 @@ export default function ExecutiveDashboard() {
             <HBar label="Urban Clients" pct={urbanPct} value={String(portfolio.urbanClients)} color="#0ea5e9" />
           </div>
         </PanelCard>
-      </div>
 
-      {/* Row 7: branch network + employment impact */}
-      {data.impact && (
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+        {data.impact && (
+          <>
           <PanelCard title="Branch Network (Geographic View)" testId="card-branch-network">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 mt-1">
+            <div className="space-y-1 mt-1">
               {data.impact.branchNetwork.map((b, i) => (
-                <div key={b.id} className="flex items-center justify-between gap-2 py-1.5 border-b border-dashed last:border-0 sm:[&:nth-last-child(2)]:border-0" data-testid={`row-branch-network-${b.id}`}>
+                <div key={b.id} className="flex items-center justify-between gap-2 py-1.5 border-b border-dashed last:border-0" data-testid={`row-branch-network-${b.id}`}>
                   <div className="flex items-center gap-2 min-w-0">
                     <MapPin className="h-4 w-4 shrink-0" style={{ color: PIE_COLORS[i % PIE_COLORS.length] }} />
                     <span className="text-xs font-medium truncate">{b.name}</span>
@@ -730,8 +728,9 @@ export default function ExecutiveDashboard() {
               </div>
             </div>
           </PanelCard>
-        </div>
-      )}
+          </>
+        )}
+      </div>
 
       <p className="text-xs text-muted-foreground text-center pb-2">All figures are in AFN | YTD: Year to Date</p>
     </div>
