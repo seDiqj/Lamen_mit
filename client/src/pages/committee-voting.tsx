@@ -164,7 +164,7 @@ export default function CommitteeVotingPage() {
 
   useEffect(() => {
     if (loanDetails?.loan) {
-      const reqAmt = loanDetails.loan.requestAmount || loanDetails.loan.principleAmount || "";
+      const reqAmt = loanDetails.loan.principleAmount || loanDetails.loan.requestAmount || "";
       setCommitteePrincipleAmount(String(reqAmt || ""));
       setCommitteeMarginRate(String(loanDetails.loan.marginRate || ""));
       setCommitteeGracePeriod(String(loanDetails.loan.gracePeriod ?? ""));
@@ -662,7 +662,7 @@ export default function CommitteeVotingPage() {
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Amount:</span>
                         <span className="font-medium text-emerald-600">
-                          {formatCurrency(parseFloat(loanDetails?.loan?.requestAmount || "0"))}
+                          {formatCurrency(parseFloat(loanDetails?.loan?.principleAmount || loanDetails?.loan?.requestAmount || "0"))}
                         </span>
                       </div>
                       <div className="flex justify-between">
@@ -677,7 +677,7 @@ export default function CommitteeVotingPage() {
                         <span className="text-muted-foreground">Margin Amount:</span>
                         <span className="font-medium text-emerald-600">
                           {(() => {
-                            const amt = parseFloat(loanDetails?.loan?.requestAmount || "0");
+                            const amt = parseFloat(loanDetails?.loan?.principleAmount || loanDetails?.loan?.requestAmount || "0");
                             let margin = parseFloat(loanDetails?.loan?.marginRate || "0");
                             if (margin > 0 && margin < 1) margin = margin * 100;
                             const dur = Number(loanDetails?.loan?.financingDurationMonths) || 0;
@@ -693,7 +693,7 @@ export default function CommitteeVotingPage() {
                         <span className="text-muted-foreground">Monthly Installment:</span>
                         <span className="font-medium text-blue-600">
                           {(() => {
-                            const amt = parseFloat(loanDetails?.loan?.requestAmount || "0");
+                            const amt = parseFloat(loanDetails?.loan?.principleAmount || loanDetails?.loan?.requestAmount || "0");
                             let margin = parseFloat(loanDetails?.loan?.marginRate || "0");
                             if (margin > 0 && margin < 1) margin = margin * 100;
                             const dur = Number(loanDetails?.loan?.financingDurationMonths) || 0;

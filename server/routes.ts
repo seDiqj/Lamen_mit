@@ -3654,7 +3654,8 @@ export async function registerRoutes(
       }
 
       const accountBalance = parseFloat(branchAccount.currentBalance || "0");
-      const disbursementAmount = parseFloat(loan.requestAmount || "0");
+      // Use committee-approved principleAmount; fall back to requestAmount if not yet set
+      const disbursementAmount = parseFloat(loan.principleAmount || loan.requestAmount || "0");
 
       if (!Number.isFinite(accountBalance) || !Number.isFinite(disbursementAmount)) {
         return res.status(400).json({
@@ -3705,7 +3706,8 @@ export async function registerRoutes(
         const customer = loan.customerId ? await storage.getCustomer(loan.customerId) : null;
         const customerName = customer ? `${customer.firstName} ${customer.lastName}` : "Unknown";
         const branch = loan.branchId ? await storage.getBranch(loan.branchId) : null;
-        const disbursementAmount = parseFloat(loan.requestAmount || "0");
+        // Use committee-approved principleAmount; fall back to requestAmount if not yet set
+        const disbursementAmount = parseFloat(loan.principleAmount || loan.requestAmount || "0");
 
         let marginAmount = parseFloat(loan.profit || "0");
         if (marginAmount === 0 && disbursementAmount > 0) {
@@ -4395,9 +4397,20 @@ export async function registerRoutes(
 
       if (principleAmount || marginRate || gracePeriod !== undefined) {
         const loanUpdate: any = {};
+        // Always preserve requestAmount — committee revisions go into principleAmount only
         if (principleAmount) loanUpdate.principleAmount = principleAmount;
         if (marginRate) loanUpdate.marginRate = marginRate;
         if (gracePeriod !== undefined && gracePeriod !== null) loanUpdate.gracePeriod = Number(gracePeriod);
+
+        // Recalculate profit and totalReceivable based on approved (committee) figures
+        const approvedPrincipal = parseFloat(principleAmount || loan.principleAmount || loan.requestAmount || "0");
+        const approvedRate = parseFloat(marginRate || loan.marginRate || "0");
+        const duration = loan.financingDurationMonths || 12;
+        const rate = approvedRate > 1 ? approvedRate / 100 : approvedRate;
+        const newProfit = (approvedPrincipal * rate / 12) * duration;
+        loanUpdate.profit = newProfit.toFixed(2);
+        loanUpdate.totalReceivable = (approvedPrincipal + newProfit).toFixed(2);
+
         await storage.updateLoan(loanId, loanUpdate);
       }
 
@@ -4439,7 +4452,7 @@ export async function registerRoutes(
         const approvedLoan = await storage.getLoan(loanId);
         await storage.approveLoan(loanId, {
           loanId,
-          approvedAmount: approvedLoan?.requestAmount || approvedLoan?.principleAmount || "0",
+          approvedAmount: approvedLoan?.principleAmount || approvedLoan?.requestAmount || "0",
           approvedDate: new Date().toISOString().split("T")[0],
           financingDurationMonths: approvedLoan?.financingDurationMonths || 12,
           gracePeriod: approvedLoan?.gracePeriod || 0,
