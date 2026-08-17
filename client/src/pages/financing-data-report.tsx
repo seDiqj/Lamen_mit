@@ -43,6 +43,10 @@ type FinancingRow = {
   sector: string;
   businessType: string;
   financingPurpose: string;
+  directMaleEmployee: number;
+  directFemaleEmployee: number;
+  indirectMaleEmployee: number;
+  indirectFemaleEmployee: number;
   financingCycle: number;
   fundingSourceName: string;
   requestDate: string;
@@ -122,6 +126,10 @@ const COLS: ColDef[] = [
   { key: "sector",              label: "Sector",          w: 110 },
   { key: "businessType",        label: "Business Type",   w: 130 },
   { key: "financingPurpose",    label: "Purpose",         w: 130 },
+  { key: "directMaleEmployee",  label: "Direct Male Employee",   w: 110, num: true },
+  { key: "directFemaleEmployee",label: "Direct Female Employee", w: 120, num: true },
+  { key: "indirectMaleEmployee",label: "Indirect Male Employee", w: 120, num: true },
+  { key: "indirectFemaleEmployee",label:"Indirect Female Employee",w:130, num: true },
   { key: "financingCycle",      label: "Cycle",           w: 60,  num: true },
   { key: "fundingSourceName",   label: "Source of Fund",  w: 120 },
   { key: "requestDate",         label: "Request Date",    w: 100 },
