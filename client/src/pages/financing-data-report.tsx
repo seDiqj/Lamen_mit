@@ -469,11 +469,48 @@ export default function FinancingDataReport() {
         <div className="overflow-x-auto rounded-lg border shadow-sm">
           <table className="text-[11px] border-collapse min-w-max">
             <thead>
+              {/* Group header row */}
               <tr className="bg-slate-800 text-white">
-                {COLS.map(col => (
+                {COLS.map(col => {
+                  if (col.key === "colOwnerName") {
+                    return (
+                      <th
+                        key="collateral-group"
+                        colSpan={10}
+                        className="px-2 py-1.5 text-center font-bold border-r border-l border-slate-500 bg-green-800 whitespace-nowrap"
+                      >
+                        Collateral Information
+                      </th>
+                    );
+                  }
+                  // skip the next 9 collateral keys — rendered by the colspan above
+                  if (["colOwnerNid","colProvince","colDistrict","colVillage",
+                       "colAddress","colPurchasedPrice","colMarketPrice",
+                       "colType","colTitleDeed"].includes(col.key)) {
+                    return null;
+                  }
+                  return (
+                    <th
+                      key={col.key}
+                      rowSpan={2}
+                      className="px-2 py-2 text-center font-semibold border-r border-slate-600 whitespace-nowrap align-middle"
+                      style={{ minWidth: col.w, maxWidth: col.w }}
+                    >
+                      {col.label}
+                    </th>
+                  );
+                })}
+              </tr>
+              {/* Individual column name row (collateral columns only) */}
+              <tr className="bg-slate-700 text-white">
+                {COLS.filter(col =>
+                  ["colOwnerName","colOwnerNid","colProvince","colDistrict","colVillage",
+                   "colAddress","colPurchasedPrice","colMarketPrice","colType","colTitleDeed"]
+                  .includes(col.key)
+                ).map(col => (
                   <th
                     key={col.key}
-                    className="px-2 py-2 text-center font-semibold border-r border-slate-600 whitespace-nowrap"
+                    className="px-2 py-1.5 text-center font-semibold border-r border-slate-600 whitespace-nowrap"
                     style={{ minWidth: col.w, maxWidth: col.w }}
                   >
                     {col.label}
