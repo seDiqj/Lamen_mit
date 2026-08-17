@@ -479,6 +479,13 @@ export default function FinancingDataReport() {
                       Customer Information
                     </th>
                   );
+                  // idx 18: "Financing Application Information" — 20 cols (productName … installmentAmount)
+                  if (idx === 18) return (
+                    <th key="fin-app-group" colSpan={20}
+                      className="px-2 py-1.5 text-center font-bold border-r border-l border-slate-500 bg-amber-700 whitespace-nowrap">
+                      Financing Application Information
+                    </th>
+                  );
                   // idx 44: "Customer Business Information" — 5 cols
                   if (idx === 44) return (
                     <th key="cust-biz-group" colSpan={5}
@@ -500,9 +507,10 @@ export default function FinancingDataReport() {
                       Collateral Information
                     </th>
                   );
-                  // skip cols covered by colspans: 4–17, 45–48, 50–53, 55–63
-                  if ((idx >= 4 && idx <= 17) || (idx >= 45 && idx <= 48) ||
-                      (idx >= 50 && idx <= 53) || (idx >= 55 && idx <= 63))
+                  // skip cols covered by colspans: 4–17, 19–37, 45–48, 50–53, 55–63
+                  if ((idx >= 4 && idx <= 17) || (idx >= 19 && idx <= 37) ||
+                      (idx >= 45 && idx <= 48) || (idx >= 50 && idx <= 53) ||
+                      (idx >= 55 && idx <= 63))
                     return null;
                   // all other cols span both header rows
                   return (
@@ -516,7 +524,7 @@ export default function FinancingDataReport() {
               </tr>
               {/* Sub-header row — individual names for all grouped columns */}
               <tr className="bg-slate-700 text-white">
-                {[...COLS.slice(3, 18), ...COLS.slice(44, 64)].map((col, i) => (
+                {[...COLS.slice(3, 18), ...COLS.slice(18, 38), ...COLS.slice(44, 64)].map((col, i) => (
                   <th key={`sub-${col.key}-${i}`}
                     className="px-2 py-1.5 text-center font-semibold border-r border-slate-600 whitespace-nowrap"
                     style={{ minWidth: col.w, maxWidth: col.w }}>
