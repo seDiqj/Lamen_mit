@@ -472,6 +472,23 @@ export default function FinancingDataReport() {
               {/* Group header row */}
               <tr className="bg-slate-800 text-white">
                 {COLS.map(col => {
+                  // "Business License Information" group — spans 5 cols
+                  if (col.key === "bizLicenseType") {
+                    return (
+                      <th
+                        key="biz-license-group"
+                        colSpan={5}
+                        className="px-2 py-1.5 text-center font-bold border-r border-l border-slate-500 bg-indigo-700 whitespace-nowrap"
+                      >
+                        Business License Information
+                      </th>
+                    );
+                  }
+                  // skip the other 4 biz-license keys (covered by colspan above)
+                  if (["bizPresident","bizLicenseNumber","bizRegisterDate","bizExpiryDate"]
+                      .includes(col.key)) return null;
+
+                  // "Collateral Information" group — spans 10 cols
                   if (col.key === "colOwnerName") {
                     return (
                       <th
@@ -483,12 +500,12 @@ export default function FinancingDataReport() {
                       </th>
                     );
                   }
-                  // skip the next 9 collateral keys — rendered by the colspan above
+                  // skip the other 9 collateral keys (covered by colspan above)
                   if (["colOwnerNid","colProvince","colDistrict","colVillage",
                        "colAddress","colPurchasedPrice","colMarketPrice",
-                       "colType","colTitleDeed"].includes(col.key)) {
-                    return null;
-                  }
+                       "colType","colTitleDeed"].includes(col.key)) return null;
+
+                  // All other columns span both header rows
                   return (
                     <th
                       key={col.key}
@@ -501,10 +518,11 @@ export default function FinancingDataReport() {
                   );
                 })}
               </tr>
-              {/* Individual column name row (collateral columns only) */}
+              {/* Sub-header row — individual names for grouped columns only */}
               <tr className="bg-slate-700 text-white">
                 {COLS.filter(col =>
-                  ["colOwnerName","colOwnerNid","colProvince","colDistrict","colVillage",
+                  ["bizLicenseType","bizPresident","bizLicenseNumber","bizRegisterDate","bizExpiryDate",
+                   "colOwnerName","colOwnerNid","colProvince","colDistrict","colVillage",
                    "colAddress","colPurchasedPrice","colMarketPrice","colType","colTitleDeed"]
                   .includes(col.key)
                 ).map(col => (
