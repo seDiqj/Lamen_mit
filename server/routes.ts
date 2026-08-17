@@ -7523,6 +7523,16 @@ export async function registerRoutes(
           d.disbursement_date::text                                     AS disbursement_date,
           COALESCE(l.principle_amount::numeric, l.request_amount::numeric, 0) AS disbursed_amount,
           COALESCE(d.maturity_date::text,'')                            AS maturity_date,
+          -- Customer Business Information
+          COALESCE(c.village,'')                                        AS biz_village,
+          COALESCE(c.detailed_address,'')                               AS biz_detailed_address,
+          COALESCE(c.years_of_experience::text,'')                      AS biz_years_of_experience,
+          -- Business License Information
+          COALESCE(c.license_type,'')                                   AS biz_license_type,
+          COALESCE(c.president,'')                                      AS biz_president,
+          COALESCE(c.license_number,'')                                 AS biz_license_number,
+          COALESCE(c.register_date::text,'')                            AS biz_register_date,
+          COALESCE(c.expiry_date::text,'')                              AS biz_expiry_date,
           -- Installment aggregates
           COALESCE(SUM(i.paid_amount::numeric),0)                       AS total_received,
           COALESCE(SUM(CASE WHEN i.is_paid THEN i.principle_amount::numeric ELSE 0 END),0) AS principle_received,
@@ -7556,7 +7566,9 @@ export async function registerRoutes(
           l.financing_duration_months, l.grace_period, l.number_of_installments,
           l.principle_amount, l.margin_rate, l.profit, l.total_receivable, l.installment_amount,
           la.approved_amount, la.approved_date, la.committee_discussion,
-          d.disbursement_date, d.maturity_date
+          d.disbursement_date, d.maturity_date,
+          c.village, c.detailed_address, c.years_of_experience,
+          c.license_type, c.president, c.license_number, c.register_date, c.expiry_date
         ORDER BY b.name, d.disbursement_date
       `);
 
@@ -7612,6 +7624,14 @@ export async function registerRoutes(
           disbursementDate:     r.disbursement_date || "",
           disbursedAmount:      Number(r.disbursed_amount || 0),
           maturityDate:         r.maturity_date || "",
+          bizVillage:           r.biz_village || "",
+          bizDetailedAddress:   r.biz_detailed_address || "",
+          bizYearsOfExperience: Number(r.biz_years_of_experience || 0),
+          bizLicenseType:       r.biz_license_type || "",
+          bizPresident:         r.biz_president || "",
+          bizLicenseNumber:     r.biz_license_number || "",
+          bizRegisterDate:      r.biz_register_date || "",
+          bizExpiryDate:        r.biz_expiry_date || "",
           principleReceived:    prinRcvd,
           profitReceived:       profRcvd,
           totalReceived:        totRcvd,

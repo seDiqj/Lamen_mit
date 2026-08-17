@@ -65,6 +65,14 @@ type FinancingRow = {
   disbursementDate: string;
   disbursedAmount: number;
   maturityDate: string;
+  bizVillage: string;
+  bizDetailedAddress: string;
+  bizYearsOfExperience: number;
+  bizLicenseType: string;
+  bizPresident: string;
+  bizLicenseNumber: string;
+  bizRegisterDate: string;
+  bizExpiryDate: string;
   principleReceived: number;
   profitReceived: number;
   totalReceived: number;
@@ -148,6 +156,14 @@ const COLS: ColDef[] = [
   { key: "disbursedAmount",     label: "Disb. Amt",       w: 110, num: true },
   { key: "maturityDate",        label: "Maturity",        w: 100 },
   { key: "committeeDiscussion", label: "Committee Note",  w: 150 },
+  { key: "bizVillage",          label: "Village",         w: 110 },
+  { key: "bizDetailedAddress",  label: "Detailed Address",w: 160 },
+  { key: "bizYearsOfExperience",label: "Yrs of Exp.",    w: 80, num: true },
+  { key: "bizLicenseType",      label: "Type of Licence", w: 130 },
+  { key: "bizPresident",        label: "President",       w: 130 },
+  { key: "bizLicenseNumber",    label: "Business Lic. No #", w: 130 },
+  { key: "bizRegisterDate",     label: "Lic. Register Date", w: 110 },
+  { key: "bizExpiryDate",       label: "Lic. Expiry Date",   w: 110 },
   { key: "principleReceived",   label: "Prin. Received",  w: 110, num: true },
   { key: "profitReceived",      label: "Profit Rcvd",     w: 110, num: true },
   { key: "totalReceived",       label: "Total Rcvd",      w: 110, num: true },
@@ -306,7 +322,8 @@ export default function FinancingDataReport() {
     if (MONEY_KEYS.has(col.key as keyof FinancingRow)) return fmt(Number(v));
     if ((col.key === "disbursementDate" || col.key === "requestDate" ||
          col.key === "approvedDate"     || col.key === "maturityDate" ||
-         col.key === "lastPaymentDate"  || col.key === "dateOfBirth") && v)
+         col.key === "lastPaymentDate"  || col.key === "dateOfBirth" ||
+         col.key === "bizRegisterDate"  || col.key === "bizExpiryDate") && v)
       return formatDate(v as string);
     if (col.key === "marginRate") return `${Number(v).toFixed(2)}%`;
     return String(v ?? "—");
