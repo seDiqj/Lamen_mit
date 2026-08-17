@@ -181,20 +181,31 @@ export default function FinancingDataReport() {
   const [fundingSourceId, setFundingSourceId] = useState("all");
   const [data, setData] = useState<FinancingRow[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const { data: branchesData } = useQuery<{ id: string; name: string }[]>({ queryKey: ["/api/branches"] });
   const { data: fundingSourcesData } = useQuery<{ id: string; name: string }[]>({ queryKey: ["/api/funding-sources"] });
 
   const fetchReport = async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const params = new URLSearchParams({ startDate, endDate });
       if (branchId !== "all") params.append("branchId", branchId);
       if (fundingSourceId !== "all") params.append("fundingSourceId", fundingSourceId);
       const res = await fetch(`/api/reports/financing-data?${params}`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to fetch");
+      if (res.status === 401) {
+        setError("Your session has expired. Please refresh the page and sign in again.");
+        return;
+      }
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError((body as any).message || `Server error (${res.status}). Please try again.`);
+        return;
+      }
       setData(await res.json());
     } catch (e) {
+      setError("Network error — could not reach the server. Please check your connection and try again.");
       console.error(e);
     } finally {
       setIsLoading(false);
@@ -394,6 +405,14 @@ export default function FinancingDataReport() {
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {/* Error banner */}
+      {error && (
+        <div className="rounded-md border border-red-200 bg-red-50 dark:bg-red-950 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300 flex items-start gap-2">
+          <span className="mt-0.5">⚠️</span>
+          <span>{error}</span>
         </div>
       )}
 
