@@ -469,68 +469,57 @@ export default function FinancingDataReport() {
         <div className="overflow-x-auto rounded-lg border shadow-sm">
           <table className="text-[11px] border-collapse min-w-max">
             <thead>
-              {/* Group header row */}
+              {/* Group header row — uses index to distinguish duplicate keys */}
               <tr className="bg-slate-800 text-white">
-                {COLS.map(col => {
-                  // "Business License Information" group — spans 5 cols
-                  if (col.key === "bizLicenseType") {
-                    return (
-                      <th
-                        key="biz-license-group"
-                        colSpan={5}
-                        className="px-2 py-1.5 text-center font-bold border-r border-l border-slate-500 bg-indigo-700 whitespace-nowrap"
-                      >
-                        Business License Information
-                      </th>
-                    );
-                  }
-                  // skip the other 4 biz-license keys (covered by colspan above)
-                  if (["bizPresident","bizLicenseNumber","bizRegisterDate","bizExpiryDate"]
-                      .includes(col.key)) return null;
-
-                  // "Collateral Information" group — spans 10 cols
-                  if (col.key === "colOwnerName") {
-                    return (
-                      <th
-                        key="collateral-group"
-                        colSpan={10}
-                        className="px-2 py-1.5 text-center font-bold border-r border-l border-slate-500 bg-green-800 whitespace-nowrap"
-                      >
-                        Collateral Information
-                      </th>
-                    );
-                  }
-                  // skip the other 9 collateral keys (covered by colspan above)
-                  if (["colOwnerNid","colProvince","colDistrict","colVillage",
-                       "colAddress","colPurchasedPrice","colMarketPrice",
-                       "colType","colTitleDeed"].includes(col.key)) return null;
-
-                  // All other columns span both header rows
+                {COLS.map((col, idx) => {
+                  // idx 3: "Customer Information" — 15 cols (customerNo … secondPhoneNumber)
+                  if (idx === 3) return (
+                    <th key="cust-info-group" colSpan={15}
+                      className="px-2 py-1.5 text-center font-bold border-r border-l border-slate-500 bg-blue-700 whitespace-nowrap">
+                      Customer Information
+                    </th>
+                  );
+                  // idx 44: "Customer Business Information" — 5 cols
+                  if (idx === 44) return (
+                    <th key="cust-biz-group" colSpan={5}
+                      className="px-2 py-1.5 text-center font-bold border-r border-l border-slate-500 bg-teal-700 whitespace-nowrap">
+                      Customer Business Information
+                    </th>
+                  );
+                  // idx 49: "Business License Information" — 5 cols
+                  if (idx === 49) return (
+                    <th key="biz-license-group" colSpan={5}
+                      className="px-2 py-1.5 text-center font-bold border-r border-l border-slate-500 bg-indigo-700 whitespace-nowrap">
+                      Business License Information
+                    </th>
+                  );
+                  // idx 54: "Collateral Information" — 10 cols
+                  if (idx === 54) return (
+                    <th key="collateral-group" colSpan={10}
+                      className="px-2 py-1.5 text-center font-bold border-r border-l border-slate-500 bg-green-800 whitespace-nowrap">
+                      Collateral Information
+                    </th>
+                  );
+                  // skip cols covered by colspans: 4–17, 45–48, 50–53, 55–63
+                  if ((idx >= 4 && idx <= 17) || (idx >= 45 && idx <= 48) ||
+                      (idx >= 50 && idx <= 53) || (idx >= 55 && idx <= 63))
+                    return null;
+                  // all other cols span both header rows
                   return (
-                    <th
-                      key={col.key}
-                      rowSpan={2}
+                    <th key={`${col.key}-${idx}`} rowSpan={2}
                       className="px-2 py-2 text-center font-semibold border-r border-slate-600 whitespace-nowrap align-middle"
-                      style={{ minWidth: col.w, maxWidth: col.w }}
-                    >
+                      style={{ minWidth: col.w, maxWidth: col.w }}>
                       {col.label}
                     </th>
                   );
                 })}
               </tr>
-              {/* Sub-header row — individual names for grouped columns only */}
+              {/* Sub-header row — individual names for all grouped columns */}
               <tr className="bg-slate-700 text-white">
-                {COLS.filter(col =>
-                  ["bizLicenseType","bizPresident","bizLicenseNumber","bizRegisterDate","bizExpiryDate",
-                   "colOwnerName","colOwnerNid","colProvince","colDistrict","colVillage",
-                   "colAddress","colPurchasedPrice","colMarketPrice","colType","colTitleDeed"]
-                  .includes(col.key)
-                ).map(col => (
-                  <th
-                    key={col.key}
+                {[...COLS.slice(3, 18), ...COLS.slice(44, 64)].map((col, i) => (
+                  <th key={`sub-${col.key}-${i}`}
                     className="px-2 py-1.5 text-center font-semibold border-r border-slate-600 whitespace-nowrap"
-                    style={{ minWidth: col.w, maxWidth: col.w }}
-                  >
+                    style={{ minWidth: col.w, maxWidth: col.w }}>
                     {col.label}
                   </th>
                 ))}
