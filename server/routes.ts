@@ -7466,6 +7466,162 @@ export async function registerRoutes(
     }
   });
 
+  // ===== FINANCING DATA REPORT =====
+  app.get("/api/reports/financing-data", isAuthenticated, async (req: any, res) => {
+    try {
+      const { startDate, endDate, branchId, fundingSourceId } = req.query as Record<string, string>;
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "startDate and endDate are required" });
+      }
+
+      const effectiveBranch = await getEffectiveBranchId(req);
+      const branchFilter = branchId && branchId !== "all" ? branchId : (effectiveBranch && effectiveBranch !== "all" ? effectiveBranch : null);
+
+      const rows = await db.execute(sql`
+        SELECT
+          b.name                                                        AS branch_name,
+          fo.name                                                       AS officer_name,
+          c.customer_no,
+          l.application_id,
+          CONCAT(c.first_name, ' ', COALESCE(c.last_name,''))          AS customer_name,
+          COALESCE(c.father_name,'')                                    AS father_name,
+          COALESCE(c.full_name_dari,'')                                 AS full_name_dari,
+          COALESCE(c.gender,'')                                         AS gender,
+          COALESCE(c.marital_status,'')                                 AS marital_status,
+          c.number_of_dependents,
+          COALESCE(c.national_id,'')                                    AS national_id,
+          COALESCE(c.date_of_birth::text,'')                            AS date_of_birth,
+          COALESCE(c.province,'')                                       AS province,
+          COALESCE(c.district,'')                                       AS district,
+          COALESCE(c.area_type,'')                                      AS area_type,
+          COALESCE(c.phone_number,'')                                   AS phone_number,
+          COALESCE(c.second_phone_number,'')                            AS second_phone_number,
+          COALESCE(l.product_name,'')                                   AS product_name,
+          COALESCE(l.product_code,'')                                   AS product_code,
+          COALESCE(l.sector,'')                                         AS sector,
+          COALESCE(l.business_description,'')                           AS business_type,
+          COALESCE(l.financing_purpose,'')                              AS financing_purpose,
+          COALESCE(l.financing_cycle,1)                                 AS financing_cycle,
+          COALESCE(fs.name,'')                                          AS funding_source_name,
+          COALESCE(l.request_date::text,'')                             AS request_date,
+          COALESCE(l.request_amount::numeric,0)                         AS request_amount,
+          COALESCE(l.financing_duration_months,0)                       AS financing_duration_months,
+          COALESCE(l.grace_period,0)                                    AS grace_period,
+          COALESCE(l.number_of_installments,0)                         AS number_of_installments,
+          COALESCE(l.principle_amount::numeric, l.request_amount::numeric, 0) AS principle_amount,
+          COALESCE(l.margin_rate::numeric,0)                            AS margin_rate,
+          COALESCE(l.profit::numeric,0)                                 AS profit,
+          COALESCE(l.total_receivable::numeric,0)                       AS total_receivable,
+          COALESCE(l.installment_amount::numeric,0)                     AS installment_amount,
+          COALESCE(la.approved_amount::numeric, l.principle_amount::numeric, l.request_amount::numeric, 0) AS approved_amount,
+          COALESCE(la.approved_date::text,'')                           AS approved_date,
+          COALESCE(la.committee_discussion,'')                          AS committee_discussion,
+          d.disbursement_date::text                                     AS disbursement_date,
+          COALESCE(l.principle_amount::numeric, l.request_amount::numeric, 0) AS disbursed_amount,
+          COALESCE(d.maturity_date::text,'')                            AS maturity_date,
+          -- Installment aggregates
+          COALESCE(SUM(i.paid_amount::numeric),0)                       AS total_received,
+          COALESCE(SUM(CASE WHEN i.is_paid THEN i.principle_amount::numeric ELSE 0 END),0) AS principle_received,
+          COALESCE(SUM(CASE WHEN i.is_paid THEN i.margin_amount::numeric ELSE 0 END),0)    AS profit_received,
+          COUNT(CASE WHEN i.is_paid THEN 1 END)::int                   AS paid_installments,
+          COUNT(CASE WHEN NOT i.is_paid THEN 1 END)::int               AS remaining_installments,
+          MAX(CASE WHEN i.is_paid THEN i.payment_date::text END)       AS last_payment_date,
+          COALESCE(MAX(CASE WHEN NOT i.is_paid AND i.due_date < CURRENT_DATE
+                            THEN (CURRENT_DATE - i.due_date::date)
+                            ELSE 0 END),0)                              AS final_aging
+        FROM disbursements d
+        JOIN loans l         ON l.id = d.loan_id
+        JOIN customers c     ON c.id = l.customer_id
+        LEFT JOIN branches b ON b.id = l.branch_id
+        LEFT JOIN finance_officers fo ON fo.id = l.finance_officer_id
+        LEFT JOIN funding_sources fs  ON fs.id = l.funding_source_id
+        LEFT JOIN loan_approvals la   ON la.loan_id = l.id
+        LEFT JOIN installments i      ON i.loan_id = l.id
+        WHERE d.disbursement_date BETWEEN ${startDate}::date AND ${endDate}::date
+          ${branchFilter ? sql`AND l.branch_id = ${branchFilter}` : sql``}
+          ${fundingSourceId && fundingSourceId !== "all" ? sql`AND l.funding_source_id = ${fundingSourceId}` : sql``}
+        GROUP BY
+          b.name, fo.name, c.customer_no, l.application_id, c.first_name, c.last_name,
+          c.father_name, c.full_name_dari, c.gender, c.marital_status, c.number_of_dependents,
+          c.national_id, c.date_of_birth, c.province, c.district, c.area_type,
+          c.phone_number, c.second_phone_number,
+          l.product_name, l.product_code, l.sector, l.business_description, l.financing_purpose,
+          l.financing_cycle, fs.name, l.request_date, l.request_amount,
+          l.financing_duration_months, l.grace_period, l.number_of_installments,
+          l.principle_amount, l.margin_rate, l.profit, l.total_receivable, l.installment_amount,
+          la.approved_amount, la.approved_date, la.committee_discussion,
+          d.disbursement_date, d.maturity_date
+        ORDER BY b.name, d.disbursement_date
+      `);
+
+      const data = (rows.rows as any[]).map((r) => {
+        const totalRec   = Number(r.total_receivable || 0);
+        const totRcvd    = Number(r.total_received || 0);
+        const prinRcvd   = Number(r.principle_received || 0);
+        const profRcvd   = Number(r.profit_received || 0);
+        const prinAmt    = Number(r.principle_amount || 0);
+        const profitAmt  = Number(r.profit || 0);
+        return {
+          branchName:           r.branch_name || "",
+          officerName:          r.officer_name || "",
+          customerNo:           r.customer_no || "",
+          applicationId:        r.application_id || "",
+          customerName:         r.customer_name || "",
+          fatherName:           r.father_name || "",
+          fullNameDari:         r.full_name_dari || "",
+          gender:               r.gender || "",
+          maritalStatus:        r.marital_status || "",
+          numberOfDependents:   Number(r.number_of_dependents || 0),
+          nationalId:           r.national_id || "",
+          dateOfBirth:          r.date_of_birth || "",
+          province:             r.province || "",
+          district:             r.district || "",
+          areaType:             r.area_type || "",
+          phoneNumber:          r.phone_number || "",
+          secondPhoneNumber:    r.second_phone_number || "",
+          productName:          r.product_name || "",
+          productCode:          r.product_code || "",
+          sector:               r.sector || "",
+          businessType:         r.business_type || "",
+          financingPurpose:     r.financing_purpose || "",
+          financingCycle:       Number(r.financing_cycle || 1),
+          fundingSourceName:    r.funding_source_name || "",
+          requestDate:          r.request_date || "",
+          requestAmount:        Number(r.request_amount || 0),
+          financingDurationMonths: Number(r.financing_duration_months || 0),
+          gracePeriod:          Number(r.grace_period || 0),
+          numberOfInstallments: Number(r.number_of_installments || 0),
+          principleAmount:      prinAmt,
+          marginRate:           Number(r.margin_rate || 0),
+          profit:               profitAmt,
+          totalReceivable:      totalRec,
+          installmentAmount:    Number(r.installment_amount || 0),
+          approvedAmount:       Number(r.approved_amount || 0),
+          approvedDate:         r.approved_date || "",
+          committeeDiscussion:  r.committee_discussion || "",
+          disbursementDate:     r.disbursement_date || "",
+          disbursedAmount:      Number(r.disbursed_amount || 0),
+          maturityDate:         r.maturity_date || "",
+          principleReceived:    prinRcvd,
+          profitReceived:       profRcvd,
+          totalReceived:        totRcvd,
+          paidInstallments:     Number(r.paid_installments || 0),
+          remainingInstallments: Number(r.remaining_installments || 0),
+          principleOutstanding: Math.max(prinAmt - prinRcvd, 0),
+          profitOutstanding:    Math.max(profitAmt - profRcvd, 0),
+          totalOutstanding:     Math.max(totalRec - totRcvd, 0),
+          lastPaymentDate:      r.last_payment_date || "",
+          finalAging:           Number(r.final_aging || 0),
+        };
+      });
+
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching financing data report:", error);
+      res.status(500).json({ message: "Failed to fetch financing data report" });
+    }
+  });
+
   app.get("/api/reports/collection-report", isAuthenticated, requirePageAccess("collection-report"), async (req: any, res) => {
     try {
       const { startDate, endDate, officerId } = req.query;

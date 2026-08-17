@@ -71,6 +71,7 @@ import HRTrainingPage from "@/pages/hr/training";
 import HRBenefitsPage from "@/pages/hr/benefits";
 import ShareholderReportPage from "@/pages/shareholder-report";
 import LoanDisbursementReportPage from "@/pages/loan-disbursement-report";
+import FinancingDataReportPage from "@/pages/financing-data-report";
 import DABReportsPage from "@/pages/dab-reports";
 import LctrReportPage from "@/pages/lctr-report";
 import CollectionsPage from "@/pages/collections";
@@ -208,6 +209,7 @@ function AppRoutes() {
         <Route path="/disbursements" component={DisbursementsPage} />
         <Route path="/reports" component={ReportsPage} />
         <Route path="/loan-disbursement-report" component={LoanDisbursementReportPage} />
+        <Route path="/financing-data-report" component={FinancingDataReportPage} />
         <Route path="/dab-reports" component={DABReportsPage} />
         <Route path="/lctr-report" component={LctrReportPage} />
         <Route path="/citizen-balance-statement" component={CitizenBalanceStatementPage} />
