@@ -73,6 +73,16 @@ type FinancingRow = {
   bizLicenseNumber: string;
   bizRegisterDate: string;
   bizExpiryDate: string;
+  colOwnerName: string;
+  colOwnerNid: string;
+  colProvince: string;
+  colDistrict: string;
+  colVillage: string;
+  colAddress: string;
+  colPurchasedPrice: number;
+  colMarketPrice: number;
+  colType: string;
+  colTitleDeed: string;
   principleReceived: number;
   profitReceived: number;
   totalReceived: number;
@@ -166,6 +176,16 @@ const COLS: ColDef[] = [
   { key: "bizLicenseNumber",    label: "Business Lic. No #", w: 130 },
   { key: "bizRegisterDate",     label: "Lic. Register Date", w: 110 },
   { key: "bizExpiryDate",       label: "Lic. Expiry Date",   w: 110 },
+  { key: "colOwnerName",        label: "Owner/s",            w: 140 },
+  { key: "colOwnerNid",         label: "Owner NID",          w: 120 },
+  { key: "colProvince",         label: "Province",           w: 100 },
+  { key: "colDistrict",         label: "District",           w: 100 },
+  { key: "colVillage",          label: "Village",            w: 110 },
+  { key: "colAddress",          label: "Address",            w: 160 },
+  { key: "colPurchasedPrice",   label: "Purchased Price",    w: 120, num: true },
+  { key: "colMarketPrice",      label: "Market Price",       w: 110, num: true },
+  { key: "colType",             label: "Type",               w: 110 },
+  { key: "colTitleDeed",        label: "Title Deed No",      w: 120 },
   { key: "principleReceived",   label: "Prin. Received",  w: 110, num: true },
   { key: "profitReceived",      label: "Profit Rcvd",     w: 110, num: true },
   { key: "totalReceived",       label: "Total Rcvd",      w: 110, num: true },

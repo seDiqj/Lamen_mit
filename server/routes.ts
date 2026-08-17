@@ -7533,6 +7533,17 @@ export async function registerRoutes(
           COALESCE(c.license_number,'')                                 AS biz_license_number,
           COALESCE(c.register_date::text,'')                            AS biz_register_date,
           COALESCE(c.expiry_date::text,'')                              AS biz_expiry_date,
+          -- Collateral Information (first collateral)
+          COALESCE(col.col_owner_name,'')                               AS col_owner_name,
+          COALESCE(col.col_owner_nid,'')                                AS col_owner_nid,
+          COALESCE(col.col_province,'')                                 AS col_province,
+          COALESCE(col.col_district,'')                                 AS col_district,
+          COALESCE(col.col_village,'')                                  AS col_village,
+          COALESCE(col.col_address,'')                                  AS col_address,
+          COALESCE(col.col_purchased_price,0)                           AS col_purchased_price,
+          COALESCE(col.col_market_price,0)                              AS col_market_price,
+          COALESCE(col.col_type,'')                                     AS col_type,
+          COALESCE(col.col_title_deed,'')                               AS col_title_deed,
           -- Installment aggregates
           COALESCE(SUM(i.paid_amount::numeric),0)                       AS total_received,
           COALESCE(SUM(CASE WHEN i.is_paid THEN i.principle_amount::numeric ELSE 0 END),0) AS principle_received,
@@ -7551,6 +7562,23 @@ export async function registerRoutes(
         LEFT JOIN funding_sources fs  ON fs.id = l.funding_source_id
         LEFT JOIN loan_approvals la   ON la.loan_id = l.id
         LEFT JOIN installments i      ON i.loan_id = l.id
+        LEFT JOIN LATERAL (
+          SELECT
+            COALESCE(owner_name,'')             AS col_owner_name,
+            COALESCE(owner_national_id,'')      AS col_owner_nid,
+            COALESCE(province,'')               AS col_province,
+            COALESCE(district,'')               AS col_district,
+            COALESCE(village,'')                AS col_village,
+            COALESCE(address,'')                AS col_address,
+            COALESCE(purchased_price::numeric,0) AS col_purchased_price,
+            COALESCE(market_price::numeric,0)   AS col_market_price,
+            COALESCE(collateral_type,'')        AS col_type,
+            COALESCE(title_deed_number,'')      AS col_title_deed
+          FROM collaterals
+          WHERE loan_id = l.id
+          ORDER BY created_at
+          LIMIT 1
+        ) col ON true
         WHERE d.disbursement_date BETWEEN ${startDate}::date AND ${endDate}::date
           ${branchFilter ? sql`AND l.branch_id = ${branchFilter}` : sql``}
           ${fundingSourceId && fundingSourceId !== "all" ? sql`AND l.funding_source_id = ${fundingSourceId}` : sql``}
@@ -7568,7 +7596,10 @@ export async function registerRoutes(
           la.approved_amount, la.approved_date, la.committee_discussion,
           d.disbursement_date, d.maturity_date,
           c.village, c.detailed_address, c.years_of_experience,
-          c.license_type, c.president, c.license_number, c.register_date, c.expiry_date
+          c.license_type, c.president, c.license_number, c.register_date, c.expiry_date,
+          col.col_owner_name, col.col_owner_nid, col.col_province, col.col_district,
+          col.col_village, col.col_address, col.col_purchased_price, col.col_market_price,
+          col.col_type, col.col_title_deed
         ORDER BY b.name, d.disbursement_date
       `);
 
@@ -7632,6 +7663,16 @@ export async function registerRoutes(
           bizLicenseNumber:     r.biz_license_number || "",
           bizRegisterDate:      r.biz_register_date || "",
           bizExpiryDate:        r.biz_expiry_date || "",
+          colOwnerName:         r.col_owner_name || "",
+          colOwnerNid:          r.col_owner_nid || "",
+          colProvince:          r.col_province || "",
+          colDistrict:          r.col_district || "",
+          colVillage:           r.col_village || "",
+          colAddress:           r.col_address || "",
+          colPurchasedPrice:    Number(r.col_purchased_price || 0),
+          colMarketPrice:       Number(r.col_market_price || 0),
+          colType:              r.col_type || "",
+          colTitleDeed:         r.col_title_deed || "",
           principleReceived:    prinRcvd,
           profitReceived:       profRcvd,
           totalReceived:        totRcvd,
