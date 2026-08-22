@@ -289,16 +289,19 @@ const BASE_COLS: ColDef[] = [
   { key: "maturityDate",                   label: "Maturity Date",             w: 110 },
   { key: "disbursementMargin",             label: "Margin",                    w: 110, num: true },
   { key: "committeeDiscussion",            label: "Committee Discussion",      w: 160 },
-  { key: "principleReceived",   label: "Prin. Received",  w: 110, num: true },
-  { key: "profitReceived",      label: "Profit Rcvd",     w: 110, num: true },
-  { key: "totalReceived",       label: "Total Rcvd",      w: 110, num: true },
-  { key: "paidInstallments",    label: "Paid Inst.",      w: 80,  num: true },
-  { key: "remainingInstallments",label:"Rem. Inst.",      w: 80,  num: true },
-  { key: "principleOutstanding",label: "Prin. O/S",       w: 110, num: true },
-  { key: "profitOutstanding",   label: "Profit O/S",      w: 110, num: true },
-  { key: "totalOutstanding",    label: "Total O/S",       w: 110, num: true },
-  { key: "lastPaymentDate",     label: "Last Pmt Date",   w: 110 },
-  { key: "finalAging",          label: "Final Aging",     w: 100, num: true },
+];
+
+const SUMMARY_COLS: ColDef[] = [
+  { key: "principleReceived",    label: "Prin. Received",  w: 110, num: true },
+  { key: "profitReceived",       label: "Profit Rcvd",     w: 110, num: true },
+  { key: "totalReceived",        label: "Total Rcvd",      w: 110, num: true },
+  { key: "paidInstallments",     label: "Paid Inst.",      w: 80,  num: true },
+  { key: "remainingInstallments",label: "Rem. Inst.",      w: 80,  num: true },
+  { key: "principleOutstanding", label: "Prin. O/S",       w: 110, num: true },
+  { key: "profitOutstanding",    label: "Profit O/S",      w: 110, num: true },
+  { key: "totalOutstanding",     label: "Total O/S",       w: 110, num: true },
+  { key: "lastPaymentDate",      label: "Last Pmt Date",   w: 110 },
+  { key: "finalAging",           label: "Final Aging",     w: 100, num: true },
 ];
 
 const STATIC_COLUMN_GROUPS = [
@@ -375,7 +378,7 @@ export default function FinancingDataReport() {
   }, [data]);
 
   const cols = useMemo(
-    () => [...BASE_COLS, ...paidInstallmentColumns(paidInstallmentNumbers)],
+    () => [...BASE_COLS, ...paidInstallmentColumns(paidInstallmentNumbers), ...SUMMARY_COLS],
     [paidInstallmentNumbers],
   );
 
