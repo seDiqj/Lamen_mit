@@ -7601,9 +7601,33 @@ export async function registerRoutes(
            COUNT(CASE WHEN COALESCE(i.paid_amount::numeric,0) > 0 THEN 1 END)::int AS paid_installments,
            COUNT(CASE WHEN COALESCE(i.paid_amount::numeric,0) <= 0 THEN 1 END)::int AS remaining_installments,
           MAX(CASE WHEN i.is_paid THEN i.payment_date::text END)       AS last_payment_date,
-          COALESCE(MAX(CASE WHEN NOT i.is_paid AND i.due_date < CURRENT_DATE
-                            THEN (CURRENT_DATE - i.due_date::date)
-                            ELSE 0 END),0)                              AS final_aging
+           COALESCE(MAX(CASE WHEN NOT i.is_paid AND i.due_date < CURRENT_DATE
+                             THEN (CURRENT_DATE - i.due_date::date)
+                             ELSE 0 END),0)                              AS final_aging,
+           COUNT(CASE WHEN NOT i.is_paid
+                           AND i.due_date IS NOT NULL
+                           AND (CURRENT_DATE - i.due_date::date) > 1
+                      THEN 1 END)::int                                   AS par1_no,
+           COALESCE(SUM(CASE WHEN NOT i.is_paid
+                                  AND i.due_date IS NOT NULL
+                                  AND (CURRENT_DATE - i.due_date::date) > 1
+                             THEN GREATEST(
+                               COALESCE(i.total_amount::numeric, 0) - COALESCE(i.paid_amount::numeric, 0),
+                               0
+                             )
+                             ELSE 0 END), 0)                             AS par1_amount,
+           COUNT(CASE WHEN NOT i.is_paid
+                           AND i.due_date IS NOT NULL
+                           AND (CURRENT_DATE - i.due_date::date) > 30
+                      THEN 1 END)::int                                   AS par30_no,
+           COALESCE(SUM(CASE WHEN NOT i.is_paid
+                                  AND i.due_date IS NOT NULL
+                                  AND (CURRENT_DATE - i.due_date::date) > 30
+                             THEN GREATEST(
+                               COALESCE(i.total_amount::numeric, 0) - COALESCE(i.paid_amount::numeric, 0),
+                               0
+                             )
+                             ELSE 0 END), 0)                             AS par30_amount
         FROM disbursements d
         JOIN loans l         ON l.id = d.loan_id
         JOIN customers c     ON c.id = l.customer_id
@@ -7855,6 +7879,10 @@ export async function registerRoutes(
            committeeFinancingDurationMonths: Number(r.committee_financing_duration_months || 0),
            committeeGracePeriod:             Number(r.committee_grace_period || 0),
            disbursementMargin:               Number(r.disbursement_margin || 0),
+           par1No:                            Number(r.par1_no || 0),
+           par1Amount:                        Number(r.par1_amount || 0),
+           par30No:                           Number(r.par30_no || 0),
+           par30Amount:                       Number(r.par30_amount || 0),
            paidInstallmentDetails: (() => {
              if (Array.isArray(r.paid_installment_details)) return r.paid_installment_details;
              if (typeof r.paid_installment_details === "string") {

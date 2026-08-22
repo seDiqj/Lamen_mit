@@ -138,6 +138,10 @@ type FinancingRow = {
   totalOutstanding: number;
   lastPaymentDate: string;
   finalAging: number;
+  par1No: number;
+  par1Amount: number;
+  par30No: number;
+  par30Amount: number;
   paidInstallmentDetails: PaidInstallmentDetail[];
 };
 
@@ -156,6 +160,7 @@ type BranchGroup = {
     approvedAmount: number; disbursedAmount: number;
     principleReceived: number; profitReceived: number; totalReceived: number;
     principleOutstanding: number; profitOutstanding: number; totalOutstanding: number;
+    par1Amount: number; par30Amount: number;
   };
 };
 
@@ -297,11 +302,15 @@ const SUMMARY_COLS: ColDef[] = [
   { key: "totalReceived",        label: "Total Received",            w: 120, num: true },
   { key: "paidInstallments",     label: "No Of Paid Installment",    w: 130, num: true },
   { key: "remainingInstallments",label: "No Of Remaining Installment",w: 150, num: true },
-  { key: "principleOutstanding", label: "Prin. O/S",       w: 110, num: true },
-  { key: "profitOutstanding",    label: "Profit O/S",      w: 110, num: true },
-  { key: "totalOutstanding",     label: "Total O/S",       w: 110, num: true },
-  { key: "lastPaymentDate",      label: "Last Pmt Date",   w: 110 },
-  { key: "finalAging",           label: "Final Aging",     w: 100, num: true },
+  { key: "principleOutstanding", label: "Principle Outstanding", w: 135, num: true },
+  { key: "profitOutstanding",    label: "Profit Outstanding",    w: 135, num: true },
+  { key: "totalOutstanding",     label: "Total Outstanding",     w: 135, num: true },
+  { key: "lastPaymentDate",      label: "Last Payment Date",     w: 130 },
+  { key: "finalAging",           label: "Final Aging",            w: 100, num: true },
+  { key: "par1No",               label: "PAR>1 No",                w: 100, num: true },
+  { key: "par1Amount",           label: "PAR>1 Amount",            w: 120, num: true },
+  { key: "par30No",              label: "PAR>30 No",               w: 110, num: true },
+  { key: "par30Amount",          label: "PAR>30 Amount",           w: 130, num: true },
 ];
 
 const STATIC_COLUMN_GROUPS = [
@@ -334,7 +343,7 @@ const paidInstallmentColumns = (numbers: number[]): ColDef[] =>
 const MONEY_KEYS = new Set<keyof FinancingRow>([
   "requestAmount","principleAmount","profit","totalReceivable","installmentAmount",
   "approvedAmount","disbursedAmount","principleReceived","profitReceived","totalReceived",
-  "principleOutstanding","profitOutstanding","totalOutstanding",
+  "principleOutstanding","profitOutstanding","totalOutstanding","par1Amount","par30Amount",
 ]);
 
 const GUARANTOR_MONEY_KEYS = new Set<keyof FinancingRow>([
@@ -397,6 +406,18 @@ export default function FinancingDataReport() {
         span: 5,
         className: "bg-slate-500",
       },
+      {
+        label: "Remaining Outstanding",
+        start: BASE_COLS.length + paidInstallmentNumbers.length * 3 + 5,
+        span: 4,
+        className: "bg-amber-700",
+      },
+      {
+        label: "PAR Calculation",
+        start: BASE_COLS.length + paidInstallmentNumbers.length * 3 + 9,
+        span: 5,
+        className: "bg-blue-700",
+      },
     ],
     [paidInstallmentNumbers],
   );
@@ -456,6 +477,7 @@ export default function FinancingDataReport() {
       "approvedAmount","disbursedAmount",
       "principleReceived","profitReceived","totalReceived",
       "principleOutstanding","profitOutstanding","totalOutstanding",
+      "par1Amount","par30Amount",
     ] as const;
 
     const zeroTotals = () => Object.fromEntries(sumKeys.map(k => [k, 0])) as Record<typeof sumKeys[number], number>;
@@ -496,6 +518,18 @@ export default function FinancingDataReport() {
     installmentMerges.push({
       s: { r: 0, c: receivedAmountStart },
       e: { r: 0, c: receivedAmountStart + 4 },
+    });
+    const remainingOutstandingStart = receivedAmountStart + 5;
+    installmentGroupHeader[remainingOutstandingStart] = "Remaining Outstanding";
+    installmentMerges.push({
+      s: { r: 0, c: remainingOutstandingStart },
+      e: { r: 0, c: remainingOutstandingStart + 3 },
+    });
+    const parCalculationStart = remainingOutstandingStart + 4;
+    installmentGroupHeader[parCalculationStart] = "PAR Calculation";
+    installmentMerges.push({
+      s: { r: 0, c: parCalculationStart },
+      e: { r: 0, c: parCalculationStart + 4 },
     });
     const wsData: (string | number)[][] = [installmentGroupHeader, header];
 
@@ -737,7 +771,9 @@ export default function FinancingDataReport() {
               <tr className="bg-slate-700 text-white">
                 {groupedColumns.map((col, i) => (
                   <th key={`sub-${col.key}-${i}`}
-                    className="px-2 py-1.5 text-center font-semibold border-r border-slate-600 whitespace-nowrap"
+                    className={`px-2 py-1.5 text-center font-semibold border-r border-slate-600 whitespace-nowrap ${
+                      col.key === "finalAging" ? "bg-red-600" : ""
+                    }`}
                     style={{ minWidth: col.w, maxWidth: col.w }}>
                     {col.label}
                   </th>
