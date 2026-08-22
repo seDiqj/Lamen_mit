@@ -16,7 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FileSpreadsheet, Search, RefreshCw } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { formatDate } from "@/lib/date-utils";
-import * as XLSX from "xlsx";
+import * as XLSX from "xlsx-js-style";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -506,36 +506,41 @@ export default function FinancingDataReport() {
     if (!data || !branchGroups.length) return;
 
     const header = cols.map(c => c.label);
-    const installmentGroupHeader: (string | number)[] = Array(cols.length).fill("");
-    const installmentMerges: XLSX.Range[] = [];
-    paidInstallmentNumbers.forEach((number, index) => {
-      const start = BASE_COLS.length + index * 3;
-      installmentGroupHeader[start] = ordinalLabel(number);
-      installmentMerges.push({ s: { r: 0, c: start }, e: { r: 0, c: start + 2 } });
-    });
-    const receivedAmountStart = BASE_COLS.length + paidInstallmentNumbers.length * 3;
-    installmentGroupHeader[receivedAmountStart] = "Received Amount";
-    installmentMerges.push({
-      s: { r: 0, c: receivedAmountStart },
-      e: { r: 0, c: receivedAmountStart + 4 },
-    });
-    const remainingOutstandingStart = receivedAmountStart + 5;
-    installmentGroupHeader[remainingOutstandingStart] = "Remaining Outstanding";
-    installmentMerges.push({
-      s: { r: 0, c: remainingOutstandingStart },
-      e: { r: 0, c: remainingOutstandingStart + 3 },
-    });
-    const parCalculationStart = remainingOutstandingStart + 4;
-    installmentGroupHeader[parCalculationStart] = "PAR Calculation";
-    installmentMerges.push({
-      s: { r: 0, c: parCalculationStart },
-      e: { r: 0, c: parCalculationStart + 4 },
-    });
-    const wsData: (string | number)[][] = [installmentGroupHeader, header];
+    const groupHeader: (string | number)[] = Array(cols.length).fill("");
+    const subHeader = [...header];
+    const merges: XLSX.Range[] = [];
+
+    for (const group of columnGroups) {
+      groupHeader[group.start] = group.label;
+      merges.push({
+        s: { r: 0, c: group.start },
+        e: { r: 0, c: group.start + group.span - 1 },
+      });
+    }
+
+    // The first three columns are row-spanning headers on screen.
+    for (let index = 0; index < cols.length; index++) {
+      if (groupedColumnIndexes.has(index)) continue;
+      groupHeader[index] = cols[index].label;
+      subHeader[index] = "";
+      merges.push({ s: { r: 0, c: index }, e: { r: 1, c: index } });
+    }
+
+    const wsData: (string | number)[][] = [groupHeader, subHeader];
+    const branchHeaderRows: number[] = [];
+    const dataRows: Array<{ sheetRow: number; row: FinancingRow; alternate: boolean }> = [];
+    const subtotalRows: number[] = [];
 
     let sn = 1;
     for (const group of branchGroups) {
-      for (const row of group.rows) {
+      const branchHeader: (string | number)[] = Array(cols.length).fill("");
+      branchHeader[0] = `🏢 ${group.branchName}`;
+      branchHeaderRows.push(wsData.length);
+      wsData.push(branchHeader);
+      merges.push({ s: { r: wsData.length - 1, c: 0 }, e: { r: wsData.length - 1, c: cols.length - 1 } });
+
+      for (const [rowIndex, row] of group.rows.entries()) {
+        dataRows.push({ sheetRow: wsData.length, row, alternate: rowIndex % 2 === 1 });
         wsData.push(cols.map(col => {
           if (col.key === "sn") return sn++;
           if (col.installmentNumber && col.installmentField) {
@@ -549,7 +554,7 @@ export default function FinancingDataReport() {
               : Number(value);
           }
           const v = row[col.key as keyof FinancingRow];
-          if (col.key === "finalAging") return Number(v) > 0 ? Number(v) : 0;
+          if (col.key === "finalAging") return agingLabel(Number(v));
           if (typeof v === "number") return v;
           if ((col.key === "disbursementDate" || col.key === "requestDate" ||
                col.key === "approvedDate" || col.key === "maturityDate" ||
@@ -566,32 +571,172 @@ export default function FinancingDataReport() {
       }
       // Branch subtotal row
       const subRow: (string | number)[] = Array(cols.length).fill("");
-      subRow[0] = "";
+      subRow[0] = group.rows.length;
       subRow[1] = `SUBTOTAL — ${group.branchName}`;
       cols.forEach((col, i) => {
         if (MONEY_KEYS.has(col.key as keyof FinancingRow)) {
           subRow[i] = (group.subtotal as any)[col.key] ?? 0;
         }
       });
+      subtotalRows.push(wsData.length);
       wsData.push(subRow);
+      merges.push({ s: { r: wsData.length - 1, c: 1 }, e: { r: wsData.length - 1, c: 3 } });
     }
 
     // Grand total row
+    let grandTotalRow = -1;
     if (grandTotal) {
       const gtRow: (string | number)[] = Array(cols.length).fill("");
+      gtRow[0] = totalLoans;
       gtRow[1] = "GRAND TOTAL";
       cols.forEach((col, i) => {
         if (MONEY_KEYS.has(col.key as keyof FinancingRow)) {
           gtRow[i] = (grandTotal as any)[col.key] ?? 0;
         }
       });
+      grandTotalRow = wsData.length;
       wsData.push(gtRow);
+      merges.push({ s: { r: grandTotalRow, c: 1 }, e: { r: grandTotalRow, c: 3 } });
     }
 
     const ws = XLSX.utils.aoa_to_sheet(wsData);
-    if (installmentMerges.length) ws["!merges"] = installmentMerges;
+    ws["!merges"] = merges;
+
+    const borderColor = { rgb: "CBD5E1" };
+    const cellBorder = {
+      top: { style: "thin", color: borderColor },
+      bottom: { style: "thin", color: borderColor },
+      left: { style: "thin", color: borderColor },
+      right: { style: "thin", color: borderColor },
+    };
+    const fill = (rgb: string) => ({ patternType: "solid" as const, fgColor: { rgb } });
+    const font = (rgb: string, bold = false) => ({ name: "Calibri", sz: 10, bold, color: { rgb } });
+    const address = (row: number, col: number) => XLSX.utils.encode_cell({ r: row, c: col });
+    const setCellStyle = (row: number, col: number, style: Record<string, unknown>) => {
+      const cellAddress = address(row, col);
+      if (!ws[cellAddress]) ws[cellAddress] = { t: "s", v: "" };
+      ws[cellAddress].s = style;
+    };
+    const groupColors: Record<string, string> = {
+      "bg-blue-700": "1D4ED8",
+      "bg-amber-700": "B45309",
+      "bg-teal-700": "0F766E",
+      "bg-indigo-700": "4338CA",
+      "bg-green-800": "166534",
+      "bg-cyan-700": "0E7490",
+      "bg-sky-700": "0369A1",
+      "bg-lime-700": "4D7C0F",
+      "bg-emerald-700": "047857",
+      "bg-green-700": "15803D",
+      "bg-violet-700": "6D28D9",
+      "bg-purple-700": "7E22CE",
+      "bg-slate-500": "64748B",
+    };
+
+    // Match the two-level grouped table header shown on screen.
+    for (const group of columnGroups) {
+      const groupStyle = {
+        border: cellBorder,
+        fill: fill(groupColors[group.className] || "334155"),
+        font: font("FFFFFF", true),
+        alignment: { horizontal: "center" as const, vertical: "center" as const, wrapText: true },
+      };
+      for (let col = group.start; col < group.start + group.span; col++) {
+        setCellStyle(0, col, groupStyle);
+        setCellStyle(1, col, {
+          border: cellBorder,
+          fill: fill("334155"),
+          font: font("FFFFFF", true),
+          alignment: { horizontal: "center" as const, vertical: "center" as const, wrapText: true },
+        });
+      }
+    }
+    for (let col = 0; col < cols.length; col++) {
+      if (groupedColumnIndexes.has(col)) continue;
+      const verticalHeaderStyle = {
+        border: cellBorder,
+        fill: fill("1E293B"),
+        font: font("FFFFFF", true),
+        alignment: { horizontal: "center" as const, vertical: "center" as const, wrapText: true },
+      };
+      setCellStyle(0, col, verticalHeaderStyle);
+      setCellStyle(1, col, verticalHeaderStyle);
+    }
+    const finalAgingIndex = cols.findIndex(col => col.key === "finalAging");
+    if (finalAgingIndex >= 0) {
+      setCellStyle(1, finalAgingIndex, {
+        border: cellBorder,
+        fill: fill("DC2626"),
+        font: font("FFFFFF", true),
+        alignment: { horizontal: "center" as const, vertical: "center" as const, wrapText: true },
+      });
+    }
+
+    const moneyFormat = "#,##0.00";
+    const dataStyle = (alternate: boolean, col: ColDef, row: FinancingRow) => {
+      const isMoney = MONEY_KEYS.has(col.key as keyof FinancingRow)
+        || col.installmentField === "paymentAmount"
+        || col.installmentField === "remainingBalance";
+      const isAging = col.key === "finalAging";
+      const aging = isAging ? Number(row.finalAging) : 0;
+      return {
+        border: cellBorder,
+        fill: fill(alternate ? "F8FAFC" : "FFFFFF"),
+        font: font(aging > 30 ? "DC2626" : aging > 0 ? "D97706" : "1E293B"),
+        alignment: {
+          horizontal: col.num || isMoney ? "right" as const : "left" as const,
+          vertical: "center" as const,
+        },
+        ...(isMoney ? { numFmt: moneyFormat } : {}),
+      };
+    };
+    for (const { sheetRow, row, alternate } of dataRows) {
+      cols.forEach((col, colIndex) => setCellStyle(sheetRow, colIndex, dataStyle(alternate, col, row)));
+    }
+    for (const rowIndex of branchHeaderRows) {
+      for (let col = 0; col < cols.length; col++) {
+        setCellStyle(rowIndex, col, {
+          border: cellBorder,
+          fill: fill("DBEAFE"),
+          font: font("1E40AF", true),
+          alignment: { horizontal: "left" as const, vertical: "center" as const },
+        });
+      }
+    }
+    for (const rowIndex of subtotalRows) {
+      for (let col = 0; col < cols.length; col++) {
+        const colDef = cols[col];
+        setCellStyle(rowIndex, col, {
+          border: cellBorder,
+          fill: fill("EFF6FF"),
+          font: font("1D4ED8", true),
+          alignment: { horizontal: col === 1 ? "left" as const : "right" as const, vertical: "center" as const },
+          ...(MONEY_KEYS.has(colDef.key as keyof FinancingRow) ? { numFmt: moneyFormat } : {}),
+        });
+      }
+    }
+    if (grandTotalRow >= 0) {
+      for (let col = 0; col < cols.length; col++) {
+        const colDef = cols[col];
+        setCellStyle(grandTotalRow, col, {
+          border: cellBorder,
+          fill: fill("1E293B"),
+          font: font("FFFFFF", true),
+          alignment: { horizontal: col === 1 ? "left" as const : "right" as const, vertical: "center" as const },
+          ...(MONEY_KEYS.has(colDef.key as keyof FinancingRow) ? { numFmt: moneyFormat } : {}),
+        });
+      }
+    }
+
+    ws["!rows"] = [
+      { hpt: 28 },
+      { hpt: 34 },
+      ...wsData.slice(2).map((_, index) => ({
+        hpt: branchHeaderRows.includes(index + 2) ? 20 : 18,
+      })),
+    ];
     // Set column widths
-    ws["!cols"] = cols.map(c => ({ wch: Math.round((c.w || 100) / 7) }));
+    ws["!cols"] = cols.map(c => ({ wch: Math.max(10, Math.ceil((c.w || 100) / 7)) }));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Financing Data");
     XLSX.writeFile(wb, `Financing_Data_${startDate}_${endDate}.xlsx`);
@@ -645,8 +790,12 @@ export default function FinancingDataReport() {
           <p className="text-sm text-muted-foreground">Detailed MIS report for all disbursed loans</p>
         </div>
         {data && (
-          <Button variant="outline" size="sm" onClick={handleExportExcel} className="gap-2">
-            <FileSpreadsheet className="h-4 w-4 text-green-600" />
+          <Button
+            size="sm"
+            onClick={handleExportExcel}
+            className="gap-2 bg-green-600 text-white hover:bg-green-700"
+          >
+            <FileSpreadsheet className="h-4 w-4" />
             Export Excel
           </Button>
         )}
