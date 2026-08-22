@@ -138,6 +138,14 @@ type FinancingRow = {
   totalOutstanding: number;
   lastPaymentDate: string;
   finalAging: number;
+  paidInstallmentDetails: PaidInstallmentDetail[];
+};
+
+type PaidInstallmentDetail = {
+  installmentNumber: number;
+  paymentDate: string;
+  paymentAmount: number;
+  remainingBalance: number;
 };
 
 type BranchGroup = {
@@ -164,9 +172,16 @@ const agingLabel = (days: number) => {
 };
 
 // ─── Column definitions ───────────────────────────────────────────────────────
-type ColDef = { key: keyof FinancingRow | "sn"; label: string; w?: number; num?: boolean };
+type ColDef = {
+  key: string;
+  label: string;
+  w?: number;
+  num?: boolean;
+  installmentNumber?: number;
+  installmentField?: "paymentDate" | "paymentAmount" | "remainingBalance";
+};
 
-const COLS: ColDef[] = [
+const BASE_COLS: ColDef[] = [
   { key: "sn",                  label: "S/N",             w: 50 },
   { key: "branchName",          label: "Branch",          w: 110 },
   { key: "officerName",         label: "F. Officer",      w: 120 },
@@ -286,6 +301,33 @@ const COLS: ColDef[] = [
   { key: "finalAging",          label: "Final Aging",     w: 100, num: true },
 ];
 
+const STATIC_COLUMN_GROUPS = [
+  { label: "Customer Information", start: 3, span: 15, className: "bg-blue-700" },
+  { label: "Financing Application Information", start: 18, span: 20, className: "bg-amber-700" },
+  { label: "Customer Business Information", start: 38, span: 5, className: "bg-teal-700" },
+  { label: "Business License Information", start: 43, span: 5, className: "bg-indigo-700" },
+  { label: "Collateral Information", start: 48, span: 10, className: "bg-green-800" },
+  { label: "First Financial Guarantor Information", start: 58, span: 15, className: "bg-cyan-700" },
+  { label: "Second Financial Guarantor Information", start: 73, span: 15, className: "bg-sky-700" },
+  { label: "Family Guarantor", start: 88, span: 10, className: "bg-lime-700" },
+  { label: "Financing Committee Decision", start: 98, span: 4, className: "bg-emerald-700" },
+  { label: "Disbursement Information", start: 102, span: 5, className: "bg-green-700" },
+];
+
+const ordinalLabel = (value: number) => {
+  const suffix = value % 100 >= 11 && value % 100 <= 13
+    ? "th"
+    : ({ 1: "st", 2: "nd", 3: "rd" } as Record<number, string>)[value % 10] || "th";
+  return `${value}${suffix} Installment`;
+};
+
+const paidInstallmentColumns = (numbers: number[]): ColDef[] =>
+  numbers.flatMap((number) => [
+    { key: `installment-${number}-paymentDate`, label: "Payment Date", w: 115, installmentNumber: number, installmentField: "paymentDate" },
+    { key: `installment-${number}-paymentAmount`, label: "Payment Amount", w: 125, num: true, installmentNumber: number, installmentField: "paymentAmount" },
+    { key: `installment-${number}-remainingBalance`, label: "Remaining Balance", w: 135, num: true, installmentNumber: number, installmentField: "remainingBalance" },
+  ]);
+
 const MONEY_KEYS = new Set<keyof FinancingRow>([
   "requestAmount","principleAmount","profit","totalReceivable","installmentAmount",
   "approvedAmount","disbursedAmount","principleReceived","profitReceived","totalReceived",
@@ -319,6 +361,53 @@ export default function FinancingDataReport() {
   const [data, setData] = useState<FinancingRow[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const paidInstallmentNumbers = useMemo(() => {
+    const numbers = new Set<number>();
+    for (const row of data ?? []) {
+      for (const detail of row.paidInstallmentDetails ?? []) {
+        if (detail.installmentNumber > 0 && detail.paymentAmount > 0) {
+          numbers.add(detail.installmentNumber);
+        }
+      }
+    }
+    return Array.from(numbers).sort((a, b) => a - b);
+  }, [data]);
+
+  const cols = useMemo(
+    () => [...BASE_COLS, ...paidInstallmentColumns(paidInstallmentNumbers)],
+    [paidInstallmentNumbers],
+  );
+
+  const columnGroups = useMemo(
+    () => [
+      ...STATIC_COLUMN_GROUPS,
+      ...paidInstallmentNumbers.map((number, index) => ({
+        label: ordinalLabel(number),
+        start: BASE_COLS.length + index * 3,
+        span: 3,
+        className: index % 2 === 0 ? "bg-violet-700" : "bg-purple-700",
+      })),
+    ],
+    [paidInstallmentNumbers],
+  );
+
+  const groupsByStart = useMemo(
+    () => new Map(columnGroups.map(group => [group.start, group])),
+    [columnGroups],
+  );
+
+  const groupedColumnIndexes = useMemo(
+    () => new Set(columnGroups.flatMap(group =>
+      Array.from({ length: group.span }, (_, index) => group.start + index),
+    )),
+    [columnGroups],
+  );
+
+  const groupedColumns = useMemo(
+    () => columnGroups.flatMap(group => cols.slice(group.start, group.start + group.span)),
+    [columnGroups, cols],
+  );
 
   const { data: branchesData } = useQuery<{ id: string; name: string }[]>({ queryKey: ["/api/branches"] });
   const { data: fundingSourcesData } = useQuery<{ id: string; name: string }[]>({ queryKey: ["/api/funding-sources"] });
@@ -385,14 +474,33 @@ export default function FinancingDataReport() {
   const handleExportExcel = () => {
     if (!data || !branchGroups.length) return;
 
-    const header = COLS.map(c => c.label);
-    const wsData: (string | number)[][] = [header];
+    const header = cols.map(c => c.label);
+    const installmentGroupHeader: (string | number)[] = Array(cols.length).fill("");
+    const installmentMerges: XLSX.Range[] = [];
+    paidInstallmentNumbers.forEach((number, index) => {
+      const start = BASE_COLS.length + index * 3;
+      installmentGroupHeader[start] = ordinalLabel(number);
+      installmentMerges.push({ s: { r: 0, c: start }, e: { r: 0, c: start + 2 } });
+    });
+    const wsData: (string | number)[][] = paidInstallmentNumbers.length
+      ? [installmentGroupHeader, header]
+      : [header];
 
     let sn = 1;
     for (const group of branchGroups) {
       for (const row of group.rows) {
-        wsData.push(COLS.map(col => {
+        wsData.push(cols.map(col => {
           if (col.key === "sn") return sn++;
+          if (col.installmentNumber && col.installmentField) {
+            const detail = row.paidInstallmentDetails.find(
+              item => item.installmentNumber === col.installmentNumber,
+            );
+            if (!detail) return "";
+            const value = detail[col.installmentField];
+            return col.installmentField === "paymentDate"
+              ? (value ? formatDate(String(value)) : "")
+              : Number(value);
+          }
           const v = row[col.key as keyof FinancingRow];
           if (col.key === "finalAging") return Number(v) > 0 ? Number(v) : 0;
           if (typeof v === "number") return v;
@@ -410,10 +518,10 @@ export default function FinancingDataReport() {
         }));
       }
       // Branch subtotal row
-      const subRow: (string | number)[] = Array(COLS.length).fill("");
+      const subRow: (string | number)[] = Array(cols.length).fill("");
       subRow[0] = "";
       subRow[1] = `SUBTOTAL — ${group.branchName}`;
-      COLS.forEach((col, i) => {
+      cols.forEach((col, i) => {
         if (MONEY_KEYS.has(col.key as keyof FinancingRow)) {
           subRow[i] = (group.subtotal as any)[col.key] ?? 0;
         }
@@ -423,9 +531,9 @@ export default function FinancingDataReport() {
 
     // Grand total row
     if (grandTotal) {
-      const gtRow: (string | number)[] = Array(COLS.length).fill("");
+      const gtRow: (string | number)[] = Array(cols.length).fill("");
       gtRow[1] = "GRAND TOTAL";
-      COLS.forEach((col, i) => {
+      cols.forEach((col, i) => {
         if (MONEY_KEYS.has(col.key as keyof FinancingRow)) {
           gtRow[i] = (grandTotal as any)[col.key] ?? 0;
         }
@@ -434,8 +542,9 @@ export default function FinancingDataReport() {
     }
 
     const ws = XLSX.utils.aoa_to_sheet(wsData);
+    if (installmentMerges.length) ws["!merges"] = installmentMerges;
     // Set column widths
-    ws["!cols"] = COLS.map(c => ({ wch: Math.round((c.w || 100) / 7) }));
+    ws["!cols"] = cols.map(c => ({ wch: Math.round((c.w || 100) / 7) }));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Financing Data");
     XLSX.writeFile(wb, `Financing_Data_${startDate}_${endDate}.xlsx`);
@@ -444,6 +553,16 @@ export default function FinancingDataReport() {
   // ── Render cell value ─────────────────────────────────────────────────────
   const cellValue = (col: ColDef, row: FinancingRow, sn: number): string => {
     if (col.key === "sn") return String(sn);
+    if (col.installmentNumber && col.installmentField) {
+      const detail = row.paidInstallmentDetails.find(
+        item => item.installmentNumber === col.installmentNumber,
+      );
+      if (!detail) return "";
+      const value = detail[col.installmentField];
+      return col.installmentField === "paymentDate"
+        ? (value ? formatDate(String(value)) : "")
+        : fmt(Number(value));
+    }
     const v = row[col.key as keyof FinancingRow];
     if (col.key === "finalAging") return agingLabel(Number(v));
     if (DISPLAY_MONEY_KEYS.has(col.key as keyof FinancingRow)) return fmt(Number(v));
@@ -580,86 +699,17 @@ export default function FinancingDataReport() {
         <div className="overflow-x-auto rounded-lg border shadow-sm">
           <table className="text-[11px] border-collapse min-w-max">
             <thead>
-              {/* Group header row — uses index to distinguish duplicate keys */}
+              {/* Group header row */}
               <tr className="bg-slate-800 text-white">
-                {COLS.map((col, idx) => {
-                  // idx 3: "Customer Information" — 15 cols (customerNo … secondPhoneNumber)
-                  if (idx === 3) return (
-                    <th key="cust-info-group" colSpan={15}
-                      className="px-2 py-1.5 text-center font-bold border-r border-l border-slate-500 bg-blue-700 whitespace-nowrap">
-                      Customer Information
+                {cols.map((col, idx) => {
+                  const group = groupsByStart.get(idx);
+                  if (group) return (
+                    <th key={`group-${group.start}`} colSpan={group.span}
+                      className={`px-2 py-1.5 text-center font-bold border-r border-l border-slate-500 ${group.className} whitespace-nowrap`}>
+                      {group.label}
                     </th>
                   );
-                  // idx 18: "Financing Application Information" — 20 cols (productName … installmentAmount)
-                  if (idx === 18) return (
-                    <th key="fin-app-group" colSpan={20}
-                      className="px-2 py-1.5 text-center font-bold border-r border-l border-slate-500 bg-amber-700 whitespace-nowrap">
-                      Financing Application Information
-                    </th>
-                  );
-                  // idx 38: "Customer Business Information" — 5 cols
-                  if (idx === 38) return (
-                    <th key="cust-biz-group" colSpan={5}
-                      className="px-2 py-1.5 text-center font-bold border-r border-l border-slate-500 bg-teal-700 whitespace-nowrap">
-                      Customer Business Information
-                    </th>
-                  );
-                  // idx 43: "Business License Information" — 5 cols
-                  if (idx === 43) return (
-                    <th key="biz-license-group" colSpan={5}
-                      className="px-2 py-1.5 text-center font-bold border-r border-l border-slate-500 bg-indigo-700 whitespace-nowrap">
-                      Business License Information
-                    </th>
-                  );
-                  // idx 48: "Collateral Information" — 10 cols
-                  if (idx === 48) return (
-                    <th key="collateral-group" colSpan={10}
-                      className="px-2 py-1.5 text-center font-bold border-r border-l border-slate-500 bg-green-800 whitespace-nowrap">
-                      Collateral Information
-                    </th>
-                  );
-                  // idx 58: "First Financial Guarantor Information" — 15 cols
-                  if (idx === 58) return (
-                    <th key="first-guarantor-group" colSpan={15}
-                      className="px-2 py-1.5 text-center font-bold border-r border-l border-slate-500 bg-cyan-700 whitespace-nowrap">
-                      First Financial Guarantor Information
-                    </th>
-                  );
-                  // idx 73: "Second Financial Guarantor Information" — 15 cols
-                  if (idx === 73) return (
-                    <th key="second-guarantor-group" colSpan={15}
-                      className="px-2 py-1.5 text-center font-bold border-r border-l border-slate-500 bg-sky-700 whitespace-nowrap">
-                      Second Financial Guarantor Information
-                    </th>
-                  );
-                  // idx 88: "Family Guarantor" — 10 cols
-                  if (idx === 88) return (
-                    <th key="family-guarantor-group" colSpan={10}
-                      className="px-2 py-1.5 text-center font-bold border-r border-l border-slate-500 bg-lime-700 whitespace-nowrap">
-                      Family Guarantor
-                    </th>
-                  );
-                  // idx 98: "Financing Committee Decision" — 4 cols
-                  if (idx === 98) return (
-                    <th key="committee-decision-group" colSpan={4}
-                      className="px-2 py-1.5 text-center font-bold border-r border-l border-slate-500 bg-emerald-700 whitespace-nowrap">
-                      Financing Committee Decision
-                    </th>
-                  );
-                  // idx 102: "Disbursement Information" — 5 cols
-                  if (idx === 102) return (
-                    <th key="disbursement-info-group" colSpan={5}
-                      className="px-2 py-1.5 text-center font-bold border-r border-l border-slate-500 bg-green-700 whitespace-nowrap">
-                      Disbursement Information
-                    </th>
-                  );
-                  // skip cols covered by colspans.
-                  if ((idx >= 4 && idx <= 17) || (idx >= 19 && idx <= 37) ||
-                      (idx >= 39 && idx <= 42) || (idx >= 44 && idx <= 47) ||
-                      (idx >= 49 && idx <= 57) || (idx >= 59 && idx <= 72) ||
-                      (idx >= 74 && idx <= 87) || (idx >= 89 && idx <= 97) ||
-                      (idx >= 99 && idx <= 101) || (idx >= 103 && idx <= 106))
-                    return null;
+                  if (groupedColumnIndexes.has(idx)) return null;
                   // all other cols span both header rows
                   return (
                     <th key={`${col.key}-${idx}`} rowSpan={2}
@@ -672,7 +722,7 @@ export default function FinancingDataReport() {
               </tr>
               {/* Sub-header row — individual names for all grouped columns */}
               <tr className="bg-slate-700 text-white">
-                {COLS.slice(3, 107).map((col, i) => (
+                {groupedColumns.map((col, i) => (
                   <th key={`sub-${col.key}-${i}`}
                     className="px-2 py-1.5 text-center font-semibold border-r border-slate-600 whitespace-nowrap"
                     style={{ minWidth: col.w, maxWidth: col.w }}>
@@ -689,7 +739,7 @@ export default function FinancingDataReport() {
                     {/* Branch header row */}
                     <tr key={`hdr-${group.branchName}`} className="bg-blue-100 dark:bg-blue-900">
                       <td
-                        colSpan={COLS.length}
+                          colSpan={cols.length}
                         className="px-3 py-1 font-semibold text-blue-800 dark:text-blue-200 text-xs"
                       >
                         🏢 {group.branchName}
@@ -704,7 +754,7 @@ export default function FinancingDataReport() {
                           key={`${group.branchName}-${ri}`}
                           className={ri % 2 === 0 ? "bg-white dark:bg-slate-900" : "bg-slate-50 dark:bg-slate-800"}
                         >
-                          {COLS.map(col => {
+                          {cols.map(col => {
                             const isAging = col.key === "finalAging";
                             const agingVal = isAging ? Number(row.finalAging) : 0;
                             return (
@@ -732,7 +782,7 @@ export default function FinancingDataReport() {
                       <td colSpan={3} className="px-2 py-1 border-b border-r border-slate-300 text-blue-700 text-xs">
                         Subtotal — {group.branchName}
                       </td>
-                      {COLS.slice(4).map(col => (
+                      {cols.slice(4).map(col => (
                         <td
                           key={`sub-${col.key}`}
                           className="px-2 py-1 border-b border-r border-slate-300 text-right tabular-nums text-blue-800 dark:text-blue-200 text-[11px]"
@@ -750,7 +800,7 @@ export default function FinancingDataReport() {
                 <tr className="bg-slate-800 text-white font-bold">
                   <td className="px-2 py-2 text-center">{totalLoans}</td>
                   <td colSpan={3} className="px-2 py-2 text-xs">GRAND TOTAL</td>
-                  {COLS.slice(4).map(col => (
+                  {cols.slice(4).map(col => (
                     <td
                       key={`gt-${col.key}`}
                       className="px-2 py-2 text-right tabular-nums text-[11px]"

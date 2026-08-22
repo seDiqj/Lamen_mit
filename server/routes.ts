@@ -7593,12 +7593,13 @@ export async function registerRoutes(
            COALESCE(la.financing_duration_months, l.financing_duration_months, 0) AS committee_financing_duration_months,
            COALESCE(la.grace_period, l.grace_period, 0)                   AS committee_grace_period,
            COALESCE(l.profit::numeric,0)                                 AS disbursement_margin,
+           COALESCE(pay.paid_installment_details, '[]'::jsonb)           AS paid_installment_details,
           -- Installment aggregates
           COALESCE(SUM(i.paid_amount::numeric),0)                       AS total_received,
           COALESCE(SUM(CASE WHEN i.is_paid THEN i.principle_amount::numeric ELSE 0 END),0) AS principle_received,
           COALESCE(SUM(CASE WHEN i.is_paid THEN i.margin_amount::numeric ELSE 0 END),0)    AS profit_received,
-          COUNT(CASE WHEN i.is_paid THEN 1 END)::int                   AS paid_installments,
-          COUNT(CASE WHEN NOT i.is_paid THEN 1 END)::int               AS remaining_installments,
+           COUNT(CASE WHEN COALESCE(i.paid_amount::numeric,0) > 0 THEN 1 END)::int AS paid_installments,
+           COUNT(CASE WHEN COALESCE(i.paid_amount::numeric,0) <= 0 THEN 1 END)::int AS remaining_installments,
           MAX(CASE WHEN i.is_paid THEN i.payment_date::text END)       AS last_payment_date,
           COALESCE(MAX(CASE WHEN NOT i.is_paid AND i.due_date < CURRENT_DATE
                             THEN (CURRENT_DATE - i.due_date::date)
@@ -7611,6 +7612,40 @@ export async function registerRoutes(
         LEFT JOIN funding_sources fs  ON fs.id = l.funding_source_id
         LEFT JOIN loan_approvals la   ON la.loan_id = l.id
         LEFT JOIN installments i      ON i.loan_id = l.id
+         LEFT JOIN LATERAL (
+           SELECT COALESCE(
+             jsonb_agg(
+               jsonb_build_object(
+                 'installmentNumber', paid.installment_number,
+                 'paymentDate', COALESCE(paid.payment_date, ''),
+                 'paymentAmount', paid.paid_amount,
+                 'remainingBalance', GREATEST(
+                   COALESCE(l.total_receivable::numeric,
+                     COALESCE(l.principle_amount::numeric, 0) + COALESCE(l.profit::numeric, 0),
+                     0
+                   ) - paid.cumulative_paid,
+                   0
+                 )
+               )
+               ORDER BY paid.installment_number, paid.installment_id
+             ) FILTER (WHERE paid.paid_amount > 0),
+             '[]'::jsonb
+           ) AS paid_installment_details
+           FROM (
+             SELECT
+               i2.id AS installment_id,
+               i2.installment_number,
+               COALESCE(i2.payment_date::text, '') AS payment_date,
+               COALESCE(i2.paid_amount::numeric, 0) AS paid_amount,
+               SUM(COALESCE(i2.paid_amount::numeric, 0)) OVER (
+                 ORDER BY i2.installment_number, i2.id
+                 ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+               ) AS cumulative_paid
+             FROM installments i2
+             WHERE i2.loan_id = l.id
+               AND COALESCE(i2.paid_amount::numeric, 0) <> 0
+           ) paid
+         ) pay ON true
          LEFT JOIN LATERAL (
            SELECT id, province, district, village, detailed_address, years_of_experience
            FROM customer_businesses
@@ -7685,6 +7720,7 @@ export async function registerRoutes(
            la.approved_amount, la.approved_date, la.committee_discussion,
            la.financing_duration_months, la.grace_period,
           d.disbursement_date, d.maturity_date,
+           pay.paid_installment_details,
            cb.province, cb.district, cb.village, cb.detailed_address, cb.years_of_experience,
            bl.license_type, bl.president, bl.license_number, bl.register_date, bl.expiry_date,
           col.col_owner_name, col.col_owner_nid, col.col_province, col.col_district,
@@ -7819,6 +7855,18 @@ export async function registerRoutes(
            committeeFinancingDurationMonths: Number(r.committee_financing_duration_months || 0),
            committeeGracePeriod:             Number(r.committee_grace_period || 0),
            disbursementMargin:               Number(r.disbursement_margin || 0),
+           paidInstallmentDetails: (() => {
+             if (Array.isArray(r.paid_installment_details)) return r.paid_installment_details;
+             if (typeof r.paid_installment_details === "string") {
+               try { return JSON.parse(r.paid_installment_details); } catch { return []; }
+             }
+             return [];
+           })().map((p: any) => ({
+             installmentNumber: Number(p.installmentNumber || 0),
+             paymentDate: p.paymentDate || "",
+             paymentAmount: Number(p.paymentAmount || 0),
+             remainingBalance: Number(p.remainingBalance || 0),
+           })),
           principleReceived:    prinRcvd,
           profitReceived:       profRcvd,
           totalReceived:        totRcvd,
