@@ -292,11 +292,11 @@ const BASE_COLS: ColDef[] = [
 ];
 
 const SUMMARY_COLS: ColDef[] = [
-  { key: "principleReceived",    label: "Prin. Received",  w: 110, num: true },
-  { key: "profitReceived",       label: "Profit Rcvd",     w: 110, num: true },
-  { key: "totalReceived",        label: "Total Rcvd",      w: 110, num: true },
-  { key: "paidInstallments",     label: "Paid Inst.",      w: 80,  num: true },
-  { key: "remainingInstallments",label: "Rem. Inst.",      w: 80,  num: true },
+  { key: "principleReceived",    label: "Principle Received",       w: 120, num: true },
+  { key: "profitReceived",       label: "Profit Received",           w: 120, num: true },
+  { key: "totalReceived",        label: "Total Received",            w: 120, num: true },
+  { key: "paidInstallments",     label: "No Of Paid Installment",    w: 130, num: true },
+  { key: "remainingInstallments",label: "No Of Remaining Installment",w: 150, num: true },
   { key: "principleOutstanding", label: "Prin. O/S",       w: 110, num: true },
   { key: "profitOutstanding",    label: "Profit O/S",      w: 110, num: true },
   { key: "totalOutstanding",     label: "Total O/S",       w: 110, num: true },
@@ -391,6 +391,12 @@ export default function FinancingDataReport() {
         span: 3,
         className: index % 2 === 0 ? "bg-violet-700" : "bg-purple-700",
       })),
+      {
+        label: "Received Amount",
+        start: BASE_COLS.length + paidInstallmentNumbers.length * 3,
+        span: 5,
+        className: "bg-slate-500",
+      },
     ],
     [paidInstallmentNumbers],
   );
@@ -485,9 +491,13 @@ export default function FinancingDataReport() {
       installmentGroupHeader[start] = ordinalLabel(number);
       installmentMerges.push({ s: { r: 0, c: start }, e: { r: 0, c: start + 2 } });
     });
-    const wsData: (string | number)[][] = paidInstallmentNumbers.length
-      ? [installmentGroupHeader, header]
-      : [header];
+    const receivedAmountStart = BASE_COLS.length + paidInstallmentNumbers.length * 3;
+    installmentGroupHeader[receivedAmountStart] = "Received Amount";
+    installmentMerges.push({
+      s: { r: 0, c: receivedAmountStart },
+      e: { r: 0, c: receivedAmountStart + 4 },
+    });
+    const wsData: (string | number)[][] = [installmentGroupHeader, header];
 
     let sn = 1;
     for (const group of branchGroups) {
