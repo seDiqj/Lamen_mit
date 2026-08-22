@@ -7578,6 +7578,21 @@ export async function registerRoutes(
            COALESCE(fg2.years_of_experience,0)                           AS second_guarantor_years_of_experience,
            COALESCE(fg2.inventory::numeric,0)                            AS second_guarantor_asset,
            COALESCE(fg2.monthly_income::numeric,0)                       AS second_guarantor_monthly_income,
+           -- Family Guarantor
+           COALESCE(fgf.full_name,'')                                    AS family_guarantor_name,
+           COALESCE(fgf.father_name,'')                                  AS family_guarantor_father_name,
+           COALESCE(fgf.national_id,'')                                  AS family_guarantor_nid,
+           COALESCE(fgf.date_of_birth,'')                                AS family_guarantor_date_of_birth,
+           COALESCE(fgf.nid_expiry_date,'')                              AS family_guarantor_nid_expiry_date,
+           COALESCE(fgf.phone_number,'')                                 AS family_guarantor_phone,
+           COALESCE(fgf.province,'')                                     AS family_guarantor_province,
+           COALESCE(fgf.district,'')                                     AS family_guarantor_district,
+           COALESCE(fgf.home_address,'')                                 AS family_guarantor_home_address,
+           COALESCE(fgf.relationship_with_customer,'')                   AS family_guarantor_relationship,
+           -- Financing Committee Decision and Disbursement Information
+           COALESCE(la.financing_duration_months, l.financing_duration_months, 0) AS committee_financing_duration_months,
+           COALESCE(la.grace_period, l.grace_period, 0)                   AS committee_grace_period,
+           COALESCE(l.profit::numeric,0)                                 AS disbursement_margin,
           -- Installment aggregates
           COALESCE(SUM(i.paid_amount::numeric),0)                       AS total_received,
           COALESCE(SUM(CASE WHEN i.is_paid THEN i.principle_amount::numeric ELSE 0 END),0) AS principle_received,
@@ -7628,6 +7643,14 @@ export async function registerRoutes(
            ORDER BY created_at, id
            LIMIT 1 OFFSET 1
          ) fg2 ON true
+         LEFT JOIN LATERAL (
+           SELECT id, full_name, father_name, national_id, date_of_birth, nid_expiry_date,
+                  phone_number, home_address, province, district, relationship_with_customer
+           FROM guarantors
+           WHERE loan_id = l.id AND guarantor_type = 'family'
+           ORDER BY created_at, id
+           LIMIT 1
+         ) fgf ON true
         LEFT JOIN LATERAL (
           SELECT
             COALESCE(owner_name,'')             AS col_owner_name,
@@ -7659,7 +7682,8 @@ export async function registerRoutes(
           l.financing_cycle, fs.name, l.request_date, l.request_amount,
           l.financing_duration_months, l.grace_period, l.number_of_installments,
           l.principle_amount, l.margin_rate, l.profit, l.total_receivable, l.installment_amount,
-          la.approved_amount, la.approved_date, la.committee_discussion,
+           la.approved_amount, la.approved_date, la.committee_discussion,
+           la.financing_duration_months, la.grace_period,
           d.disbursement_date, d.maturity_date,
            cb.province, cb.district, cb.village, cb.detailed_address, cb.years_of_experience,
            bl.license_type, bl.president, bl.license_number, bl.register_date, bl.expiry_date,
@@ -7673,7 +7697,10 @@ export async function registerRoutes(
            fg2.full_name, fg2.father_name, fg2.national_id, fg2.date_of_birth,
            fg2.nid_expiry_date, fg2.phone_number, fg2.home_address, fg2.province,
            fg2.district, fg2.business, fg2.business_address, fg2.relationship_with_customer,
-           fg2.years_of_experience, fg2.inventory, fg2.monthly_income
+           fg2.years_of_experience, fg2.inventory, fg2.monthly_income,
+           fgf.full_name, fgf.father_name, fgf.national_id, fgf.date_of_birth,
+           fgf.nid_expiry_date, fgf.phone_number, fgf.home_address, fgf.province,
+           fgf.district, fgf.relationship_with_customer
         ORDER BY b.name, d.disbursement_date
       `);
 
@@ -7779,6 +7806,19 @@ export async function registerRoutes(
            secondGuarantorYearsOfExperience: Number(r.second_guarantor_years_of_experience || 0),
            secondGuarantorAsset:            Number(r.second_guarantor_asset || 0),
            secondGuarantorMonthlyIncome:    Number(r.second_guarantor_monthly_income || 0),
+           familyGuarantorName:             r.family_guarantor_name || "",
+           familyGuarantorFatherName:       r.family_guarantor_father_name || "",
+           familyGuarantorNid:              r.family_guarantor_nid || "",
+           familyGuarantorDateOfBirth:      r.family_guarantor_date_of_birth || "",
+           familyGuarantorNidExpiryDate:    r.family_guarantor_nid_expiry_date || "",
+           familyGuarantorPhone:            r.family_guarantor_phone || "",
+           familyGuarantorProvince:         r.family_guarantor_province || "",
+           familyGuarantorDistrict:         r.family_guarantor_district || "",
+           familyGuarantorHomeAddress:      r.family_guarantor_home_address || "",
+           familyGuarantorRelationship:     r.family_guarantor_relationship || "",
+           committeeFinancingDurationMonths: Number(r.committee_financing_duration_months || 0),
+           committeeGracePeriod:             Number(r.committee_grace_period || 0),
+           disbursementMargin:               Number(r.disbursement_margin || 0),
           principleReceived:    prinRcvd,
           profitReceived:       profRcvd,
           totalReceived:        totRcvd,

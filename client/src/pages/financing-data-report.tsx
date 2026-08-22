@@ -115,6 +115,19 @@ type FinancingRow = {
   secondGuarantorYearsOfExperience: number;
   secondGuarantorAsset: number;
   secondGuarantorMonthlyIncome: number;
+  familyGuarantorName: string;
+  familyGuarantorFatherName: string;
+  familyGuarantorNid: string;
+  familyGuarantorDateOfBirth: string;
+  familyGuarantorNidExpiryDate: string;
+  familyGuarantorPhone: string;
+  familyGuarantorProvince: string;
+  familyGuarantorDistrict: string;
+  familyGuarantorHomeAddress: string;
+  familyGuarantorRelationship: string;
+  committeeFinancingDurationMonths: number;
+  committeeGracePeriod: number;
+  disbursementMargin: number;
   principleReceived: number;
   profitReceived: number;
   totalReceived: number;
@@ -192,12 +205,6 @@ const COLS: ColDef[] = [
   { key: "profit",              label: "Margin Amt",      w: 110, num: true },
   { key: "totalReceivable",     label: "Total Rcvble",    w: 110, num: true },
   { key: "installmentAmount",   label: "Inst. Amt",       w: 100, num: true },
-  { key: "approvedAmount",      label: "Approved Amt",    w: 110, num: true },
-  { key: "approvedDate",        label: "Approved Date",   w: 100 },
-  { key: "disbursementDate",    label: "Disb. Date",      w: 100 },
-  { key: "disbursedAmount",     label: "Disb. Amt",       w: 110, num: true },
-  { key: "maturityDate",        label: "Maturity",        w: 100 },
-  { key: "committeeDiscussion", label: "Committee Note",  w: 150 },
   { key: "bizProvince",        label: "Province",        w: 110 },
   { key: "bizDistrict",        label: "District",        w: 110 },
   { key: "bizVillage",          label: "Village",         w: 110 },
@@ -248,6 +255,25 @@ const COLS: ColDef[] = [
   { key: "secondGuarantorYearsOfExperience",label: "Years of Experience",      w: 120, num: true },
   { key: "secondGuarantorAsset",            label: "Asset (AFN)",              w: 110, num: true },
   { key: "secondGuarantorMonthlyIncome",    label: "Monthly Net Income",       w: 130, num: true },
+  { key: "familyGuarantorName",             label: "Name",                    w: 140 },
+  { key: "familyGuarantorFatherName",       label: "F. Name",                 w: 120 },
+  { key: "familyGuarantorNid",              label: "NID #",                   w: 110 },
+  { key: "familyGuarantorDateOfBirth",      label: "Date Of Birth",           w: 100 },
+  { key: "familyGuarantorNidExpiryDate",    label: "NID Expiry Date",         w: 110 },
+  { key: "familyGuarantorPhone",            label: "Phone #",                 w: 110 },
+  { key: "familyGuarantorProvince",         label: "Province",                w: 110 },
+  { key: "familyGuarantorDistrict",         label: "District",                w: 110 },
+  { key: "familyGuarantorHomeAddress",      label: "Home Address",             w: 160 },
+  { key: "familyGuarantorRelationship",     label: "Relationship with Customer", w: 150 },
+  { key: "approvedAmount",                 label: "Approved Amount",          w: 120, num: true },
+  { key: "approvedDate",                   label: "Approved Date",            w: 110 },
+  { key: "committeeFinancingDurationMonths", label: "Financing Duration (Months)", w: 140, num: true },
+  { key: "committeeGracePeriod",           label: "Grace Period",              w: 100, num: true },
+  { key: "disbursementDate",               label: "Disbursement Date",         w: 130 },
+  { key: "disbursedAmount",                label: "Disbursement Amount",       w: 140, num: true },
+  { key: "maturityDate",                   label: "Maturity Date",             w: 110 },
+  { key: "disbursementMargin",             label: "Margin",                    w: 110, num: true },
+  { key: "committeeDiscussion",            label: "Committee Discussion",      w: 160 },
   { key: "principleReceived",   label: "Prin. Received",  w: 110, num: true },
   { key: "profitReceived",      label: "Profit Rcvd",     w: 110, num: true },
   { key: "totalReceived",       label: "Total Rcvd",      w: 110, num: true },
@@ -269,6 +295,7 @@ const MONEY_KEYS = new Set<keyof FinancingRow>([
 const GUARANTOR_MONEY_KEYS = new Set<keyof FinancingRow>([
   "firstGuarantorAsset","firstGuarantorMonthlyIncome",
   "secondGuarantorAsset","secondGuarantorMonthlyIncome",
+  "disbursementMargin",
 ]);
 
 const DISPLAY_MONEY_KEYS = new Set<keyof FinancingRow>([
@@ -375,7 +402,9 @@ export default function FinancingDataReport() {
                 col.key === "firstGuarantorDateOfBirth" ||
                 col.key === "firstGuarantorNidExpiryDate" ||
                 col.key === "secondGuarantorDateOfBirth" ||
-                col.key === "secondGuarantorNidExpiryDate") && v)
+                col.key === "secondGuarantorNidExpiryDate" ||
+                col.key === "familyGuarantorDateOfBirth" ||
+                col.key === "familyGuarantorNidExpiryDate") && v)
             return formatDate(v as string);
           return String(v ?? "");
         }));
@@ -425,7 +454,9 @@ export default function FinancingDataReport() {
          col.key === "firstGuarantorDateOfBirth" ||
          col.key === "firstGuarantorNidExpiryDate" ||
          col.key === "secondGuarantorDateOfBirth" ||
-         col.key === "secondGuarantorNidExpiryDate") && v)
+         col.key === "secondGuarantorNidExpiryDate" ||
+         col.key === "familyGuarantorDateOfBirth" ||
+         col.key === "familyGuarantorNidExpiryDate") && v)
       return formatDate(v as string);
     if (col.key === "marginRate") return `${Number(v).toFixed(2)}%`;
     return String(v ?? "—");
@@ -566,46 +597,68 @@ export default function FinancingDataReport() {
                       Financing Application Information
                     </th>
                   );
-                  // idx 44: "Customer Business Information" — 5 cols
-                  if (idx === 44) return (
+                  // idx 38: "Customer Business Information" — 5 cols
+                  if (idx === 38) return (
                     <th key="cust-biz-group" colSpan={5}
                       className="px-2 py-1.5 text-center font-bold border-r border-l border-slate-500 bg-teal-700 whitespace-nowrap">
                       Customer Business Information
                     </th>
                   );
-                  // idx 49: "Business License Information" — 5 cols
-                  if (idx === 49) return (
+                  // idx 43: "Business License Information" — 5 cols
+                  if (idx === 43) return (
                     <th key="biz-license-group" colSpan={5}
                       className="px-2 py-1.5 text-center font-bold border-r border-l border-slate-500 bg-indigo-700 whitespace-nowrap">
                       Business License Information
                     </th>
                   );
-                  // idx 54: "Collateral Information" — 10 cols
-                  if (idx === 54) return (
+                  // idx 48: "Collateral Information" — 10 cols
+                  if (idx === 48) return (
                     <th key="collateral-group" colSpan={10}
                       className="px-2 py-1.5 text-center font-bold border-r border-l border-slate-500 bg-green-800 whitespace-nowrap">
                       Collateral Information
                     </th>
                   );
-                  // idx 64: "First Financial Guarantor Information" — 15 cols
-                  if (idx === 64) return (
+                  // idx 58: "First Financial Guarantor Information" — 15 cols
+                  if (idx === 58) return (
                     <th key="first-guarantor-group" colSpan={15}
                       className="px-2 py-1.5 text-center font-bold border-r border-l border-slate-500 bg-cyan-700 whitespace-nowrap">
                       First Financial Guarantor Information
                     </th>
                   );
-                  // idx 79: "Second Financial Guarantor Information" — 15 cols
-                  if (idx === 79) return (
+                  // idx 73: "Second Financial Guarantor Information" — 15 cols
+                  if (idx === 73) return (
                     <th key="second-guarantor-group" colSpan={15}
                       className="px-2 py-1.5 text-center font-bold border-r border-l border-slate-500 bg-sky-700 whitespace-nowrap">
                       Second Financial Guarantor Information
                     </th>
                   );
-                  // skip cols covered by colspans: 4–17, 19–37, 45–48, 50–53, 55–63, 65–78, 80–93
+                  // idx 88: "Family Guarantor" — 10 cols
+                  if (idx === 88) return (
+                    <th key="family-guarantor-group" colSpan={10}
+                      className="px-2 py-1.5 text-center font-bold border-r border-l border-slate-500 bg-lime-700 whitespace-nowrap">
+                      Family Guarantor
+                    </th>
+                  );
+                  // idx 98: "Financing Committee Decision" — 4 cols
+                  if (idx === 98) return (
+                    <th key="committee-decision-group" colSpan={4}
+                      className="px-2 py-1.5 text-center font-bold border-r border-l border-slate-500 bg-emerald-700 whitespace-nowrap">
+                      Financing Committee Decision
+                    </th>
+                  );
+                  // idx 102: "Disbursement Information" — 5 cols
+                  if (idx === 102) return (
+                    <th key="disbursement-info-group" colSpan={5}
+                      className="px-2 py-1.5 text-center font-bold border-r border-l border-slate-500 bg-green-700 whitespace-nowrap">
+                      Disbursement Information
+                    </th>
+                  );
+                  // skip cols covered by colspans.
                   if ((idx >= 4 && idx <= 17) || (idx >= 19 && idx <= 37) ||
-                      (idx >= 45 && idx <= 48) || (idx >= 50 && idx <= 53) ||
-                      (idx >= 55 && idx <= 63) || (idx >= 65 && idx <= 78) ||
-                      (idx >= 80 && idx <= 93))
+                      (idx >= 39 && idx <= 42) || (idx >= 44 && idx <= 47) ||
+                      (idx >= 49 && idx <= 57) || (idx >= 59 && idx <= 72) ||
+                      (idx >= 74 && idx <= 87) || (idx >= 89 && idx <= 97) ||
+                      (idx >= 99 && idx <= 101) || (idx >= 103 && idx <= 106))
                     return null;
                   // all other cols span both header rows
                   return (
@@ -619,8 +672,7 @@ export default function FinancingDataReport() {
               </tr>
               {/* Sub-header row — individual names for all grouped columns */}
               <tr className="bg-slate-700 text-white">
-                {[...COLS.slice(3, 18), ...COLS.slice(18, 38), ...COLS.slice(44, 64),
-                  ...COLS.slice(64, 79), ...COLS.slice(79, 94)].map((col, i) => (
+                {COLS.slice(3, 107).map((col, i) => (
                   <th key={`sub-${col.key}-${i}`}
                     className="px-2 py-1.5 text-center font-semibold border-r border-slate-600 whitespace-nowrap"
                     style={{ minWidth: col.w, maxWidth: col.w }}>
