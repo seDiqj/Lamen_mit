@@ -7546,6 +7546,38 @@ export async function registerRoutes(
           COALESCE(col.col_market_price,0)                              AS col_market_price,
           COALESCE(col.col_type,'')                                     AS col_type,
           COALESCE(col.col_title_deed,'')                               AS col_title_deed,
+           -- First Financial Guarantor Information
+           COALESCE(fg1.full_name,'')                                    AS first_guarantor_name,
+           COALESCE(fg1.father_name,'')                                  AS first_guarantor_father_name,
+           COALESCE(fg1.national_id,'')                                   AS first_guarantor_nid,
+           COALESCE(fg1.date_of_birth,'')                                AS first_guarantor_date_of_birth,
+           COALESCE(fg1.nid_expiry_date,'')                              AS first_guarantor_nid_expiry_date,
+           COALESCE(fg1.phone_number,'')                                 AS first_guarantor_phone,
+           COALESCE(fg1.home_address,'')                                 AS first_guarantor_home_address,
+           COALESCE(fg1.province,'')                                     AS first_guarantor_province,
+           COALESCE(fg1.district,'')                                     AS first_guarantor_district,
+           COALESCE(fg1.business,'')                                     AS first_guarantor_business,
+           COALESCE(fg1.business_address,'')                             AS first_guarantor_business_address,
+           COALESCE(fg1.relationship_with_customer,'')                   AS first_guarantor_relationship,
+           COALESCE(fg1.years_of_experience,0)                           AS first_guarantor_years_of_experience,
+           COALESCE(fg1.inventory::numeric,0)                            AS first_guarantor_asset,
+           COALESCE(fg1.monthly_income::numeric,0)                       AS first_guarantor_monthly_income,
+           -- Second Financial Guarantor Information
+           COALESCE(fg2.full_name,'')                                    AS second_guarantor_name,
+           COALESCE(fg2.father_name,'')                                  AS second_guarantor_father_name,
+           COALESCE(fg2.national_id,'')                                   AS second_guarantor_nid,
+           COALESCE(fg2.date_of_birth,'')                                AS second_guarantor_date_of_birth,
+           COALESCE(fg2.nid_expiry_date,'')                              AS second_guarantor_nid_expiry_date,
+           COALESCE(fg2.phone_number,'')                                 AS second_guarantor_phone,
+           COALESCE(fg2.home_address,'')                                 AS second_guarantor_home_address,
+           COALESCE(fg2.province,'')                                     AS second_guarantor_province,
+           COALESCE(fg2.district,'')                                     AS second_guarantor_district,
+           COALESCE(fg2.business,'')                                     AS second_guarantor_business,
+           COALESCE(fg2.business_address,'')                             AS second_guarantor_business_address,
+           COALESCE(fg2.relationship_with_customer,'')                   AS second_guarantor_relationship,
+           COALESCE(fg2.years_of_experience,0)                           AS second_guarantor_years_of_experience,
+           COALESCE(fg2.inventory::numeric,0)                            AS second_guarantor_asset,
+           COALESCE(fg2.monthly_income::numeric,0)                       AS second_guarantor_monthly_income,
           -- Installment aggregates
           COALESCE(SUM(i.paid_amount::numeric),0)                       AS total_received,
           COALESCE(SUM(CASE WHEN i.is_paid THEN i.principle_amount::numeric ELSE 0 END),0) AS principle_received,
@@ -7578,6 +7610,24 @@ export async function registerRoutes(
            ORDER BY created_at
            LIMIT 1
          ) bl ON true
+         LEFT JOIN LATERAL (
+           SELECT id, full_name, father_name, national_id, date_of_birth, nid_expiry_date,
+                  phone_number, home_address, province, district, business, business_address,
+                  relationship_with_customer, years_of_experience, inventory, monthly_income
+           FROM guarantors
+           WHERE loan_id = l.id AND guarantor_type = 'financial'
+           ORDER BY created_at, id
+           LIMIT 1
+         ) fg1 ON true
+         LEFT JOIN LATERAL (
+           SELECT id, full_name, father_name, national_id, date_of_birth, nid_expiry_date,
+                  phone_number, home_address, province, district, business, business_address,
+                  relationship_with_customer, years_of_experience, inventory, monthly_income
+           FROM guarantors
+           WHERE loan_id = l.id AND guarantor_type = 'financial'
+           ORDER BY created_at, id
+           LIMIT 1 OFFSET 1
+         ) fg2 ON true
         LEFT JOIN LATERAL (
           SELECT
             COALESCE(owner_name,'')             AS col_owner_name,
@@ -7615,7 +7665,15 @@ export async function registerRoutes(
            bl.license_type, bl.president, bl.license_number, bl.register_date, bl.expiry_date,
           col.col_owner_name, col.col_owner_nid, col.col_province, col.col_district,
           col.col_village, col.col_address, col.col_purchased_price, col.col_market_price,
-          col.col_type, col.col_title_deed
+           col.col_type, col.col_title_deed,
+           fg1.full_name, fg1.father_name, fg1.national_id, fg1.date_of_birth,
+           fg1.nid_expiry_date, fg1.phone_number, fg1.home_address, fg1.province,
+           fg1.district, fg1.business, fg1.business_address, fg1.relationship_with_customer,
+           fg1.years_of_experience, fg1.inventory, fg1.monthly_income,
+           fg2.full_name, fg2.father_name, fg2.national_id, fg2.date_of_birth,
+           fg2.nid_expiry_date, fg2.phone_number, fg2.home_address, fg2.province,
+           fg2.district, fg2.business, fg2.business_address, fg2.relationship_with_customer,
+           fg2.years_of_experience, fg2.inventory, fg2.monthly_income
         ORDER BY b.name, d.disbursement_date
       `);
 
@@ -7691,6 +7749,36 @@ export async function registerRoutes(
           colMarketPrice:       Number(r.col_market_price || 0),
           colType:              r.col_type || "",
           colTitleDeed:         r.col_title_deed || "",
+           firstGuarantorName:            r.first_guarantor_name || "",
+           firstGuarantorFatherName:      r.first_guarantor_father_name || "",
+           firstGuarantorNid:             r.first_guarantor_nid || "",
+           firstGuarantorDateOfBirth:     r.first_guarantor_date_of_birth || "",
+           firstGuarantorNidExpiryDate:   r.first_guarantor_nid_expiry_date || "",
+           firstGuarantorPhone:           r.first_guarantor_phone || "",
+           firstGuarantorHomeAddress:     r.first_guarantor_home_address || "",
+           firstGuarantorProvince:        r.first_guarantor_province || "",
+           firstGuarantorDistrict:        r.first_guarantor_district || "",
+           firstGuarantorBusiness:        r.first_guarantor_business || "",
+           firstGuarantorBusinessAddress: r.first_guarantor_business_address || "",
+           firstGuarantorRelationship:    r.first_guarantor_relationship || "",
+           firstGuarantorYearsOfExperience: Number(r.first_guarantor_years_of_experience || 0),
+           firstGuarantorAsset:            Number(r.first_guarantor_asset || 0),
+           firstGuarantorMonthlyIncome:    Number(r.first_guarantor_monthly_income || 0),
+           secondGuarantorName:            r.second_guarantor_name || "",
+           secondGuarantorFatherName:      r.second_guarantor_father_name || "",
+           secondGuarantorNid:             r.second_guarantor_nid || "",
+           secondGuarantorDateOfBirth:     r.second_guarantor_date_of_birth || "",
+           secondGuarantorNidExpiryDate:   r.second_guarantor_nid_expiry_date || "",
+           secondGuarantorPhone:           r.second_guarantor_phone || "",
+           secondGuarantorHomeAddress:     r.second_guarantor_home_address || "",
+           secondGuarantorProvince:        r.second_guarantor_province || "",
+           secondGuarantorDistrict:        r.second_guarantor_district || "",
+           secondGuarantorBusiness:        r.second_guarantor_business || "",
+           secondGuarantorBusinessAddress: r.second_guarantor_business_address || "",
+           secondGuarantorRelationship:    r.second_guarantor_relationship || "",
+           secondGuarantorYearsOfExperience: Number(r.second_guarantor_years_of_experience || 0),
+           secondGuarantorAsset:            Number(r.second_guarantor_asset || 0),
+           secondGuarantorMonthlyIncome:    Number(r.second_guarantor_monthly_income || 0),
           principleReceived:    prinRcvd,
           profitReceived:       profRcvd,
           totalReceived:        totRcvd,
