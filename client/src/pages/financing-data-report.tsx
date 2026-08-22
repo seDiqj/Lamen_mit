@@ -65,6 +65,8 @@ type FinancingRow = {
   disbursementDate: string;
   disbursedAmount: number;
   maturityDate: string;
+  bizProvince: string;
+  bizDistrict: string;
   bizVillage: string;
   bizDetailedAddress: string;
   bizYearsOfExperience: number;
@@ -166,8 +168,8 @@ const COLS: ColDef[] = [
   { key: "disbursedAmount",     label: "Disb. Amt",       w: 110, num: true },
   { key: "maturityDate",        label: "Maturity",        w: 100 },
   { key: "committeeDiscussion", label: "Committee Note",  w: 150 },
-  { key: "province",            label: "Province",        w: 110 },
-  { key: "district",            label: "District",        w: 110 },
+  { key: "bizProvince",        label: "Province",        w: 110 },
+  { key: "bizDistrict",        label: "District",        w: 110 },
   { key: "bizVillage",          label: "Village",         w: 110 },
   { key: "bizDetailedAddress",  label: "Detailed Address",w: 160 },
   { key: "bizYearsOfExperience",label: "Yrs of Exp.",    w: 80, num: true },

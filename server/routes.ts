@@ -7524,15 +7524,17 @@ export async function registerRoutes(
           COALESCE(l.principle_amount::numeric, l.request_amount::numeric, 0) AS disbursed_amount,
           COALESCE(d.maturity_date::text,'')                            AS maturity_date,
           -- Customer Business Information
-          COALESCE(c.village,'')                                        AS biz_village,
-          COALESCE(c.detailed_address,'')                               AS biz_detailed_address,
-          COALESCE(c.years_of_experience::text,'')                      AS biz_years_of_experience,
+           COALESCE(cb.province,'')                                      AS biz_province,
+           COALESCE(cb.district,'')                                      AS biz_district,
+           COALESCE(cb.village,'')                                       AS biz_village,
+           COALESCE(cb.detailed_address,'')                              AS biz_detailed_address,
+           COALESCE(cb.years_of_experience::text,'')                     AS biz_years_of_experience,
           -- Business License Information
-          COALESCE(c.license_type,'')                                   AS biz_license_type,
-          COALESCE(c.president,'')                                      AS biz_president,
-          COALESCE(c.license_number,'')                                 AS biz_license_number,
-          COALESCE(c.register_date::text,'')                            AS biz_register_date,
-          COALESCE(c.expiry_date::text,'')                              AS biz_expiry_date,
+           COALESCE(bl.license_type,'')                                  AS biz_license_type,
+           COALESCE(bl.president,'')                                     AS biz_president,
+           COALESCE(bl.license_number,'')                                AS biz_license_number,
+           COALESCE(bl.register_date::text,'')                           AS biz_register_date,
+           COALESCE(bl.expiry_date::text,'')                             AS biz_expiry_date,
           -- Collateral Information (first collateral)
           COALESCE(col.col_owner_name,'')                               AS col_owner_name,
           COALESCE(col.col_owner_nid,'')                                AS col_owner_nid,
@@ -7562,6 +7564,20 @@ export async function registerRoutes(
         LEFT JOIN funding_sources fs  ON fs.id = l.funding_source_id
         LEFT JOIN loan_approvals la   ON la.loan_id = l.id
         LEFT JOIN installments i      ON i.loan_id = l.id
+         LEFT JOIN LATERAL (
+           SELECT id, province, district, village, detailed_address, years_of_experience
+           FROM customer_businesses
+           WHERE customer_id = c.id
+           ORDER BY created_at
+           LIMIT 1
+         ) cb ON true
+         LEFT JOIN LATERAL (
+           SELECT license_type, president, license_number, register_date, expiry_date
+           FROM business_licenses
+           WHERE customer_business_id = cb.id
+           ORDER BY created_at
+           LIMIT 1
+         ) bl ON true
         LEFT JOIN LATERAL (
           SELECT
             COALESCE(owner_name,'')             AS col_owner_name,
@@ -7595,8 +7611,8 @@ export async function registerRoutes(
           l.principle_amount, l.margin_rate, l.profit, l.total_receivable, l.installment_amount,
           la.approved_amount, la.approved_date, la.committee_discussion,
           d.disbursement_date, d.maturity_date,
-          c.village, c.detailed_address, c.years_of_experience,
-          c.license_type, c.president, c.license_number, c.register_date, c.expiry_date,
+           cb.province, cb.district, cb.village, cb.detailed_address, cb.years_of_experience,
+           bl.license_type, bl.president, bl.license_number, bl.register_date, bl.expiry_date,
           col.col_owner_name, col.col_owner_nid, col.col_province, col.col_district,
           col.col_village, col.col_address, col.col_purchased_price, col.col_market_price,
           col.col_type, col.col_title_deed
@@ -7655,6 +7671,8 @@ export async function registerRoutes(
           disbursementDate:     r.disbursement_date || "",
           disbursedAmount:      Number(r.disbursed_amount || 0),
           maturityDate:         r.maturity_date || "",
+           bizProvince:          r.biz_province || "",
+           bizDistrict:          r.biz_district || "",
           bizVillage:           r.biz_village || "",
           bizDetailedAddress:   r.biz_detailed_address || "",
           bizYearsOfExperience: Number(r.biz_years_of_experience || 0),
