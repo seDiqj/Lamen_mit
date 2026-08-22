@@ -81,6 +81,7 @@ const PAGE_ICONS: Record<string, IconType> = {
   reports: BarChart3,
   "citizen-balance-statement": FileSpreadsheet,
   "loan-disbursement-report": Banknote,
+  "financing-data-report": FileSpreadsheet,
   "par-report": AlertTriangle,
   "collection-report": Receipt,
   "approval-rejection-report": Vote,

@@ -55,6 +55,7 @@ export const PAGES: PageDef[] = [
   { key: "reports", label: "Analytics", route: "/reports", group: "reports" },
   { key: "citizen-balance-statement", label: "Balance Statement", route: "/citizen-balance-statement", group: "reports" },
   { key: "loan-disbursement-report", label: "Loan Disbursement Report", route: "/loan-disbursement-report", group: "reports" },
+  { key: "financing-data-report", label: "Financing Data", route: "/financing-data-report", group: "reports" },
   { key: "par-report", label: "PAR Report", route: "/par-report", group: "reports" },
   { key: "collection-report", label: "Collection Report", route: "/collection-report", group: "reports" },
   { key: "approval-rejection-report", label: "Approval & Rejection Report", route: "/approval-rejection-report", group: "reports" },
