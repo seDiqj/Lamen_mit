@@ -1329,6 +1329,22 @@ export default function CitizenBalanceStatementPage() {
                   <FileText className="mr-2 h-4 w-4" />
                   PDF
                 </Button>
+                {canCancelFinancing && statementData.loanStatements
+                  .filter((ls) => ["approved", "disbursed"].includes(ls.loan.status))
+                  .map((ls) => (
+                    <Button
+                      key={ls.loan.id}
+                      variant="destructive"
+                      onClick={() => {
+                        setCancellationDialogLoan(ls.loan);
+                        setCancellationReason("");
+                      }}
+                      data-testid={`button-cancel-financing-statement-${ls.loan.id}`}
+                    >
+                      <AlertTriangle className="mr-2 h-4 w-4" />
+                      Cancel {ls.loan.applicationId}
+                    </Button>
+                  ))}
               </>
             )}
           </div>
@@ -1407,22 +1423,6 @@ export default function CitizenBalanceStatementPage() {
                            <span className="font-medium text-destructive">{ls.loan.cancellationReason || ""}</span>
                          </div>
                        )}
-                        {canCancelFinancing && ["approved", "disbursed"].includes(ls.loan.status) && (
-                          <div className="col-span-3 flex justify-end print:hidden">
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => {
-                                setCancellationDialogLoan(ls.loan);
-                                setCancellationReason("");
-                              }}
-                              data-testid={`button-cancel-financing-statement-${ls.loan.id}`}
-                            >
-                              <AlertTriangle className="mr-2 h-4 w-4" />
-                              Cancel Financing
-                            </Button>
-                          </div>
-                        )}
 
                       <div className="flex gap-2">
                         <span className="font-semibold text-muted-foreground w-36 shrink-0">Financing Type:</span>
