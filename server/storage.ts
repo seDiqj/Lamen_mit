@@ -4,6 +4,7 @@ import { getAllPageKeys } from "@shared/pages";
 import { eq, and, like, ilike, or, desc, asc, sql, count, gt, gte, lte, isNull, isNotNull, inArray } from "drizzle-orm";
 import {
   paymentTransactions,
+  collectionRecords,
   type PaymentTransaction,
   type InsertPaymentTransaction,
   users,
@@ -266,6 +267,12 @@ export interface IStorage {
   getApprovedLoans(search?: string, branchId?: string): Promise<any[]>;
   createLoan(data: InsertLoan): Promise<Loan>;
   updateLoan(id: string, data: Partial<InsertLoan>): Promise<Loan>;
+  cancelLoan(id: string, cancellationReason: string, cancelledBy: string): Promise<{
+    loan: Loan;
+    reversedDisbursement: boolean;
+    reversalEntryId: string | null;
+    deletedInstallments: number;
+  }>;
   approveLoan(loanId: string, approvalData: InsertLoanApproval): Promise<void>;
   disburseLoan(loanId: string, disbursementData: InsertDisbursement): Promise<{ installmentsCreated: number }>;
   bulkDisburseLoan(loanApplicationId: string, disbursementDate: string, userId: string): Promise<{ success: boolean; applicationId: string; error?: string }>;
@@ -309,7 +316,8 @@ export interface IStorage {
 
   // Installment management
   getInstallmentById(id: string): Promise<any>;
-  updateInstallmentAmounts(id: string, data: { principleAmount: string; marginAmount: string; totalAmount: string; isPaid?: boolean; paymentDate?: string | null; paidAmount?: string }): Promise<any>;
+  updateInstallmentAmounts(id: string, data: { principleAmount: string; marginAmount: string; totalAmount: string }): Promise<any>;
+  updateInstallmentPayment(id: string, data: { paidAmount: string; paymentDate: string | null; isPaid: boolean; lateDays: number | null; installmentVariance: string | null }): Promise<Installment>;
   getJournalEntryByReference(referenceType: string, referenceId: string): Promise<any | null>;
   getJournalEntriesByReference(referenceType: string, referenceId: string): Promise<any[]>;
   createInstallment(data: any): Promise<any>;
@@ -1388,6 +1396,210 @@ export class DatabaseStorage implements IStorage {
     return loan;
   }
 
+  async cancelLoan(id: string, cancellationReason: string, cancelledBy: string): Promise<{
+    loan: Loan;
+    reversedDisbursement: boolean;
+    reversalEntryId: string | null;
+    deletedInstallments: number;
+  }> {
+    return db.transaction(async (tx) => {
+      const [loan] = await tx
+        .select()
+        .from(loans)
+        .where(eq(loans.id, id))
+        .for("update");
+
+      if (!loan) throw new Error("Loan not found");
+      if (loan.status !== "approved" && loan.status !== "disbursed") {
+        throw new Error("Only approved or disbursed loans can be cancelled");
+      }
+
+      const loanInstallments = await tx
+        .select()
+        .from(installments)
+        .where(eq(installments.loanId, id))
+        .for("update");
+      const hasPaymentOnSchedule = loanInstallments.some((installment) =>
+        Number(installment.paidAmount || 0) > 0 ||
+        installment.isPaid ||
+        installment.paymentDate
+      );
+      if (hasPaymentOnSchedule) {
+        throw new Error("This loan has installment payments and must be handled through the payment reversal process before cancellation");
+      }
+
+      const [activePayment] = await tx
+        .select({ id: paymentTransactions.id })
+        .from(paymentTransactions)
+        .where(and(
+          eq(paymentTransactions.loanId, id),
+          eq(paymentTransactions.status, "active")
+        ))
+        .limit(1);
+      if (activePayment) {
+        throw new Error("This loan has active payment transactions and cannot be cancelled");
+      }
+
+      const [collectionRecord] = await tx
+        .select({ id: collectionRecords.id })
+        .from(collectionRecords)
+        .where(and(
+          eq(collectionRecords.loanId, id),
+          sql`${collectionRecords.status} <> 'rejected'`
+        ))
+        .limit(1);
+      if (collectionRecord) {
+        throw new Error("This loan has collection records and cannot be cancelled");
+      }
+
+      const [disbursement] = await tx
+        .select()
+        .from(disbursements)
+        .where(eq(disbursements.loanId, id))
+        .limit(1);
+
+      if (loan.status === "approved" && disbursement) {
+        throw new Error("This loan has a disbursement record and must be reversed before cancellation");
+      }
+      if (loan.status === "approved" && loanInstallments.length > 0) {
+        throw new Error("This approved loan has an installment schedule and must be reviewed before cancellation");
+      }
+
+      let reversalEntryId: string | null = null;
+      let deletedInstallments = 0;
+
+      if (loan.status === "disbursed") {
+        if (!disbursement) {
+          throw new Error("This disbursed loan has no disbursement record and cannot be cancelled automatically");
+        }
+
+        const disbursementJournals = await tx
+          .select()
+          .from(journalEntries)
+          .where(and(
+            eq(journalEntries.referenceType, "disbursement"),
+            eq(journalEntries.referenceId, id)
+          ));
+        const activeJournals = disbursementJournals.filter((entry) => !entry.isReversed);
+        if (activeJournals.length !== 1 || !activeJournals[0].isPosted) {
+          throw new Error("This disbursement does not have exactly one active posted journal entry and cannot be cancelled automatically");
+        }
+
+        const originalJournal = activeJournals[0];
+        const originalLines = await tx
+          .select()
+          .from(journalLines)
+          .where(eq(journalLines.journalEntryId, originalJournal.id));
+        if (originalLines.length < 2) {
+          throw new Error("The disbursement journal has no complete lines and cannot be reversed");
+        }
+
+        const claimed = await tx
+          .update(journalEntries)
+          .set({ isReversed: true })
+          .where(and(
+            eq(journalEntries.id, originalJournal.id),
+            eq(journalEntries.isReversed, false)
+          ))
+          .returning({ id: journalEntries.id });
+        if (claimed.length === 0) {
+          throw new Error("The disbursement journal has already been reversed");
+        }
+
+        const reversalLines = originalLines.map((line) => ({
+          accountId: line.accountId,
+          description: `Cancellation reversal: ${line.description || ""}`,
+          debitAmount: line.creditAmount || "0",
+          creditAmount: line.debitAmount || "0",
+          fundingSourceId: line.fundingSourceId || null,
+          classId: line.classId || null,
+        }));
+        const totalDebit = reversalLines.reduce((sum, line) => sum + Number(line.debitAmount || 0), 0);
+        const totalCredit = reversalLines.reduce((sum, line) => sum + Number(line.creditAmount || 0), 0);
+        if (Math.round(totalDebit * 100) !== Math.round(totalCredit * 100)) {
+          throw new Error("The disbursement journal is not balanced and cannot be reversed");
+        }
+
+        const [reversalEntry] = await tx
+          .insert(journalEntries)
+          .values({
+            entryNumber: `JE-C-${Date.now()}-${loan.id.slice(0, 8)}`,
+            entryDate: new Date().toISOString().split("T")[0],
+            description: `Cancellation reversal of ${originalJournal.entryNumber}: ${cancellationReason}`,
+            reference: loan.applicationId,
+            referenceType: "reversal",
+            referenceId: originalJournal.id,
+            fundingSourceId: originalJournal.fundingSourceId,
+            totalDebit: totalDebit.toString(),
+            totalCredit: totalCredit.toString(),
+            isPosted: true,
+            createdBy: cancelledBy,
+            postedBy: cancelledBy,
+            postedAt: new Date(),
+          })
+          .returning();
+
+        for (const line of reversalLines) {
+          await tx.insert(journalLines).values({
+            ...line,
+            journalEntryId: reversalEntry.id,
+            debitAmount: String(line.debitAmount || "0"),
+            creditAmount: String(line.creditAmount || "0"),
+          });
+
+          const [account] = await tx
+            .select()
+            .from(accounts)
+            .where(eq(accounts.id, line.accountId));
+          if (!account) {
+            throw new Error("A disbursement journal account could not be found");
+          }
+
+          const isDebitNormal = getMainAccountType(account.accountType) === "asset" ||
+            getMainAccountType(account.accountType) === "expense";
+          const balanceDelta = isDebitNormal
+            ? Number(line.debitAmount || 0) - Number(line.creditAmount || 0)
+            : Number(line.creditAmount || 0) - Number(line.debitAmount || 0);
+          await tx
+            .update(accounts)
+            .set({ currentBalance: sql`COALESCE(${accounts.currentBalance}::numeric, 0) + ${balanceDelta}` })
+            .where(eq(accounts.id, account.id));
+        }
+
+        await tx
+          .update(journalEntries)
+          .set({ reversedEntryId: reversalEntry.id })
+          .where(eq(journalEntries.id, originalJournal.id));
+
+        const deleted = await tx
+          .delete(installments)
+          .where(eq(installments.loanId, id))
+          .returning({ id: installments.id });
+        deletedInstallments = deleted.length;
+
+        await tx.delete(disbursements).where(eq(disbursements.loanId, id));
+        reversalEntryId = reversalEntry.id;
+      }
+
+      const [cancelledLoan] = await tx
+        .update(loans)
+        .set({
+          status: "cancelled",
+          cancellationReason,
+          updatedAt: new Date(),
+        })
+        .where(eq(loans.id, id))
+        .returning();
+
+      return {
+        loan: cancelledLoan,
+        reversedDisbursement: loan.status === "disbursed",
+        reversalEntryId,
+        deletedInstallments,
+      };
+    });
+  }
+
   async approveLoan(loanId: string, approvalData: InsertLoanApproval): Promise<void> {
     await db.transaction(async (tx) => {
       await tx.insert(loanApprovals).values({ ...approvalData, loanId });
@@ -1399,11 +1611,27 @@ export class DatabaseStorage implements IStorage {
     let installmentsCreated = 0;
     console.log("disburseLoan called with:", { loanId, disbursementData });
     await db.transaction(async (tx) => {
+      const [loan] = await tx
+        .select()
+        .from(loans)
+        .where(eq(loans.id, loanId))
+        .for("update");
+      if (!loan) throw new Error("Loan not found");
+      if (loan.status !== "approved") {
+        throw new Error("Only approved loans can be disbursed");
+      }
+
+      const [existingDisbursement] = await tx
+        .select({ id: disbursements.id })
+        .from(disbursements)
+        .where(eq(disbursements.loanId, loanId))
+        .limit(1);
+      if (existingDisbursement) {
+        throw new Error("This loan has already been disbursed");
+      }
+
       console.log("Inserting disbursement record...");
       await tx.insert(disbursements).values({ ...disbursementData, loanId });
-
-      const [loan] = await tx.select().from(loans).where(eq(loans.id, loanId));
-      if (!loan) throw new Error("Loan not found");
 
       const durationMonths = loan.financingDurationMonths || 12;
       const isMudaraba = /mudaraba/i.test(loan.productName || "") || /mudaraba/i.test(loan.productCode || "");
@@ -1507,11 +1735,6 @@ export class DatabaseStorage implements IStorage {
         return { success: false, applicationId: loanApplicationId, error: "Loan not found" };
       }
 
-      const existingDisbursement = await db.select().from(disbursements).where(eq(disbursements.loanId, loan.id));
-      if (existingDisbursement.length > 0) {
-        return { success: false, applicationId: loanApplicationId, error: "Already disbursed" };
-      }
-
       const disbDate = new Date(disbursementDate);
       const dayOfMonth = disbDate.getDate();
 
@@ -1527,6 +1750,27 @@ export class DatabaseStorage implements IStorage {
       maturityDate.setMonth(maturityDate.getMonth() + duration - 1);
 
       await db.transaction(async (tx) => {
+        const [lockedLoan] = await tx
+          .select()
+          .from(loans)
+          .where(eq(loans.id, loan.id))
+          .for("update");
+        if (!lockedLoan) {
+          throw new Error("Loan not found");
+        }
+        if (lockedLoan.status !== "approved") {
+          throw new Error("Only approved loans can be disbursed");
+        }
+
+        const existingDisbursement = await tx
+          .select({ id: disbursements.id })
+          .from(disbursements)
+          .where(eq(disbursements.loanId, loan.id))
+          .limit(1);
+        if (existingDisbursement.length > 0) {
+          throw new Error("Already disbursed");
+        }
+
         await tx.insert(disbursements).values({
           loanId: loan.id,
           disbursementDate: disbursementDate,
@@ -1845,26 +2089,78 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createInstallment(data: any): Promise<any> {
-    const [result] = await db.insert(installments).values(data).returning();
-    return result;
+    return db.transaction(async (tx) => {
+      const [loan] = await tx
+        .select({ status: loans.status })
+        .from(loans)
+        .where(eq(loans.id, data.loanId))
+        .for("update");
+      if (!loan) {
+        throw new Error("Loan not found");
+      }
+      if (loan.status === "cancelled") {
+        throw new Error("Cancelled loans cannot have installments");
+      }
+
+      const [result] = await tx.insert(installments).values(data).returning();
+      return result;
+    });
   }
 
-  async updateInstallmentAmounts(id: string, data: { principleAmount: string; marginAmount: string; totalAmount: string; isPaid?: boolean; paymentDate?: string | null; paidAmount?: string }): Promise<any> {
-    const setData: any = {
-      principleAmount: data.principleAmount,
-      marginAmount: data.marginAmount,
-      totalAmount: data.totalAmount,
-    };
-    if (data.isPaid !== undefined) setData.isPaid = data.isPaid;
-    if (data.paymentDate !== undefined) setData.paymentDate = data.paymentDate;
-    if (data.paidAmount !== undefined) setData.paidAmount = data.paidAmount;
-
+  async updateInstallmentAmounts(id: string, data: { principleAmount: string; marginAmount: string; totalAmount: string }): Promise<any> {
     const [result] = await db
       .update(installments)
-      .set(setData)
+      .set({
+        principleAmount: data.principleAmount,
+        marginAmount: data.marginAmount,
+        totalAmount: data.totalAmount,
+      })
       .where(eq(installments.id, id))
       .returning();
     return result;
+  }
+
+  async updateInstallmentPayment(id: string, data: { paidAmount: string; paymentDate: string | null; isPaid: boolean; lateDays: number | null; installmentVariance: string | null }): Promise<Installment> {
+    return db.transaction(async (tx) => {
+      const [initialInstallment] = await tx
+        .select({ loanId: installments.loanId })
+        .from(installments)
+        .where(eq(installments.id, id));
+      if (!initialInstallment?.loanId) {
+        throw new Error("Installment or financing not found");
+      }
+
+      const [loan] = await tx
+        .select()
+        .from(loans)
+        .where(eq(loans.id, initialInstallment.loanId))
+        .for("update");
+      if (!loan || (loan.status !== "disbursed" && loan.status !== "active")) {
+        throw new Error("Payments can only be recorded for active or disbursed loans");
+      }
+
+      const [installment] = await tx
+        .select()
+        .from(installments)
+        .where(eq(installments.id, id))
+        .for("update");
+      if (!installment) {
+        throw new Error("Installment is no longer available for payment");
+      }
+
+      const [updated] = await tx
+        .update(installments)
+        .set({
+          paidAmount: data.paidAmount,
+          paymentDate: data.paymentDate,
+          isPaid: data.isPaid,
+          lateDays: data.lateDays,
+          installmentVariance: data.installmentVariance,
+        })
+        .where(eq(installments.id, id))
+        .returning();
+      return updated;
+    });
   }
 
   async getJournalEntryByReference(referenceType: string, referenceId: string): Promise<any | null> {
@@ -1913,7 +2209,8 @@ export class DatabaseStorage implements IStorage {
       })
       .from(loans)
       .leftJoin(customers, eq(loans.customerId, customers.id))
-      .leftJoin(branches, eq(loans.branchId, branches.id));
+      .leftJoin(branches, eq(loans.branchId, branches.id))
+      .where(eq(loans.status, "disbursed"));
 
     const results = await query.orderBy(loans.createdAt);
     
@@ -1940,18 +2237,46 @@ export class DatabaseStorage implements IStorage {
   }
 
   async markInstallmentPaid(id: string): Promise<Installment> {
-    const [installment] = await db
-      .update(installments)
-      .set({
-        isPaid: true,
-        paidAmount: sql`${installments.totalAmount}`,
-        paymentDate: new Date().toISOString().split("T")[0],
-        lateDays: sql`GREATEST(0, EXTRACT(DAY FROM NOW()::date - ${installments.dueDate}::date))`,
-        installmentVariance: sql`GREATEST(0, EXTRACT(DAY FROM NOW()::date - ${installments.dueDate}::date))`,
-      })
-      .where(eq(installments.id, id))
-      .returning();
-    return installment;
+    return db.transaction(async (tx) => {
+      const [initialInstallment] = await tx
+        .select({ loanId: installments.loanId })
+        .from(installments)
+        .where(eq(installments.id, id));
+      if (!initialInstallment?.loanId) {
+        throw new Error("Installment or financing not found");
+      }
+
+      const [loan] = await tx
+        .select()
+        .from(loans)
+        .where(eq(loans.id, initialInstallment.loanId))
+        .for("update");
+      if (!loan || (loan.status !== "disbursed" && loan.status !== "active")) {
+        throw new Error("Payments can only be recorded for active or disbursed loans");
+      }
+
+      const [installment] = await tx
+        .select()
+        .from(installments)
+        .where(eq(installments.id, id))
+        .for("update");
+      if (!installment) {
+        throw new Error("Installment is no longer available for payment");
+      }
+
+      const [updated] = await tx
+        .update(installments)
+        .set({
+          isPaid: true,
+          paidAmount: sql`${installments.totalAmount}`,
+          paymentDate: new Date().toISOString().split("T")[0],
+          lateDays: sql`GREATEST(0, EXTRACT(DAY FROM NOW()::date - ${installments.dueDate}::date))`,
+          installmentVariance: sql`GREATEST(0, EXTRACT(DAY FROM NOW()::date - ${installments.dueDate}::date))`,
+        })
+        .where(eq(installments.id, id))
+        .returning();
+      return updated;
+    });
   }
 
   async getCollectionInstallments(filters: { filter?: string; branch?: string; officer?: string; search?: string; startDate?: string; endDate?: string; page?: number; limit?: number }): Promise<{ installments: any[]; total: number; summary: any }> {
@@ -2086,13 +2411,33 @@ export class DatabaseStorage implements IStorage {
 
   async recordPaymentWithOverflow(id: string, amount: number, paymentDateStr?: string): Promise<{ paidInstallments: Installment[]; totalApplied: number; overflow: number }> {
     return await db.transaction(async (tx) => {
-      const [existing] = await tx
+      const [initialInstallment] = await tx
         .select()
         .from(installments)
         .where(eq(installments.id, id));
 
-      if (!existing) {
+      if (!initialInstallment) {
         throw new Error("Installment not found");
+      }
+
+      if (initialInstallment.loanId) {
+        const [loan] = await tx
+          .select()
+          .from(loans)
+          .where(eq(loans.id, initialInstallment.loanId))
+          .for("update");
+        if (!loan || (loan.status !== "disbursed" && loan.status !== "active")) {
+          throw new Error("Payments can only be recorded for active or disbursed loans");
+        }
+      }
+
+      const [existing] = await tx
+        .select()
+        .from(installments)
+        .where(eq(installments.id, id))
+        .for("update");
+      if (!existing) {
+        throw new Error("Installment is no longer available for payment");
       }
 
       if (existing.isPaid) {
@@ -5970,15 +6315,15 @@ export class DatabaseStorage implements IStorage {
         for (const line of lines) {
           const [account] = await tx.select().from(accounts).where(eq(accounts.id, line.accountId));
           if (!account) continue;
-          let newBalance = Number(account.currentBalance || 0);
           const debitAmt = Number(line.debitAmount || 0);
           const creditAmt = Number(line.creditAmount || 0);
-          if (getMainAccountType(account.accountType) === 'asset' || getMainAccountType(account.accountType) === 'expense') {
-            newBalance += debitAmt - creditAmt;
-          } else {
-            newBalance += creditAmt - debitAmt;
-          }
-          await tx.update(accounts).set({ currentBalance: newBalance.toString() }).where(eq(accounts.id, line.accountId));
+          const isDebitNormal = getMainAccountType(account.accountType) === 'asset' ||
+            getMainAccountType(account.accountType) === 'expense';
+          const balanceDelta = isDebitNormal ? debitAmt - creditAmt : creditAmt - debitAmt;
+          await tx
+            .update(accounts)
+            .set({ currentBalance: sql`COALESCE(${accounts.currentBalance}::numeric, 0) + ${balanceDelta}` })
+            .where(eq(accounts.id, line.accountId));
         }
       }
       
@@ -6022,34 +6367,47 @@ export class DatabaseStorage implements IStorage {
   }
 
   async postJournalEntry(id: string, postedBy: string): Promise<void> {
-    const entry = await this.getJournalEntry(id);
-    if (!entry || entry.isPosted) return;
-    
-    if (!entry.lines || entry.lines.length < 2) {
-      throw new Error("Cannot post journal entry without at least 2 lines. Please add lines first.");
-    }
-    
-    // Update account balances
-    for (const line of entry.lines) {
-      const [account] = await db.select().from(accounts).where(eq(accounts.id, line.accountId));
-      if (!account) continue;
-      
-      let newBalance = Number(account.currentBalance || 0);
-      const debit = Number(line.debitAmount || 0);
-      const credit = Number(line.creditAmount || 0);
-      
-      // For asset/expense accounts: debit increases, credit decreases
-      // For liability/equity/income accounts: credit increases, debit decreases
-      if (getMainAccountType(account.accountType) === 'asset' || getMainAccountType(account.accountType) === 'expense') {
-        newBalance += debit - credit;
-      } else {
-        newBalance += credit - debit;
+    await db.transaction(async (tx) => {
+      const [entry] = await tx
+        .select()
+        .from(journalEntries)
+        .where(eq(journalEntries.id, id))
+        .for("update");
+      if (!entry || entry.isPosted) return;
+
+      const lines = await tx
+        .select()
+        .from(journalLines)
+        .where(eq(journalLines.journalEntryId, id));
+      if (lines.length < 2) {
+        throw new Error("Cannot post journal entry without at least 2 lines. Please add lines first.");
       }
-      
-      await db.update(accounts).set({ currentBalance: newBalance.toString() }).where(eq(accounts.id, line.accountId));
-    }
-    
-    await db.update(journalEntries).set({ isPosted: true, postedBy, postedAt: new Date() }).where(eq(journalEntries.id, id));
+
+      for (const line of lines) {
+        const [account] = await tx
+          .select()
+          .from(accounts)
+          .where(eq(accounts.id, line.accountId));
+        if (!account) {
+          throw new Error("Cannot post journal entry because an account is missing");
+        }
+
+        const debit = Number(line.debitAmount || 0);
+        const credit = Number(line.creditAmount || 0);
+        const isDebitNormal = getMainAccountType(account.accountType) === "asset" ||
+          getMainAccountType(account.accountType) === "expense";
+        const balanceDelta = isDebitNormal ? debit - credit : credit - debit;
+        await tx
+          .update(accounts)
+          .set({ currentBalance: sql`COALESCE(${accounts.currentBalance}::numeric, 0) + ${balanceDelta}` })
+          .where(eq(accounts.id, account.id));
+      }
+
+      await tx
+        .update(journalEntries)
+        .set({ isPosted: true, postedBy, postedAt: new Date() })
+        .where(eq(journalEntries.id, id));
+    });
   }
 
   async unpostJournalEntry(id: string): Promise<void> {
@@ -6196,13 +6554,38 @@ export class DatabaseStorage implements IStorage {
   }
 
   async restoreInstallmentState(installmentId: string, prev: { paidAmount: string; isPaid: boolean; paymentDate: string | null; lateDays: number | null; installmentVariance: string | null }): Promise<void> {
-    await db.update(installments).set({
-      paidAmount: prev.paidAmount,
-      isPaid: prev.isPaid,
-      paymentDate: prev.paymentDate,
-      lateDays: prev.lateDays,
-      installmentVariance: prev.installmentVariance,
-    }).where(eq(installments.id, installmentId));
+    await db.transaction(async (tx) => {
+      const [initialInstallment] = await tx
+        .select({ loanId: installments.loanId })
+        .from(installments)
+        .where(eq(installments.id, installmentId));
+      if (!initialInstallment?.loanId) {
+        throw new Error("Installment or financing not found");
+      }
+
+      await tx
+        .select({ id: loans.id })
+        .from(loans)
+        .where(eq(loans.id, initialInstallment.loanId))
+        .for("update");
+
+      const [installment] = await tx
+        .select({ id: installments.id })
+        .from(installments)
+        .where(eq(installments.id, installmentId))
+        .for("update");
+      if (!installment) {
+        throw new Error("Installment is no longer available");
+      }
+
+      await tx.update(installments).set({
+        paidAmount: prev.paidAmount,
+        isPaid: prev.isPaid,
+        paymentDate: prev.paymentDate,
+        lateDays: prev.lateDays,
+        installmentVariance: prev.installmentVariance,
+      }).where(eq(installments.id, installmentId));
+    });
   }
 
   async markPaymentTransactionReversed(id: string, data: { reversedBy: string; reversalReason: string; reversalJournalEntryId: string | null }): Promise<void> {

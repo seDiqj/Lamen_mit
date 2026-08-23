@@ -4,3 +4,4 @@
 - [React Query cache invalidation](react-query-cache-invalidation.md) — staleTime is Infinity; query keys must be prefix-matchable arrays or invalidateQueries never refreshes them (caused stale payments Summary).
 - [Partial payments on unpaid installments](partial-payments-on-unpaid-installments.md) — installments can hold paid_amount with is_paid=false; received/outstanding calcs must include them.
 - [Installment payment adjustments](installment-payment-adjustments.md) — display positive installment payments, but include every nonzero adjustment in a running balance.
+- [Loan cancellation concurrency](loan-cancellation-concurrency.md) — all disbursement, schedule, and payment writes must coordinate on the loan row before a cancellation can safely proceed.

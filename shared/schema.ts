@@ -9,7 +9,7 @@ export * from "./models/auth";
 // Enums
 export const userRoleEnum = pgEnum("user_role", ["user", "fad", "risk_compliance", "cfo", "coo", "ceo", "sharia", "manager", "admin", "finance_officer"]);
 export const genderEnum = pgEnum("gender", ["male", "female", "other"]);
-export const loanStatusEnum = pgEnum("loan_status", ["pending", "returned", "data_quality_review", "risk_compliance_review", "committee_review", "approved", "rejected", "disbursed", "active", "completed", "defaulted"]);
+export const loanStatusEnum = pgEnum("loan_status", ["pending", "returned", "data_quality_review", "risk_compliance_review", "committee_review", "approved", "rejected", "disbursed", "active", "completed", "cancelled", "defaulted"]);
 export const voteStatusEnum = pgEnum("vote_status", ["pending", "approved", "rejected"]);
 
 // User Roles - extends the auth users with role information
@@ -234,6 +234,7 @@ export const loans = pgTable("loans", {
   totalCollection: decimal("total_collection", { precision: 15, scale: 2 }),
   outstandingPortfolio: decimal("outstanding_portfolio", { precision: 15, scale: 2 }),
   status: loanStatusEnum("status").default("pending"),
+  cancellationReason: text("cancellation_reason"),
   createdBy: varchar("created_by"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -406,7 +407,7 @@ export const loanTransfers = pgTable("loan_transfers", {
 });
 
 // Collection Records (pending approval workflow)
-export const collectionRecordStatusEnum = pgEnum("collection_record_status", ["pending", "approved", "rejected"]);
+export const collectionRecordStatusEnum = pgEnum("collection_record_status", ["pending", "processing", "approved", "rejected"]);
 
 export const collectionRecords = pgTable("collection_records", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

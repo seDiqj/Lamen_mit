@@ -79,6 +79,7 @@ function getStatusBadge(status: string) {
     disbursed: "bg-violet-500/15 text-violet-700 dark:text-violet-400 border-violet-500/30",
     active: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30",
     completed: "bg-teal-500/15 text-teal-700 dark:text-teal-400 border-teal-500/30",
+    cancelled: "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30",
     defaulted: "bg-orange-500/15 text-orange-700 dark:text-orange-400 border-orange-500/30",
   };
   return styles[status] || "bg-muted text-muted-foreground";
@@ -94,6 +95,7 @@ function getStatusLabel(status: string) {
     disbursed: "Disbursed",
     active: "Active",
     completed: "Completed",
+    cancelled: "Cancelled",
     defaulted: "Defaulted",
   };
   return labels[status] || status;
@@ -119,13 +121,14 @@ function getWorkflowIndex(status: string): number {
     disbursed: 3,
     active: 3,
     completed: 4,
+    cancelled: 3,
     defaulted: 3,
   };
   return map[status] ?? 0;
 }
 
 function isNegativeStatus(status: string): boolean {
-  return status === "rejected" || status === "returned" || status === "defaulted";
+  return status === "rejected" || status === "returned" || status === "cancelled" || status === "defaulted";
 }
 
 function WorkflowIndicator({ status }: { status: string }) {
@@ -629,6 +632,7 @@ export default function LoansPage() {
                   <SelectItem value="disbursed">Disbursed</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
                   <SelectItem value="defaulted">Defaulted</SelectItem>
                 </SelectContent>
               </Select>

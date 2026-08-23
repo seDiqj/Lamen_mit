@@ -64,6 +64,7 @@ type LoanStatement = {
     financingAmount: number;
     marginRate: number;
     status: string;
+    cancellationReason: string | null;
     principleAmount: number;
     profit: number;
     totalReceivable: number;
@@ -900,6 +901,9 @@ export default function CitizenBalanceStatementPage() {
         ["Schedule", "", "", "", "", "Actual Payment", "", "", "", "", ""],
         ["No.", "Installment Date", "Principle", "Margin", "Total", "No.", "Payment Date", "Principle", "Margin", "Total", "PAR Days"],
       ];
+      if (ls.loan.status === "cancelled") {
+        wsData.splice(8, 0, ["Cancellation Reason", ls.loan.cancellationReason || "", "", "", "", "", "", ""]);
+      }
 
       const paidPaymentsExcel = ls.actualPayments.filter(a => a.totalAmount > 0 || (a.paymentDate && a.paymentDate !== ""));
       const maxRows = Math.max(ls.schedule.length, paidPaymentsExcel.length);
@@ -1014,6 +1018,11 @@ export default function CitizenBalanceStatementPage() {
           ["Finance Officer:", ls.officer?.name || "", col2X, col2V],
         ],
       ];
+      if (ls.loan.status === "cancelled") {
+        infoGrid.push([
+          ["Cancellation Reason:", ls.loan.cancellationReason || "", col1X, col1V],
+        ]);
+      }
 
       infoGrid.forEach((row, rowIdx) => {
         const y = infoY + rowIdx * lineH;
@@ -1370,6 +1379,12 @@ export default function CitizenBalanceStatementPage() {
                           {ls.loan.status ? ls.loan.status.charAt(0).toUpperCase() + ls.loan.status.slice(1) : ""}
                         </span>
                       </div>
+                       {ls.loan.status === "cancelled" && (
+                         <div className="flex gap-2 col-span-3">
+                           <span className="font-semibold text-muted-foreground w-36 shrink-0">Cancellation Reason:</span>
+                           <span className="font-medium text-destructive">{ls.loan.cancellationReason || ""}</span>
+                         </div>
+                       )}
 
                       <div className="flex gap-2">
                         <span className="font-semibold text-muted-foreground w-36 shrink-0">Financing Type:</span>

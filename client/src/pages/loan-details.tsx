@@ -180,6 +180,9 @@ export default function LoanDetailsPage() {
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const [newDocType, setNewDocType] = useState("");
   const [newDocName, setNewDocName] = useState("");
+  const [showCancellationDialog, setShowCancellationDialog] = useState(false);
+  const [cancellationReason, setCancellationReason] = useState("");
+  const canCancelLoan = ["admin", "ceo"].includes(String((user as any)?.role || "").toLowerCase());
 
   const { data: branches = [] } = useQuery<Branch[]>({ queryKey: ["/api/branches"] });
   const { data: financeOfficers = [] } = useQuery<FinanceOfficer[]>({ queryKey: ["/api/finance-officers"] });
@@ -406,6 +409,25 @@ export default function LoanDetailsPage() {
     },
   });
 
+  const cancellationMutation = useMutation({
+    mutationFn: async (reason: string) => {
+      const response = await apiRequest("POST", `/api/loans/${loanId}/cancel`, { reason });
+      return response.json();
+    },
+    onSuccess: (result: any) => {
+      toast({ title: "Financing cancelled", description: result.message });
+      setShowCancellationDialog(false);
+      setCancellationReason("");
+      setIsEditing(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/loan-applications", loanId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/loans", loanId, "change-history"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/loans"] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Cancellation could not be completed", description: error.message, variant: "destructive" });
+    },
+  });
+
   const deleteDocumentMutation = useMutation({
     mutationFn: async (docId: string) => {
       const response = await apiRequest("DELETE", `/api/customer-documents/${docId}`);
@@ -489,6 +511,15 @@ export default function LoanDetailsPage() {
               data-testid="button-generate-qr"
             >
               <QrCode className="h-4 w-4 mr-2" /> QR Code
+            </Button>
+          )}
+          {canCancelLoan && ["approved", "disbursed"].includes(loanData?.loan?.status) && (
+            <Button
+              variant="destructive"
+              onClick={() => setShowCancellationDialog(true)}
+              data-testid="button-cancel-financing"
+            >
+              <XCircle className="h-4 w-4 mr-2" /> Cancel Financing
             </Button>
           )}
           <Button
@@ -1564,6 +1595,63 @@ export default function LoanDetailsPage() {
             >
               <Download className="h-4 w-4 mr-2" />
               Download QR Code
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showCancellationDialog} onOpenChange={setShowCancellationDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Cancel Financing
+            </DialogTitle>
+            <DialogDescription>
+              This action cannot be undone. If the financing was disbursed, its posted disbursement journal will be reversed and its unpaid installment schedule will be removed.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm">
+              <p className="font-medium">{loanData?.loan?.applicationId}</p>
+              <p className="mt-1 text-muted-foreground">
+                Cancellation is blocked when active payments or collection records exist.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="cancellation-reason" className="text-sm font-medium">
+                Cancellation reason
+              </label>
+              <Textarea
+                id="cancellation-reason"
+                value={cancellationReason}
+                onChange={(event) => setCancellationReason(event.target.value)}
+                placeholder="Explain why this financing is being cancelled"
+                maxLength={1000}
+                disabled={cancellationMutation.isPending}
+                data-testid="input-cancellation-reason"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowCancellationDialog(false)}
+              disabled={cancellationMutation.isPending}
+            >
+              Keep financing
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => cancellationMutation.mutate(cancellationReason.trim())}
+              disabled={!cancellationReason.trim() || cancellationMutation.isPending}
+              data-testid="button-confirm-cancel-financing"
+            >
+              {cancellationMutation.isPending ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Cancelling...</>
+              ) : (
+                <><XCircle className="h-4 w-4 mr-2" /> Cancel financing</>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -2341,6 +2341,9 @@ export async function registerRoutes(
       const loanId = req.params.id;
       const loan = await storage.getLoan(loanId);
       if (!loan) return res.status(404).json({ message: "Loan not found" });
+      if (loan.status === "cancelled") {
+        return res.status(400).json({ message: "Cancelled loans cannot be regenerated" });
+      }
 
       const customer = loan.customerId ? await storage.getCustomer(loan.customerId) : null;
       const branch = loan.branchId ? await storage.getBranch(loan.branchId) : null;
@@ -2504,6 +2507,9 @@ export async function registerRoutes(
 
       for (const update of updates) {
         const { id, loanId, installmentNumber, dueDate, principleAmount, marginAmount, isPaid } = update;
+        if (isPaid !== undefined) {
+          return res.status(400).json({ message: "Bulk schedule updates cannot change payment status. Use the payment workflow instead." });
+        }
 
         const principal = parseFloat(principleAmount || "0");
         const margin = parseFloat(marginAmount || "0");
@@ -2521,7 +2527,7 @@ export async function registerRoutes(
             installmentVariance: null,
             paymentDate: null,
             lateDays: null,
-            isPaid: isPaid === true,
+            isPaid: false,
           });
           createdCount++;
           results.push({ id: created.id, status: "created" });
@@ -2538,14 +2544,6 @@ export async function registerRoutes(
           marginAmount: margin.toFixed(2),
           totalAmount: total.toFixed(2),
         };
-
-        if (isPaid !== undefined) {
-          updateData.isPaid = isPaid;
-          updateData.paymentDate = isPaid ? new Date().toISOString().split("T")[0] : null;
-          if (!isPaid) {
-            updateData.paidAmount = "0";
-          }
-        }
 
         await storage.updateInstallmentAmounts(id, updateData);
 
@@ -3582,6 +3580,41 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error rejecting loan:", error);
       res.status(500).json({ message: "Failed to reject loan" });
+    }
+  });
+
+  app.post("/api/loans/:id/cancel", isAuthenticated, requireRole("admin", "ceo"), async (req: any, res) => {
+    try {
+      const cancellationReason = String(req.body?.reason || "").trim();
+      if (!cancellationReason) {
+        return res.status(400).json({ message: "A cancellation reason is required" });
+      }
+      if (cancellationReason.length > 1000) {
+        return res.status(400).json({ message: "Cancellation reason must be 1,000 characters or fewer" });
+      }
+
+      const userId = req.session.userId || req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unable to identify the cancelling user" });
+      }
+
+      const result = await storage.cancelLoan(req.params.id, cancellationReason, userId);
+      await logActivity(
+        req,
+        "cancel_loan",
+        "loan",
+        result.loan.id,
+        `Cancelled loan: ${result.loan.applicationId}. Reason: ${cancellationReason}${result.reversalEntryId ? ` Reversal journal: ${result.reversalEntryId}.` : ""}`
+      );
+      res.json({
+        message: result.reversedDisbursement
+          ? "Disbursement reversed and loan cancelled successfully"
+          : "Loan cancelled successfully",
+        ...result,
+      });
+    } catch (error: any) {
+      console.error("Error cancelling loan:", error);
+      res.status(400).json({ message: error.message || "Failed to cancel loan" });
     }
   });
 
@@ -4813,19 +4846,13 @@ export async function registerRoutes(
         await logActivity(req, "reverse", "journal_entry", journalEntry.id, `Auto-reversed collection journal entry ${journalEntry.entryNumber} for installment reversal — reason: ${reason}`);
       }
 
-      await storage.updateInstallmentAmounts(installmentId, {
-        principleAmount: installment.principleAmount || "0",
-        marginAmount: installment.marginAmount || "0",
-        totalAmount: installment.totalAmount || "0",
+      await storage.restoreInstallmentState(installmentId, {
         paidAmount: "0",
         paymentDate: null,
         isPaid: false,
+        lateDays: null,
+        installmentVariance: null,
       });
-
-      await pool.query(
-        `UPDATE installments SET late_days = NULL, installment_variance = NULL WHERE id = $1`,
-        [installmentId]
-      );
 
       await logActivity(req, "reverse_payment", "installment", installmentId,
         `Reversed payment of AFN ${paidAmount.toLocaleString()} for ${customerName} - Installment #${installment.installmentNumber} (legacy). Reason: ${reason}`
@@ -10886,26 +10913,13 @@ export async function registerRoutes(
         if (lateDays < 0) lateDays = 0;
       }
 
-      await storage.updateInstallmentAmounts(id, {
-        principleAmount: installment.principleAmount || "0",
-        marginAmount: installment.marginAmount || "0",
-        totalAmount: installment.totalAmount || "0",
+      await storage.updateInstallmentPayment(id, {
         paidAmount: paid.toFixed(2),
         paymentDate: paymentDate || null,
         isPaid: isPaid !== undefined ? isPaid : true,
+        lateDays,
+        installmentVariance: variance.toFixed(2),
       });
-
-      if (lateDays !== null) {
-        await pool.query(
-          `UPDATE installments SET late_days = $1, installment_variance = $2 WHERE id = $3`,
-          [lateDays, variance.toFixed(2), id]
-        );
-      } else {
-        await pool.query(
-          `UPDATE installments SET installment_variance = $1 WHERE id = $2`,
-          [variance.toFixed(2), id]
-        );
-      }
 
       res.json({
         message: "Payment updated successfully",
@@ -11017,6 +11031,7 @@ export async function registerRoutes(
             financingAmount: parseFloat(loan.principleAmount as string || loan.requestAmount as string || "0") + (parseFloat(loan.principleAmount as string || loan.requestAmount as string || "0") * parseFloat(loan.marginRate as string || "0")),
             marginRate: parseFloat(loan.marginRate as string || "0"),
             status: loan.status,
+            cancellationReason: loan.cancellationReason || null,
             principleAmount: parseFloat(loan.principleAmount as string || "0"),
             profit: parseFloat(loan.profit as string || "0"),
             totalReceivable: parseFloat(loan.totalReceivable as string || "0"),
@@ -11383,7 +11398,7 @@ export async function registerRoutes(
 
       const instResult = await db.execute(sql`
         SELECT i.id, i.loan_id, i.total_amount, i.paid_amount, i.is_paid, i.installment_number,
-          l.application_id, l.customer_id,
+          l.application_id, l.customer_id, l.status as loan_status,
           CONCAT(c.first_name, ' ', c.last_name) as customer_name
         FROM installments i
         LEFT JOIN loans l ON i.loan_id = l.id
@@ -11393,6 +11408,9 @@ export async function registerRoutes(
       if (instResult.rows.length === 0) return res.status(404).json({ message: "Installment not found" });
 
       const inst: any = instResult.rows[0];
+      if (inst.loan_status !== "disbursed" && inst.loan_status !== "active") {
+        return res.status(400).json({ message: "Collection records can only be submitted for active or disbursed loans" });
+      }
       if (inst.is_paid) return res.status(400).json({ message: "Installment is already fully paid" });
 
       const pendingCheck = await db.execute(sql`
@@ -11580,6 +11598,23 @@ export async function registerRoutes(
       const record: any = recordResult.rows[0];
       if (record.status !== "pending") return res.status(400).json({ message: "Record is not pending" });
 
+      const [claimedRecord] = await db
+        .update(collectionRecords)
+        .set({
+          status: "processing",
+          reviewedBy: userId,
+          reviewedAt: new Date(),
+        })
+        .where(and(
+          eq(collectionRecords.id, req.params.id),
+          eq(collectionRecords.status, "pending")
+        ))
+        .returning();
+      if (!claimedRecord) {
+        return res.status(409).json({ message: "This collection record is already being processed or has been reviewed" });
+      }
+      record.status = claimedRecord.status;
+
       const amount = parseFloat(record.amount);
 
       const debitCode = record.debit_account_code || "10206";
@@ -11678,7 +11713,7 @@ export async function registerRoutes(
       await db.execute(sql`
         UPDATE collection_records 
         SET status = 'approved', reviewed_by = ${userId}, reviewed_at = NOW(), journal_entry_id = ${je.id}
-        WHERE id = ${req.params.id}
+        WHERE id = ${req.params.id} AND status = 'processing'
       `);
 
       try {
