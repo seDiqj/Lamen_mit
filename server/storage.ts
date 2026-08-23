@@ -1481,11 +1481,10 @@ export class DatabaseStorage implements IStorage {
             eq(journalEntries.referenceId, id)
           ));
         const activeJournals = disbursementJournals.filter((entry) => !entry.isReversed);
-        if (activeJournals.length !== 1 || !activeJournals[0].isPosted) {
-          throw new Error("This disbursement does not have exactly one active posted journal entry and cannot be cancelled automatically");
-        }
+        const previouslyReversedJournals = disbursementJournals.filter((entry) => entry.isReversed);
 
-        const originalJournal = activeJournals[0];
+        if (activeJournals.length === 1 && activeJournals[0].isPosted) {
+          const originalJournal = activeJournals[0];
         const originalLines = await tx
           .select()
           .from(journalLines)
@@ -1570,6 +1569,29 @@ export class DatabaseStorage implements IStorage {
           .update(journalEntries)
           .set({ reversedEntryId: reversalEntry.id })
           .where(eq(journalEntries.id, originalJournal.id));
+        reversalEntryId = reversalEntry.id;
+        } else if (activeJournals.length === 0 && previouslyReversedJournals.length === 1) {
+          const originalJournal = previouslyReversedJournals[0];
+          if (!originalJournal.isPosted || !originalJournal.reversedEntryId) {
+            throw new Error("The existing disbursement reversal is incomplete and must be reviewed before cancellation");
+          }
+
+          const [existingReversal] = await tx
+            .select()
+            .from(journalEntries)
+            .where(eq(journalEntries.id, originalJournal.reversedEntryId));
+          if (
+            !existingReversal ||
+            !existingReversal.isPosted ||
+            existingReversal.referenceType !== "reversal" ||
+            existingReversal.referenceId !== originalJournal.id
+          ) {
+            throw new Error("The existing disbursement reversal is invalid and must be reviewed before cancellation");
+          }
+          reversalEntryId = existingReversal.id;
+        } else {
+          throw new Error("This disbursement does not have one verifiable posted journal entry and cannot be cancelled automatically");
+        }
 
         const deleted = await tx
           .delete(installments)
@@ -1578,7 +1600,6 @@ export class DatabaseStorage implements IStorage {
         deletedInstallments = deleted.length;
 
         await tx.delete(disbursements).where(eq(disbursements.loanId, id));
-        reversalEntryId = reversalEntry.id;
       }
 
       const [cancelledLoan] = await tx
