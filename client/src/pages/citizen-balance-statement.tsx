@@ -9,11 +9,13 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   FileSpreadsheet,
   FileText,
@@ -185,6 +187,8 @@ export default function CitizenBalanceStatementPage() {
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [paymentDialogInst, setPaymentDialogInst] = useState<InstallmentRow | null>(null);
   const [paymentForm, setPaymentForm] = useState({ paidAmount: "", paymentDate: "", isPaid: true });
+  const [cancellationDialogLoan, setCancellationDialogLoan] = useState<LoanStatement["loan"] | null>(null);
+  const [cancellationReason, setCancellationReason] = useState("");
   const reportRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -220,6 +224,7 @@ export default function CitizenBalanceStatementPage() {
   });
 
   const isAdminOrManager = userData?.role === "admin" || userData?.role === "manager";
+  const canCancelFinancing = ["admin", "ceo"].includes(String(userData?.role || "").toLowerCase());
 
   const regenerateMutation = useMutation({
     mutationFn: async ({ loanId, data }: { loanId: string; data: any }) => {
@@ -300,6 +305,23 @@ export default function CitizenBalanceStatementPage() {
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message || "Failed to update payment", variant: "destructive" });
+    },
+  });
+
+  const cancellationMutation = useMutation({
+    mutationFn: async ({ loanId, reason }: { loanId: string; reason: string }) => {
+      const res = await apiRequest("POST", `/api/loans/${loanId}/cancel`, { reason });
+      return res.json();
+    },
+    onSuccess: (result) => {
+      toast({ title: "Financing cancelled", description: result.message });
+      setCancellationDialogLoan(null);
+      setCancellationReason("");
+      queryClient.invalidateQueries({ queryKey: ["/api/reports/citizen-balance-statement", selectedCustomerId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/loans"] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Cancellation could not be completed", description: error.message, variant: "destructive" });
     },
   });
 
@@ -1385,6 +1407,22 @@ export default function CitizenBalanceStatementPage() {
                            <span className="font-medium text-destructive">{ls.loan.cancellationReason || ""}</span>
                          </div>
                        )}
+                        {canCancelFinancing && ["approved", "disbursed"].includes(ls.loan.status) && (
+                          <div className="col-span-3 flex justify-end print:hidden">
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => {
+                                setCancellationDialogLoan(ls.loan);
+                                setCancellationReason("");
+                              }}
+                              data-testid={`button-cancel-financing-statement-${ls.loan.id}`}
+                            >
+                              <AlertTriangle className="mr-2 h-4 w-4" />
+                              Cancel Financing
+                            </Button>
+                          </div>
+                        )}
 
                       <div className="flex gap-2">
                         <span className="font-semibold text-muted-foreground w-36 shrink-0">Financing Type:</span>
@@ -2059,6 +2097,79 @@ export default function CitizenBalanceStatementPage() {
                 <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Updating...</>
               ) : (
                 <><Save className="h-4 w-4 mr-2" />Update Payment</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!cancellationDialogLoan}
+        onOpenChange={(open) => {
+          if (!open && !cancellationMutation.isPending) {
+            setCancellationDialogLoan(null);
+            setCancellationReason("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Cancel Financing
+            </DialogTitle>
+            <DialogDescription>
+              This action cannot be undone. A disbursed financing will have its posted disbursement journal reversed and its unpaid installment schedule removed.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm">
+              <p className="font-medium">{cancellationDialogLoan?.applicationId}</p>
+              <p className="mt-1 text-muted-foreground">
+                Cancellation is blocked when active payments or collection records exist.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="statement-cancellation-reason">Cancellation reason</Label>
+              <Textarea
+                id="statement-cancellation-reason"
+                value={cancellationReason}
+                onChange={(event) => setCancellationReason(event.target.value)}
+                placeholder="Explain why this financing is being cancelled"
+                maxLength={1000}
+                disabled={cancellationMutation.isPending}
+                data-testid="input-statement-cancellation-reason"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setCancellationDialogLoan(null);
+                setCancellationReason("");
+              }}
+              disabled={cancellationMutation.isPending}
+            >
+              Keep financing
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (cancellationDialogLoan) {
+                  cancellationMutation.mutate({
+                    loanId: cancellationDialogLoan.id,
+                    reason: cancellationReason.trim(),
+                  });
+                }
+              }}
+              disabled={!cancellationReason.trim() || cancellationMutation.isPending}
+              data-testid="button-confirm-statement-cancel-financing"
+            >
+              {cancellationMutation.isPending ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Cancelling...</>
+              ) : (
+                <><AlertTriangle className="mr-2 h-4 w-4" />Cancel financing</>
               )}
             </Button>
           </DialogFooter>
