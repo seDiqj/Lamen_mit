@@ -6,3 +6,4 @@
 - [Installment payment adjustments](installment-payment-adjustments.md) — display positive installment payments, but include every nonzero adjustment in a running balance.
 - [Loan cancellation concurrency](loan-cancellation-concurrency.md) — all disbursement, schedule, and payment writes must coordinate on the loan row before a cancellation can safely proceed.
 - [Already-reversed disbursements](already-reversed-disbursements.md) — cancellation must verify and reuse a valid posted reversal instead of creating a duplicate counter-entry.
+- [Journal reversals and customer balances](journal-reversals-customer-balances.md) — reversed collection journals must not remain counted as active installment payments.

@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { customers, loans, disbursements, branches, financeOfficers, installments, fundingSources as fundingSourcesTable, collaterals, customerBusinesses, businessLicenses, loanApprovals, guarantors, userRoles, fadReviews, riskComplianceReviews, accounts, journalEntries, journalLines, clientOccupations, productCycleLimits, loanTransfers, collectionRecords, activityLogs, classes, insertClassSchema, getMainAccountType } from "@shared/schema";
+import { customers, loans, disbursements, branches, financeOfficers, installments, fundingSources as fundingSourcesTable, collaterals, customerBusinesses, businessLicenses, loanApprovals, guarantors, userRoles, fadReviews, riskComplianceReviews, accounts, journalEntries, journalLines, clientOccupations, productCycleLimits, loanTransfers, collectionRecords, paymentTransactions, activityLogs, classes, insertClassSchema, getMainAccountType } from "@shared/schema";
 import { users, trustedDevices } from "@shared/models/auth";
 import { validatePassword, PASSWORD_EXPIRY_DAYS } from "@shared/password";
 import {
@@ -10971,15 +10971,48 @@ export async function registerRoutes(
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
+        // Journal reversal can be completed from the accounting screen after a
+        // collection was recorded. Until its payment record is reconciled, its
+        // installment still carries the original paid amount. Exclude just the
+        // reversed transaction allocations so customer balances remain correct.
+        const reversedCollectionPayments = await db
+          .select({ affectedInstallments: paymentTransactions.affectedInstallments })
+          .from(paymentTransactions)
+          .innerJoin(journalEntries, eq(paymentTransactions.journalEntryId, journalEntries.id))
+          .where(and(
+            eq(paymentTransactions.loanId, loan.id),
+            eq(paymentTransactions.status, "active"),
+            eq(journalEntries.referenceType, "collection"),
+            eq(journalEntries.isReversed, true)
+          ));
+        const reversedAmountByInstallment = new Map<string, number>();
+        for (const payment of reversedCollectionPayments) {
+          try {
+            const affected = JSON.parse(payment.affectedInstallments || "[]");
+            for (const item of affected) {
+              if (!item?.installmentId) continue;
+              const amount = Number(item.appliedAmount || 0);
+              reversedAmountByInstallment.set(
+                item.installmentId,
+                (reversedAmountByInstallment.get(item.installmentId) || 0) + amount
+              );
+            }
+          } catch {
+            // A malformed historical allocation cannot safely be adjusted here.
+          }
+        }
+
         const actualPayments = installmentsList.map((inst: any, idx: number) => {
           const dueDate = inst.dueDate ? new Date(inst.dueDate) : null;
           const paymentDate = inst.paymentDate ? new Date(inst.paymentDate) : null;
-          const paidAmount = parseFloat(inst.paidAmount || "0");
+          const recordedPaidAmount = parseFloat(inst.paidAmount || "0");
+          const reversedAmount = reversedAmountByInstallment.get(inst.id) || 0;
+          const paidAmount = Math.max(0, recordedPaidAmount - reversedAmount);
           const totalAmount = parseFloat(inst.totalAmount || "0");
           const principleAmt = parseFloat(inst.principleAmount || "0");
           const marginAmt = parseFloat(inst.marginAmount || "0");
 
-          const hasPaid = paidAmount > 0 || (inst.isPaid && paymentDate);
+          const hasPaid = paidAmount > 0 || (inst.isPaid && paymentDate && reversedAmount === 0);
           const effectivePaidAmount = paidAmount > 0 ? paidAmount : (hasPaid ? totalAmount : 0);
 
           let parDays = 0;
