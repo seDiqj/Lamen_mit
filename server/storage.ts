@@ -1,6 +1,11 @@
 import { db } from "./db";
 import bcrypt from "bcrypt";
 import { getAllPageKeys } from "@shared/pages";
+import {
+  parsePaymentAllocations,
+  rebuildInstallmentPaymentState,
+  type PaymentLedgerEntry,
+} from "./payment-reversal";
 import { eq, and, like, ilike, or, desc, asc, sql, count, gt, gte, lte, isNull, isNotNull, inArray } from "drizzle-orm";
 import {
   paymentTransactions,
@@ -417,6 +422,8 @@ export interface IStorage {
   getActivePaymentTransactionsByInstallment(installmentId: string): Promise<PaymentTransaction[]>;
   restoreInstallmentState(installmentId: string, prev: { paidAmount: string; isPaid: boolean; paymentDate: string | null; lateDays: number | null; installmentVariance: string | null }): Promise<void>;
   markPaymentTransactionReversed(id: string, data: { reversedBy: string; reversalReason: string; reversalJournalEntryId: string | null }): Promise<void>;
+  reversePaymentTransaction(id: string, reversedBy: string, reversalReason: string, reversalJournalEntryId?: string | null): Promise<void>;
+  reconcileReversedCollectionJournals(reconciledBy: string, reason: string): Promise<{ reconciledTransactions: number; reconciledInstallments: number; skippedJournalEntries: string[] }>;
 
   recalculateAllAccountBalances(): Promise<{ updated: number }>;
   
@@ -6456,85 +6463,366 @@ export class DatabaseStorage implements IStorage {
     await db.update(journalEntries).set({ isPosted: false, postedBy: null, postedAt: null }).where(eq(journalEntries.id, id));
   }
 
+  private async rebuildInstallmentsFromPaymentLedger(
+    tx: any,
+    installmentIds: string[],
+    untrackedPaidAmounts = new Map<string, number>(),
+  ): Promise<number> {
+    let rebuilt = 0;
+
+    for (const installmentId of Array.from(new Set(installmentIds))) {
+      const [installment] = await tx
+        .select()
+        .from(installments)
+        .where(eq(installments.id, installmentId))
+        .for("update");
+      if (!installment) {
+        throw new Error("An affected installment is no longer available");
+      }
+
+      const ledgerRows = await tx
+        .select({
+          id: paymentTransactions.id,
+          status: paymentTransactions.status,
+          paymentDate: paymentTransactions.paymentDate,
+          createdAt: paymentTransactions.createdAt,
+          affectedInstallments: paymentTransactions.affectedInstallments,
+        })
+        .from(paymentTransactions)
+        .where(eq(paymentTransactions.loanId, installment.loanId))
+        .orderBy(asc(paymentTransactions.createdAt), asc(paymentTransactions.id));
+
+      const entries = (ledgerRows as PaymentLedgerEntry[])
+        .filter((entry) => entry.affectedInstallments.includes(installmentId));
+      const state = rebuildInstallmentPaymentState(installment, entries);
+      const untrackedPaidAmount = untrackedPaidAmounts.get(installmentId) || 0;
+      if (untrackedPaidAmount > 0.004) {
+        const paidAmount = Math.round((Number(state.paidAmount) + untrackedPaidAmount) * 100) / 100;
+        const totalAmount = Number(installment.totalAmount || 0);
+        const isPaid = totalAmount > 0 && paidAmount >= totalAmount - 0.005;
+        state.paidAmount = paidAmount.toFixed(2);
+        state.isPaid = isPaid;
+        state.paymentDate = installment.paymentDate || state.paymentDate;
+        if (isPaid) {
+          let lateDays = 0;
+          if (state.paymentDate && installment.dueDate) {
+            const dueDate = new Date(installment.dueDate);
+            const paidOn = new Date(state.paymentDate);
+            lateDays = Math.max(0, Math.floor((paidOn.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)));
+          }
+          state.lateDays = lateDays;
+          state.installmentVariance = lateDays.toString();
+        }
+      }
+
+      await tx
+        .update(installments)
+        .set({
+          paidAmount: state.paidAmount,
+          isPaid: state.isPaid,
+          paymentDate: state.paymentDate,
+          lateDays: state.lateDays,
+          installmentVariance: state.installmentVariance,
+        })
+        .where(eq(installments.id, installmentId));
+      rebuilt++;
+    }
+
+    return rebuilt;
+  }
+
+  private async captureUntrackedPaymentAmounts(tx: any, installmentIds: string[]): Promise<Map<string, number>> {
+    const untrackedPaidAmounts = new Map<string, number>();
+
+    for (const installmentId of Array.from(new Set(installmentIds))) {
+      const [installment] = await tx
+        .select()
+        .from(installments)
+        .where(eq(installments.id, installmentId))
+        .for("update");
+      if (!installment) {
+        throw new Error("An affected installment is no longer available");
+      }
+
+      const ledgerRows = await tx
+        .select({
+          id: paymentTransactions.id,
+          status: paymentTransactions.status,
+          paymentDate: paymentTransactions.paymentDate,
+          createdAt: paymentTransactions.createdAt,
+          affectedInstallments: paymentTransactions.affectedInstallments,
+        })
+        .from(paymentTransactions)
+        .where(eq(paymentTransactions.loanId, installment.loanId))
+        .orderBy(asc(paymentTransactions.createdAt), asc(paymentTransactions.id));
+      const entries = (ledgerRows as PaymentLedgerEntry[])
+        .filter((entry) => entry.affectedInstallments.includes(installmentId));
+      const replayed = rebuildInstallmentPaymentState(installment, entries);
+      const untrackedAmount = Math.max(0, Number(installment.paidAmount || 0) - Number(replayed.paidAmount || 0));
+      if (untrackedAmount > 0.004) {
+        untrackedPaidAmounts.set(installmentId, untrackedAmount);
+      }
+    }
+
+    return untrackedPaidAmounts;
+  }
+
+  private async reversePaymentTransactionInTransaction(
+    tx: any,
+    transactionId: string,
+    reversedBy: string,
+    reversalReason: string,
+    reversalJournalEntryId: string | null,
+  ): Promise<number> {
+    const [transaction] = await tx
+      .select()
+      .from(paymentTransactions)
+      .where(eq(paymentTransactions.id, transactionId))
+      .for("update");
+    if (!transaction) throw new Error("Payment transaction not found");
+    if (transaction.status !== "active") return 0;
+
+    const allocations = parsePaymentAllocations(transaction.affectedInstallments);
+    if (allocations.length === 0) {
+      throw new Error("Payment transaction has no affected installments");
+    }
+    const affectedInstallmentIds = allocations.map((allocation) => allocation.installmentId);
+    // A collection write historically updated the installment before its
+    // immutable payment ledger record was inserted. Preserve any positive
+    // amount that is already on the installment but absent from the ledger so
+    // a concurrent later collection cannot be erased by this reversal.
+    const untrackedPaidAmounts = await this.captureUntrackedPaymentAmounts(tx, affectedInstallmentIds);
+
+    await tx
+      .update(paymentTransactions)
+      .set({
+        status: "reversed",
+        reversedBy,
+        reversedAt: new Date(),
+        reversalReason,
+        reversalJournalEntryId,
+      })
+      .where(and(
+        eq(paymentTransactions.id, transactionId),
+        eq(paymentTransactions.status, "active"),
+      ));
+
+    return this.rebuildInstallmentsFromPaymentLedger(
+      tx,
+      affectedInstallmentIds,
+      untrackedPaidAmounts,
+    );
+  }
+
+  private async reactivatePaymentTransactionInTransaction(tx: any, transactionId: string): Promise<number> {
+    const [transaction] = await tx
+      .select()
+      .from(paymentTransactions)
+      .where(eq(paymentTransactions.id, transactionId))
+      .for("update");
+    if (!transaction) throw new Error("Payment transaction not found");
+    if (transaction.status === "active") return 0;
+
+    const allocations = parsePaymentAllocations(transaction.affectedInstallments);
+    if (allocations.length === 0) {
+      throw new Error("Payment transaction has no affected installments");
+    }
+
+    await tx
+      .update(paymentTransactions)
+      .set({
+        status: "active",
+        reversedBy: null,
+        reversedAt: null,
+        reversalReason: null,
+        reversalJournalEntryId: null,
+      })
+      .where(eq(paymentTransactions.id, transactionId));
+
+    return this.rebuildInstallmentsFromPaymentLedger(
+      tx,
+      allocations.map((allocation) => allocation.installmentId),
+    );
+  }
+
   async reverseJournalEntry(id: string, createdBy: string): Promise<JournalEntry> {
-    const original = await this.getJournalEntry(id);
-    if (!original) throw new Error("Entry not found");
-    if (original.referenceType === 'reversal') throw new Error("A reversal entry cannot itself be reversed");
+    return db.transaction(async (tx) => {
+      const [original] = await tx
+        .select()
+        .from(journalEntries)
+        .where(eq(journalEntries.id, id))
+        .for("update");
+      if (!original) throw new Error("Entry not found");
+      if (original.referenceType === "reversal") throw new Error("A reversal entry cannot itself be reversed");
+      if (original.isReversed) throw new Error("This entry has already been reversed");
 
-    // Atomically claim the reversal: flip is_reversed false -> true in a single
-    // conditional update so two concurrent requests can't both proceed (prevents
-    // the double-reversal that corrupts account balances).
-    const claimed = await db
-      .update(journalEntries)
-      .set({ isReversed: true })
-      .where(and(eq(journalEntries.id, id), eq(journalEntries.isReversed, false)))
-      .returning({ id: journalEntries.id });
-    if (claimed.length === 0) throw new Error("This entry has already been reversed");
+      const originalLines = await tx
+        .select()
+        .from(journalLines)
+        .where(eq(journalLines.journalEntryId, id));
+      if (originalLines.length < 2) {
+        throw new Error("Cannot reverse a journal entry without at least 2 lines");
+      }
 
-    try {
-      const entryNumber = await this.getNextEntryNumber();
-      const reversedLines = original.lines.map((line: any) => ({
-        accountId: line.accountId,
-        description: `Reversal: ${line.description || ''}`,
-        debitAmount: line.creditAmount,
-        creditAmount: line.debitAmount,
-        fundingSourceId: line.fundingSourceId || null,
-        classId: line.classId || null,
-      }));
+      const linkedTransactions = original.referenceType === "collection"
+        ? await tx
+          .select()
+          .from(paymentTransactions)
+          .where(eq(paymentTransactions.journalEntryId, id))
+          .for("update")
+        : [];
 
-      const reversalEntry = await this.createJournalEntry({
-        entryNumber,
-        entryDate: new Date().toISOString().split('T')[0],
-        description: `Reversal of ${original.entryNumber}`,
-        reference: original.reference,
-        referenceType: 'reversal',
-        referenceId: original.id,
-        fundingSourceId: original.fundingSourceId,
-        createdBy,
-        isPosted: true,
-        postedBy: createdBy,
-        postedAt: new Date(),
-      }, reversedLines);
+      if (original.referenceType === "collection" && linkedTransactions.length === 0) {
+        throw new Error("This collection journal has no linked payment transaction and must be reconciled manually before it can be reversed");
+      }
 
-      await db.update(journalEntries).set({ reversedEntryId: reversalEntry.id }).where(eq(journalEntries.id, id));
+      // Validate the immutable allocation records before changing accounting
+      // balances. A collection with malformed ledger data needs manual review,
+      // not a reversal that leaves the operational balance stale.
+      for (const transaction of linkedTransactions) {
+        if (transaction.status === "active") {
+          const allocations = parsePaymentAllocations(transaction.affectedInstallments);
+          if (allocations.length === 0) {
+            throw new Error("Linked payment transaction has no affected installments");
+          }
+        }
+      }
+
+      const entryNumbers = await tx
+        .select({ entryNumber: journalEntries.entryNumber })
+        .from(journalEntries)
+        .where(like(journalEntries.entryNumber, "JE%"));
+      const nextNumber = entryNumbers.reduce((max: number, entry: any) => {
+        const parsed = parseInt(entry.entryNumber.replace(/^JE-?/, ""), 10);
+        return !isNaN(parsed) && parsed > max ? parsed : max;
+      }, 0) + 1;
+      const entryNumber = `JE${nextNumber.toString().padStart(4, "0")}`;
+
+      const [reversalEntry] = await tx
+        .insert(journalEntries)
+        .values({
+          entryNumber,
+          entryDate: new Date().toISOString().split("T")[0],
+          description: `Reversal of ${original.entryNumber}`,
+          reference: original.reference,
+          referenceType: "reversal",
+          referenceId: original.id,
+          fundingSourceId: original.fundingSourceId,
+          totalDebit: original.totalCredit,
+          totalCredit: original.totalDebit,
+          createdBy,
+          isPosted: true,
+          postedBy: createdBy,
+          postedAt: new Date(),
+        })
+        .returning();
+
+      for (const line of originalLines) {
+        await tx.insert(journalLines).values({
+          journalEntryId: reversalEntry.id,
+          accountId: line.accountId,
+          description: `Reversal: ${line.description || ""}`,
+          debitAmount: line.creditAmount,
+          creditAmount: line.debitAmount,
+          fundingSourceId: line.fundingSourceId,
+          classId: line.classId,
+        });
+
+        const [account] = await tx.select().from(accounts).where(eq(accounts.id, line.accountId));
+        if (!account) continue;
+        const debitAmount = Number(line.creditAmount || 0);
+        const creditAmount = Number(line.debitAmount || 0);
+        const isDebitNormal = getMainAccountType(account.accountType) === "asset" ||
+          getMainAccountType(account.accountType) === "expense";
+        const balanceDelta = isDebitNormal ? debitAmount - creditAmount : creditAmount - debitAmount;
+        await tx
+          .update(accounts)
+          .set({ currentBalance: sql`COALESCE(${accounts.currentBalance}::numeric, 0) + ${balanceDelta}` })
+          .where(eq(accounts.id, account.id));
+      }
+
+      await tx
+        .update(journalEntries)
+        .set({ isReversed: true, reversedEntryId: reversalEntry.id })
+        .where(and(eq(journalEntries.id, id), eq(journalEntries.isReversed, false)));
+
+      for (const transaction of linkedTransactions) {
+        if (transaction.status === "active") {
+          await this.reversePaymentTransactionInTransaction(
+            tx,
+            transaction.id,
+            createdBy,
+            `Journal entry ${original.entryNumber} reversed`,
+            reversalEntry.id,
+          );
+        }
+      }
 
       return reversalEntry;
-    } catch (err) {
-      // Building the reversal failed after we claimed it — release the claim so
-      // the entry can be reversed again later.
-      await db.update(journalEntries).set({ isReversed: false, reversedEntryId: null }).where(eq(journalEntries.id, id));
-      throw err;
-    }
+    });
   }
 
   async undoReversalJournalEntry(id: string): Promise<void> {
-    const original = await this.getJournalEntry(id);
-    if (!original) throw new Error("Entry not found");
-    if (!original.isReversed) throw new Error("This entry has not been reversed");
+    await db.transaction(async (tx) => {
+      const [original] = await tx
+        .select()
+        .from(journalEntries)
+        .where(eq(journalEntries.id, id))
+        .for("update");
+      if (!original) throw new Error("Entry not found");
+      if (!original.isReversed) throw new Error("This entry has not been reversed");
 
-    const reversalEntryId = original.reversedEntryId;
-    if (reversalEntryId) {
-      const reversalEntry = await this.getJournalEntry(reversalEntryId);
-      if (reversalEntry && reversalEntry.isPosted) {
-        for (const line of reversalEntry.lines) {
-          const [account] = await db.select().from(accounts).where(eq(accounts.id, line.accountId));
-          if (!account) continue;
-          let newBalance = Number(account.currentBalance || 0);
-          const debit = Number(line.debitAmount || 0);
-          const credit = Number(line.creditAmount || 0);
-          if (getMainAccountType(account.accountType) === 'asset' || getMainAccountType(account.accountType) === 'expense') {
-            newBalance -= debit - credit;
-          } else {
-            newBalance -= credit - debit;
+      const reversalEntryId = original.reversedEntryId;
+      if (reversalEntryId) {
+        const [reversalEntry] = await tx
+          .select()
+          .from(journalEntries)
+          .where(eq(journalEntries.id, reversalEntryId))
+          .for("update");
+        const reversalLines = reversalEntry
+          ? await tx.select().from(journalLines).where(eq(journalLines.journalEntryId, reversalEntryId))
+          : [];
+
+        if (reversalEntry?.isPosted) {
+          for (const line of reversalLines) {
+            const [account] = await tx.select().from(accounts).where(eq(accounts.id, line.accountId));
+            if (!account) continue;
+            const debit = Number(line.debitAmount || 0);
+            const credit = Number(line.creditAmount || 0);
+            const isDebitNormal = getMainAccountType(account.accountType) === "asset" ||
+              getMainAccountType(account.accountType) === "expense";
+            const balanceDelta = isDebitNormal ? debit - credit : credit - debit;
+            await tx
+              .update(accounts)
+              .set({ currentBalance: sql`COALESCE(${accounts.currentBalance}::numeric, 0) - ${balanceDelta}` })
+              .where(eq(accounts.id, account.id));
           }
-          await db.update(accounts).set({ currentBalance: newBalance.toString() }).where(eq(accounts.id, line.accountId));
+        }
+
+        await tx.delete(journalLines).where(eq(journalLines.journalEntryId, reversalEntryId));
+        await tx.delete(journalEntries).where(eq(journalEntries.id, reversalEntryId));
+      }
+
+      await tx
+        .update(journalEntries)
+        .set({ isReversed: false, reversedEntryId: null })
+        .where(eq(journalEntries.id, id));
+
+      if (original.referenceType === "collection" && reversalEntryId) {
+        const linkedTransactions = await tx
+          .select()
+          .from(paymentTransactions)
+          .where(and(
+            eq(paymentTransactions.journalEntryId, id),
+            eq(paymentTransactions.status, "reversed"),
+            eq(paymentTransactions.reversalJournalEntryId, reversalEntryId),
+          ))
+          .for("update");
+        for (const transaction of linkedTransactions) {
+          await this.reactivatePaymentTransactionInTransaction(tx, transaction.id);
         }
       }
-      await db.delete(journalLines).where(eq(journalLines.journalEntryId, reversalEntryId));
-      await db.delete(journalEntries).where(eq(journalEntries.id, reversalEntryId));
-    }
-
-    await db.update(journalEntries).set({ isReversed: false, reversedEntryId: null }).where(eq(journalEntries.id, id));
+    });
   }
 
   async createPaymentTransaction(data: InsertPaymentTransaction): Promise<PaymentTransaction> {
@@ -6617,6 +6905,91 @@ export class DatabaseStorage implements IStorage {
       reversalReason: data.reversalReason,
       reversalJournalEntryId: data.reversalJournalEntryId,
     }).where(eq(paymentTransactions.id, id));
+  }
+
+  async reversePaymentTransaction(
+    id: string,
+    reversedBy: string,
+    reversalReason: string,
+    reversalJournalEntryId: string | null = null,
+  ): Promise<void> {
+    await db.transaction(async (tx) => {
+      await this.reversePaymentTransactionInTransaction(
+        tx,
+        id,
+        reversedBy,
+        reversalReason,
+        reversalJournalEntryId,
+      );
+    });
+  }
+
+  async reconcileReversedCollectionJournals(
+    reconciledBy: string,
+    reason: string,
+  ): Promise<{ reconciledTransactions: number; reconciledInstallments: number; skippedJournalEntries: string[] }> {
+    return db.transaction(async (tx) => {
+      const journals = await tx
+        .select({
+          journalId: journalEntries.id,
+          entryNumber: journalEntries.entryNumber,
+          reversalEntryId: journalEntries.reversedEntryId,
+        })
+        .from(journalEntries)
+        .where(and(
+          eq(journalEntries.referenceType, "collection"),
+          eq(journalEntries.isReversed, true),
+        ))
+        .for("update");
+
+      const skippedJournalEntries = new Set<string>();
+      const candidates: Array<{ transactionId: string; reversalEntryId: string | null }> = [];
+
+      for (const journal of journals) {
+        const transactions = await tx
+          .select()
+          .from(paymentTransactions)
+          .where(eq(paymentTransactions.journalEntryId, journal.journalId))
+          .for("update");
+        if (transactions.length === 0) {
+          skippedJournalEntries.add(journal.entryNumber);
+          continue;
+        }
+
+        for (const transaction of transactions) {
+          if (transaction.status !== "active") continue;
+          try {
+            const allocations = parsePaymentAllocations(transaction.affectedInstallments || "[]");
+            if (allocations.length === 0) throw new Error("empty allocations");
+            candidates.push({
+              transactionId: transaction.id,
+              reversalEntryId: journal.reversalEntryId,
+            });
+          } catch {
+            skippedJournalEntries.add(journal.entryNumber);
+          }
+        }
+      }
+
+      let reconciledTransactions = 0;
+      let reconciledInstallments = 0;
+      for (const candidate of candidates) {
+        reconciledInstallments += await this.reversePaymentTransactionInTransaction(
+          tx,
+          candidate.transactionId,
+          reconciledBy,
+          `Historical collection journal reconciliation: ${reason}`,
+          candidate.reversalEntryId,
+        );
+        reconciledTransactions++;
+      }
+
+      return {
+        reconciledTransactions,
+        reconciledInstallments,
+        skippedJournalEntries: Array.from(skippedJournalEntries).sort(),
+      };
+    });
   }
 
   async recalculateAllAccountBalances(): Promise<{ updated: number }> {

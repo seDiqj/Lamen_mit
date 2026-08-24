@@ -132,6 +132,8 @@ export default function JournalEntries() {
   const [entryToUnpost, setEntryToUnpost] = useState<JournalEntry | null>(null);
   const [undoReversalConfirmOpen, setUndoReversalConfirmOpen] = useState(false);
   const [entryToUndoReversal, setEntryToUndoReversal] = useState<JournalEntry | null>(null);
+  const [reconcileConfirmOpen, setReconcileConfirmOpen] = useState(false);
+  const [reconciliationReason, setReconciliationReason] = useState("");
   const [fundingSourceFilter, setFundingSourceFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "posted" | "unposted">("all");
 
@@ -232,6 +234,26 @@ export default function JournalEntries() {
       toast({ title: "Reversal Undone", description: "The reversal has been removed and the original entry is now posted again." });
     },
     onError: (error: any) => toast({ title: "Error", description: error.message || "Failed to undo reversal", variant: "destructive" }),
+  });
+
+  const reconcileReversedCollectionsMutation = useMutation({
+    mutationFn: async (reason: string) => {
+      const response = await apiRequest("POST", "/api/journal-entries/reconcile-reversed-collections", { reason });
+      return response.json() as Promise<{ reconciledTransactions: number; reconciledInstallments: number; skippedJournalEntries: string[] }>;
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/journal-entries"] });
+      const manualReview = result.skippedJournalEntries.length
+        ? ` ${result.skippedJournalEntries.length} journal entry(s) need manual review.`
+        : "";
+      toast({
+        title: "Historical collections reconciled",
+        description: `${result.reconciledTransactions} payment transaction(s) and ${result.reconciledInstallments} installment(s) updated.${manualReview}`,
+      });
+      setReconcileConfirmOpen(false);
+      setReconciliationReason("");
+    },
+    onError: (error: any) => toast({ title: "Reconciliation failed", description: error.message || "Failed to reconcile reversed collections", variant: "destructive" }),
   });
 
   const updateMutation = useMutation({
@@ -361,17 +383,30 @@ export default function JournalEntries() {
             <p className="text-muted-foreground text-sm">Record and manage double-entry transactions</p>
           </div>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={handleDialogClose}>
-          <DialogTrigger asChild>
-            <Button className="gap-2" data-testid="button-add-entry">
-              <Plus className="h-4 w-4" /> New Entry
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <Button
+              type="button"
+              variant="outline"
+              className="gap-2"
+              onClick={() => setReconcileConfirmOpen(true)}
+              data-testid="button-reconcile-reversed-collections"
+            >
+              <Wrench className="h-4 w-4" />
+              Reconcile Reversed Collections
             </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{editingEntry ? "Edit Journal Entry" : "Create Journal Entry"}</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
+          )}
+          <Dialog open={dialogOpen} onOpenChange={handleDialogClose}>
+            <DialogTrigger asChild>
+              <Button className="gap-2" data-testid="button-add-entry">
+                <Plus className="h-4 w-4" /> New Entry
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>{editingEntry ? "Edit Journal Entry" : "Create Journal Entry"}</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="entryDate">Entry Date</Label>
@@ -498,9 +533,10 @@ export default function JournalEntries() {
                   {editingEntry ? "Update Entry" : "Create Entry"}
                 </Button>
               </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <Card>
@@ -819,6 +855,55 @@ export default function JournalEntries() {
               data-testid="button-confirm-undo-reversal"
             >
               Undo Reversal
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={reconcileConfirmOpen}
+        onOpenChange={(open) => {
+          setReconcileConfirmOpen(open);
+          if (!open) setReconciliationReason("");
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reconcile Historical Collection Reversals</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  This admin-only action finds collection journals that were already reversed and synchronizes their linked payment transactions and installment balances.
+                </p>
+                <p className="text-amber-700 dark:text-amber-300 font-medium">
+                  Journals without a usable payment allocation will be left unchanged for manual review.
+                </p>
+                <div className="space-y-2">
+                  <Label htmlFor="reconciliation-reason">Reason for reconciliation</Label>
+                  <Textarea
+                    id="reconciliation-reason"
+                    value={reconciliationReason}
+                    onChange={(event) => setReconciliationReason(event.target.value)}
+                    placeholder="Explain why this historical reconciliation is being run"
+                    rows={3}
+                    data-testid="input-reconciliation-reason"
+                  />
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-reconcile-reversed-collections">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={reconciliationReason.trim().length < 3 || reconcileReversedCollectionsMutation.isPending}
+              onClick={(event) => {
+                event.preventDefault();
+                reconcileReversedCollectionsMutation.mutate(reconciliationReason.trim());
+              }}
+              className="bg-amber-600 hover:bg-amber-700"
+              data-testid="button-confirm-reconcile-reversed-collections"
+            >
+              {reconcileReversedCollectionsMutation.isPending ? "Reconciling..." : "Reconcile"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -8,6 +8,7 @@
     "build": "tsx script/build.ts",
     "start": "NODE_ENV=production node dist/index.cjs",
     "check": "tsc",
+    "test:payment-reversal": "tsx --test server/payment-reversal.test.ts",
     "db:push": "drizzle-kit push"
   },
   "dependencies": {

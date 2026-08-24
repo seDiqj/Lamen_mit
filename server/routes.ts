@@ -4804,32 +4804,20 @@ export async function registerRoutes(
 
           let reversalJeId: string | null = null;
           if (txn.journalEntryId) {
-            // Do NOT swallow errors here: if the reversing journal entry fails,
-            // abort the whole request so books and installment state cannot diverge.
-            const reversalEntry = await storage.reverseJournalEntry(txn.journalEntryId, req.session.userId);
-            reversalJeId = reversalEntry?.id || null;
-            await logActivity(req, "reverse", "journal_entry", txn.journalEntryId, `Reversed collection journal entry for payment reversal — reason: ${reason}`);
-          }
-
-          let affected: any[] = [];
-          try { affected = JSON.parse(txn.affectedInstallments || "[]"); } catch { affected = []; }
-          for (const a of affected) {
-            if (a?.prev && a.installmentId) {
-              await storage.restoreInstallmentState(a.installmentId, {
-                paidAmount: a.prev.paidAmount ?? "0",
-                isPaid: !!a.prev.isPaid,
-                paymentDate: a.prev.paymentDate ?? null,
-                lateDays: a.prev.lateDays ?? null,
-                installmentVariance: a.prev.installmentVariance ?? null,
-              });
+            const journalEntry = await storage.getJournalEntry(txn.journalEntryId);
+            if (journalEntry?.isReversed) {
+              reversalJeId = journalEntry.reversedEntryId || null;
+              await storage.reversePaymentTransaction(txn.id, req.session.userId, reason, reversalJeId);
+            } else {
+              // The journal-reversal workflow also synchronizes the linked
+              // payment transaction and rebuilds all affected installments.
+              const reversalEntry = await storage.reverseJournalEntry(txn.journalEntryId, req.session.userId);
+              reversalJeId = reversalEntry?.id || null;
+              await logActivity(req, "reverse", "journal_entry", txn.journalEntryId, `Reversed collection journal entry for payment reversal — reason: ${reason}`);
             }
+          } else {
+            await storage.reversePaymentTransaction(txn.id, req.session.userId, reason);
           }
-
-          await storage.markPaymentTransactionReversed(txn.id, {
-            reversedBy: req.session.userId,
-            reversalReason: reason,
-            reversalJournalEntryId: reversalJeId,
-          });
         }
 
         await logActivity(req, "reverse_payment", "installment", installmentId,
@@ -6873,6 +6861,27 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fixing empty posted entries:", error);
       res.status(500).json({ message: "Failed to fix entries" });
+    }
+  });
+
+  app.post("/api/journal-entries/reconcile-reversed-collections", isAuthenticated, requireRole("admin"), async (req: any, res) => {
+    try {
+      const reason = z.string().trim().min(3, "A reconciliation reason is required").max(500).parse(req.body?.reason);
+      const userId = req.session.userId;
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+      const result = await storage.reconcileReversedCollectionJournals(userId, reason);
+      await logActivity(
+        req,
+        "reconcile_reversed_collections",
+        "journal_entry",
+        "bulk",
+        `Reconciled ${result.reconciledTransactions} reversed collection payment transaction(s) across ${result.reconciledInstallments} installment(s). Reason: ${reason}${result.skippedJournalEntries.length ? `. Manual review needed for: ${result.skippedJournalEntries.join(", ")}` : ""}`,
+      );
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error reconciling reversed collection journals:", error);
+      res.status(400).json({ message: error.message || "Failed to reconcile reversed collection journals" });
     }
   });
 
