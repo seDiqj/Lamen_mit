@@ -423,7 +423,7 @@ export interface IStorage {
   restoreInstallmentState(installmentId: string, prev: { paidAmount: string; isPaid: boolean; paymentDate: string | null; lateDays: number | null; installmentVariance: string | null }): Promise<void>;
   markPaymentTransactionReversed(id: string, data: { reversedBy: string; reversalReason: string; reversalJournalEntryId: string | null }): Promise<void>;
   reversePaymentTransaction(id: string, reversedBy: string, reversalReason: string, reversalJournalEntryId?: string | null): Promise<void>;
-  reconcileReversedCollectionJournals(reconciledBy: string, reason: string): Promise<{ reconciledTransactions: number; reconciledInstallments: number; skippedJournalEntries: string[] }>;
+  reconcileReversedCollectionJournal(journalEntryId: string, reconciledBy: string, reason: string): Promise<{ reconciledTransactions: number; reconciledInstallments: number; skippedJournalEntries: string[] }>;
 
   recalculateAllAccountBalances(): Promise<{ updated: number }>;
   
@@ -6924,7 +6924,8 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async reconcileReversedCollectionJournals(
+  async reconcileReversedCollectionJournal(
+    journalEntryId: string,
     reconciledBy: string,
     reason: string,
   ): Promise<{ reconciledTransactions: number; reconciledInstallments: number; skippedJournalEntries: string[] }> {
@@ -6937,10 +6938,15 @@ export class DatabaseStorage implements IStorage {
         })
         .from(journalEntries)
         .where(and(
+          eq(journalEntries.id, journalEntryId),
           eq(journalEntries.referenceType, "collection"),
           eq(journalEntries.isReversed, true),
         ))
         .for("update");
+
+      if (journals.length === 0) {
+        throw new Error("The selected journal entry is not a reversed collection journal");
+      }
 
       const skippedJournalEntries = new Set<string>();
       const candidates: Array<{ transactionId: string; reversalEntryId: string | null }> = [];

@@ -133,6 +133,7 @@ export default function JournalEntries() {
   const [undoReversalConfirmOpen, setUndoReversalConfirmOpen] = useState(false);
   const [entryToUndoReversal, setEntryToUndoReversal] = useState<JournalEntry | null>(null);
   const [reconcileConfirmOpen, setReconcileConfirmOpen] = useState(false);
+  const [entryToReconcile, setEntryToReconcile] = useState<JournalEntry | null>(null);
   const [reconciliationReason, setReconciliationReason] = useState("");
   const [fundingSourceFilter, setFundingSourceFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "posted" | "unposted">("all");
@@ -237,8 +238,8 @@ export default function JournalEntries() {
   });
 
   const reconcileReversedCollectionsMutation = useMutation({
-    mutationFn: async (reason: string) => {
-      const response = await apiRequest("POST", "/api/journal-entries/reconcile-reversed-collections", { reason });
+    mutationFn: async ({ journalEntryId, reason }: { journalEntryId: string; reason: string }) => {
+      const response = await apiRequest("POST", "/api/journal-entries/reconcile-reversed-collections", { journalEntryId, reason });
       return response.json() as Promise<{ reconciledTransactions: number; reconciledInstallments: number; skippedJournalEntries: string[] }>;
     },
     onSuccess: (result) => {
@@ -251,6 +252,7 @@ export default function JournalEntries() {
         description: `${result.reconciledTransactions} payment transaction(s) and ${result.reconciledInstallments} installment(s) updated.${manualReview}`,
       });
       setReconcileConfirmOpen(false);
+      setEntryToReconcile(null);
       setReconciliationReason("");
     },
     onError: (error: any) => toast({ title: "Reconciliation failed", description: error.message || "Failed to reconcile reversed collections", variant: "destructive" }),
@@ -384,18 +386,6 @@ export default function JournalEntries() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {isAdmin && (
-            <Button
-              type="button"
-              variant="outline"
-              className="gap-2"
-              onClick={() => setReconcileConfirmOpen(true)}
-              data-testid="button-reconcile-reversed-collections"
-            >
-              <Wrench className="h-4 w-4" />
-              Reconcile Reversed Collections
-            </Button>
-          )}
           <Dialog open={dialogOpen} onOpenChange={handleDialogClose}>
             <DialogTrigger asChild>
               <Button className="gap-2" data-testid="button-add-entry">
@@ -634,9 +624,22 @@ export default function JournalEntries() {
                           </>
                         )}
                         {entry.isReversed && isAdmin && (
-                          <Button variant="ghost" size="icon" title="Undo Reversal (Admin)" onClick={() => { setEntryToUndoReversal(entry); setUndoReversalConfirmOpen(true); }} data-testid={`button-undo-reversal-${entry.id}`}>
-                            <Undo2 className="h-4 w-4 text-purple-500" />
-                          </Button>
+                          <>
+                            {entry.referenceType === "collection" && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                title="Reconcile this reversed collection"
+                                onClick={() => { setEntryToReconcile(entry); setReconcileConfirmOpen(true); }}
+                                data-testid={`button-reconcile-reversed-collection-${entry.id}`}
+                              >
+                                <Wrench className="h-4 w-4 text-amber-600" />
+                              </Button>
+                            )}
+                            <Button variant="ghost" size="icon" title="Undo Reversal (Admin)" onClick={() => { setEntryToUndoReversal(entry); setUndoReversalConfirmOpen(true); }} data-testid={`button-undo-reversal-${entry.id}`}>
+                              <Undo2 className="h-4 w-4 text-purple-500" />
+                            </Button>
+                          </>
                         )}
                       </div>
                     </TableCell>
@@ -869,14 +872,19 @@ export default function JournalEntries() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Reconcile Historical Collection Reversals</AlertDialogTitle>
+            <AlertDialogTitle>Reconcile This Collection Reversal</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3">
                 <p>
-                  This admin-only action finds collection journals that were already reversed and synchronizes their linked payment transactions and installment balances.
+                  This admin-only action synchronizes the linked payment transaction and installment balances for the selected reversed collection journal only.
                 </p>
+                {entryToReconcile && (
+                  <div className="p-3 bg-muted rounded-md text-sm">
+                    <strong>Journal entry:</strong> {entryToReconcile.entryNumber}
+                  </div>
+                )}
                 <p className="text-amber-700 dark:text-amber-300 font-medium">
-                  Journals without a usable payment allocation will be left unchanged for manual review.
+                  If this journal has no usable payment allocation, it will be left unchanged for manual review.
                 </p>
                 <div className="space-y-2">
                   <Label htmlFor="reconciliation-reason">Reason for reconciliation</Label>
@@ -898,7 +906,12 @@ export default function JournalEntries() {
               disabled={reconciliationReason.trim().length < 3 || reconcileReversedCollectionsMutation.isPending}
               onClick={(event) => {
                 event.preventDefault();
-                reconcileReversedCollectionsMutation.mutate(reconciliationReason.trim());
+                if (entryToReconcile) {
+                  reconcileReversedCollectionsMutation.mutate({
+                    journalEntryId: entryToReconcile.id,
+                    reason: reconciliationReason.trim(),
+                  });
+                }
               }}
               className="bg-amber-600 hover:bg-amber-700"
               data-testid="button-confirm-reconcile-reversed-collections"

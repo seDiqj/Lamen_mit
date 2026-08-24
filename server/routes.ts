@@ -6867,16 +6867,17 @@ export async function registerRoutes(
   app.post("/api/journal-entries/reconcile-reversed-collections", isAuthenticated, requireRole("admin"), async (req: any, res) => {
     try {
       const reason = z.string().trim().min(3, "A reconciliation reason is required").max(500).parse(req.body?.reason);
+      const journalEntryId = z.string().trim().min(1, "A journal entry is required").parse(req.body?.journalEntryId);
       const userId = req.session.userId;
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
-      const result = await storage.reconcileReversedCollectionJournals(userId, reason);
+      const result = await storage.reconcileReversedCollectionJournal(journalEntryId, userId, reason);
       await logActivity(
         req,
         "reconcile_reversed_collections",
         "journal_entry",
-        "bulk",
-        `Reconciled ${result.reconciledTransactions} reversed collection payment transaction(s) across ${result.reconciledInstallments} installment(s). Reason: ${reason}${result.skippedJournalEntries.length ? `. Manual review needed for: ${result.skippedJournalEntries.join(", ")}` : ""}`,
+        journalEntryId,
+        `Reconciled ${result.reconciledTransactions} payment transaction(s) across ${result.reconciledInstallments} installment(s) for one reversed collection journal. Reason: ${reason}${result.skippedJournalEntries.length ? `. Manual review needed for: ${result.skippedJournalEntries.join(", ")}` : ""}`,
       );
       res.json(result);
     } catch (error: any) {
