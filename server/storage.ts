@@ -2993,6 +2993,28 @@ export class DatabaseStorage implements IStorage {
     `);
     const collectedResult = collectedResultQuery.rows[0] as any;
 
+    const outstandingResultQuery = await db.execute(sql`
+      SELECT COALESCE(SUM(
+        GREATEST(
+          COALESCE(
+            l.total_receivable::numeric,
+            COALESCE(l.principle_amount::numeric, l.request_amount::numeric, 0)
+              + COALESCE(l.profit::numeric, 0)
+          ) - COALESCE((
+            SELECT SUM(GREATEST(COALESCE(i.paid_amount::numeric, 0), 0))
+            FROM installments i
+            WHERE i.loan_id = l.id
+          ), 0),
+          0
+        )
+      ), 0) AS outstanding_balance
+      FROM loans l
+      WHERE l.status IN ('disbursed', 'active', 'completed')
+        ${branchFilterRoot}
+        ${dateFilterLoan}
+    `);
+    const outstandingResult = outstandingResultQuery.rows[0] as any;
+
     const currentMonthStats = await db.execute(sql`
       SELECT 
         COUNT(*) FILTER (WHERE DATE_TRUNC('month', d.disbursement_date) = DATE_TRUNC('month', CURRENT_DATE)) as current_month_count,
@@ -3119,7 +3141,7 @@ export class DatabaseStorage implements IStorage {
 
     const totalPortfolioNum = Number(amounts.total_portfolio);
     const totalCollectedNum = Number(collectedResult.total_collected);
-    const outstandingBalance = totalPortfolioNum - totalCollectedNum;
+    const outstandingBalance = Number(outstandingResult.outstanding_balance || 0);
     const repaymentRate = totalPortfolioNum > 0 ? parseFloat(((totalCollectedNum / totalPortfolioNum) * 100).toFixed(1)) : 0;
 
     const parResult = await db.execute(sql`

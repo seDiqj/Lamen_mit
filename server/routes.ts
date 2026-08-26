@@ -7631,41 +7631,10 @@ export async function registerRoutes(
            COALESCE(la.grace_period, l.grace_period, 0)                   AS committee_grace_period,
            COALESCE(l.profit::numeric,0)                                 AS disbursement_margin,
            COALESCE(pay.paid_installment_details, '[]'::jsonb)           AS paid_installment_details,
-           -- Installment aggregates. Partial payments are allocated to profit
-           -- first, then principal, so received totals reconcile across all
-           -- three columns even when is_paid is false.
-           COALESCE(SUM(
-             CASE
-               WHEN i.is_paid THEN COALESCE(i.total_amount::numeric,
-                 COALESCE(i.principle_amount::numeric, 0) + COALESCE(i.margin_amount::numeric, 0))
-               ELSE LEAST(
-                 GREATEST(COALESCE(i.paid_amount::numeric, 0), 0),
-                 COALESCE(i.total_amount::numeric,
-                   COALESCE(i.principle_amount::numeric, 0) + COALESCE(i.margin_amount::numeric, 0))
-               )
-             END
-           ),0)                                                          AS total_received,
-           COALESCE(SUM(
-             CASE
-               WHEN i.is_paid THEN COALESCE(i.principle_amount::numeric, 0)
-               ELSE LEAST(
-                 GREATEST(
-                   COALESCE(i.paid_amount::numeric, 0) - COALESCE(i.margin_amount::numeric, 0),
-                   0
-                 ),
-                 COALESCE(i.principle_amount::numeric, 0)
-               )
-             END
-           ),0)                                                          AS principle_received,
-           COALESCE(SUM(
-             CASE
-               WHEN i.is_paid THEN COALESCE(i.margin_amount::numeric, 0)
-               ELSE LEAST(
-                 GREATEST(COALESCE(i.paid_amount::numeric, 0), 0),
-                 COALESCE(i.margin_amount::numeric, 0)
-               )
-             END
-           ),0)                                                          AS profit_received,
+           -- Use the actual positive installment ledger amounts. The loan-level
+           -- mapper caps this at the contract total and allocates profit first.
+           COALESCE(SUM(GREATEST(COALESCE(i.paid_amount::numeric, 0), 0)), 0)
+                                                                           AS total_received,
            COUNT(CASE WHEN COALESCE(i.paid_amount::numeric,0) > 0 THEN 1 END)::int AS paid_installments,
            COUNT(CASE WHEN COALESCE(i.paid_amount::numeric,0) <= 0 THEN 1 END)::int AS remaining_installments,
           MAX(CASE WHEN i.is_paid THEN i.payment_date::text END)       AS last_payment_date,
@@ -7866,13 +7835,18 @@ export async function registerRoutes(
       `);
 
       const data = (rows.rows as any[]).map((r) => {
-        const prinRcvd   = Number(r.principle_received || 0);
-        const profRcvd   = Number(r.profit_received || 0);
-         const totRcvd    = Math.round((prinRcvd + profRcvd) * 100) / 100;
         const prinAmt    = Number(r.principle_amount || 0);
         const profitAmt  = Number(r.profit || 0);
-         const principleOutstanding = Math.max(prinAmt - prinRcvd, 0);
-         const profitOutstanding = Math.max(profitAmt - profRcvd, 0);
+        const contractTotal = Math.max(prinAmt + profitAmt, 0);
+        const actualReceived = Math.max(Number(r.total_received || 0), 0);
+        const receivedWithinContract = Math.min(actualReceived, contractTotal);
+        const profRcvd = Math.round(Math.min(receivedWithinContract, profitAmt) * 100) / 100;
+        const prinRcvd = Math.round(
+          Math.min(Math.max(receivedWithinContract - profRcvd, 0), prinAmt) * 100,
+        ) / 100;
+        const totRcvd = Math.round((prinRcvd + profRcvd) * 100) / 100;
+        const principleOutstanding = Math.round(Math.max(prinAmt - prinRcvd, 0) * 100) / 100;
+        const profitOutstanding = Math.round(Math.max(profitAmt - profRcvd, 0) * 100) / 100;
         return {
           branchName:           r.branch_name || "",
           officerName:          r.officer_name || "",
@@ -8004,7 +7978,7 @@ export async function registerRoutes(
           remainingInstallments: Number(r.remaining_installments || 0),
            principleOutstanding,
            profitOutstanding,
-           totalOutstanding:     principleOutstanding + profitOutstanding,
+           totalOutstanding:     Math.round((principleOutstanding + profitOutstanding) * 100) / 100,
           lastPaymentDate:      r.last_payment_date || "",
           finalAging:           Number(r.final_aging || 0),
         };
