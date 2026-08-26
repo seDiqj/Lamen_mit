@@ -7675,10 +7675,12 @@ export async function registerRoutes(
            COUNT(CASE WHEN NOT i.is_paid
                            AND i.due_date IS NOT NULL
                            AND (CURRENT_DATE - i.due_date::date) > 1
+                            AND (CURRENT_DATE - i.due_date::date) <= 30
                       THEN 1 END)::int                                   AS par1_no,
            COALESCE(SUM(CASE WHEN NOT i.is_paid
                                   AND i.due_date IS NOT NULL
                                   AND (CURRENT_DATE - i.due_date::date) > 1
+                                   AND (CURRENT_DATE - i.due_date::date) <= 30
                              THEN GREATEST(
                                COALESCE(i.total_amount::numeric, 0) - COALESCE(i.paid_amount::numeric, 0),
                                0
