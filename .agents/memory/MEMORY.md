@@ -7,3 +7,4 @@
 - [Loan cancellation concurrency](loan-cancellation-concurrency.md) — all disbursement, schedule, and payment writes must coordinate on the loan row before a cancellation can safely proceed.
 - [Already-reversed disbursements](already-reversed-disbursements.md) — cancellation must verify and reuse a valid posted reversal instead of creating a duplicate counter-entry.
 - [Journal reversals and customer balances](journal-reversals-customer-balances.md) — reversed collection journals must not remain counted as active installment payments.
+- [PAR eligibility](par-eligibility.md) — count an installment in PAR only when it is unpaid and has a positive remaining balance; status flags alone are not reliable.

@@ -7669,32 +7669,63 @@ export async function registerRoutes(
            COUNT(CASE WHEN COALESCE(i.paid_amount::numeric,0) > 0 THEN 1 END)::int AS paid_installments,
            COUNT(CASE WHEN COALESCE(i.paid_amount::numeric,0) <= 0 THEN 1 END)::int AS remaining_installments,
           MAX(CASE WHEN i.is_paid THEN i.payment_date::text END)       AS last_payment_date,
-           COALESCE(MAX(CASE WHEN NOT i.is_paid AND i.due_date < CURRENT_DATE
+           COALESCE(MAX(CASE WHEN NOT i.is_paid
+                              AND i.due_date IS NOT NULL
+                              AND i.due_date < CURRENT_DATE
+                              AND (
+                                COALESCE(i.total_amount::numeric,
+                                  COALESCE(i.principle_amount::numeric, 0) + COALESCE(i.margin_amount::numeric, 0)
+                                ) - COALESCE(i.paid_amount::numeric, 0)
+                              ) > 0
                              THEN (CURRENT_DATE - i.due_date::date)
                              ELSE 0 END),0)                              AS final_aging,
            COUNT(CASE WHEN NOT i.is_paid
                            AND i.due_date IS NOT NULL
+                            AND (
+                              COALESCE(i.total_amount::numeric,
+                                COALESCE(i.principle_amount::numeric, 0) + COALESCE(i.margin_amount::numeric, 0)
+                              ) - COALESCE(i.paid_amount::numeric, 0)
+                            ) > 0
                            AND (CURRENT_DATE - i.due_date::date) > 1
                             AND (CURRENT_DATE - i.due_date::date) <= 30
                       THEN 1 END)::int                                   AS par1_no,
            COALESCE(SUM(CASE WHEN NOT i.is_paid
                                   AND i.due_date IS NOT NULL
+                                   AND (
+                                     COALESCE(i.total_amount::numeric,
+                                       COALESCE(i.principle_amount::numeric, 0) + COALESCE(i.margin_amount::numeric, 0)
+                                     ) - COALESCE(i.paid_amount::numeric, 0)
+                                   ) > 0
                                   AND (CURRENT_DATE - i.due_date::date) > 1
                                    AND (CURRENT_DATE - i.due_date::date) <= 30
                              THEN GREATEST(
-                               COALESCE(i.total_amount::numeric, 0) - COALESCE(i.paid_amount::numeric, 0),
+                                COALESCE(i.total_amount::numeric,
+                                  COALESCE(i.principle_amount::numeric, 0) + COALESCE(i.margin_amount::numeric, 0)
+                                ) - COALESCE(i.paid_amount::numeric, 0),
                                0
                              )
                              ELSE 0 END), 0)                             AS par1_amount,
            COUNT(CASE WHEN NOT i.is_paid
                            AND i.due_date IS NOT NULL
+                            AND (
+                              COALESCE(i.total_amount::numeric,
+                                COALESCE(i.principle_amount::numeric, 0) + COALESCE(i.margin_amount::numeric, 0)
+                              ) - COALESCE(i.paid_amount::numeric, 0)
+                            ) > 0
                            AND (CURRENT_DATE - i.due_date::date) > 30
                       THEN 1 END)::int                                   AS par30_no,
            COALESCE(SUM(CASE WHEN NOT i.is_paid
                                   AND i.due_date IS NOT NULL
+                                   AND (
+                                     COALESCE(i.total_amount::numeric,
+                                       COALESCE(i.principle_amount::numeric, 0) + COALESCE(i.margin_amount::numeric, 0)
+                                     ) - COALESCE(i.paid_amount::numeric, 0)
+                                   ) > 0
                                   AND (CURRENT_DATE - i.due_date::date) > 30
                              THEN GREATEST(
-                               COALESCE(i.total_amount::numeric, 0) - COALESCE(i.paid_amount::numeric, 0),
+                                COALESCE(i.total_amount::numeric,
+                                  COALESCE(i.principle_amount::numeric, 0) + COALESCE(i.margin_amount::numeric, 0)
+                                ) - COALESCE(i.paid_amount::numeric, 0),
                                0
                              )
                              ELSE 0 END), 0)                             AS par30_amount
