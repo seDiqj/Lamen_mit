@@ -7631,10 +7631,41 @@ export async function registerRoutes(
            COALESCE(la.grace_period, l.grace_period, 0)                   AS committee_grace_period,
            COALESCE(l.profit::numeric,0)                                 AS disbursement_margin,
            COALESCE(pay.paid_installment_details, '[]'::jsonb)           AS paid_installment_details,
-          -- Installment aggregates
-          COALESCE(SUM(i.paid_amount::numeric),0)                       AS total_received,
-          COALESCE(SUM(CASE WHEN i.is_paid THEN i.principle_amount::numeric ELSE 0 END),0) AS principle_received,
-          COALESCE(SUM(CASE WHEN i.is_paid THEN i.margin_amount::numeric ELSE 0 END),0)    AS profit_received,
+           -- Installment aggregates. Partial payments are allocated to profit
+           -- first, then principal, so received totals reconcile across all
+           -- three columns even when is_paid is false.
+           COALESCE(SUM(
+             CASE
+               WHEN i.is_paid THEN COALESCE(i.total_amount::numeric,
+                 COALESCE(i.principle_amount::numeric, 0) + COALESCE(i.margin_amount::numeric, 0))
+               ELSE LEAST(
+                 GREATEST(COALESCE(i.paid_amount::numeric, 0), 0),
+                 COALESCE(i.total_amount::numeric,
+                   COALESCE(i.principle_amount::numeric, 0) + COALESCE(i.margin_amount::numeric, 0))
+               )
+             END
+           ),0)                                                          AS total_received,
+           COALESCE(SUM(
+             CASE
+               WHEN i.is_paid THEN COALESCE(i.principle_amount::numeric, 0)
+               ELSE LEAST(
+                 GREATEST(
+                   COALESCE(i.paid_amount::numeric, 0) - COALESCE(i.margin_amount::numeric, 0),
+                   0
+                 ),
+                 COALESCE(i.principle_amount::numeric, 0)
+               )
+             END
+           ),0)                                                          AS principle_received,
+           COALESCE(SUM(
+             CASE
+               WHEN i.is_paid THEN COALESCE(i.margin_amount::numeric, 0)
+               ELSE LEAST(
+                 GREATEST(COALESCE(i.paid_amount::numeric, 0), 0),
+                 COALESCE(i.margin_amount::numeric, 0)
+               )
+             END
+           ),0)                                                          AS profit_received,
            COUNT(CASE WHEN COALESCE(i.paid_amount::numeric,0) > 0 THEN 1 END)::int AS paid_installments,
            COUNT(CASE WHEN COALESCE(i.paid_amount::numeric,0) <= 0 THEN 1 END)::int AS remaining_installments,
           MAX(CASE WHEN i.is_paid THEN i.payment_date::text END)       AS last_payment_date,
@@ -7802,12 +7833,13 @@ export async function registerRoutes(
       `);
 
       const data = (rows.rows as any[]).map((r) => {
-        const totalRec   = Number(r.total_receivable || 0);
-        const totRcvd    = Number(r.total_received || 0);
         const prinRcvd   = Number(r.principle_received || 0);
         const profRcvd   = Number(r.profit_received || 0);
+         const totRcvd    = Math.round((prinRcvd + profRcvd) * 100) / 100;
         const prinAmt    = Number(r.principle_amount || 0);
         const profitAmt  = Number(r.profit || 0);
+         const principleOutstanding = Math.max(prinAmt - prinRcvd, 0);
+         const profitOutstanding = Math.max(profitAmt - profRcvd, 0);
         return {
           branchName:           r.branch_name || "",
           officerName:          r.officer_name || "",
@@ -7845,7 +7877,7 @@ export async function registerRoutes(
           principleAmount:      prinAmt,
           marginRate:           Number(r.margin_rate || 0),
           profit:               profitAmt,
-          totalReceivable:      totalRec,
+           totalReceivable:      Number(r.total_receivable || 0),
           installmentAmount:    Number(r.installment_amount || 0),
           approvedAmount:       Number(r.approved_amount || 0),
           approvedDate:         r.approved_date || "",
@@ -7937,9 +7969,9 @@ export async function registerRoutes(
           totalReceived:        totRcvd,
           paidInstallments:     Number(r.paid_installments || 0),
           remainingInstallments: Number(r.remaining_installments || 0),
-          principleOutstanding: Math.max(prinAmt - prinRcvd, 0),
-          profitOutstanding:    Math.max(profitAmt - profRcvd, 0),
-          totalOutstanding:     Math.max(totalRec - totRcvd, 0),
+           principleOutstanding,
+           profitOutstanding,
+           totalOutstanding:     principleOutstanding + profitOutstanding,
           lastPaymentDate:      r.last_payment_date || "",
           finalAging:           Number(r.final_aging || 0),
         };
