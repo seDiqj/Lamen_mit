@@ -7798,6 +7798,7 @@ export async function registerRoutes(
           LIMIT 1
         ) col ON true
         WHERE d.disbursement_date BETWEEN ${startDate}::date AND ${endDate}::date
+          AND l.status IN ('disbursed', 'active', 'completed')
           ${branchFilter ? sql`AND l.branch_id = ${branchFilter}` : sql``}
           ${fundingSourceId && fundingSourceId !== "all" ? sql`AND l.funding_source_id = ${fundingSourceId}` : sql``}
         GROUP BY

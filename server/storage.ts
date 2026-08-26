@@ -3248,87 +3248,72 @@ export class DatabaseStorage implements IStorage {
       percentage: totalSectorAmount > 0 ? parseFloat(((parseFloat(r.total_amount || 0) / totalSectorAmount) * 100).toFixed(1)) : 0,
     }));
 
-    const productBreakdownLoanResult = await db.execute(sql`
-      SELECT 
-        COALESCE(l.product_name, 'Unknown') as product_name,
-        COUNT(*) FILTER (WHERE l.status IN ('disbursed', 'active', 'completed')) as loan_count,
-        COALESCE(SUM(CASE WHEN l.status IN ('disbursed', 'active', 'completed') THEN l.principle_amount::numeric ELSE 0 END), 0) as total_disbursed,
-        COALESCE(SUM(CASE WHEN l.status IN ('disbursed', 'active', 'completed') THEN l.total_receivable::numeric ELSE 0 END), 0) as total_portfolio,
-        COALESCE(SUM(CASE WHEN l.status IN ('disbursed', 'active', 'completed') THEN l.principle_amount::numeric ELSE 0 END), 0) as portfolio_principal,
-        COALESCE(SUM(CASE WHEN l.status IN ('disbursed', 'active', 'completed') THEN (l.total_receivable::numeric - l.principle_amount::numeric) ELSE 0 END), 0) as portfolio_margin
-      FROM loans l
-      WHERE 1=1 ${branchFilterRoot} ${dateFilterLoan}
-      GROUP BY COALESCE(l.product_name, 'Unknown')
+    const productBreakdownResult = await db.execute(sql`
+      WITH per_loan AS (
+        SELECT
+          l.id,
+          COALESCE(l.product_name, 'Unknown') AS product_name,
+          COALESCE(l.principle_amount::numeric, l.request_amount::numeric, 0) AS principal,
+          COALESCE(l.profit::numeric, 0) AS margin,
+          LEAST(
+            COALESCE((
+              SELECT SUM(GREATEST(COALESCE(i.paid_amount::numeric, 0), 0))
+              FROM installments i
+              WHERE i.loan_id = l.id
+            ), 0),
+            COALESCE(l.principle_amount::numeric, l.request_amount::numeric, 0)
+              + COALESCE(l.profit::numeric, 0)
+          ) AS collected
+        FROM loans l
+        WHERE l.status IN ('disbursed', 'active', 'completed')
+          ${branchFilterRoot}
+          ${dateFilterLoan}
+      ),
+      allocated AS (
+        SELECT
+          *,
+          LEAST(collected, margin) AS margin_collected,
+          LEAST(
+            GREATEST(collected - LEAST(collected, margin), 0),
+            principal
+          ) AS principal_collected
+        FROM per_loan
+      )
+      SELECT
+        product_name,
+        COUNT(*) AS loan_count,
+        COALESCE(SUM(principal), 0) AS total_disbursed,
+        COALESCE(SUM(principal + margin), 0) AS total_portfolio,
+        COALESCE(SUM(principal), 0) AS portfolio_principal,
+        COALESCE(SUM(margin), 0) AS portfolio_margin,
+        COALESCE(SUM(principal_collected + margin_collected), 0) AS total_collected,
+        COALESCE(SUM(principal_collected), 0) AS principal_collected,
+        COALESCE(SUM(margin_collected), 0) AS margin_collected,
+        COALESCE(SUM(GREATEST(principal - principal_collected, 0)), 0) AS outstanding_principal,
+        COALESCE(SUM(GREATEST(margin - margin_collected, 0)), 0) AS outstanding_margin,
+        COALESCE(SUM(
+          GREATEST(principal - principal_collected, 0)
+            + GREATEST(margin - margin_collected, 0)
+        ), 0) AS outstanding_balance
+      FROM allocated
+      GROUP BY product_name
     `);
 
-    const productBreakdownCollResult = await db.execute(sql`
-      SELECT 
-        COALESCE(l.product_name, 'Unknown') as product_name,
-        COALESCE(SUM(COALESCE(i.paid_amount::numeric, 0)), 0) as total_collected,
-        COALESCE(SUM(CASE WHEN i.is_paid = true THEN i.principle_amount::numeric ELSE
-          CASE WHEN (i.principle_amount::numeric + i.margin_amount::numeric) > 0
-            THEN COALESCE(i.paid_amount::numeric, 0) * i.principle_amount::numeric / (i.principle_amount::numeric + i.margin_amount::numeric)
-            ELSE 0 END
-        END), 0) as principal_collected,
-        COALESCE(SUM(CASE WHEN i.is_paid = true THEN i.margin_amount::numeric ELSE
-          CASE WHEN (i.principle_amount::numeric + i.margin_amount::numeric) > 0
-            THEN COALESCE(i.paid_amount::numeric, 0) * i.margin_amount::numeric / (i.principle_amount::numeric + i.margin_amount::numeric)
-            ELSE 0 END
-        END), 0) as margin_collected
-      FROM installments i
-      JOIN loans l ON i.loan_id = l.id
-      WHERE COALESCE(i.paid_amount::numeric, 0) > 0 ${branchFilter} ${dateFilterInstallment}
-      GROUP BY COALESCE(l.product_name, 'Unknown')
-    `);
-
-    const collByProduct = new Map<string, { totalCollected: number; principalCollected: number; marginCollected: number }>();
-    for (const row of productBreakdownCollResult.rows as any[]) {
-      collByProduct.set(row.product_name, {
-        totalCollected: Number(row.total_collected),
-        principalCollected: Number(row.principal_collected),
-        marginCollected: Number(row.margin_collected),
-      });
-    }
-
-    const productMap = new Map<string, any>();
-    for (const r of productBreakdownLoanResult.rows as any[]) {
-      const name = r.product_name;
-      const coll = collByProduct.get(name) || { totalCollected: 0, principalCollected: 0, marginCollected: 0 };
-      const portfolio = Number(r.total_portfolio);
-      productMap.set(name, {
-        productName: name,
+    const productBreakdown = (productBreakdownResult.rows as any[])
+      .map(r => ({
+        productName: r.product_name,
         loanCount: Number(r.loan_count),
         totalDisbursed: Number(r.total_disbursed),
-        totalPortfolio: portfolio,
+        totalPortfolio: Number(r.total_portfolio),
         portfolioPrincipal: Number(r.portfolio_principal),
         portfolioMargin: Number(r.portfolio_margin),
-        totalCollected: coll.totalCollected,
-        principalCollected: coll.principalCollected,
-        marginCollected: coll.marginCollected,
-        outstandingBalance: portfolio - coll.totalCollected,
-        outstandingPrincipal: Number(r.portfolio_principal) - coll.principalCollected,
-        outstandingMargin: Number(r.portfolio_margin) - coll.marginCollected,
-      });
-    }
-    for (const [name, coll] of collByProduct.entries()) {
-      if (!productMap.has(name)) {
-        productMap.set(name, {
-          productName: name,
-          loanCount: 0,
-          totalDisbursed: 0,
-          totalPortfolio: 0,
-          portfolioPrincipal: 0,
-          portfolioMargin: 0,
-          totalCollected: coll.totalCollected,
-          principalCollected: coll.principalCollected,
-          marginCollected: coll.marginCollected,
-          outstandingBalance: -coll.totalCollected,
-          outstandingPrincipal: -coll.principalCollected,
-          outstandingMargin: -coll.marginCollected,
-        });
-      }
-    }
-    const productBreakdown = Array.from(productMap.values())
+        totalCollected: Number(r.total_collected),
+        principalCollected: Number(r.principal_collected),
+        marginCollected: Number(r.margin_collected),
+        outstandingBalance: Number(r.outstanding_balance),
+        outstandingPrincipal: Number(r.outstanding_principal),
+        outstandingMargin: Number(r.outstanding_margin),
+      }))
       .filter(p => p.totalDisbursed > 0 || p.totalPortfolio > 0 || p.totalCollected > 0)
       .sort((a, b) => b.totalDisbursed - a.totalDisbursed);
 
